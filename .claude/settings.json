@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(node -e \"const e = require\\('./node_modules/electron'\\); console.log\\(Object.keys\\(e\\)\\)\")",
+      "Bash(findstr \"\\\\\"version\\\\\"\")",
+      "PowerShell(& \"d:\\\\Coding Projects\\\\prose\\\\node_modules\\\\electron\\\\dist\\\\electron.exe\" --version)",
+      "PowerShell(\\(Get-Item \"d:\\\\Coding Projects\\\\prose\\\\node_modules\\\\electron\\\\dist\\\\electron.exe\"\\).VersionInfo.ProductVersion)",
+      "PowerShell($env:ELECTRON_RENDERER_URL = \"\"; Start-Process -FilePath \"d:\\\\Coding Projects\\\\prose\\\\node_modules\\\\electron\\\\dist\\\\electron.exe\" -ArgumentList \"d:\\\\Coding Projects\\\\prose\\\\out\\\\main\\\\index.js\" -Wait -PassThru 2>&1 | Out-String)",
+      "PowerShell($electronExe = \"d:\\\\Coding Projects\\\\prose\\\\node_modules\\\\electron\\\\dist\\\\electron.exe\"; $mainFile = \"d:\\\\Coding Projects\\\\prose\\\\out\\\\main\\\\index.js\"; $proc = Start-Process -FilePath $electronExe -ArgumentList \"`\"$mainFile`\"\" -RedirectStandardError \"C:\\\\Temp\\\\electron-err.txt\" -PassThru -Wait; Get-Content \"C:\\\\Temp\\\\electron-err.txt\" 2>$null)",
+      "PowerShell($electronExe = \"d:\\\\Coding Projects\\\\prose\\\\node_modules\\\\electron\\\\dist\\\\electron.exe\"; $testFile = \"d:\\\\Coding Projects\\\\prose\\\\test-main.js\"; $proc = Start-Process -FilePath $electronExe -ArgumentList \"`\"$testFile`\"\" -RedirectStandardError \"C:\\\\Temp\\\\electron-err2.txt\" -PassThru -Wait; Get-Content \"C:\\\\Temp\\\\electron-err2.txt\" 2>$null)",
+      "PowerShell($electronExe = \"d:\\\\Coding Projects\\\\prose\\\\node_modules\\\\electron\\\\dist\\\\electron.exe\"; $testFile = \"d:\\\\Coding Projects\\\\prose\\\\test-main2.js\"; Start-Process -FilePath $electronExe -ArgumentList \"`\"$testFile`\"\" -RedirectStandardError \"C:\\\\Temp\\\\electron-err3.txt\" -PassThru -Wait; Get-Content \"C:\\\\Temp\\\\electron-err3.txt\" 2>$null)",
+      "PowerShell(\\(Get-Item \"d:\\\\Coding Projects\\\\prose\\\\node_modules\\\\electron\\\\dist\\\\electron.exe\"\\).Length / 1MB)",
+      "Bash(python3 -c \"import sys,json; pkg=json.load\\(sys.stdin\\); print\\('scripts:', json.dumps\\(pkg.get\\('scripts', {}\\), indent=2\\)\\)\")",
+      "PowerShell($pkg = Get-Content \"d:\\\\Coding Projects\\\\prose\\\\node_modules\\\\electron\\\\package.json\" | ConvertFrom-Json; $pkg.scripts)",
+      "PowerShell($pkg = Get-Content \"d:\\\\Coding Projects\\\\prose\\\\node_modules\\\\electron\\\\package.json\" | ConvertFrom-Json; $pkg.scripts | Format-List)",
+      "PowerShell($items = @\\(Get-ChildItem \"d:\\\\Coding Projects\\\\prose\\\\node_modules\\\\electron\\\\dist\\\\resources\" -Force\\); Write-Host \"Count: $\\($items.Count\\)\"; $items | ForEach-Object { \"$\\($_.Name\\) $\\($_.Length\\)\" })",
+      "PowerShell($env:ELECTRON_RUN_AS_NODE; Write-Host \"Value: '$env:ELECTRON_RUN_AS_NODE'\")",
+      "PowerShell(Get-Process -Name \"electron\" -ErrorAction SilentlyContinue)",
+      "PowerShell(\\(Get-Item \"C:\\\\Temp\\\\ev-err.txt\"\\).Length; \\(Get-Item \"C:\\\\Temp\\\\ev-out.txt\"\\).Length)",
+      "PowerShell(try { $response = Invoke-WebRequest -Uri \"http://localhost:5173/\" -TimeoutSec 3 -UseBasicParsing; Write-Host \"Status: $\\($response.StatusCode\\)\"; \\($response.Content.Substring\\(0, [Math]::Min\\(200, $response.Content.Length\\)\\)\\) } catch { \"Connection failed: $_\" })",
+      "PowerShell(Stop-Process -Name \"electron-vite\" -ErrorAction SilentlyContinue)",
+      "PowerShell(Stop-Process -Name \"electron\" -ErrorAction SilentlyContinue)"
+    ],
+    "additionalDirectories": [
+      "C:\\"
+    ]
+  }
+}

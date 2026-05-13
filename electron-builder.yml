@@ -1,0 +1,37 @@
+appId: com.prose.app
+productName: Prose
+copyright: Copyright © 2024 websitesbycss
+
+directories:
+  output: release
+  buildResources: assets
+
+win:
+  target:
+    - target: nsis
+      arch: x64
+  icon: assets/icon.ico
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  installerIcon: assets/icon.ico
+  uninstallerIcon: assets/icon.ico
+
+files:
+  - out/**/*
+  - package.json
+
+extraResources:
+  - from: resources/ollama/
+    to: ollama/
+    filter:
+      - "**/*"
+  - from: assets/sounds/
+    to: sounds/
+    filter:
+      - "**/*"
+
+publish:
+  provider: github
+  releaseType: draft
