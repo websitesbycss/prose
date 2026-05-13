@@ -368,8 +368,13 @@ Shown only once, on first ever launch. Two steps:
 - "Get started" button proceeds to step 2
 
 **Step 2 — Model download**
-- Explains the one-time download clearly: model name, size (~4GB), and that it never happens again
-- "Download now" button starts the Ollama pull
+- Before downloading, shows a RAM picker with three options:
+  - **4GB or less** — recommends `llama3.2:3b` (~2GB download, fast but basic)
+  - **8GB** — recommends `mistral:7b` (~4GB download, best for writing tasks)
+  - **16GB or more** — recommends `mistral:7b` (~4GB download, runs comfortably)
+- The selected model is stored in `AppSettings.ollamaModel` and used for all Ollama calls going forward
+- After the RAM picker, explains the one-time download clearly: model name, size, and that it never happens again
+- "Download now" button starts the Ollama pull for the selected model
 - Shows a progress bar with percentage and download speed
 - Handles errors gracefully: if download fails, shows a retry button with the specific error reason
 - On completion, transitions directly to the dashboard
@@ -565,7 +570,13 @@ User request:
 {chip action or free-form question}
 ```
 
-**Model:** `llama3.2:3b` as default — good balance of quality and size (~2GB). User can switch to `llama3:8b` in settings for better quality at the cost of more RAM.
+**Models:**
+- Default: `mistral:7b` (~4GB) — best quality for writing feedback tasks
+- Lightweight alternative: `llama3.2:3b` (~2GB) — recommended for machines with 4GB RAM or less
+
+The active model is determined by the RAM picker during onboarding and stored in `AppSettings.ollamaModel`. The user can change it at any time in Settings → AI.
+
+**Keep-alive:** All Ollama API requests include `keep_alive: "10m"`. After 10 minutes of inactivity the model unloads from RAM automatically; it reloads on the next AI request with a brief 2–3 second delay. The first time a reload happens during a session, the AI panel shows a subtle inline status indicator (e.g., a small spinner next to the active indicator dot with the text "Reloading model…") — not a toast. The indicator disappears once the response starts streaming.
 
 ---
 
@@ -663,7 +674,7 @@ npm run package    # Produces Windows installer via electron-builder
 
 Build in this exact order. Do not skip ahead. Each phase should be fully working before moving to the next.
 
-### Phase 1 — Project scaffold and shell
+### Phase 1 — Project scaffold and shell ✅ COMPLETED
 - Initialize with electron-vite + React + TypeScript template
 - Configure Tailwind CSS
 - Install and configure shadcn/ui with the `new-york` style, `zinc` base color, and custom purple accent CSS variables for both light and dark themes
