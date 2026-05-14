@@ -3,8 +3,11 @@ import { join } from 'path'
 import { initDatabase, getDb, closeDatabase } from './services/database'
 import { registerDocumentHandlers } from './ipc/documents'
 import { registerSettingsHandlers } from './ipc/settings'
+import { registerCategoryHandlers } from './ipc/categories'
+import { registerCitationHandlers } from './ipc/citations'
 import { registerAiHandlers } from './ipc/ai'
 import { registerExportHandlers } from './ipc/export'
+import { registerOllamaHandlers } from './ipc/ollama'
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -45,8 +48,11 @@ app.whenReady().then(() => {
     const db = getDb()
     registerDocumentHandlers(db)
     registerSettingsHandlers(db)
+    registerCategoryHandlers(db)
+    registerCitationHandlers(db)
     registerAiHandlers()
     registerExportHandlers()
+    registerOllamaHandlers()
   } catch (err) {
     console.error('Startup error:', err)
     app.quit()

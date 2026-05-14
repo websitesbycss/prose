@@ -20,7 +20,9 @@
       "PowerShell(\\(Get-Item \"C:\\\\Temp\\\\ev-err.txt\"\\).Length; \\(Get-Item \"C:\\\\Temp\\\\ev-out.txt\"\\).Length)",
       "PowerShell(try { $response = Invoke-WebRequest -Uri \"http://localhost:5173/\" -TimeoutSec 3 -UseBasicParsing; Write-Host \"Status: $\\($response.StatusCode\\)\"; \\($response.Content.Substring\\(0, [Math]::Min\\(200, $response.Content.Length\\)\\)\\) } catch { \"Connection failed: $_\" })",
       "PowerShell(Stop-Process -Name \"electron-vite\" -ErrorAction SilentlyContinue)",
-      "PowerShell(Stop-Process -Name \"electron\" -ErrorAction SilentlyContinue)"
+      "PowerShell(Stop-Process -Name \"electron\" -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-ChildItem -Path \"d:\\\\Coding Projects\\\\prose\" -Recurse -Force | Where-Object { -not \\($_.FullName -match 'node_modules'\\) } | Select-Object -ExpandProperty FullName | Sort-Object)",
+      "Bash(npx tsc *)"
     ],
     "additionalDirectories": [
       "C:\\"

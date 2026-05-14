@@ -2,28 +2,25 @@ import { contextBridge, ipcRenderer } from 'electron'
 
 contextBridge.exposeInMainWorld('prose', {
   documents: {
-    getAll: (): Promise<unknown[]> => ipcRenderer.invoke('documents:getAll'),
-    getById: (id: string): Promise<unknown> => ipcRenderer.invoke('documents:getById', id),
-    create: (data: Record<string, unknown>): Promise<unknown> =>
-      ipcRenderer.invoke('documents:create', data),
-    update: (id: string, data: Record<string, unknown>): Promise<unknown> =>
+    getAll: () => ipcRenderer.invoke('documents:getAll'),
+    getById: (id: string) => ipcRenderer.invoke('documents:getById', id),
+    create: (data: Record<string, unknown>) => ipcRenderer.invoke('documents:create', data),
+    update: (id: string, data: Record<string, unknown>) =>
       ipcRenderer.invoke('documents:update', id, data),
-    delete: (id: string): Promise<void> => ipcRenderer.invoke('documents:delete', id),
+    delete: (id: string) => ipcRenderer.invoke('documents:delete', id),
   },
 
   categories: {
-    getAll: (): Promise<unknown[]> => ipcRenderer.invoke('categories:getAll'),
-    create: (data: Record<string, unknown>): Promise<unknown> =>
-      ipcRenderer.invoke('categories:create', data),
-    update: (id: string, data: Record<string, unknown>): Promise<unknown> =>
+    getAll: () => ipcRenderer.invoke('categories:getAll'),
+    create: (data: Record<string, unknown>) => ipcRenderer.invoke('categories:create', data),
+    update: (id: string, data: Record<string, unknown>) =>
       ipcRenderer.invoke('categories:update', id, data),
-    delete: (id: string): Promise<void> => ipcRenderer.invoke('categories:delete', id),
+    delete: (id: string) => ipcRenderer.invoke('categories:delete', id),
   },
 
   ai: {
-    prompt: (payload: Record<string, unknown>): Promise<string> =>
-      ipcRenderer.invoke('ai:prompt', payload),
-    getStatus: (): Promise<string> => ipcRenderer.invoke('ai:getStatus'),
+    prompt: (payload: Record<string, unknown>) => ipcRenderer.invoke('ai:prompt', payload),
+    getStatus: () => ipcRenderer.invoke('ai:getStatus'),
     streamPrompt: (
       payload: Record<string, unknown>,
       onChunk: (chunk: string) => void
@@ -37,30 +34,29 @@ contextBridge.exposeInMainWorld('prose', {
   },
 
   export: {
-    toDocx: (id: string): Promise<void> => ipcRenderer.invoke('export:toDocx', id),
-    toPdf: (id: string): Promise<void> => ipcRenderer.invoke('export:toPdf', id),
-    toMarkdown: (id: string): Promise<void> => ipcRenderer.invoke('export:toMarkdown', id),
-    toPlainText: (id: string): Promise<void> => ipcRenderer.invoke('export:toPlainText', id),
+    toDocx: (id: string) => ipcRenderer.invoke('export:toDocx', id),
+    toPdf: (id: string) => ipcRenderer.invoke('export:toPdf', id),
+    toMarkdown: (id: string) => ipcRenderer.invoke('export:toMarkdown', id),
+    toPlainText: (id: string) => ipcRenderer.invoke('export:toPlainText', id),
   },
 
   citations: {
-    getByDocument: (documentId: string): Promise<unknown[]> =>
+    getByDocument: (documentId: string) =>
       ipcRenderer.invoke('citations:getByDocument', documentId),
-    create: (data: Record<string, unknown>): Promise<unknown> =>
-      ipcRenderer.invoke('citations:create', data),
-    delete: (id: string): Promise<void> => ipcRenderer.invoke('citations:delete', id),
-    fetchByDoi: (doi: string): Promise<unknown> => ipcRenderer.invoke('citations:fetchByDoi', doi),
-    fetchByUrl: (url: string): Promise<unknown> => ipcRenderer.invoke('citations:fetchByUrl', url),
+    create: (data: Record<string, unknown>) => ipcRenderer.invoke('citations:create', data),
+    delete: (id: string) => ipcRenderer.invoke('citations:delete', id),
+    fetchByDoi: (doi: string) => ipcRenderer.invoke('citations:fetchByDoi', doi),
+    fetchByUrl: (url: string) => ipcRenderer.invoke('citations:fetchByUrl', url),
   },
 
   settings: {
-    get: (): Promise<unknown> => ipcRenderer.invoke('settings:get'),
-    set: (data: Record<string, unknown>): Promise<void> => ipcRenderer.invoke('settings:set', data),
+    get: () => ipcRenderer.invoke('settings:get'),
+    set: (data: Record<string, unknown>) => ipcRenderer.invoke('settings:set', data),
   },
 
   ollama: {
-    getDownloadStatus: (): Promise<unknown> => ipcRenderer.invoke('ollama:getDownloadStatus'),
-    startDownload: (): Promise<void> => ipcRenderer.invoke('ollama:startDownload'),
+    getDownloadStatus: () => ipcRenderer.invoke('ollama:getDownloadStatus'),
+    startDownload: () => ipcRenderer.invoke('ollama:startDownload'),
     onDownloadProgress: (callback: (progress: unknown) => void): void => {
       ipcRenderer.on('ollama:download-progress', (_, progress) => callback(progress))
     },
