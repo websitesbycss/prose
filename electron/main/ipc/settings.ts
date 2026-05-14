@@ -19,6 +19,7 @@ interface AppSettingsOut {
   typewriterMode: boolean
   editorFontFamily: string
   editorFontSize: number
+  headingFontSizes: { h1: number; h2: number; h3: number }
 }
 
 const DEFAULTS: AppSettingsOut = {
@@ -34,6 +35,7 @@ const DEFAULTS: AppSettingsOut = {
   typewriterMode: false,
   editorFontFamily: 'Times New Roman',
   editorFontSize: 12,
+  headingFontSizes: { h1: 36, h2: 24, h3: 18 },
 }
 
 const VALID_FORMATS = new Set(['none', 'mla', 'apa', 'chicago', 'ieee'])
@@ -70,6 +72,15 @@ function loadSettings(db: Database): AppSettingsOut {
     typewriterMode: get('typewriterMode', DEFAULTS.typewriterMode),
     editorFontFamily: get('editorFontFamily', DEFAULTS.editorFontFamily) || DEFAULTS.editorFontFamily,
     editorFontSize: Math.max(8, Math.min(72, get('editorFontSize', DEFAULTS.editorFontSize))),
+    headingFontSizes: (() => {
+      const v = get('headingFontSizes', DEFAULTS.headingFontSizes)
+      const clamp = (n: number) => Math.max(8, Math.min(96, n))
+      return {
+        h1: clamp(v.h1 ?? DEFAULTS.headingFontSizes.h1),
+        h2: clamp(v.h2 ?? DEFAULTS.headingFontSizes.h2),
+        h3: clamp(v.h3 ?? DEFAULTS.headingFontSizes.h3),
+      }
+    })(),
   }
 }
 

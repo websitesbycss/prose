@@ -81,7 +81,7 @@ export default function MusicPanel({ music }: MusicPanelProps): JSX.Element {
   const {
     trackIndex, playing, currentTime, duration, volume,
     ambientEnabled, ambientVolumes,
-    play, pause, toggle, next, prev, seek, setVolume,
+    play, pause, toggle, next, prev, seek, switchTrack, setVolume,
     setAmbientEnabled, setAmbientVolume,
   } = music
 
@@ -150,13 +150,8 @@ export default function MusicPanel({ music }: MusicPanelProps): JSX.Element {
                     i === trackIndex && 'bg-accent/30'
                   )}
                   onClick={() => {
-                    if (i === trackIndex) {
-                      toggle()
-                    } else {
-                      // switch track and play
-                      music.seek(0)
-                      if (!playing) play()
-                    }
+                    if (i === trackIndex) toggle()
+                    else switchTrack(i)
                   }}
                 >
                   <div className="flex w-4 shrink-0 items-center justify-center">
@@ -240,7 +235,7 @@ export default function MusicPanel({ music }: MusicPanelProps): JSX.Element {
                   <div key={layer.id} className="flex items-center gap-2 py-1.5">
                     <button
                       className={cn(
-                        'h-4 w-4 shrink-0 rounded border transition-colors',
+                        'flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors',
                         enabled
                           ? 'border-primary bg-primary'
                           : 'border-muted-foreground/40 bg-transparent'

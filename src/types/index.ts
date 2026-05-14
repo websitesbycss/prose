@@ -43,6 +43,7 @@ export interface AppSettings {
   typewriterMode: boolean
   editorFontFamily: string
   editorFontSize: number
+  headingFontSizes: { h1: number; h2: number; h3: number }
 }
 
 export type OllamaStatus = 'ready' | 'loading' | 'unavailable'

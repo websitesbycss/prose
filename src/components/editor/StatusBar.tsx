@@ -1,4 +1,4 @@
-import { Music } from 'lucide-react'
+import { Music, SlidersVertical } from 'lucide-react'
 import type { Document } from '@/types'
 import type { SaveStatus } from '@/hooks/useDocument'
 
@@ -7,6 +7,7 @@ interface StatusBarProps {
   wordCount: number
   saveStatus: SaveStatus
   nowPlaying?: string | null
+  ambientPlaying?: string | null
   onMusicClick?(): void
 }
 
@@ -23,6 +24,7 @@ export default function StatusBar({
   wordCount,
   saveStatus,
   nowPlaying,
+  ambientPlaying,
   onMusicClick,
 }: StatusBarProps): JSX.Element {
   const goal = document?.wordCountGoal ?? null
@@ -53,6 +55,16 @@ export default function StatusBar({
           >
             <Music className="h-2.5 w-2.5" />
             {nowPlaying}
+          </button>
+        )}
+        {ambientPlaying && (
+          <button
+            onClick={onMusicClick}
+            className="flex items-center gap-1 hover:text-foreground transition-colors"
+            title="Open music panel"
+          >
+            <SlidersVertical className="h-2.5 w-2.5" />
+            {ambientPlaying}
           </button>
         )}
         {saveLabel && <span>{saveLabel}</span>}

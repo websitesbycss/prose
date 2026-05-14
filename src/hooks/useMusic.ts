@@ -16,15 +16,22 @@ export interface AmbientLayer {
 
 export const TRACKS: Track[] = [
   { id: 'lofi-jazz-1', title: 'Late Night Study', category: 'Lo-fi Jazz', src: '/sounds/lofi-jazz-1.mp3' },
-  { id: 'rain-piano', title: 'Rain on Piano', category: 'Ambient', src: '/sounds/rain.mp3' },
+  { id: 'lofi-jazz-2', title: 'Morning Coffee', category: 'Lo-fi Jazz', src: '/sounds/lofi-jazz-2.mp3' },
+  { id: 'calm-lofi', title: 'Calm Lo-Fi', category: 'Lo-fi', src: '/sounds/calm-lofi.mp3' },
+  { id: 'late-night-lofi', title: 'Late Night Lo-Fi', category: 'Lo-fi', src: '/sounds/late-night-lofi.mp3' },
+  { id: 'classical', title: 'Classical Piano', category: 'Piano', src: '/sounds/classical.mp3' },
+  { id: 'cinematic', title: 'Cinematic Piano', category: 'Piano', src: '/sounds/cinematic.mp3' },
+  { id: 'quartet-dark', title: 'Dark Quartet', category: 'Chamber', src: '/sounds/quartet-dark.mp3' },
+  { id: 'light-quartet', title: 'Light Quartet', category: 'Chamber', src: '/sounds/quartet-light.mp3' },
 ]
 
 export const AMBIENT_LAYERS: AmbientLayer[] = [
   { id: 'rain', label: 'Rain', src: '/sounds/rain.mp3' },
+  { id: 'rainforest', label: 'Rainforest', src: '/sounds/rainforest.mp3' },
   { id: 'fireplace', label: 'Fireplace', src: '/sounds/fireplace.mp3' },
   { id: 'cafe', label: 'Café', src: '/sounds/cafe.mp3' },
-  { id: 'whitenoise', label: 'White noise', src: '/sounds/whitenoise.mp3' },
-  { id: 'brownnoise', label: 'Brown noise', src: '/sounds/brownnoise.mp3' },
+  { id: 'whitenoise', label: 'White Noise', src: '/sounds/whitenoise.mp3' },
+  { id: 'brownnoise', label: 'Brown Noise', src: '/sounds/brownnoise.mp3' },
 ]
 
 const DEFAULT_AMBIENT_VOLUMES: Record<string, number> = Object.fromEntries(
@@ -49,6 +56,7 @@ export interface MusicControls {
   next(): void
   prev(): void
   seek(t: number): void
+  switchTrack(index: number): void
   setVolume(v: number): void
   setAmbientEnabled(id: string, on: boolean): void
   setAmbientVolume(id: string, v: number): void
@@ -171,9 +179,6 @@ export function useMusic(): MusicHook {
       void el.play().catch(() => {})
       playingRef.current = true
       setPlayingUI(true)
-      ambientRef.current.forEach((ambEl, id) => {
-        if (ambientEnabledRef.current[id]) void ambEl.play().catch(() => {})
-      })
     } else {
       playingRef.current = false
       setPlayingUI(false)
@@ -185,14 +190,10 @@ export function useMusic(): MusicHook {
     void trackRef.current.play().catch(() => {})
     playingRef.current = true
     setPlayingUI(true)
-    ambientRef.current.forEach((el, id) => {
-      if (ambientEnabledRef.current[id]) void el.play().catch(() => {})
-    })
   }, [])
 
   const pause = useCallback((): void => {
     trackRef.current?.pause()
-    ambientRef.current.forEach((el) => el.pause())
     playingRef.current = false
     setPlayingUI(false)
   }, [])
@@ -200,7 +201,6 @@ export function useMusic(): MusicHook {
   const toggle = useCallback((): void => {
     if (playingRef.current) {
       trackRef.current?.pause()
-      ambientRef.current.forEach((el) => el.pause())
       playingRef.current = false
       setPlayingUI(false)
     } else {
@@ -208,9 +208,6 @@ export function useMusic(): MusicHook {
       void trackRef.current.play().catch(() => {})
       playingRef.current = true
       setPlayingUI(true)
-      ambientRef.current.forEach((el, id) => {
-        if (ambientEnabledRef.current[id]) void el.play().catch(() => {})
-      })
     }
   }, [])
 
@@ -243,12 +240,16 @@ export function useMusic(): MusicHook {
     persistSettings(v, ambientVolumesRef.current)
   }, [])
 
+  const switchTrack = useCallback((index: number): void => {
+    loadTrack(index, playingRef.current)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const setAmbientEnabled = useCallback((id: string, on: boolean): void => {
     ambientEnabledRef.current = { ...ambientEnabledRef.current, [id]: on }
     setAmbientEnabledUI({ ...ambientEnabledRef.current })
     const el = ambientRef.current.get(id)
     if (!el) return
-    if (on && playingRef.current) void el.play().catch(() => {})
+    if (on) void el.play().catch(() => {})
     else el.pause()
   }, [])
 
@@ -277,6 +278,7 @@ export function useMusic(): MusicHook {
     next,
     prev,
     seek,
+    switchTrack,
     setVolume,
     setAmbientEnabled,
     setAmbientVolume,

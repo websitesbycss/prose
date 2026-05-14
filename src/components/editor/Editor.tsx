@@ -6,6 +6,7 @@ import TextAlign from '@tiptap/extension-text-align'
 import { TextStyle } from '@tiptap/extension-text-style'
 import { FontFamily } from '@tiptap/extension-font-family'
 import { Color } from '@tiptap/extension-color'
+import Highlight from '@tiptap/extension-highlight'
 import { Image } from '@tiptap/extension-image'
 import { Link } from '@tiptap/extension-link'
 import { Table } from '@tiptap/extension-table'
@@ -22,7 +23,7 @@ import { ParagraphRole } from '@/extensions/paragraphRole'
 import { useDocument } from '@/hooks/useDocument'
 import { useWordCount } from '@/hooks/useWordCount'
 import { usePomodoro } from '@/hooks/usePomodoro'
-import { useMusic } from '@/hooks/useMusic'
+import { useMusic, AMBIENT_LAYERS } from '@/hooks/useMusic'
 import { useAppStore } from '@/store/appStore'
 import { cn } from '@/lib/utils'
 import {
@@ -79,6 +80,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   const [settings, setSettings] = useState<Pick<AppSettings, 'wordCountExcludesHeader'>>({
     wordCountExcludesHeader: true,
   })
+  const [headingFontSizes, setHeadingFontSizes] = useState({ h1: 36, h2: 24, h3: 18 })
   const [formatModalTarget, setFormatModalTarget] = useState<'mla' | 'apa' | null>(null)
   const [activePanel, setActivePanel] = useState<SidebarPanel>('outline')
 
@@ -90,6 +92,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
       const appSettings = s as AppSettings
       setSettings({ wordCountExcludesHeader: appSettings.wordCountExcludesHeader })
       setTypewriterMode(appSettings.typewriterMode ?? false)
+      if (appSettings.headingFontSizes) setHeadingFontSizes(appSettings.headingFontSizes)
     })
   }, [])
 
@@ -102,6 +105,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
       FontFamily,
       FontSize,
       Color,
+      Highlight.configure({ multicolor: true }),
       Image.configure({ allowBase64: true }),
       Link.configure({ openOnClick: false, HTMLAttributes: { rel: 'noopener noreferrer' } }),
       Table.configure({ resizable: true }),
@@ -284,6 +288,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                 editor={editor}
                 document={document}
                 onApplyFormat={setFormatModalTarget}
+                headingFontSizes={headingFontSizes}
               />
             </motion.div>
           )}
@@ -431,6 +436,13 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
             wordCount={wordCount}
             saveStatus={saveStatus}
             nowPlaying={music.nowPlayingTitle}
+            ambientPlaying={(() => {
+              const active = AMBIENT_LAYERS.filter((l) => music.ambientEnabled[l.id])
+              if (active.length === 0) return null
+              if (active.length === 1) return active[0]!.label
+              if (active.length === 2) return `${active[0]!.label} + ${active[1]!.label}`
+              return `${active.length} Sounds`
+            })()}
             onMusicClick={() => setMusicPanelOpen(true)}
           />
         )}

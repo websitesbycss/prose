@@ -214,6 +214,42 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps): JS
                       onCheckedChange={(v) => void save({ typewriterMode: v })}
                     />
                   </SettingRow>
+                  <Separator />
+                  <SettingRow label="Heading 1 size">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number" min={8} max={96}
+                        className="h-8 w-20 text-xs"
+                        value={settings.headingFontSizes?.h1 ?? 36}
+                        onChange={(e) => void save({ headingFontSizes: { ...(settings.headingFontSizes ?? { h1: 36, h2: 24, h3: 18 }), h1: parseInt(e.target.value) || 36 } })}
+                      />
+                      <span className="text-xs text-muted-foreground">pt</span>
+                    </div>
+                  </SettingRow>
+                  <Separator />
+                  <SettingRow label="Heading 2 size">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number" min={8} max={96}
+                        className="h-8 w-20 text-xs"
+                        value={settings.headingFontSizes?.h2 ?? 24}
+                        onChange={(e) => void save({ headingFontSizes: { ...(settings.headingFontSizes ?? { h1: 36, h2: 24, h3: 18 }), h2: parseInt(e.target.value) || 24 } })}
+                      />
+                      <span className="text-xs text-muted-foreground">pt</span>
+                    </div>
+                  </SettingRow>
+                  <Separator />
+                  <SettingRow label="Heading 3 size">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number" min={8} max={96}
+                        className="h-8 w-20 text-xs"
+                        value={settings.headingFontSizes?.h3 ?? 18}
+                        onChange={(e) => void save({ headingFontSizes: { ...(settings.headingFontSizes ?? { h1: 36, h2: 24, h3: 18 }), h3: parseInt(e.target.value) || 18 } })}
+                      />
+                      <span className="text-xs text-muted-foreground">pt</span>
+                    </div>
+                  </SettingRow>
                 </>
               )}
 
