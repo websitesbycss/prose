@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState } from 'react'
+import { useEffect, useCallback, useState, useRef } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
@@ -36,6 +36,7 @@ import type { MlaFields, ApaFields } from '@/lib/templates'
 import TitleBar from './TitleBar'
 import Toolbar from './Toolbar'
 import StatusBar from './StatusBar'
+import FocusBar from './FocusBar'
 import FormatModal from './FormatModal'
 import PageHeader from './PageHeader'
 import OutlinePanel from './OutlinePanel'
@@ -59,6 +60,11 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   const aiPanelOpen = useAppStore((s) => s.aiPanelOpen)
   const citationPanelOpen = useAppStore((s) => s.citationPanelOpen)
   const musicPanelOpen = useAppStore((s) => s.musicPanelOpen)
+  const focusModeActive = useAppStore((s) => s.focusModeActive)
+  const setFocusModeActive = useAppStore((s) => s.setFocusModeActive)
+
+  const editorScrollRef = useRef<HTMLDivElement>(null)
+  const [typewriterMode, setTypewriterMode] = useState(false)
 
   const { document, saveStatus, saveNow, onEditorUpdate, updateTitle, patchDocument } =
     useDocument(documentId)
@@ -76,6 +82,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
     void window.prose.settings.get().then((s) => {
       const appSettings = s as AppSettings
       setSettings({ wordCountExcludesHeader: appSettings.wordCountExcludesHeader })
+      setTypewriterMode(appSettings.typewriterMode ?? false)
     })
   }, [])
 
@@ -119,10 +126,39 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
         e.preventDefault()
         void saveNow(editor)
       }
+      if (e.key === 'F11') {
+        e.preventDefault()
+        setFocusModeActive(!useAppStore.getState().focusModeActive)
+      }
+      if (e.key === 'Escape' && useAppStore.getState().focusModeActive) {
+        setFocusModeActive(false)
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [editor, saveNow])
+  }, [editor, saveNow, setFocusModeActive])
+
+  // Typewriter mode: keep cursor vertically centered in the scroll container
+  useEffect(() => {
+    if (!editor || !typewriterMode) return
+
+    function scrollToCursor(): void {
+      const container = editorScrollRef.current
+      if (!container) return
+      const sel = window.getSelection()
+      if (!sel || sel.rangeCount === 0) return
+      const range = sel.getRangeAt(0)
+      const rect = range.getBoundingClientRect()
+      if (!rect.height) return
+      const containerRect = container.getBoundingClientRect()
+      const targetScrollTop =
+        container.scrollTop + rect.top - containerRect.top - containerRect.height / 2
+      container.scrollTo({ top: targetScrollTop, behavior: 'smooth' })
+    }
+
+    editor.on('selectionUpdate', scrollToCursor)
+    return () => { editor.off('selectionUpdate', scrollToCursor) }
+  }, [editor, typewriterMode])
 
   const wordCount = useWordCount(
     editor,
@@ -195,86 +231,120 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   return (
     <TooltipProvider delayDuration={400}>
       <div className="flex h-screen flex-col bg-background text-foreground">
-        <TitleBar
-          document={document}
-          editor={editor}
-          saveStatus={saveStatus}
-          onBack={handleBack}
-          onSaveNow={handleSaveNow}
-          onTitleChange={updateTitle}
-        />
+        {/* Chrome — hidden in focus mode */}
+        <AnimatePresence>
+          {!focusModeActive && (
+            <motion.div
+              key="chrome-top"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
+              className="shrink-0"
+            >
+              <TitleBar
+                document={document}
+                editor={editor}
+                saveStatus={saveStatus}
+                onBack={handleBack}
+                onSaveNow={handleSaveNow}
+                onTitleChange={updateTitle}
+              />
+              <Toolbar
+                editor={editor}
+                document={document}
+                onApplyFormat={setFormatModalTarget}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        <Toolbar
-          editor={editor}
-          document={document}
-          onApplyFormat={setFormatModalTarget}
-        />
+        {/* Focus bar — only in focus mode */}
+        <AnimatePresence>
+          {focusModeActive && (
+            <motion.div
+              key="focus-bar"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
+              className="shrink-0"
+            >
+              <FocusBar nowPlaying={music.nowPlayingTitle} />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <div className="flex flex-1 overflow-hidden">
-          {/* Left sidebar */}
-          <aside
-            className={cn(
-              'flex shrink-0 flex-col border-r border-border transition-all duration-200',
-              sidebarOpen ? 'w-[220px]' : 'w-[42px]'
-            )}
-          >
-            <div className="flex flex-col gap-0.5 p-1.5">
-              <SidebarIcon
-                icon={List}
-                label="Outline"
-                expanded={sidebarOpen}
-                active={sidebarOpen && activePanel === 'outline'}
-                onClick={() => handleSidebarIconClick('outline')}
-              />
-              <SidebarIcon
-                icon={Timer}
-                label="Pomodoro"
-                expanded={sidebarOpen}
-                active={sidebarOpen && activePanel === 'pomodoro'}
-                onClick={() => handleSidebarIconClick('pomodoro')}
-              />
-              <SidebarIcon
-                icon={MessageSquare}
-                label="Comments"
-                expanded={sidebarOpen}
-                active={sidebarOpen && activePanel === 'comments'}
-                onClick={() => handleSidebarIconClick('comments')}
-              />
-            </div>
-
-            <AnimatePresence mode="wait">
-              {sidebarOpen && (
-                <motion.div
-                  key={activePanel}
-                  className="flex-1 overflow-hidden"
-                  initial={{ opacity: 0, x: -6 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -6 }}
-                  transition={{ duration: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
-                >
-                  {activePanel === 'outline' && <OutlinePanel editor={editor} />}
-                  {activePanel === 'pomodoro' && <PomodoroPanel controls={pomodoroControls} />}
-                  {activePanel === 'comments' && (
-                    <p className="px-3 py-4 text-xs text-muted-foreground">
-                      Comments arrive in a later phase.
-                    </p>
-                  )}
-                </motion.div>
+          {/* Left sidebar — hidden in focus mode */}
+          {!focusModeActive && (
+            <aside
+              className={cn(
+                'flex shrink-0 flex-col border-r border-border transition-all duration-200',
+                sidebarOpen ? 'w-[220px]' : 'w-[42px]'
               )}
-            </AnimatePresence>
-
-            <button
-              className="flex items-center justify-center border-t border-border p-1.5 text-muted-foreground hover:text-foreground"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
             >
-              {sidebarOpen ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-            </button>
-          </aside>
+              <div className="flex flex-col gap-0.5 p-1.5">
+                <SidebarIcon
+                  icon={List}
+                  label="Outline"
+                  expanded={sidebarOpen}
+                  active={sidebarOpen && activePanel === 'outline'}
+                  onClick={() => handleSidebarIconClick('outline')}
+                />
+                <SidebarIcon
+                  icon={Timer}
+                  label="Pomodoro"
+                  expanded={sidebarOpen}
+                  active={sidebarOpen && activePanel === 'pomodoro'}
+                  onClick={() => handleSidebarIconClick('pomodoro')}
+                />
+                <SidebarIcon
+                  icon={MessageSquare}
+                  label="Comments"
+                  expanded={sidebarOpen}
+                  active={sidebarOpen && activePanel === 'comments'}
+                  onClick={() => handleSidebarIconClick('comments')}
+                />
+              </div>
+
+              <AnimatePresence mode="wait">
+                {sidebarOpen && (
+                  <motion.div
+                    key={activePanel}
+                    className="flex-1 overflow-hidden"
+                    initial={{ opacity: 0, x: -6 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -6 }}
+                    transition={{ duration: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
+                  >
+                    {activePanel === 'outline' && <OutlinePanel editor={editor} />}
+                    {activePanel === 'pomodoro' && <PomodoroPanel controls={pomodoroControls} />}
+                    {activePanel === 'comments' && (
+                      <p className="px-3 py-4 text-xs text-muted-foreground">
+                        Comments arrive in a later phase.
+                      </p>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <button
+                className="flex items-center justify-center border-t border-border p-1.5 text-muted-foreground hover:text-foreground"
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+              >
+                {sidebarOpen ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+              </button>
+            </aside>
+          )}
 
           {/* Editor canvas */}
-          <div className="flex flex-1 overflow-auto bg-zinc-100 dark:bg-zinc-900">
-            <div className="mx-auto my-8 w-[816px]">
+          <div
+            ref={editorScrollRef}
+            className="flex flex-1 overflow-auto bg-zinc-100 dark:bg-zinc-900"
+          >
+            <div className={cn('mx-auto my-8 w-[816px]', focusModeActive && 'my-16')}>
               <div className={cn('min-h-[1056px] bg-white dark:bg-zinc-800 px-24 py-12 shadow-sm', formatClass)}>
                 <PageHeader format={format} content={currentJson} />
                 <EditorContent
@@ -285,45 +355,50 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
             </div>
           </div>
 
-          {/* Right panel — AI or Citations (mutually exclusive) */}
-          <AnimatePresence mode="wait">
-            {aiPanelOpen && (
-              <motion.div
-                key="ai"
-                className="w-[220px] shrink-0 overflow-hidden"
-                initial={{ opacity: 0, x: 16 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 16 }}
-                transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
-              >
-                <AiPanel editor={editor} />
-              </motion.div>
-            )}
-            {citationPanelOpen && (
-              <motion.div
-                key="citations"
-                className="w-[220px] shrink-0 overflow-hidden"
-                initial={{ opacity: 0, x: 16 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 16 }}
-                transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
-              >
-                <CitationPanel
-                  documentId={documentId}
-                  format={format}
-                  editor={editor}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {/* Right panel — AI or Citations (hidden in focus mode) */}
+          {!focusModeActive && (
+            <AnimatePresence mode="wait">
+              {aiPanelOpen && (
+                <motion.div
+                  key="ai"
+                  className="w-[220px] shrink-0 overflow-hidden"
+                  initial={{ opacity: 0, x: 16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 16 }}
+                  transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
+                >
+                  <AiPanel editor={editor} />
+                </motion.div>
+              )}
+              {citationPanelOpen && (
+                <motion.div
+                  key="citations"
+                  className="w-[220px] shrink-0 overflow-hidden"
+                  initial={{ opacity: 0, x: 16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 16 }}
+                  transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
+                >
+                  <CitationPanel
+                    documentId={documentId}
+                    format={format}
+                    editor={editor}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          )}
         </div>
 
-        <StatusBar
-          document={document}
-          wordCount={wordCount}
-          saveStatus={saveStatus}
-          nowPlaying={music.nowPlayingTitle}
-        />
+        {/* Status bar — hidden in focus mode */}
+        {!focusModeActive && (
+          <StatusBar
+            document={document}
+            wordCount={wordCount}
+            saveStatus={saveStatus}
+            nowPlaying={music.nowPlayingTitle}
+          />
+        )}
       </div>
 
       <AnimatePresence>

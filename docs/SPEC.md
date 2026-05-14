@@ -722,12 +722,12 @@ Build in this exact order. Do not skip ahead. Each phase should be fully working
 - MLA/APA toolbar buttons apply templates
 - Verify formatting looks correct and matches actual MLA/APA standards
 
-### Phase 6 — Left sidebar panels
+### Phase 6 — Left sidebar panels ✅ COMPLETED
 - Outline panel: extract headings from Tiptap document, render tree, click to scroll
 - Pomodoro timer: work/break cycle, session counter, configurable durations, desktop notification on timer end
 - Collapsible sidebar behavior
 
-### Phase 7 — Ollama integration and AI panel
+### Phase 7 — Ollama integration and AI panel ✅ COMPLETED
 - Bundle Ollama binary into resources
 - Implement Ollama process manager in main process: spawn, health check, graceful shutdown
 - Implement streaming prompt handler via IPC
@@ -737,14 +737,14 @@ Build in this exact order. Do not skip ahead. Each phase should be fully working
 - Assignment context input
 - Verify AI responses stream correctly and feel responsive
 
-### Phase 8 — Music and ambient sounds
+### Phase 8 — Music and ambient sounds ✅ COMPLETED
 - Bundle ambient audio files
 - Build music panel with track list and mixer
 - Web Audio API implementation for mixing multiple audio layers simultaneously
 - Persist volume and mixer settings
 - Music status in status bar
 
-### Phase 9 — Citation manager
+### Phase 9 — Citation manager ✅ COMPLETED
 - Build citation manager panel
 - Manual citation entry for all types
 - DOI lookup via crossref.org API (graceful offline fallback)

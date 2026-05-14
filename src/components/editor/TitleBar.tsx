@@ -1,7 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
-import { ArrowLeft, Sun, Moon, Maximize2, Sparkles } from 'lucide-react'
+import { ArrowLeft, Sun, Moon, Maximize2, Sparkles, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from '@/components/ui/popover'
 import { useAppStore } from '@/store/appStore'
 import { cn } from '@/lib/utils'
 import type { Document } from '@/types'
@@ -16,6 +19,13 @@ interface TitleBarProps {
   onSaveNow: () => Promise<void>
   onTitleChange: (title: string) => Promise<void>
 }
+
+const EXPORT_FORMATS = [
+  { label: 'Word Document (.docx)', fn: 'toDocx' },
+  { label: 'PDF (.pdf)', fn: 'toPdf' },
+  { label: 'Markdown (.md)', fn: 'toMarkdown' },
+  { label: 'Plain Text (.txt)', fn: 'toPlainText' },
+] as const
 
 const FORMAT_LABELS: Record<string, string> = {
   mla: 'MLA',
@@ -40,7 +50,22 @@ export default function TitleBar({
 
   const [editing, setEditing] = useState(false)
   const [draftTitle, setDraftTitle] = useState('')
+  const [exportOpen, setExportOpen] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  async function handleExport(fn: typeof EXPORT_FORMATS[number]['fn']): Promise<void> {
+    if (!document) return
+    setExporting(true)
+    setExportOpen(false)
+    try {
+      await window.prose.export[fn](document.id)
+    } catch (err) {
+      console.error('Export error:', err)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   useEffect(() => {
     if (editing) inputRef.current?.select()
@@ -117,6 +142,33 @@ export default function TitleBar({
       </div>
 
       <div className="flex shrink-0 items-center gap-0.5">
+        <Popover open={exportOpen} onOpenChange={setExportOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              disabled={!document || exporting}
+              title="Export document"
+            >
+              <Download className="h-3.5 w-3.5" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-48 p-1" side="bottom" align="end">
+            <div className="flex flex-col gap-0.5">
+              {EXPORT_FORMATS.map((fmt) => (
+                <button
+                  key={fmt.fn}
+                  className="flex w-full items-center rounded-md px-2.5 py-1.5 text-left text-xs hover:bg-accent hover:text-accent-foreground transition-colors"
+                  onClick={() => void handleExport(fmt.fn)}
+                >
+                  {fmt.label}
+                </button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+
         <Button
           variant="ghost"
           size="icon"

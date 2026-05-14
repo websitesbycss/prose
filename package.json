@@ -42,6 +42,7 @@
     "better-sqlite3": "^11.1.2",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "docx": "^9.6.1",
     "lucide-react": "^0.400.0",
     "motion": "^11.3.17",
     "react": "^18.3.1",

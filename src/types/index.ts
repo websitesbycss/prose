@@ -92,6 +92,11 @@ export interface DownloadProgress {
   status: string
 }
 
+export interface InstallProgress {
+  percent: number
+  status: string
+}
+
 export interface CitationFields {
   author?: string
   title?: string
@@ -151,6 +156,9 @@ export interface ProseAPI {
     set(data: Partial<AppSettings>): Promise<void>
   }
   ollama: {
+    checkInstalled(): Promise<boolean>
+    installOllama(): Promise<void>
+    onInstallProgress(callback: (progress: InstallProgress) => void): () => void
     getDownloadStatus(): Promise<DownloadStatus>
     startDownload(): Promise<void>
     onDownloadProgress(callback: (progress: DownloadProgress) => void): () => void

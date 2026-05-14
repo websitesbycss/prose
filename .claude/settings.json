@@ -24,7 +24,9 @@
       "PowerShell(Get-ChildItem -Path \"d:\\\\Coding Projects\\\\prose\" -Recurse -Force | Where-Object { -not \\($_.FullName -match 'node_modules'\\) } | Select-Object -ExpandProperty FullName | Sort-Object)",
       "Bash(npx tsc *)",
       "Bash(npx shadcn@latest add input badge dialog select separator scroll-area alert-dialog --yes)",
-      "Bash(npx shadcn@latest add tooltip popover --yes)"
+      "Bash(npx shadcn@latest add tooltip popover --yes)",
+      "Bash(node -e \"const d = require\\('docx'\\); console.log\\(Object.keys\\(d\\).filter\\(k => ['Document','Packer','Paragraph','TextRun','HeadingLevel','AlignmentType','UnderlineType','Table','TableRow','TableCell','WidthType','BorderStyle','ExternalHyperlink','AbstractNumbering','Numbering'].includes\\(k\\)\\).sort\\(\\).join\\(', '\\)\\)\")",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/electron/package.json'\\).version\\)\")"
     ],
     "additionalDirectories": [
       "C:\\"

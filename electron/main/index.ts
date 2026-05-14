@@ -52,7 +52,7 @@ app.whenReady().then(() => {
     registerCategoryHandlers(db)
     registerCitationHandlers(db)
     registerAiHandlers(db, ollamaManager)
-    registerExportHandlers()
+    registerExportHandlers(db)
     registerOllamaHandlers(db, ollamaManager)
     registerDialogHandlers()
   } catch (err) {

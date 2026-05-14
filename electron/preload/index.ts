@@ -59,6 +59,14 @@ contextBridge.exposeInMainWorld('prose', {
   },
 
   ollama: {
+    checkInstalled: (): Promise<boolean> => ipcRenderer.invoke('ollama:checkInstalled'),
+    installOllama: (): Promise<void> => ipcRenderer.invoke('ollama:installOllama'),
+    onInstallProgress: (callback: (progress: unknown) => void): (() => void) => {
+      const listener = (_: Electron.IpcRendererEvent, progress: unknown): void =>
+        callback(progress)
+      ipcRenderer.on('ollama:install-progress', listener)
+      return () => ipcRenderer.removeListener('ollama:install-progress', listener)
+    },
     getDownloadStatus: () => ipcRenderer.invoke('ollama:getDownloadStatus'),
     startDownload: () => ipcRenderer.invoke('ollama:startDownload'),
     onDownloadProgress: (callback: (progress: unknown) => void): (() => void) => {

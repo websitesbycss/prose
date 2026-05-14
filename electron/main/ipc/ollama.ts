@@ -1,6 +1,7 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import type { Database } from 'better-sqlite3'
 import type { OllamaManager } from '../services/ollama'
+import { isOllamaInstalled, downloadAndInstallOllama } from '../services/ollamaInstaller'
 
 function getModel(db: Database): string {
   const row = db
@@ -22,6 +23,20 @@ function sendToRenderer(channel: string, data: unknown): void {
 }
 
 export function registerOllamaHandlers(db: Database, manager: OllamaManager): void {
+  ipcMain.handle('ollama:checkInstalled', () => isOllamaInstalled())
+
+  ipcMain.handle('ollama:installOllama', async (): Promise<void> => {
+    try {
+      await downloadAndInstallOllama()
+      // Start Ollama now that it's installed
+      await manager.start()
+    } catch (err) {
+      console.error('Ollama install error:', err)
+      sendToRenderer('ollama:install-progress', { percent: -1, status: 'error' })
+      throw err
+    }
+  })
+
   ipcMain.handle('ollama:getDownloadStatus', async () => {
     const model = getModel(db)
     const downloaded = await manager.isModelDownloaded(model)
