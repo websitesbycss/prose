@@ -50,6 +50,17 @@ export class OllamaManager {
     return this.status
   }
 
+  async listModels(): Promise<string[]> {
+    try {
+      const res = await fetch(`${OLLAMA_HOST}/api/tags`, { signal: AbortSignal.timeout(3_000) })
+      if (!res.ok) return []
+      const data = (await res.json()) as { models: Array<{ name: string }> }
+      return data.models.map((m) => m.name)
+    } catch {
+      return []
+    }
+  }
+
   async isModelDownloaded(model: string): Promise<boolean> {
     if (this.status !== 'ready') return false
     try {

@@ -61,6 +61,7 @@ contextBridge.exposeInMainWorld('prose', {
   ollama: {
     checkInstalled: (): Promise<boolean> => ipcRenderer.invoke('ollama:checkInstalled'),
     installOllama: (): Promise<void> => ipcRenderer.invoke('ollama:installOllama'),
+    listModels: (): Promise<string[]> => ipcRenderer.invoke('ollama:listModels'),
     onInstallProgress: (callback: (progress: unknown) => void): (() => void) => {
       const listener = (_: Electron.IpcRendererEvent, progress: unknown): void =>
         callback(progress)

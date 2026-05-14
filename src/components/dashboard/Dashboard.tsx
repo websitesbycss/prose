@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import DocumentCard, { cardVariants } from './DocumentCard'
 import NewDocumentModal from './NewDocumentModal'
+import SettingsModal from '@/components/settings/SettingsModal'
 import type { Document, Category } from '@/types'
 import { useAppStore } from '@/store/appStore'
 
@@ -36,6 +37,8 @@ const CATEGORY_COLORS = [
 
 export default function Dashboard(): JSX.Element {
   const setCurrentDocumentId = useAppStore((s) => s.setCurrentDocumentId)
+  const settingsOpen = useAppStore((s) => s.settingsOpen)
+  const setSettingsOpen = useAppStore((s) => s.setSettingsOpen)
 
   const [documents, setDocuments] = useState<Document[]>([])
   const [categories, setCategories] = useState<Category[]>([])
@@ -236,7 +239,10 @@ export default function Dashboard(): JSX.Element {
         </ScrollArea>
 
         <div className="border-t border-border p-2">
-          <button className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+          <button
+            onClick={() => setSettingsOpen(true)}
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          >
             <Settings className="h-4 w-4" />
             Settings
             <ChevronRight className="ml-auto h-3 w-3" />
@@ -315,6 +321,8 @@ export default function Dashboard(): JSX.Element {
           setCurrentDocumentId(doc.id)
         }}
       />
+
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
       {/* Delete confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>

@@ -25,6 +25,8 @@ function sendToRenderer(channel: string, data: unknown): void {
 export function registerOllamaHandlers(db: Database, manager: OllamaManager): void {
   ipcMain.handle('ollama:checkInstalled', () => isOllamaInstalled())
 
+  ipcMain.handle('ollama:listModels', async () => manager.listModels())
+
   ipcMain.handle('ollama:installOllama', async (): Promise<void> => {
     try {
       await downloadAndInstallOllama()

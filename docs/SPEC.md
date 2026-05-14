@@ -771,19 +771,6 @@ Build in this exact order. Do not skip ahead. Each phase should be fully working
 - Auto-updater setup via GitHub releases
 - README with install instructions, feature list, and screenshot
 
----
-
-## Improvement To-Do List (to be deleted from spec once all complete)
-1. Make header editable and match font size and font family of body text in mla/apa format
-2. Separate text editor into pages with standard 8.5x11 format
-3. Let the user shrink or widen the AI assistant window
-4. Work on formatting and length of AI response
-5. Improve look of scroll bars app-wide and also make scroll bars dark in dark mode
-6. Let the user set the focus time for pomodoro and also break time
-7. Add undo and redo button with proper functionality
-8. When music is playing in bottom right, have clicking on the music icon and name of music open up the focus music dialog like in toolbar
-9. Have "insert works cited" actually insert the works cited at the bottom on a new page
-
 ## README structure (to be written last)
 
 ```markdown

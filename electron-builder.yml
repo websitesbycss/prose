@@ -17,6 +17,9 @@ nsis:
   allowToChangeInstallationDirectory: true
   installerIcon: assets/icon.ico
   uninstallerIcon: assets/icon.ico
+  shortcutName: Prose
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
 
 files:
   - out/**/*
@@ -34,4 +37,6 @@ extraResources:
 
 publish:
   provider: github
-  releaseType: draft
+  owner: websitesbycss
+  repo: prose
+  releaseType: release

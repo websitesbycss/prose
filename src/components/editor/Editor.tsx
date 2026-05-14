@@ -44,8 +44,10 @@ import PomodoroPanel from './PomodoroPanel'
 import AiPanel from './AiPanel'
 import CitationPanel from './CitationPanel'
 import MusicPanel from './MusicPanel'
+import SettingsModal from '@/components/settings/SettingsModal'
 import type { AppSettings, Document } from '@/types'
-import { List, Timer, MessageSquare, ChevronLeft, ChevronRight } from 'lucide-react'
+import { List, Timer, MessageSquare, ChevronLeft, ChevronRight, Settings } from 'lucide-react'
+import { AI_PANEL_WIDTH } from '@/constants'
 
 type SidebarPanel = 'outline' | 'pomodoro' | 'comments'
 
@@ -60,11 +62,16 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   const aiPanelOpen = useAppStore((s) => s.aiPanelOpen)
   const citationPanelOpen = useAppStore((s) => s.citationPanelOpen)
   const musicPanelOpen = useAppStore((s) => s.musicPanelOpen)
+  const setMusicPanelOpen = useAppStore((s) => s.setMusicPanelOpen)
   const focusModeActive = useAppStore((s) => s.focusModeActive)
   const setFocusModeActive = useAppStore((s) => s.setFocusModeActive)
+  const settingsOpen = useAppStore((s) => s.settingsOpen)
+  const setSettingsOpen = useAppStore((s) => s.setSettingsOpen)
 
   const editorScrollRef = useRef<HTMLDivElement>(null)
   const [typewriterMode, setTypewriterMode] = useState(false)
+  const [aiPanelWidth, setAiPanelWidth] = useState(AI_PANEL_WIDTH)
+  const dragStartRef = useRef<{ x: number; width: number } | null>(null)
 
   const { document, saveStatus, saveNow, onEditorUpdate, updateTitle, patchDocument } =
     useDocument(documentId)
@@ -137,6 +144,27 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [editor, saveNow, setFocusModeActive])
+
+  // Resize handler for AI/Citations panel drag
+  useEffect(() => {
+    function onMouseMove(e: MouseEvent): void {
+      if (!dragStartRef.current) return
+      const delta = dragStartRef.current.x - e.clientX
+      const newWidth = Math.min(400, Math.max(180, dragStartRef.current.width + delta))
+      setAiPanelWidth(newWidth)
+    }
+    function onMouseUp(): void {
+      dragStartRef.current = null
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [])
 
   // Typewriter mode: keep cursor vertically centered in the scroll container
   useEffect(() => {
@@ -227,6 +255,8 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   }
 
   const formatClass = format === 'mla' ? 'format-mla' : format === 'apa' ? 'format-apa' : ''
+  const editorFontFamily =
+    (editor?.getAttributes('textStyle').fontFamily as string | undefined) ?? 'Times New Roman'
 
   return (
     <TooltipProvider delayDuration={400}>
@@ -336,6 +366,13 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
               >
                 {sidebarOpen ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
               </button>
+              <button
+                className="flex items-center justify-center p-1.5 text-muted-foreground hover:text-foreground"
+                onClick={() => setSettingsOpen(true)}
+                title="Settings"
+              >
+                <Settings className="h-3.5 w-3.5" />
+              </button>
             </aside>
           )}
 
@@ -345,8 +382,8 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
             className="flex flex-1 overflow-auto bg-zinc-100 dark:bg-zinc-900"
           >
             <div className={cn('mx-auto my-8 w-[816px]', focusModeActive && 'my-16')}>
-              <div className={cn('min-h-[1056px] bg-white dark:bg-zinc-800 px-24 py-12 shadow-sm', formatClass)}>
-                <PageHeader format={format} content={currentJson} />
+              <div className={cn('editor-page min-h-[1056px] bg-white dark:bg-zinc-800 px-24 py-12', formatClass)}>
+                <PageHeader format={format} content={currentJson} fontFamily={editorFontFamily} />
                 <EditorContent
                   editor={editor}
                   className="prose-editor min-h-full outline-none"
@@ -358,32 +395,29 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
           {/* Right panel — AI or Citations (hidden in focus mode) */}
           {!focusModeActive && (
             <AnimatePresence mode="wait">
-              {aiPanelOpen && (
+              {(aiPanelOpen || citationPanelOpen) && (
                 <motion.div
-                  key="ai"
-                  className="w-[220px] shrink-0 overflow-hidden"
+                  key={aiPanelOpen ? 'ai' : 'citations'}
+                  className="relative shrink-0 overflow-hidden"
+                  style={{ width: aiPanelWidth }}
                   initial={{ opacity: 0, x: 16 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 16 }}
                   transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
                 >
-                  <AiPanel editor={editor} />
-                </motion.div>
-              )}
-              {citationPanelOpen && (
-                <motion.div
-                  key="citations"
-                  className="w-[220px] shrink-0 overflow-hidden"
-                  initial={{ opacity: 0, x: 16 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 16 }}
-                  transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
-                >
-                  <CitationPanel
-                    documentId={documentId}
-                    format={format}
-                    editor={editor}
+                  {/* Drag handle */}
+                  <div
+                    className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/30 transition-colors z-10"
+                    onMouseDown={(e) => {
+                      dragStartRef.current = { x: e.clientX, width: aiPanelWidth }
+                      document.body.style.cursor = 'col-resize'
+                      document.body.style.userSelect = 'none'
+                    }}
                   />
+                  {aiPanelOpen && <AiPanel editor={editor} />}
+                  {citationPanelOpen && (
+                    <CitationPanel documentId={documentId} format={format} editor={editor} />
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -397,6 +431,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
             wordCount={wordCount}
             saveStatus={saveStatus}
             nowPlaying={music.nowPlayingTitle}
+            onMusicClick={() => setMusicPanelOpen(true)}
           />
         )}
       </div>
@@ -414,6 +449,8 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
         onApplyMla={handleApplyMla}
         onApplyApa={handleApplyApa}
       />
+
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </TooltipProvider>
   )
 }

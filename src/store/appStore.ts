@@ -18,6 +18,7 @@ interface AppState {
   citationPanelOpen: boolean
   musicPanelOpen: boolean
   focusModeActive: boolean
+  settingsOpen: boolean
   pomodoroState: PomodoroState
   ollamaStatus: OllamaStatus
 
@@ -28,6 +29,7 @@ interface AppState {
   setCitationPanelOpen(open: boolean): void
   setMusicPanelOpen(open: boolean): void
   setFocusModeActive(active: boolean): void
+  setSettingsOpen(open: boolean): void
   setPomodoroState(state: Partial<PomodoroState>): void
   setOllamaStatus(status: OllamaStatus): void
 }
@@ -46,6 +48,7 @@ export const useAppStore = create<AppState>()((set) => ({
   citationPanelOpen: false,
   musicPanelOpen: false,
   focusModeActive: false,
+  settingsOpen: false,
   pomodoroState: DEFAULT_POMODORO,
   ollamaStatus: 'loading',
 
@@ -65,6 +68,7 @@ export const useAppStore = create<AppState>()((set) => ({
     set((s) => ({ citationPanelOpen: open, aiPanelOpen: open ? false : s.aiPanelOpen })),
   setMusicPanelOpen: (open) => set({ musicPanelOpen: open }),
   setFocusModeActive: (active) => set({ focusModeActive: active }),
+  setSettingsOpen: (open) => set({ settingsOpen: open }),
   setPomodoroState: (state) =>
     set((s) => ({ pomodoroState: { ...s.pomodoroState, ...state } })),
   setOllamaStatus: (status) => set({ ollamaStatus: status }),

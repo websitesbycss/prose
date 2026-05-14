@@ -1,4 +1,5 @@
 import { app, BrowserWindow, shell } from 'electron'
+import { autoUpdater } from 'electron-updater'
 import { join } from 'path'
 import { initDatabase, getDb, closeDatabase } from './services/database'
 import { ollamaManager } from './services/ollama'
@@ -62,6 +63,13 @@ app.whenReady().then(() => {
   }
 
   createWindow()
+
+  // Only check for updates in production builds
+  if (app.isPackaged) {
+    autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+      console.error('Auto-update check failed:', err)
+    })
+  }
 
   // Start Ollama in background — renderer polls ai:getStatus
   void ollamaManager.start().catch((err) => {

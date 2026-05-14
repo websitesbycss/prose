@@ -159,6 +159,7 @@ export interface ProseAPI {
     checkInstalled(): Promise<boolean>
     installOllama(): Promise<void>
     onInstallProgress(callback: (progress: InstallProgress) => void): () => void
+    listModels(): Promise<string[]>
     getDownloadStatus(): Promise<DownloadStatus>
     startDownload(): Promise<void>
     onDownloadProgress(callback: (progress: DownloadProgress) => void): () => void

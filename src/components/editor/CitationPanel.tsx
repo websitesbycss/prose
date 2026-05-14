@@ -81,9 +81,11 @@ export default function CitationPanel({ documentId, format, editor }: CitationPa
     const { size } = editor.state.doc
 
     const content = [
+      { type: 'paragraph', content: [] },
+      { type: 'paragraph', content: [] },
       {
         type: 'heading',
-        attrs: { level: 1 },
+        attrs: { level: 1, textAlign: 'center' },
         content: [{ type: 'text', text: heading }],
       },
       ...citations.map((c) => ({

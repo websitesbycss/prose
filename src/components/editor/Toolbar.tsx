@@ -5,7 +5,7 @@ import {
   AlignLeft, AlignCenter, AlignRight,
   List, ListOrdered, IndentIcon, Outdent,
   Image, Link2, Table2, Music, BookOpen,
-  ChevronDown,
+  ChevronDown, Undo2, Redo2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -287,6 +287,22 @@ export default function Toolbar({ editor, document, onApplyFormat }: ToolbarProp
           <SelectItem value="h3" className="text-xs font-medium">Heading 3</SelectItem>
         </SelectContent>
       </Select>
+
+      <Sep />
+
+      {/* Undo / redo */}
+      <ToolbarBtn
+        icon={Undo2}
+        title="Undo (Ctrl+Z)"
+        disabled={!editor.can().undo()}
+        onClick={() => editor.chain().focus().undo().run()}
+      />
+      <ToolbarBtn
+        icon={Redo2}
+        title="Redo (Ctrl+Y)"
+        disabled={!editor.can().redo()}
+        onClick={() => editor.chain().focus().redo().run()}
+      />
 
       <Sep />
 

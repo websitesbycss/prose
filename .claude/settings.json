@@ -26,7 +26,9 @@
       "Bash(npx shadcn@latest add input badge dialog select separator scroll-area alert-dialog --yes)",
       "Bash(npx shadcn@latest add tooltip popover --yes)",
       "Bash(node -e \"const d = require\\('docx'\\); console.log\\(Object.keys\\(d\\).filter\\(k => ['Document','Packer','Paragraph','TextRun','HeadingLevel','AlignmentType','UnderlineType','Table','TableRow','TableCell','WidthType','BorderStyle','ExternalHyperlink','AbstractNumbering','Numbering'].includes\\(k\\)\\).sort\\(\\).join\\(', '\\)\\)\")",
-      "Bash(node -e \"console.log\\(require\\('./node_modules/electron/package.json'\\).version\\)\")"
+      "Bash(node -e \"console.log\\(require\\('./node_modules/electron/package.json'\\).version\\)\")",
+      "Bash(node -e \"console.log\\(require\\('./package.json'\\).version\\)\")",
+      "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\(JSON.stringify\\({deps: Object.keys\\(p.dependencies || {}\\), devDeps: Object.keys\\(p.devDependencies || {}\\)}, null, 2\\)\\)\")"
     ],
     "additionalDirectories": [
       "C:\\"
