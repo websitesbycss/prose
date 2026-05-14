@@ -752,14 +752,14 @@ Build in this exact order. Do not skip ahead. Each phase should be fully working
 - Format citations in MLA, APA, Chicago, IEEE
 - Insert Works Cited / References section into document
 
-### Phase 10 — Export
+### Phase 10 — Export ✅ COMPLETED
 - DOCX export via `docx` library
 - PDF export via Puppeteer
 - Markdown export
 - Plain text export
 - System save dialog for all exports
 
-### Phase 11 — Focus mode and typewriter mode
+### Phase 11 — Focus mode and typewriter mode ✅ COMPLETED
 - Focus mode: hide all chrome, center canvas, Escape to exit
 - Typewriter mode: active line stays vertically centered via scroll
 
@@ -772,6 +772,17 @@ Build in this exact order. Do not skip ahead. Each phase should be fully working
 - README with install instructions, feature list, and screenshot
 
 ---
+
+## Improvement To-Do List (to be deleted from spec once all complete)
+1. Make header editable and match font size and font family of body text in mla/apa format
+2. Separate text editor into pages with standard 8.5x11 format
+3. Let the user shrink or widen the AI assistant window
+4. Work on formatting and length of AI response
+5. Improve look of scroll bars app-wide and also make scroll bars dark in dark mode
+6. Let the user set the focus time for pomodoro and also break time
+7. Add undo and redo button with proper functionality
+8. When music is playing in bottom right, have clicking on the music icon and name of music open up the focus music dialog like in toolbar
+9. Have "insert works cited" actually insert the works cited at the bottom on a new page
 
 ## README structure (to be written last)
 

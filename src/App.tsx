@@ -32,7 +32,8 @@ export default function App(): JSX.Element {
     void checkSetup()
   }, [])
 
-  // Poll Ollama status until ready or unavailable
+  // Poll Ollama status until ready — keep polling even if unavailable so we
+  // catch cases where Ollama finishes installing after the app has launched
   useEffect(() => {
     let cancelled = false
     let timer: ReturnType<typeof setTimeout> | null = null
@@ -42,12 +43,16 @@ export default function App(): JSX.Element {
         const status = (await window.prose.ai.getStatus()) as OllamaStatus
         if (!cancelled) {
           setOllamaStatus(status)
-          if (status === 'loading') {
-            timer = setTimeout(() => { void poll() }, 2000)
+          if (status !== 'ready') {
+            const delay = status === 'loading' ? 2000 : 5000
+            timer = setTimeout(() => { void poll() }, delay)
           }
         }
       } catch {
-        if (!cancelled) setOllamaStatus('unavailable')
+        if (!cancelled) {
+          setOllamaStatus('unavailable')
+          timer = setTimeout(() => { void poll() }, 5000)
+        }
       }
     }
 
