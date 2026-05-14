@@ -15,6 +15,7 @@ interface AppState {
   theme: Theme
   sidebarOpen: boolean
   aiPanelOpen: boolean
+  citationPanelOpen: boolean
   musicPanelOpen: boolean
   focusModeActive: boolean
   pomodoroState: PomodoroState
@@ -24,6 +25,7 @@ interface AppState {
   setTheme(theme: Theme): void
   setSidebarOpen(open: boolean): void
   setAiPanelOpen(open: boolean): void
+  setCitationPanelOpen(open: boolean): void
   setMusicPanelOpen(open: boolean): void
   setFocusModeActive(active: boolean): void
   setPomodoroState(state: Partial<PomodoroState>): void
@@ -41,6 +43,7 @@ export const useAppStore = create<AppState>()((set) => ({
   theme: 'dark',
   sidebarOpen: true,
   aiPanelOpen: false,
+  citationPanelOpen: false,
   musicPanelOpen: false,
   focusModeActive: false,
   pomodoroState: DEFAULT_POMODORO,
@@ -48,7 +51,6 @@ export const useAppStore = create<AppState>()((set) => ({
 
   setCurrentDocumentId: (id) => set({ currentDocumentId: id }),
   setTheme: (theme) => {
-    // Mirror to localStorage so index.html can read it before React hydrates
     try {
       localStorage.setItem('prose-theme', theme)
     } catch (_) {}
@@ -56,7 +58,11 @@ export const useAppStore = create<AppState>()((set) => ({
     set({ theme })
   },
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
-  setAiPanelOpen: (open) => set({ aiPanelOpen: open }),
+  // AI and citation panels are mutually exclusive — opening one closes the other
+  setAiPanelOpen: (open) =>
+    set((s) => ({ aiPanelOpen: open, citationPanelOpen: open ? false : s.citationPanelOpen })),
+  setCitationPanelOpen: (open) =>
+    set((s) => ({ citationPanelOpen: open, aiPanelOpen: open ? false : s.aiPanelOpen })),
   setMusicPanelOpen: (open) => set({ musicPanelOpen: open }),
   setFocusModeActive: (active) => set({ focusModeActive: active }),
   setPomodoroState: (state) =>

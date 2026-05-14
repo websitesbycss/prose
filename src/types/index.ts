@@ -51,6 +51,7 @@ export type DocumentFormat = Document['format']
 
 export interface CreateDocumentInput {
   title: string
+  content?: string
   format?: DocumentFormat
   categoryId?: string | null
   wordCountGoal?: number | null
@@ -111,6 +112,9 @@ export interface CreateCitationInput {
 }
 
 export interface ProseAPI {
+  dialog: {
+    openImage(): Promise<string | null>
+  }
   documents: {
     getAll(): Promise<Document[]>
     getById(id: string): Promise<Document | null>
@@ -149,7 +153,7 @@ export interface ProseAPI {
   ollama: {
     getDownloadStatus(): Promise<DownloadStatus>
     startDownload(): Promise<void>
-    onDownloadProgress(callback: (progress: DownloadProgress) => void): void
+    onDownloadProgress(callback: (progress: DownloadProgress) => void): () => void
   }
 }
 

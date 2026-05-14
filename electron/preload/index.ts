@@ -54,11 +54,18 @@ contextBridge.exposeInMainWorld('prose', {
     set: (data: Record<string, unknown>) => ipcRenderer.invoke('settings:set', data),
   },
 
+  dialog: {
+    openImage: (): Promise<string | null> => ipcRenderer.invoke('dialog:openImage'),
+  },
+
   ollama: {
     getDownloadStatus: () => ipcRenderer.invoke('ollama:getDownloadStatus'),
     startDownload: () => ipcRenderer.invoke('ollama:startDownload'),
-    onDownloadProgress: (callback: (progress: unknown) => void): void => {
-      ipcRenderer.on('ollama:download-progress', (_, progress) => callback(progress))
+    onDownloadProgress: (callback: (progress: unknown) => void): (() => void) => {
+      const listener = (_: Electron.IpcRendererEvent, progress: unknown): void =>
+        callback(progress)
+      ipcRenderer.on('ollama:download-progress', listener)
+      return () => ipcRenderer.removeListener('ollama:download-progress', listener)
     },
   },
 })

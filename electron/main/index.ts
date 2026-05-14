@@ -1,6 +1,7 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'path'
 import { initDatabase, getDb, closeDatabase } from './services/database'
+import { ollamaManager } from './services/ollama'
 import { registerDocumentHandlers } from './ipc/documents'
 import { registerSettingsHandlers } from './ipc/settings'
 import { registerCategoryHandlers } from './ipc/categories'
@@ -8,6 +9,7 @@ import { registerCitationHandlers } from './ipc/citations'
 import { registerAiHandlers } from './ipc/ai'
 import { registerExportHandlers } from './ipc/export'
 import { registerOllamaHandlers } from './ipc/ollama'
+import { registerDialogHandlers } from './ipc/dialog'
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -29,7 +31,6 @@ function createWindow(): void {
     win.show()
   })
 
-  // Open external links in the system browser, never in the Electron window
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url)
     return { action: 'deny' }
@@ -50,9 +51,10 @@ app.whenReady().then(() => {
     registerSettingsHandlers(db)
     registerCategoryHandlers(db)
     registerCitationHandlers(db)
-    registerAiHandlers()
+    registerAiHandlers(db, ollamaManager)
     registerExportHandlers()
-    registerOllamaHandlers()
+    registerOllamaHandlers(db, ollamaManager)
+    registerDialogHandlers()
   } catch (err) {
     console.error('Startup error:', err)
     app.quit()
@@ -60,6 +62,11 @@ app.whenReady().then(() => {
   }
 
   createWindow()
+
+  // Start Ollama in background — renderer polls ai:getStatus
+  void ollamaManager.start().catch((err) => {
+    console.error('Ollama start error:', err)
+  })
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -71,5 +78,6 @@ app.on('window-all-closed', () => {
 })
 
 app.on('will-quit', () => {
+  ollamaManager.stop()
   closeDatabase()
 })

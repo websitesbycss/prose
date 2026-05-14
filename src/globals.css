@@ -57,3 +57,130 @@
     @apply bg-background text-foreground font-sans;
   }
 }
+
+/* Tiptap editor content styles */
+.prose-editor {
+  @apply outline-none;
+}
+
+.prose-editor .ProseMirror {
+  @apply outline-none min-h-full;
+}
+
+.prose-editor .ProseMirror > * + * {
+  @apply mt-3;
+}
+
+.prose-editor .ProseMirror p {
+  @apply leading-relaxed;
+}
+
+.prose-editor .ProseMirror h1 {
+  @apply text-2xl font-bold mt-6 mb-3;
+}
+
+.prose-editor .ProseMirror h2 {
+  @apply text-xl font-semibold mt-5 mb-2;
+}
+
+.prose-editor .ProseMirror h3 {
+  @apply text-lg font-medium mt-4 mb-2;
+}
+
+.prose-editor .ProseMirror ul {
+  @apply list-disc pl-6 my-2;
+}
+
+.prose-editor .ProseMirror ol {
+  @apply list-decimal pl-6 my-2;
+}
+
+.prose-editor .ProseMirror li > p {
+  @apply mt-0;
+}
+
+.prose-editor .ProseMirror a {
+  @apply text-primary underline underline-offset-2 cursor-pointer;
+}
+
+.prose-editor .ProseMirror table {
+  @apply border-collapse my-4 w-full;
+}
+
+.prose-editor .ProseMirror td,
+.prose-editor .ProseMirror th {
+  @apply border border-border p-2 text-left align-top;
+  min-width: 60px;
+}
+
+.prose-editor .ProseMirror th {
+  @apply bg-muted font-semibold;
+}
+
+.prose-editor .ProseMirror .selectedCell {
+  @apply bg-primary/10;
+}
+
+.prose-editor .ProseMirror img {
+  @apply max-w-full rounded;
+}
+
+.prose-editor .ProseMirror blockquote {
+  @apply border-l-2 border-border pl-4 italic text-muted-foreground;
+}
+
+.prose-editor .ProseMirror code {
+  @apply rounded bg-muted px-1 py-0.5 font-mono text-sm;
+}
+
+.prose-editor .ProseMirror pre {
+  @apply rounded bg-muted p-3 font-mono text-sm overflow-x-auto;
+}
+
+.prose-editor .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  @apply float-left h-0 pointer-events-none text-muted-foreground/40;
+}
+
+/* ── MLA / APA format styles ───────────────────────────────────── */
+
+.format-mla .ProseMirror,
+.format-apa .ProseMirror {
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 12pt;
+}
+
+/* Double-space all paragraphs */
+.format-mla .ProseMirror p,
+.format-apa .ProseMirror p {
+  line-height: 2;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+/* First-line indent on body paragraphs only */
+.format-mla .ProseMirror p:not([data-role]),
+.format-apa .ProseMirror p:not([data-role]) {
+  text-indent: 0.5in;
+}
+
+/* Header lines — no first-line indent */
+.format-mla .ProseMirror [data-role='mla-header'],
+.format-mla .ProseMirror [data-role='title'],
+.format-apa .ProseMirror [data-role='apa-header'] {
+  text-indent: 0;
+}
+
+/* Headings in MLA/APA also double-spaced */
+.format-mla .ProseMirror h1,
+.format-mla .ProseMirror h2,
+.format-mla .ProseMirror h3,
+.format-apa .ProseMirror h1,
+.format-apa .ProseMirror h2,
+.format-apa .ProseMirror h3 {
+  line-height: 2;
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 12pt;
+  font-weight: normal;
+  margin: 0;
+}

@@ -1,12 +1,42 @@
-import { ipcMain } from 'electron'
+import { ipcMain, BrowserWindow } from 'electron'
+import type { Database } from 'better-sqlite3'
+import type { OllamaManager } from '../services/ollama'
 
-// Ollama process management and model download are implemented in Phase 7.
-// These stubs keep the IPC surface consistent so the renderer can call them safely.
-export function registerOllamaHandlers(): void {
-  ipcMain.handle('ollama:getDownloadStatus', () => ({
-    downloaded: false,
-    model: 'llama3.2:3b',
-  }))
+function getModel(db: Database): string {
+  const row = db
+    .prepare("SELECT value FROM settings WHERE key = 'ollamaModel'")
+    .get() as { value: string } | undefined
+  if (!row) return 'llama3.2:3b'
+  try {
+    return (JSON.parse(row.value) as string) || 'llama3.2:3b'
+  } catch {
+    return 'llama3.2:3b'
+  }
+}
 
-  ipcMain.handle('ollama:startDownload', () => undefined)
+function sendToRenderer(channel: string, data: unknown): void {
+  const win = BrowserWindow.getAllWindows()[0]
+  if (win && !win.isDestroyed()) {
+    win.webContents.send(channel, data)
+  }
+}
+
+export function registerOllamaHandlers(db: Database, manager: OllamaManager): void {
+  ipcMain.handle('ollama:getDownloadStatus', async () => {
+    const model = getModel(db)
+    const downloaded = await manager.isModelDownloaded(model)
+    return { downloaded, model }
+  })
+
+  ipcMain.handle('ollama:startDownload', async (): Promise<void> => {
+    const model = getModel(db)
+    try {
+      for await (const progress of manager.pull(model)) {
+        sendToRenderer('ollama:download-progress', progress)
+      }
+    } catch (err) {
+      console.error('Model download error:', err)
+      sendToRenderer('ollama:download-progress', { percent: -1, status: 'error' })
+    }
+  })
 }

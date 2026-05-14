@@ -690,14 +690,14 @@ Build in this exact order. Do not skip ahead. Each phase should be fully working
 - Apply dark mode class to `<html>` on launch before React renders to prevent theme flash
 - Verify the app opens a window, renders a blank React root in dark mode with correct font, and a shadcn Button component renders correctly as a smoke test
 
-### Phase 2 — Database and IPC layer
+### Phase 2 — Database and IPC layer ✅ COMPLETED
 - Implement all SQLite operations for documents, categories, citations, settings
 - Implement all IPC handlers with input validation
 - Expose full `window.prose` API via preload
 - Write the complete TypeScript types in `types/index.ts`
 - Verify each IPC handler works correctly with manual test calls from renderer console
 
-### Phase 3 — Dashboard
+### Phase 3 — Dashboard ✅ COMPLETED
 - Build the dashboard layout with sidebar and document grid
 - Document cards with all metadata
 - New document modal with format selection and MLA/APA pre-fill inputs
@@ -706,7 +706,7 @@ Build in this exact order. Do not skip ahead. Each phase should be fully working
 - Delete with confirmation
 - Verify full CRUD flow works end to end
 
-### Phase 4 — Editor core
+### Phase 4 — Editor core ✅ COMPLETED
 - Integrate Tiptap with all required extensions: bold, italic, underline, strikethrough, headings, bullet list, ordered list, indent, link, image, table, font family, font size, text color, text align, history
 - Build the toolbar wired to Tiptap commands
 - Auto-list formatting (typing `1.` and `-`)
@@ -715,7 +715,7 @@ Build in this exact order. Do not skip ahead. Each phase should be fully working
 - Basic dark/light theme on editor canvas
 - Verify all formatting controls work correctly
 
-### Phase 5 — MLA and APA formatting
+### Phase 5 — MLA and APA formatting ✅ COMPLETED
 - Implement MLA template application: header, title, body structure, page header
 - Implement APA template application
 - Word count correctly excludes header/title nodes when setting is enabled

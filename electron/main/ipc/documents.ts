@@ -63,6 +63,7 @@ export function registerDocumentHandlers(db: Database): void {
 
     const id = randomUUID()
     const now = new Date().toISOString()
+    const content = typeof d.content === 'string' ? d.content : '{}'
     const wordCountGoal =
       d.wordCountGoal !== undefined && d.wordCountGoal !== null ? Number(d.wordCountGoal) : null
     const categoryId = typeof d.categoryId === 'string' ? d.categoryId : null
@@ -70,7 +71,7 @@ export function registerDocumentHandlers(db: Database): void {
     db.prepare(
       `INSERT INTO documents (id, title, content, format, word_count_goal, created_at, updated_at, category_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(id, d.title.trim(), '{}', format, wordCountGoal, now, now, categoryId)
+    ).run(id, d.title.trim(), content, format, wordCountGoal, now, now, categoryId)
 
     return rowToDocument(
       db.prepare('SELECT * FROM documents WHERE id = ?').get(id) as DocumentRow
