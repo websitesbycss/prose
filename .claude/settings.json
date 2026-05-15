@@ -29,7 +29,8 @@
       "Bash(node -e \"console.log\\(require\\('./node_modules/electron/package.json'\\).version\\)\")",
       "Bash(node -e \"console.log\\(require\\('./package.json'\\).version\\)\")",
       "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\(JSON.stringify\\({deps: Object.keys\\(p.dependencies || {}\\), devDeps: Object.keys\\(p.devDependencies || {}\\)}, null, 2\\)\\)\")",
-      "Bash(npm list *)"
+      "Bash(npm list *)",
+      "Bash(Remove-Item \"d:\\\\Coding Projects\\\\prose\\\\src\\\\components\\\\editor\\\\PageGuides.tsx\" -Force)"
     ],
     "additionalDirectories": [
       "C:\\"

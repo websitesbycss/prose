@@ -1,5 +1,6 @@
+import { useState, useRef, useEffect } from 'react'
 import { motion } from 'motion/react'
-import { Edit2, Download, Trash2 } from 'lucide-react'
+import { Pencil, Download, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { formatRelativeTime, extractWordCount } from '@/lib/utils'
@@ -9,6 +10,7 @@ interface DocumentCardProps {
   document: Document
   categories: Category[]
   onOpen: (id: string) => void
+  onRename: (id: string, title: string) => void
   onDelete: (id: string) => void
 }
 
@@ -28,17 +30,35 @@ export default function DocumentCard({
   document,
   categories,
   onOpen,
+  onRename,
   onDelete,
 }: DocumentCardProps): JSX.Element {
   const category = categories.find((c) => c.id === document.categoryId)
   const wordCount = extractWordCount(document.content)
   const formatLabel = FORMAT_LABELS[document.format]
 
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(document.title)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (editing) {
+      setDraft(document.title)
+      requestAnimationFrame(() => inputRef.current?.select())
+    }
+  }, [editing, document.title])
+
+  function commitRename(): void {
+    const trimmed = draft.trim()
+    if (trimmed && trimmed !== document.title) onRename(document.id, trimmed)
+    setEditing(false)
+  }
+
   return (
     <motion.div
       variants={cardVariants}
       className="group relative flex flex-col gap-3 rounded-lg border border-border bg-card p-4 cursor-pointer hover:border-primary/40 transition-colors"
-      onClick={() => onOpen(document.id)}
+      onClick={() => { if (!editing) onOpen(document.id) }}
     >
       {category && (
         <span
@@ -47,14 +67,24 @@ export default function DocumentCard({
         />
       )}
 
-      <div className="flex items-start justify-between gap-2">
-        <h3 className="font-medium leading-snug line-clamp-2 text-foreground pr-1">
-          {document.title}
-        </h3>
-        {formatLabel && (
-          <Badge variant="secondary" className="shrink-0 text-xs">
-            {formatLabel}
-          </Badge>
+      <div className="pr-16">
+        {editing ? (
+          <input
+            ref={inputRef}
+            className="w-full rounded border border-primary bg-background px-1.5 py-0.5 text-sm font-medium leading-snug text-foreground outline-none"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { commitRename(); e.currentTarget.blur() }
+              if (e.key === 'Escape') { setEditing(false) }
+            }}
+            onClick={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <h3 className="font-medium leading-snug line-clamp-2 text-foreground">
+            {document.title}
+          </h3>
         )}
       </div>
 
@@ -62,6 +92,11 @@ export default function DocumentCard({
         <span>{formatRelativeTime(document.updatedAt)}</span>
         <span>·</span>
         <span>{wordCount.toLocaleString()} words</span>
+        {formatLabel && (
+          <Badge variant="secondary" className="text-xs">
+            {formatLabel}
+          </Badge>
+        )}
       </div>
 
       <div
@@ -72,16 +107,16 @@ export default function DocumentCard({
           variant="ghost"
           size="icon"
           className="h-7 w-7"
-          onClick={() => onOpen(document.id)}
-          title="Open"
+          onClick={() => setEditing(true)}
+          title="Rename"
         >
-          <Edit2 className="h-3.5 w-3.5" />
+          <Pencil className="h-3.5 w-3.5" />
         </Button>
         <Button
           variant="ghost"
           size="icon"
           className="h-7 w-7 opacity-50 cursor-not-allowed"
-          title="Export (available in Phase 10)"
+          title="Export"
           disabled
         >
           <Download className="h-3.5 w-3.5" />

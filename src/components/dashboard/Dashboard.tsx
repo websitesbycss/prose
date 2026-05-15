@@ -298,6 +298,10 @@ export default function Dashboard(): JSX.Element {
                     document={doc}
                     categories={categories}
                     onOpen={(id) => setCurrentDocumentId(id)}
+                    onRename={async (id, title) => {
+                      await window.prose.documents.update(id, { title })
+                      setDocuments((prev) => prev.map((d) => d.id === id ? { ...d, title } : d))
+                    }}
                     onDelete={(id) => {
                       const target = documents.find((d) => d.id === id)
                       if (target) setDeleteTarget(target)

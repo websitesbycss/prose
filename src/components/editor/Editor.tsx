@@ -20,8 +20,10 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { FontSize } from '@/extensions/fontSize'
 import { Indent } from '@/extensions/indent'
 import { ParagraphRole } from '@/extensions/paragraphRole'
+import { PageBreakNode } from '@/extensions/PageBreakNode'
 import { useDocument } from '@/hooks/useDocument'
 import { useWordCount } from '@/hooks/useWordCount'
+import { usePageBreaks } from '@/hooks/usePageBreaks'
 import { usePomodoro } from '@/hooks/usePomodoro'
 import { useMusic, AMBIENT_LAYERS } from '@/hooks/useMusic'
 import { useAppStore } from '@/store/appStore'
@@ -114,6 +116,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
       TableCell,
       Indent,
       ParagraphRole,
+      PageBreakNode,
       Placeholder.configure({ placeholder: 'Start writing…' }),
     ],
     content: '',
@@ -196,6 +199,8 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
     editor,
     settings.wordCountExcludesHeader && (document?.format === 'mla' || document?.format === 'apa')
   )
+
+  usePageBreaks(editor)
 
   const applyTemplate = useCallback(
     async (format: 'mla' | 'apa', newContent: JSONContent): Promise<void> => {
@@ -386,8 +391,8 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
             ref={editorScrollRef}
             className="flex flex-1 overflow-auto bg-zinc-100 dark:bg-zinc-900"
           >
-            <div className={cn('mx-auto my-8 w-[816px]', focusModeActive && 'my-16')}>
-              <div className={cn('editor-page min-h-[1056px] bg-white dark:bg-zinc-800 px-24 py-12', formatClass)}>
+            <div className={cn('mx-auto my-8 w-[816px] self-start', focusModeActive && 'my-16')}>
+              <div className={cn('editor-page relative min-h-[1056px] bg-white dark:bg-zinc-800 px-24 py-24', formatClass)}>
                 <PageHeader format={format} content={currentJson} fontFamily={editorFontFamily} />
                 <EditorContent
                   editor={editor}
