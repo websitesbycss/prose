@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import type { Database } from 'better-sqlite3'
 import { randomUUID } from 'crypto'
+import { tryCreateSnapshot } from './snapshots'
 
 interface DocumentRow {
   id: string
@@ -113,6 +114,15 @@ export function registerDocumentHandlers(db: Database): void {
        SET title = ?, content = ?, format = ?, word_count_goal = ?, updated_at = ?, category_id = ?
        WHERE id = ?`
     ).run(title, content, format, wordCountGoal, new Date().toISOString(), categoryId, id)
+
+    // Attempt snapshot creation whenever content was explicitly included in the update
+    if (typeof d.content === 'string') {
+      try {
+        tryCreateSnapshot(db, id, content)
+      } catch (err) {
+        console.error('[snapshots] tryCreateSnapshot failed:', err)
+      }
+    }
 
     return rowToDocument(
       db.prepare('SELECT * FROM documents WHERE id = ?').get(id) as DocumentRow

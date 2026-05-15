@@ -2,6 +2,8 @@ import { useEffect, useCallback, useState, useRef } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
+import Subscript from '@tiptap/extension-subscript'
+import Superscript from '@tiptap/extension-superscript'
 import TextAlign from '@tiptap/extension-text-align'
 import { TextStyle } from '@tiptap/extension-text-style'
 import { FontFamily } from '@tiptap/extension-font-family'
@@ -19,12 +21,14 @@ import { motion, AnimatePresence } from 'motion/react'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { FontSize } from '@/extensions/fontSize'
 import { Indent } from '@/extensions/indent'
+import { LineHeight } from '@/extensions/lineHeight'
 import { ParagraphRole } from '@/extensions/paragraphRole'
 import { PageBreakNode } from '@/extensions/PageBreakNode'
 import { useDocument } from '@/hooks/useDocument'
 import { useWordCount } from '@/hooks/useWordCount'
 import { usePageBreaks } from '@/hooks/usePageBreaks'
 import { usePomodoro } from '@/hooks/usePomodoro'
+import { useSessionStats } from '@/hooks/useSessionStats'
 import { useMusic, AMBIENT_LAYERS } from '@/hooks/useMusic'
 import { useAppStore } from '@/store/appStore'
 import { cn } from '@/lib/utils'
@@ -47,12 +51,15 @@ import PomodoroPanel from './PomodoroPanel'
 import AiPanel from './AiPanel'
 import CitationPanel from './CitationPanel'
 import MusicPanel from './MusicPanel'
+import { SessionStatsPanel } from './SessionStatsPanel'
+import { HistoryPanel } from './HistoryPanel'
+import { EditorContextMenu } from './EditorContextMenu'
 import SettingsModal from '@/components/settings/SettingsModal'
 import type { AppSettings, Document } from '@/types'
-import { List, Timer, MessageSquare, ChevronLeft, ChevronRight, Settings } from 'lucide-react'
+import { List, Timer, BarChart2, History, ChevronLeft, ChevronRight, Settings } from 'lucide-react'
 import { AI_PANEL_WIDTH } from '@/constants'
 
-type SidebarPanel = 'outline' | 'pomodoro' | 'comments'
+type SidebarPanel = 'outline' | 'pomodoro' | 'stats' | 'history'
 
 interface EditorProps {
   documentId: string
@@ -102,6 +109,8 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
     extensions: [
       StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
       Underline,
+      Subscript,
+      Superscript,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       TextStyle,
       FontFamily,
@@ -115,6 +124,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
       TableHeader,
       TableCell,
       Indent,
+      LineHeight,
       ParagraphRole,
       PageBreakNode,
       Placeholder.configure({ placeholder: 'Start writing…' }),
@@ -202,11 +212,20 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
 
   usePageBreaks(editor)
 
+  const sessionStats = useSessionStats(wordCount)
+
   const applyTemplate = useCallback(
     async (format: 'mla' | 'apa', newContent: JSONContent): Promise<void> => {
       if (!editor) return
       editor.commands.setContent(newContent, false)
-      const contentStr = JSON.stringify(newContent)
+      // MLA and APA require double spacing — select all, apply, then collapse
+      editor.chain()
+        .selectAll()
+        .updateAttributes('paragraph', { lineHeight: 2.0 })
+        .updateAttributes('heading', { lineHeight: 2.0 })
+        .setTextSelection(1)
+        .run()
+      const contentStr = JSON.stringify(editor.getJSON())
       try {
         await window.prose.documents.update(documentId, { format, content: contentStr })
         patchDocument({ format, content: contentStr })
@@ -340,49 +359,60 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                   onClick={() => handleSidebarIconClick('pomodoro')}
                 />
                 <SidebarIcon
-                  icon={MessageSquare}
-                  label="Comments"
+                  icon={BarChart2}
+                  label="Stats"
                   expanded={sidebarOpen}
-                  active={sidebarOpen && activePanel === 'comments'}
-                  onClick={() => handleSidebarIconClick('comments')}
+                  active={sidebarOpen && activePanel === 'stats'}
+                  onClick={() => handleSidebarIconClick('stats')}
+                />
+                <SidebarIcon
+                  icon={History}
+                  label="History"
+                  expanded={sidebarOpen}
+                  active={sidebarOpen && activePanel === 'history'}
+                  onClick={() => handleSidebarIconClick('history')}
                 />
               </div>
 
-              <AnimatePresence mode="wait">
-                {sidebarOpen && (
-                  <motion.div
-                    key={activePanel}
-                    className="flex-1 overflow-hidden"
-                    initial={{ opacity: 0, x: -6 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -6 }}
-                    transition={{ duration: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
-                  >
-                    {activePanel === 'outline' && <OutlinePanel editor={editor} />}
-                    {activePanel === 'pomodoro' && <PomodoroPanel controls={pomodoroControls} />}
-                    {activePanel === 'comments' && (
-                      <p className="px-3 py-4 text-xs text-muted-foreground">
-                        Comments arrive in a later phase.
-                      </p>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              <div className="flex-1 overflow-hidden">
+                <AnimatePresence mode="wait">
+                  {sidebarOpen && (
+                    <motion.div
+                      key={activePanel}
+                      className="h-full overflow-hidden"
+                      initial={{ opacity: 0, x: -6 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -6 }}
+                      transition={{ duration: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
+                    >
+                      {activePanel === 'outline' && <OutlinePanel editor={editor} />}
+                      {activePanel === 'pomodoro' && <PomodoroPanel controls={pomodoroControls} />}
+                      {activePanel === 'stats' && <SessionStatsPanel stats={sessionStats} />}
+                      {activePanel === 'history' && (
+                        <HistoryPanel documentId={documentId} editor={editor} />
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
 
-              <button
-                className="flex items-center justify-center border-t border-border p-1.5 text-muted-foreground hover:text-foreground"
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-              >
-                {sidebarOpen ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-              </button>
-              <button
-                className="flex items-center justify-center p-1.5 text-muted-foreground hover:text-foreground"
-                onClick={() => setSettingsOpen(true)}
-                title="Settings"
-              >
-                <Settings className="h-3.5 w-3.5" />
-              </button>
+              <div className="flex flex-col gap-0.5 border-t border-border p-1.5">
+                <SidebarIcon
+                  icon={Settings}
+                  label="Settings"
+                  expanded={sidebarOpen}
+                  active={false}
+                  onClick={() => setSettingsOpen(true)}
+                />
+                <button
+                  onClick={() => setSidebarOpen(!sidebarOpen)}
+                  className="flex h-7 w-full items-center gap-2 rounded-md px-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                  title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+                >
+                  {sidebarOpen ? <ChevronLeft className="h-3.5 w-3.5 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0" />}
+                  {sidebarOpen && <span className="truncate text-xs">Collapse</span>}
+                </button>
+              </div>
             </aside>
           )}
 
@@ -398,6 +428,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                   editor={editor}
                   className="prose-editor min-h-full outline-none"
                 />
+                <EditorContextMenu editor={editor} />
               </div>
             </div>
           </div>

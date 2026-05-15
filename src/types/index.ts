@@ -110,6 +110,15 @@ export interface CitationFields {
   issue?: string
 }
 
+export interface Snapshot {
+  id: string
+  documentId: string
+  content: string
+  wordCount: number
+  createdAt: string
+  label: string | null
+}
+
 export interface CreateCitationInput {
   documentId: string
   type: Citation['type']
@@ -144,6 +153,7 @@ export interface ProseAPI {
     toPdf(id: string): Promise<void>
     toMarkdown(id: string): Promise<void>
     toPlainText(id: string): Promise<void>
+    saveImage(src: string): Promise<void>
   }
   citations: {
     getByDocument(documentId: string): Promise<Citation[]>
@@ -155,6 +165,12 @@ export interface ProseAPI {
   settings: {
     get(): Promise<AppSettings>
     set(data: Partial<AppSettings>): Promise<void>
+  }
+  snapshots: {
+    getByDocument(documentId: string): Promise<Snapshot[]>
+    restore(snapshotId: string): Promise<void>
+    delete(snapshotId: string): Promise<void>
+    deleteAll(documentId: string): Promise<void>
   }
   ollama: {
     checkInstalled(): Promise<boolean>

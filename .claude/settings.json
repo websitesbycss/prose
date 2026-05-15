@@ -30,7 +30,12 @@
       "Bash(node -e \"console.log\\(require\\('./package.json'\\).version\\)\")",
       "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\(JSON.stringify\\({deps: Object.keys\\(p.dependencies || {}\\), devDeps: Object.keys\\(p.devDependencies || {}\\)}, null, 2\\)\\)\")",
       "Bash(npm list *)",
-      "Bash(Remove-Item \"d:\\\\Coding Projects\\\\prose\\\\src\\\\components\\\\editor\\\\PageGuides.tsx\" -Force)"
+      "Bash(Remove-Item \"d:\\\\Coding Projects\\\\prose\\\\src\\\\components\\\\editor\\\\PageGuides.tsx\" -Force)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); deps={**d.get\\('dependencies',{}\\),**d.get\\('devDependencies',{}\\)}; [print\\(k,v\\) for k,v in deps.items\\(\\) if any\\(x in k for x in ['sonner','toast','dialog','radix']\\)]\")",
+      "Bash(node -e \"const p=require\\('./package.json'\\); const d={...p.dependencies,...p.devDependencies}; Object.entries\\(d\\).filter\\(\\([k]\\)=>k.includes\\('sonner'\\)||k.includes\\('@radix'\\)||k.includes\\('dialog'\\)\\).forEach\\(\\([k,v]\\)=>console.log\\(k,v\\)\\)\")",
+      "Bash(findstr -i \"tabler\\\\|lucide\\\\|react-icons\")",
+      "Bash(Get-Content package.json)",
+      "Bash(Select-String -Pattern \"tabler|lucide|react-icons\")"
     ],
     "additionalDirectories": [
       "C:\\"

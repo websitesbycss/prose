@@ -25,6 +25,8 @@ interface AiPanelProps {
 
 export default function AiPanel({ editor }: AiPanelProps): JSX.Element {
   const ollamaStatus = useAppStore((s) => s.ollamaStatus)
+  const pendingAiPrompt = useAppStore((s) => s.pendingAiPrompt)
+  const setPendingAiPrompt = useAppStore((s) => s.setPendingAiPrompt)
   const { response, streaming, reloading, error, sendPrompt, clearResponse } = useAi()
 
   const [contextOpen, setContextOpen] = useState(false)
@@ -35,6 +37,13 @@ export default function AiPanel({ editor }: AiPanelProps): JSX.Element {
   useEffect(() => {
     responseEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [response])
+
+  useEffect(() => {
+    if (pendingAiPrompt !== null) {
+      setFreeInput(pendingAiPrompt)
+      setPendingAiPrompt(null)
+    }
+  }, [pendingAiPrompt, setPendingAiPrompt])
 
   function getDocumentText(): string {
     return editor ? editor.getText() : ''

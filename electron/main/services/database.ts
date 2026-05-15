@@ -38,6 +38,15 @@ const SCHEMA = `
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS document_snapshots (
+    id TEXT PRIMARY KEY,
+    document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    word_count INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    label TEXT
+  );
 `
 
 export function initDatabase(): void {

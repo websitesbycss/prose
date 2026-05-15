@@ -21,6 +21,7 @@ interface AppState {
   settingsOpen: boolean
   pomodoroState: PomodoroState
   ollamaStatus: OllamaStatus
+  pendingAiPrompt: string | null
 
   setCurrentDocumentId(id: string | null): void
   setTheme(theme: Theme): void
@@ -32,6 +33,7 @@ interface AppState {
   setSettingsOpen(open: boolean): void
   setPomodoroState(state: Partial<PomodoroState>): void
   setOllamaStatus(status: OllamaStatus): void
+  setPendingAiPrompt(prompt: string | null): void
 }
 
 const DEFAULT_POMODORO: PomodoroState = {
@@ -51,6 +53,7 @@ export const useAppStore = create<AppState>()((set) => ({
   settingsOpen: false,
   pomodoroState: DEFAULT_POMODORO,
   ollamaStatus: 'loading',
+  pendingAiPrompt: null,
 
   setCurrentDocumentId: (id) => set({ currentDocumentId: id }),
   setTheme: (theme) => {
@@ -72,4 +75,5 @@ export const useAppStore = create<AppState>()((set) => ({
   setPomodoroState: (state) =>
     set((s) => ({ pomodoroState: { ...s.pomodoroState, ...state } })),
   setOllamaStatus: (status) => set({ ollamaStatus: status }),
+  setPendingAiPrompt: (prompt) => set({ pendingAiPrompt: prompt }),
 }))

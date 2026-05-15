@@ -111,7 +111,7 @@
 }
 
 .prose-editor .ProseMirror p {
-  @apply leading-relaxed;
+  line-height: 1.5;
 }
 
 .prose-editor .ProseMirror h1 {

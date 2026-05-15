@@ -38,6 +38,7 @@ contextBridge.exposeInMainWorld('prose', {
     toPdf: (id: string) => ipcRenderer.invoke('export:toPdf', id),
     toMarkdown: (id: string) => ipcRenderer.invoke('export:toMarkdown', id),
     toPlainText: (id: string) => ipcRenderer.invoke('export:toPlainText', id),
+    saveImage: (src: string) => ipcRenderer.invoke('export:saveImage', src),
   },
 
   citations: {
@@ -56,6 +57,14 @@ contextBridge.exposeInMainWorld('prose', {
 
   dialog: {
     openImage: (): Promise<string | null> => ipcRenderer.invoke('dialog:openImage'),
+  },
+
+  snapshots: {
+    getByDocument: (documentId: string) =>
+      ipcRenderer.invoke('snapshots:getByDocument', documentId),
+    restore: (snapshotId: string) => ipcRenderer.invoke('snapshots:restore', snapshotId),
+    delete: (snapshotId: string) => ipcRenderer.invoke('snapshots:delete', snapshotId),
+    deleteAll: (documentId: string) => ipcRenderer.invoke('snapshots:deleteAll', documentId),
   },
 
   ollama: {

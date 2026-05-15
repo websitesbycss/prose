@@ -5,13 +5,12 @@ import {
   Bold, Italic, Underline, Strikethrough,
   AlignLeft, AlignCenter, AlignRight,
   List, ListOrdered, IndentIcon, Outdent,
+  Subscript, Superscript,
   Image, Link2, Table2, Music, BookOpen,
   ChevronDown, Undo2, Redo2, Highlighter,
 } from 'lucide-react'
+import type { DocumentFormat } from '@/types'
 import { Button } from '@/components/ui/button'
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import {
   Tooltip, TooltipContent, TooltipTrigger,
@@ -78,7 +77,7 @@ function ToolbarBtn({
         <Button
           variant="ghost"
           size="icon"
-          className={cn('h-7 w-7', active && 'bg-accent text-accent-foreground')}
+          className={cn('h-7 w-7', active && '!text-primary')}
           disabled={disabled}
           onClick={onClick}
         >
@@ -149,10 +148,16 @@ function ColorSwatchGrid({
 function ColorPicker({
   editor,
   currentColor,
+  theme,
 }: {
   editor: Editor
   currentColor: string
+  theme: 'dark' | 'light'
 }): JSX.Element {
+  const themedPalette = COLOR_PALETTE.map((c) =>
+    theme === 'dark' && c === '#000000' ? '#ffffff' : c
+  )
+
   return (
     <Popover>
       <Tooltip>
@@ -168,7 +173,7 @@ function ColorPicker({
       </Tooltip>
       <PopoverContent className="w-auto p-0" side="bottom" align="start">
         <ColorSwatchGrid
-          palette={COLOR_PALETTE}
+          palette={themedPalette}
           current={currentColor}
           onSelect={(c) => editor.chain().focus().setColor(c).run()}
           onReset={() => editor.chain().focus().unsetColor().run()}
@@ -215,6 +220,56 @@ function HighlightPicker({
   )
 }
 
+function FontFamilyPicker({
+  editor,
+  fontFamily,
+}: {
+  editor: Editor
+  fontFamily: string
+}): JSX.Element {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          className="h-7 w-36 justify-between border-input px-2 text-xs font-normal"
+          style={{ fontFamily }}
+        >
+          <span className="truncate">{fontFamily}</span>
+          <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-44 p-1"
+        side="bottom"
+        align="start"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onCloseAutoFocus={(e) => e.preventDefault()}
+      >
+        {FONT_FAMILIES.map((f) => (
+          <button
+            key={f}
+            className={cn(
+              'w-full rounded px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent',
+              fontFamily === f && 'bg-accent/50 font-medium'
+            )}
+            style={{ fontFamily: f }}
+            onMouseDown={(e) => {
+              e.preventDefault()
+              editor.chain().focus().setFontFamily(f).run()
+              setOpen(false)
+            }}
+          >
+            {f}
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 const FONT_SIZE_PRESETS = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72]
 
 function FontSizeInput({
@@ -224,46 +279,54 @@ function FontSizeInput({
   editor: Editor
   fontSize: string
 }): JSX.Element {
-  const [draft, setDraft] = useState<string | null>(null)
-  const display = draft ?? fontSize.replace('pt', '')
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState('')
+  const display = fontSize.replace('pt', '')
 
   function apply(val: string): void {
     const num = parseInt(val)
     if (!isNaN(num) && num >= 6 && num <= 96) {
       editor.chain().focus().setFontSize(`${num}pt`).run()
     }
-    setDraft(null)
+    setOpen(false)
   }
 
   return (
-    <Popover>
-      <div className="flex h-7 items-center overflow-hidden rounded-md border border-input">
-        <Input
-          className="h-7 w-10 rounded-none border-0 text-center text-xs focus-visible:ring-0 focus-visible:ring-offset-0"
-          onMouseDown={(e) => e.stopPropagation()}
-          value={display}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={(e) => { if (draft !== null) apply(e.target.value) }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              apply(draft ?? display)
-              ;(e.target as HTMLInputElement).blur()
-            }
-            if (e.key === 'Escape') setDraft(null)
-          }}
-        />
-        <PopoverTrigger asChild>
-          <button className="flex h-7 w-5 shrink-0 items-center justify-center border-l border-input text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+    <Popover
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o)
+        if (o) setDraft(display)
+      }}
+    >
+      <PopoverTrigger asChild>
+        {/* Non-focusable trigger — parent onMouseDown preventDefault keeps editor focus */}
+        <div className="flex h-7 cursor-pointer items-center overflow-hidden rounded-md border border-input transition-colors hover:bg-accent/30">
+          <span className="w-10 select-none text-center text-xs">{display}</span>
+          <div className="flex h-7 w-5 shrink-0 items-center justify-center border-l border-input text-muted-foreground">
             <ChevronDown className="h-3 w-3" />
-          </button>
-        </PopoverTrigger>
-      </div>
+          </div>
+        </div>
+      </PopoverTrigger>
       <PopoverContent
         className="w-16 p-1"
         side="bottom"
         align="start"
-        onOpenAutoFocus={(e) => e.preventDefault()}
+        onCloseAutoFocus={(e) => e.preventDefault()}
       >
+        <Input
+          className="mb-1 h-7 w-full text-center text-xs focus-visible:ring-1 focus-visible:ring-offset-0"
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') apply(draft)
+            if (e.key === 'Escape') {
+              setOpen(false)
+              editor.view.focus()
+            }
+          }}
+        />
         <div className="flex flex-col">
           {FONT_SIZE_PRESETS.map((size) => (
             <button
@@ -275,7 +338,7 @@ function FontSizeInput({
               onMouseDown={(e) => {
                 e.preventDefault()
                 editor.chain().focus().setFontSize(`${size}pt`).run()
-                setDraft(null)
+                setOpen(false)
               }}
             >
               {size}
@@ -321,13 +384,19 @@ function ParagraphStylePicker({
           <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-36 p-1" side="bottom" align="start">
+      <PopoverContent
+        className="w-36 p-1"
+        side="bottom"
+        align="start"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onCloseAutoFocus={(e) => e.preventDefault()}
+      >
         <button
           className={cn(
             'w-full rounded px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent',
             paragraphStyle === 'p' && 'bg-accent/50'
           )}
-          onClick={() => apply('p')}
+          onMouseDown={(e) => { e.preventDefault(); apply('p') }}
         >
           Paragraph
         </button>
@@ -337,7 +406,7 @@ function ParagraphStylePicker({
             paragraphStyle === 'h1' && 'bg-accent/50'
           )}
           style={{ fontSize: 18 }}
-          onClick={() => apply('h1')}
+          onMouseDown={(e) => { e.preventDefault(); apply('h1') }}
         >
           Heading 1
         </button>
@@ -347,7 +416,7 @@ function ParagraphStylePicker({
             paragraphStyle === 'h2' && 'bg-accent/50'
           )}
           style={{ fontSize: 14 }}
-          onClick={() => apply('h2')}
+          onMouseDown={(e) => { e.preventDefault(); apply('h2') }}
         >
           Heading 2
         </button>
@@ -357,10 +426,180 @@ function ParagraphStylePicker({
             paragraphStyle === 'h3' && 'bg-accent/50'
           )}
           style={{ fontSize: 12 }}
-          onClick={() => apply('h3')}
+          onMouseDown={(e) => { e.preventDefault(); apply('h3') }}
         >
           Heading 3
         </button>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Line height picker
+// ---------------------------------------------------------------------------
+
+const LINE_HEIGHT_PRESETS: number[] = [1.0, 1.15, 1.5, 2.0]
+
+function LineHeightIcon({ className }: { className?: string }): JSX.Element {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      {/* Tabler ti-line-height paths */}
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" strokeWidth="0" />
+      <path d="M3 8l3 -3l3 3" />
+      <path d="M3 16l3 3l3 -3" />
+      <line x1="6" y1="5" x2="6" y2="19" />
+      <line x1="13" y1="7" x2="20" y2="7" />
+      <line x1="13" y1="12" x2="20" y2="12" />
+      <line x1="13" y1="17" x2="20" y2="17" />
+    </svg>
+  )
+}
+
+function SpacingBars({ value }: { value: number }): JSX.Element {
+  const barH = 2
+  const barW = 22
+  const gap = Math.round(value * 4)
+  const totalH = 3 * barH + 2 * gap
+  return (
+    <svg width={barW} height={totalH} className="shrink-0 overflow-visible">
+      {[0, 1, 2].map((i) => (
+        <rect
+          key={i}
+          x={0}
+          y={i * (barH + gap)}
+          width={barW}
+          height={barH}
+          rx={1}
+          className="fill-current"
+        />
+      ))}
+    </svg>
+  )
+}
+
+function LineHeightPicker({
+  editor,
+  lineHeight,
+  format,
+}: {
+  editor: Editor
+  lineHeight: number | null
+  format: DocumentFormat | undefined
+}): JSX.Element {
+  const [open, setOpen] = useState(false)
+  const [showCustom, setShowCustom] = useState(false)
+  const [customDraft, setCustomDraft] = useState('')
+
+  const isMlaApa = format === 'mla' || format === 'apa'
+  const effectiveLh = lineHeight ?? (isMlaApa ? 2.0 : null)
+
+  function applyLh(value: number): void {
+    editor.chain().focus().setLineHeight(value).run()
+    setOpen(false)
+    setShowCustom(false)
+  }
+
+  function applyCustom(): void {
+    const num = parseFloat(customDraft)
+    if (!isNaN(num) && num >= 0.5 && num <= 4.0) {
+      applyLh(num)
+    }
+  }
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o)
+        if (!o) setShowCustom(false)
+      }}
+    >
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-7 w-7">
+              <LineHeightIcon />
+            </Button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Line height</TooltipContent>
+      </Tooltip>
+
+      <PopoverContent
+        className="w-48 p-1"
+        side="bottom"
+        align="start"
+        onCloseAutoFocus={(e) => e.preventDefault()}
+      >
+        {LINE_HEIGHT_PRESETS.map((preset) => {
+          const isActive = effectiveLh !== null && Math.abs(effectiveLh - preset) < 0.001
+          return (
+            <button
+              key={preset}
+              className={cn(
+                'flex w-full items-center justify-between rounded px-2.5 py-1.5 transition-colors',
+                isActive
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-foreground hover:bg-muted/50'
+              )}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => applyLh(preset)}
+            >
+              <span className="text-xs font-medium tabular-nums">{preset.toFixed(2)}</span>
+              <SpacingBars value={preset} />
+            </button>
+          )
+        })}
+
+        <div className="my-1 h-px bg-border" />
+
+        {!showCustom ? (
+          <button
+            className="flex w-full items-center rounded px-2.5 py-1.5 text-xs text-foreground transition-colors hover:bg-muted/50"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              setShowCustom(true)
+              setCustomDraft(effectiveLh !== null ? String(effectiveLh) : '')
+            }}
+          >
+            Custom
+          </button>
+        ) : (
+          <div className="flex items-center gap-1.5 px-2 pb-1 pt-0.5">
+            <Input
+              type="number"
+              min={0.5}
+              max={4.0}
+              step={0.05}
+              className="h-7 w-20 text-center text-xs focus-visible:ring-1 focus-visible:ring-offset-0"
+              value={customDraft}
+              autoFocus
+              onChange={(e) => setCustomDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') applyCustom()
+                if (e.key === 'Escape') setShowCustom(false)
+              }}
+            />
+            <Button
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={applyCustom}
+            >
+              Apply
+            </Button>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   )
@@ -449,10 +688,12 @@ function ToolbarInner({
   onApplyFormat: (format: 'mla' | 'apa') => void
   headingFontSizes: HeadingFontSizes
 }): JSX.Element {
+  const format = document?.format
   const setMusicPanelOpen = useAppStore((s) => s.setMusicPanelOpen)
   const setCitationPanelOpen = useAppStore((s) => s.setCitationPanelOpen)
   const citationPanelOpen = useAppStore((s) => s.citationPanelOpen)
   const musicPanelOpen = useAppStore((s) => s.musicPanelOpen)
+  const theme = useAppStore((s) => s.theme)
 
   const s = useEditorState({
     editor,
@@ -466,10 +707,17 @@ function ToolbarInner({
       isAlignRight: ctx.editor.isActive({ textAlign: 'right' }),
       isBulletList: ctx.editor.isActive('bulletList'),
       isOrderedList: ctx.editor.isActive('orderedList'),
+      isSubscript: ctx.editor.isActive('subscript'),
+      isSuperscript: ctx.editor.isActive('superscript'),
       isLink: ctx.editor.isActive('link'),
       canUndo: ctx.editor.can().undo(),
       canRedo: ctx.editor.can().redo(),
-      fontFamily: (ctx.editor.getAttributes('textStyle').fontFamily as string | undefined) ?? (FONT_FAMILIES[0] ?? ''),
+      fontFamily: (
+        ((ctx.editor.getAttributes('textStyle').fontFamily as string | undefined) ?? '')
+          .replace(/^['"]|['"]$/g, '')
+        || FONT_FAMILIES[0]
+        || 'Times New Roman'
+      ),
       fontSize: (ctx.editor.getAttributes('textStyle').fontSize as string | undefined) ?? '12pt',
       paragraphStyle: ctx.editor.isActive('heading', { level: 1 })
         ? 'h1'
@@ -478,10 +726,17 @@ function ToolbarInner({
         : ctx.editor.isActive('heading', { level: 3 })
         ? 'h3'
         : 'p',
-      currentColor: (ctx.editor.getAttributes('textStyle').color as string | undefined) ?? '#000000',
+      currentColorRaw: (ctx.editor.getAttributes('textStyle').color as string | undefined) ?? null,
       currentHighlight: (ctx.editor.getAttributes('highlight').color as string | undefined) ?? null,
+      lineHeight:
+        (ctx.editor.getAttributes('paragraph').lineHeight as number | null | undefined) ??
+        (ctx.editor.getAttributes('heading').lineHeight as number | null | undefined) ??
+        null,
     }),
   })
+
+  const defaultTextColor = theme === 'dark' ? '#ffffff' : '#000000'
+  const currentColor = s.currentColorRaw ?? defaultTextColor
 
   async function handleImageInsert(): Promise<void> {
     const dataUrl = await window.prose.dialog.openImage()
@@ -494,21 +749,7 @@ function ToolbarInner({
       onMouseDown={(e) => e.preventDefault()}
     >
       {/* Font family */}
-      <Select
-        value={s.fontFamily}
-        onValueChange={(v) => editor.chain().focus().setFontFamily(v).run()}
-      >
-        <SelectTrigger className="h-7 w-36 text-xs">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {FONT_FAMILIES.map((f) => (
-            <SelectItem key={f} value={f} className="text-xs" style={{ fontFamily: f }}>
-              {f}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <FontFamilyPicker editor={editor} fontFamily={s.fontFamily} />
 
       {/* Font size */}
       <FontSizeInput editor={editor} fontSize={s.fontSize} />
@@ -563,7 +804,7 @@ function ToolbarInner({
         active={s.isStrike}
         onClick={() => editor.chain().focus().toggleStrike().run()}
       />
-      <ColorPicker editor={editor} currentColor={s.currentColor} />
+      <ColorPicker editor={editor} currentColor={currentColor} theme={theme} />
       <HighlightPicker editor={editor} currentHighlight={s.currentHighlight} />
 
       <Sep />
@@ -612,6 +853,23 @@ function ToolbarInner({
         icon={Outdent}
         title="Outdent (Shift+Tab)"
         onClick={() => editor.chain().focus().outdent().run()}
+      />
+      <LineHeightPicker editor={editor} lineHeight={s.lineHeight} format={format} />
+
+      <Sep />
+
+      {/* Subscript / superscript */}
+      <ToolbarBtn
+        icon={Subscript}
+        title="Subscript"
+        active={s.isSubscript}
+        onClick={() => editor.chain().focus().toggleSubscript().run()}
+      />
+      <ToolbarBtn
+        icon={Superscript}
+        title="Superscript"
+        active={s.isSuperscript}
+        onClick={() => editor.chain().focus().toggleSuperscript().run()}
       />
 
       <Sep />

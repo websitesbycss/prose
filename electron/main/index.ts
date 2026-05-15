@@ -11,6 +11,7 @@ import { registerAiHandlers } from './ipc/ai'
 import { registerExportHandlers } from './ipc/export'
 import { registerOllamaHandlers } from './ipc/ollama'
 import { registerDialogHandlers } from './ipc/dialog'
+import { registerSnapshotHandlers } from './ipc/snapshots'
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -56,6 +57,7 @@ app.whenReady().then(() => {
     registerExportHandlers(db)
     registerOllamaHandlers(db, ollamaManager)
     registerDialogHandlers()
+    registerSnapshotHandlers(db)
   } catch (err) {
     console.error('Startup error:', err)
     app.quit()
