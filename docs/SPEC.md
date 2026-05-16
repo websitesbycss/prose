@@ -763,13 +763,21 @@ Build in this exact order. Do not skip ahead. Each phase should be fully working
 - Focus mode: hide all chrome, center canvas, Escape to exit
 - Typewriter mode: active line stays vertically centered via scroll
 
-### Phase 12 — Settings, polish, and packaging
+### Phase 12 — Settings, polish, and packaging ✅ COMPLETED
 - Settings modal with all sections
 - App-wide dark/light theme toggle
 - electron-builder packaging configuration
 - Windows installer generation
 - Auto-updater setup via GitHub releases
 - README with install instructions, feature list, and screenshot
+
+## To-Do List (delete after everything is done)
+- Work on export: pdf makes double the left and top margins, microsoft word cannot open .docx, importing .docx to google drive removes lists and shrinks tables and doesnt have images
+- add justified text align option
+- if you keep extending a list and adding more things to it, it expands the current page and keeps making the page break go lower and lower instead of moving on to another page when necessary
+- custom app icon 
+- make export from dashboard work because right now it is greyed out
+- make the default right sidebar (ai assistant/citations) width show the full 'ask anything about your document...' text
 
 ## README structure (to be written last)
 

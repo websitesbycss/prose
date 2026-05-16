@@ -7,7 +7,7 @@ import {
   List, ListOrdered, IndentIcon, Outdent,
   Subscript, Superscript,
   Image, Link2, Table2, Music, BookOpen,
-  ChevronDown, Undo2, Redo2, Highlighter,
+  ChevronDown, Undo2, Redo2, Highlighter, PaintBucket,
 } from 'lucide-react'
 import type { DocumentFormat } from '@/types'
 import { Button } from '@/components/ui/button'
@@ -37,6 +37,7 @@ interface ToolbarProps {
 }
 
 const FONT_FAMILIES = [
+  'Calibri',
   'Times New Roman',
   'Georgia',
   'Arial',
@@ -548,7 +549,7 @@ function LineHeightPicker({
             <button
               key={preset}
               className={cn(
-                'flex w-full items-center justify-between rounded px-2.5 py-1.5 transition-colors',
+                'flex w-full items-center justify-between rounded px-2.5 py-1.5 transition-colors focus:outline-none',
                 isActive
                   ? 'bg-primary/10 text-primary'
                   : 'text-foreground hover:bg-muted/50'
@@ -566,7 +567,7 @@ function LineHeightPicker({
 
         {!showCustom ? (
           <button
-            className="flex w-full items-center rounded px-2.5 py-1.5 text-xs text-foreground transition-colors hover:bg-muted/50"
+            className="flex w-full items-center rounded px-2.5 py-1.5 text-xs text-foreground transition-colors hover:bg-muted/50 focus:outline-none"
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => {
               setShowCustom(true)
@@ -600,6 +601,182 @@ function LineHeightPicker({
             </Button>
           </div>
         )}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Table cell tools
+// ---------------------------------------------------------------------------
+
+function BorderColorIcon({ className }: { className?: string }): JSX.Element {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <rect x="3" y="3" width="18" height="18" rx="1" />
+    </svg>
+  )
+}
+
+function BorderWeightIcon(): JSX.Element {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="shrink-0">
+      <line x1="3" y1="6" x2="21" y2="6" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+      <line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <line x1="3" y1="18" x2="21" y2="18" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function CellFillPicker({
+  editor,
+  currentFill,
+}: {
+  editor: Editor
+  currentFill: string | null
+}): JSX.Element {
+  return (
+    <Popover>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1">
+              <PaintBucket className="h-3.5 w-3.5 leading-none" />
+              <span
+                className="mt-0.5 h-1 w-4 rounded-sm border border-border/40"
+                style={{ backgroundColor: currentFill ?? 'transparent' }}
+              />
+            </Button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Cell fill color</TooltipContent>
+      </Tooltip>
+      <PopoverContent className="w-auto p-0" side="bottom" align="start">
+        <ColorSwatchGrid
+          palette={HIGHLIGHT_PALETTE}
+          current={currentFill ?? ''}
+          onSelect={(c) => editor.chain().focus().setCellAttribute('backgroundColor', c).run()}
+          onReset={() => editor.chain().focus().setCellAttribute('backgroundColor', null).run()}
+          resetLabel="Remove fill"
+        />
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+function CellBorderColorPicker({
+  editor,
+  currentColor,
+  theme,
+}: {
+  editor: Editor
+  currentColor: string | null
+  theme: 'dark' | 'light'
+}): JSX.Element {
+  const themedPalette = COLOR_PALETTE.map((c) =>
+    theme === 'dark' && c === '#000000' ? '#ffffff' : c
+  )
+
+  return (
+    <Popover>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1">
+              <BorderColorIcon className="leading-none" />
+              <span
+                className="mt-0.5 h-1 w-4 rounded-sm border border-border/40"
+                style={{ backgroundColor: currentColor ?? 'transparent' }}
+              />
+            </Button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Border color</TooltipContent>
+      </Tooltip>
+      <PopoverContent className="w-auto p-0" side="bottom" align="start">
+        <ColorSwatchGrid
+          palette={themedPalette}
+          current={currentColor ?? ''}
+          onSelect={(c) => editor.chain().focus().setCellAttribute('borderColor', c).run()}
+          onReset={() => editor.chain().focus().setCellAttribute('borderColor', null).run()}
+          resetLabel="Reset border color"
+        />
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+const BORDER_WEIGHTS = [0.5, 1, 1.5, 2, 3, 4]
+
+function CellBorderWeightPicker({
+  editor,
+  currentWidth,
+}: {
+  editor: Editor
+  currentWidth: number | null
+}): JSX.Element {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-7 w-7">
+              <BorderWeightIcon />
+            </Button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Border weight</TooltipContent>
+      </Tooltip>
+      <PopoverContent
+        className="w-36 p-1"
+        side="bottom"
+        align="start"
+        onCloseAutoFocus={(e) => e.preventDefault()}
+      >
+        {BORDER_WEIGHTS.map((w) => (
+          <button
+            key={w}
+            className={cn(
+              'flex w-full items-center gap-2.5 rounded px-2.5 py-1.5 transition-colors focus:outline-none',
+              Math.abs((currentWidth ?? 1) - w) < 0.01
+                ? 'bg-primary/10 text-primary'
+                : 'text-foreground hover:bg-muted/50'
+            )}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              editor.chain().focus().setCellAttribute('borderWidth', w).run()
+              setOpen(false)
+            }}
+          >
+            <div className="flex-1">
+              <div className="w-full rounded-full bg-current" style={{ height: `${w}px` }} />
+            </div>
+            <span className="text-xs tabular-nums">{w}px</span>
+          </button>
+        ))}
+        <div className="my-1 h-px bg-border" />
+        <button
+          className="w-full rounded px-2.5 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-muted/50 focus:outline-none"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => {
+            editor.chain().focus().setCellAttribute('borderWidth', null).run()
+            setOpen(false)
+          }}
+        >
+          Reset
+        </button>
       </PopoverContent>
     </Popover>
   )
@@ -715,8 +892,7 @@ function ToolbarInner({
       fontFamily: (
         ((ctx.editor.getAttributes('textStyle').fontFamily as string | undefined) ?? '')
           .replace(/^['"]|['"]$/g, '')
-        || FONT_FAMILIES[0]
-        || 'Times New Roman'
+        || 'Calibri'
       ),
       fontSize: (ctx.editor.getAttributes('textStyle').fontSize as string | undefined) ?? '12pt',
       paragraphStyle: ctx.editor.isActive('heading', { level: 1 })
@@ -732,6 +908,19 @@ function ToolbarInner({
         (ctx.editor.getAttributes('paragraph').lineHeight as number | null | undefined) ??
         (ctx.editor.getAttributes('heading').lineHeight as number | null | undefined) ??
         null,
+      isInTable: ctx.editor.isActive('tableCell') || ctx.editor.isActive('tableHeader'),
+      tableCellBg:
+        (ctx.editor.getAttributes('tableCell').backgroundColor as string | null) ??
+        (ctx.editor.getAttributes('tableHeader').backgroundColor as string | null) ??
+        null,
+      tableCellBorderColor:
+        (ctx.editor.getAttributes('tableCell').borderColor as string | null) ??
+        (ctx.editor.getAttributes('tableHeader').borderColor as string | null) ??
+        null,
+      tableCellBorderWidth:
+        (ctx.editor.getAttributes('tableCell').borderWidth as number | null) ??
+        (ctx.editor.getAttributes('tableHeader').borderWidth as number | null) ??
+        null,
     }),
   })
 
@@ -741,6 +930,21 @@ function ToolbarInner({
   async function handleImageInsert(): Promise<void> {
     const dataUrl = await window.prose.dialog.openImage()
     if (dataUrl) editor.chain().focus().setImage({ src: dataUrl }).run()
+  }
+
+  function handleToggleSubSup(mark: 'subscript' | 'superscript', isActive: boolean): void {
+    // When turning off or when text is selected, use the standard toggle so the
+    // mark is applied/removed from the selection range normally.
+    if (isActive || !editor.state.selection.empty) {
+      editor.chain().focus()[mark === 'subscript' ? 'toggleSubscript' : 'toggleSuperscript']().run()
+      return
+    }
+    // Turning on with an empty cursor: insert a zero-width space carrying the
+    // mark so the <sub>/<sup> element materialises in the DOM immediately and
+    // the browser caret visually shifts to the correct vertical position.
+    // Without this, the stored mark is pending but has no DOM node, so the
+    // caret stays on the baseline until the first real character is typed.
+    editor.chain().focus().insertContent({ type: 'text', text: '​', marks: [{ type: mark }] }).run()
   }
 
   return (
@@ -854,22 +1058,22 @@ function ToolbarInner({
         title="Outdent (Shift+Tab)"
         onClick={() => editor.chain().focus().outdent().run()}
       />
-      <LineHeightPicker editor={editor} lineHeight={s.lineHeight} format={format} />
 
       <Sep />
 
-      {/* Subscript / superscript */}
+      {/* Line height / subscript / superscript */}
+      <LineHeightPicker editor={editor} lineHeight={s.lineHeight} format={format} />
       <ToolbarBtn
         icon={Subscript}
         title="Subscript"
         active={s.isSubscript}
-        onClick={() => editor.chain().focus().toggleSubscript().run()}
+        onClick={() => handleToggleSubSup('subscript', s.isSubscript)}
       />
       <ToolbarBtn
         icon={Superscript}
         title="Superscript"
         active={s.isSuperscript}
-        onClick={() => editor.chain().focus().toggleSuperscript().run()}
+        onClick={() => handleToggleSubSup('superscript', s.isSuperscript)}
       />
 
       <Sep />
@@ -886,6 +1090,16 @@ function ToolbarInner({
         title="Insert table"
         onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
       />
+
+      {/* Table cell tools — only visible when cursor is inside a table */}
+      {s.isInTable && (
+        <>
+          <Sep />
+          <CellFillPicker editor={editor} currentFill={s.tableCellBg} />
+          <CellBorderColorPicker editor={editor} currentColor={s.tableCellBorderColor} theme={theme} />
+          <CellBorderWeightPicker editor={editor} currentWidth={s.tableCellBorderWidth} />
+        </>
+      )}
 
       <Sep />
 

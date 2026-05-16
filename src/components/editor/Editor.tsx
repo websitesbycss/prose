@@ -12,9 +12,13 @@ import Highlight from '@tiptap/extension-highlight'
 import { Image } from '@tiptap/extension-image'
 import { Link } from '@tiptap/extension-link'
 import { Table } from '@tiptap/extension-table'
-import { TableRow } from '@tiptap/extension-table-row'
-import { TableHeader } from '@tiptap/extension-table-header'
-import { TableCell } from '@tiptap/extension-table-cell'
+import {
+  CustomTableRow,
+  CustomTableHeader,
+  CustomTableCell,
+  TableCellAttributes,
+} from '@/extensions/tableExtensions'
+import { useRowResize } from '@/hooks/useRowResize'
 import { Placeholder } from '@tiptap/extension-placeholder'
 import type { JSONContent } from '@tiptap/core'
 import { motion, AnimatePresence } from 'motion/react'
@@ -22,6 +26,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { FontSize } from '@/extensions/fontSize'
 import { Indent } from '@/extensions/indent'
 import { LineHeight } from '@/extensions/lineHeight'
+import { ExitMarkOnArrowRight } from '@/extensions/exitMarkOnArrowRight'
 import { ParagraphRole } from '@/extensions/paragraphRole'
 import { PageBreakNode } from '@/extensions/PageBreakNode'
 import { useDocument } from '@/hooks/useDocument'
@@ -120,11 +125,13 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
       Image.configure({ allowBase64: true }),
       Link.configure({ openOnClick: false, HTMLAttributes: { rel: 'noopener noreferrer' } }),
       Table.configure({ resizable: true }),
-      TableRow,
-      TableHeader,
-      TableCell,
+      CustomTableRow,
+      CustomTableHeader,
+      CustomTableCell,
+      TableCellAttributes,
       Indent,
       LineHeight,
+      ExitMarkOnArrowRight,
       ParagraphRole,
       PageBreakNode,
       Placeholder.configure({ placeholder: 'Start writing…' }),
@@ -211,6 +218,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   )
 
   usePageBreaks(editor)
+  useRowResize(editor)
 
   const sessionStats = useSessionStats(wordCount)
 

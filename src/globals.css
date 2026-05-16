@@ -104,6 +104,7 @@
 
 .prose-editor .ProseMirror {
   @apply outline-none min-h-full;
+  font-family: Calibri, sans-serif;
 }
 
 .prose-editor .ProseMirror > * + * {
@@ -150,6 +151,7 @@
 .prose-editor .ProseMirror th {
   @apply border border-border p-2 text-left align-top;
   min-width: 60px;
+  position: relative;
 }
 
 .prose-editor .ProseMirror th {
@@ -158,6 +160,31 @@
 
 .prose-editor .ProseMirror .selectedCell {
   @apply bg-primary/10;
+}
+
+/* Dark mode: restore table border and header visibility */
+.dark .prose-editor .ProseMirror td,
+.dark .prose-editor .ProseMirror th {
+  border-color: hsl(240 5% 42%);
+}
+
+.dark .prose-editor .ProseMirror th {
+  background-color: hsl(240 5% 20%);
+}
+
+/* Column resize handle (injected by @tiptap/extension-table when resizable: true) */
+.prose-editor .ProseMirror .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background-color: hsl(var(--primary) / 0.4);
+  pointer-events: none;
+}
+
+.prose-editor .ProseMirror.resize-cursor {
+  cursor: col-resize;
 }
 
 .prose-editor .ProseMirror img {
@@ -179,6 +206,25 @@
 .prose-editor .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   @apply float-left h-0 pointer-events-none text-muted-foreground/40;
+}
+
+/* ── Subscript / superscript ───────────────────────────────────── */
+
+/* Tailwind Preflight resets sub/sup to position:relative + top/bottom which
+   keeps the caret at the normal baseline. Switching to vertical-align makes
+   the inline baseline actually shift so the caret follows the offset text. */
+.prose-editor sub {
+  vertical-align: sub;
+  font-size: 75%;
+  line-height: 0;
+  position: static;
+}
+
+.prose-editor sup {
+  vertical-align: super;
+  font-size: 75%;
+  line-height: 0;
+  position: static;
 }
 
 /* ── MLA / APA format styles ───────────────────────────────────── */
