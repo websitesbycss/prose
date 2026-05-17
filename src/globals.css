@@ -208,6 +208,41 @@
   @apply float-left h-0 pointer-events-none text-muted-foreground/40;
 }
 
+/* ── Gap cursor (click before/after tables, images, etc.) ─────── */
+
+.prose-editor .ProseMirror-gapcursor {
+  display: none;
+  pointer-events: none;
+  position: absolute;
+}
+
+.prose-editor .ProseMirror-gapcursor::after {
+  content: '';
+  display: block;
+  position: absolute;
+  top: -2px;
+  width: 20px;
+  border-top: 2px solid hsl(var(--foreground));
+  animation: ProseMirror-cursor-blink 1.1s steps(2, start) infinite;
+}
+
+@keyframes ProseMirror-cursor-blink {
+  to { visibility: hidden; }
+}
+
+.prose-editor .ProseMirror-focused .ProseMirror-gapcursor {
+  display: block;
+}
+
+/* Empty trailing paragraph after a table — invisible but still selectable */
+.prose-editor .ProseMirror table + p:not(:focus-within):empty,
+.prose-editor .ProseMirror table + p:not(:focus-within) > br:only-child {
+  height: 0;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+}
+
 /* ── Subscript / superscript ───────────────────────────────────── */
 
 /* Tailwind Preflight resets sub/sup to position:relative + top/bottom which
@@ -249,10 +284,35 @@
   text-indent: 0.5in;
 }
 
+/* User-outdented paragraphs — override the automatic first-line indent */
+.format-mla .ProseMirror p[data-no-indent],
+.format-apa .ProseMirror p[data-no-indent] {
+  text-indent: 0;
+}
+
+/* APA title page — push content toward vertical center of the page */
+.format-apa .ProseMirror > p[data-role='apa-header']:first-child {
+  padding-top: 280px;
+}
+
+/* APA Abstract heading — visual page-break separator in the editor */
+.format-apa .ProseMirror [data-role='abstract-heading'] {
+  margin-top: 1.5em;
+  padding-top: 1em;
+  border-top: 1px dashed hsl(var(--border));
+}
+
+/* APA Abstract body — treat same as apa-header (no first-line indent) */
+.format-apa .ProseMirror [data-role='abstract-body'] {
+  text-indent: 0;
+}
+
 /* Header lines — no first-line indent */
 .format-mla .ProseMirror [data-role='mla-header'],
 .format-mla .ProseMirror [data-role='title'],
-.format-apa .ProseMirror [data-role='apa-header'] {
+.format-apa .ProseMirror [data-role='apa-header'],
+.format-apa .ProseMirror [data-role='abstract-heading'],
+.format-apa .ProseMirror [data-role='abstract-body'] {
   text-indent: 0;
 }
 

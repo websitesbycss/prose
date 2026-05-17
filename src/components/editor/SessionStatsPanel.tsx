@@ -45,7 +45,7 @@ export function SessionStatsPanel({ stats }: Props): JSX.Element {
   // Last 7 days for streak dots
   const last7 = Array.from({ length: 7 }, (_, i) => {
     const d = new Date()
-    d.setDate(d.getDate() - (6 - i))
+    d.setDate(d.getDate() - i)
     return d.toISOString().slice(0, 10)
   })
 
@@ -177,7 +177,7 @@ export function SessionStatsPanel({ stats }: Props): JSX.Element {
             <Flame className="mt-0.5 h-4 w-4 shrink-0 text-orange-400" />
             <div>
               <div className="text-xs font-semibold leading-tight">
-                {streak} day{streak !== 1 ? 's' : ''} streak
+                {streak} day streak
               </div>
               <div className="text-[10px] text-muted-foreground">{streakMsg}</div>
             </div>

@@ -3,10 +3,10 @@ import { useEditorState } from '@tiptap/react'
 import type { Editor } from '@tiptap/react'
 import {
   Bold, Italic, Underline, Strikethrough,
-  AlignLeft, AlignCenter, AlignRight,
+  AlignLeft, AlignCenter, AlignRight, AlignJustify,
   List, ListOrdered, IndentIcon, Outdent,
   Subscript, Superscript,
-  Image, Link2, Table2, Music, BookOpen,
+  Image, Link2, Table2, Music, BookOpen, Hash,
   ChevronDown, Undo2, Redo2, Highlighter, PaintBucket,
 } from 'lucide-react'
 import type { DocumentFormat } from '@/types'
@@ -882,6 +882,7 @@ function ToolbarInner({
       isAlignLeft: ctx.editor.isActive({ textAlign: 'left' }),
       isAlignCenter: ctx.editor.isActive({ textAlign: 'center' }),
       isAlignRight: ctx.editor.isActive({ textAlign: 'right' }),
+      isAlignJustify: ctx.editor.isActive({ textAlign: 'justify' }),
       isBulletList: ctx.editor.isActive('bulletList'),
       isOrderedList: ctx.editor.isActive('orderedList'),
       isSubscript: ctx.editor.isActive('subscript'),
@@ -889,11 +890,13 @@ function ToolbarInner({
       isLink: ctx.editor.isActive('link'),
       canUndo: ctx.editor.can().undo(),
       canRedo: ctx.editor.can().redo(),
-      fontFamily: (
-        ((ctx.editor.getAttributes('textStyle').fontFamily as string | undefined) ?? '')
-          .replace(/^['"]|['"]$/g, '')
-        || 'Calibri'
-      ),
+      fontFamily: (() => {
+        const raw = (ctx.editor.getAttributes('textStyle').fontFamily as string | undefined) ?? ''
+        const clean = raw.replace(/^['"]|['"]$/g, '')
+        if (clean) return clean
+        if (format === 'mla' || format === 'apa') return 'Times New Roman'
+        return 'Calibri'
+      })(),
       fontSize: (ctx.editor.getAttributes('textStyle').fontSize as string | undefined) ?? '12pt',
       paragraphStyle: ctx.editor.isActive('heading', { level: 1 })
         ? 'h1'
@@ -908,6 +911,12 @@ function ToolbarInner({
         (ctx.editor.getAttributes('paragraph').lineHeight as number | null | undefined) ??
         (ctx.editor.getAttributes('heading').lineHeight as number | null | undefined) ??
         null,
+      isInHeaderRole: (() => {
+        const { selection, doc } = ctx.editor.state
+        const $pos = doc.resolve(selection.from)
+        const role = $pos.parent.attrs.role as string | undefined
+        return role === 'mla-header' || role === 'apa-header'
+      })(),
       isInTable: ctx.editor.isActive('tableCell') || ctx.editor.isActive('tableHeader'),
       tableCellBg:
         (ctx.editor.getAttributes('tableCell').backgroundColor as string | null) ??
@@ -1032,6 +1041,12 @@ function ToolbarInner({
         active={s.isAlignRight}
         onClick={() => editor.chain().focus().setTextAlign('right').run()}
       />
+      <ToolbarBtn
+        icon={AlignJustify}
+        title="Justify"
+        active={s.isAlignJustify}
+        onClick={() => editor.chain().focus().setTextAlign('justify').run()}
+      />
 
       <Sep />
 
@@ -1136,6 +1151,13 @@ function ToolbarInner({
         </TooltipTrigger>
         <TooltipContent side="bottom" className="text-xs">Apply APA format</TooltipContent>
       </Tooltip>
+      {s.isInHeaderRole && (
+        <ToolbarBtn
+          icon={Hash}
+          title="Insert page number"
+          onClick={() => editor.chain().focus().insertPageNumber().run()}
+        />
+      )}
 
       <Sep />
 

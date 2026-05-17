@@ -36,11 +36,11 @@ function emptyPara(): JSONContent {
 }
 
 function todayMla(): string {
-  return new Date().toLocaleDateString('en-US', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  })
+  const d = new Date()
+  const day = d.getDate()
+  const month = d.toLocaleDateString('en-US', { month: 'long' })
+  const year = d.getFullYear()
+  return `${day} ${month} ${year}`
 }
 
 export function buildMlaContent(fields: MlaFields, body: JSONContent[]): JSONContent {
@@ -69,10 +69,10 @@ export function buildApaContent(fields: ApaFields, body: JSONContent[]): JSONCon
       para(fields.instructorName, 'apa-header', 'center'),
       para(todayMla(), 'apa-header', 'center'),
       emptyPara(),
-      paraBold('Abstract', 'apa-header'),
+      paraBold('Abstract', 'abstract-heading'),
       para(
         '[Write a 150–250 word summary of your paper here.]',
-        'apa-header'
+        'abstract-body'
       ),
       emptyPara(),
       ...(body.length ? body : [emptyPara()]),
@@ -80,9 +80,11 @@ export function buildApaContent(fields: ApaFields, body: JSONContent[]): JSONCon
   }
 }
 
+const HEADER_ROLES = new Set(['mla-header', 'apa-header', 'abstract-heading', 'abstract-body', 'title'])
+
 export function extractBodyNodes(content: JSONContent): JSONContent[] {
   return (content.content ?? []).filter(
-    (node) => !(node.attrs?.role as string | null)
+    (node) => !HEADER_ROLES.has(node.attrs?.role as string)
   )
 }
 

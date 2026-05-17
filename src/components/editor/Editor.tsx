@@ -12,6 +12,7 @@ import Highlight from '@tiptap/extension-highlight'
 import { Image } from '@tiptap/extension-image'
 import { Link } from '@tiptap/extension-link'
 import { Table } from '@tiptap/extension-table'
+import { CellSelection } from '@tiptap/pm/tables'
 import {
   CustomTableRow,
   CustomTableHeader,
@@ -25,13 +26,13 @@ import { motion, AnimatePresence } from 'motion/react'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { FontSize } from '@/extensions/fontSize'
 import { Indent } from '@/extensions/indent'
+import { RunningHead } from '@/extensions/runningHead'
+import { PageNumberNode } from '@/extensions/pageNumber'
 import { LineHeight } from '@/extensions/lineHeight'
 import { ExitMarkOnArrowRight } from '@/extensions/exitMarkOnArrowRight'
 import { ParagraphRole } from '@/extensions/paragraphRole'
-import { PageBreakNode } from '@/extensions/PageBreakNode'
 import { useDocument } from '@/hooks/useDocument'
 import { useWordCount } from '@/hooks/useWordCount'
-import { usePageBreaks } from '@/hooks/usePageBreaks'
 import { usePomodoro } from '@/hooks/usePomodoro'
 import { useSessionStats } from '@/hooks/useSessionStats'
 import { useMusic, AMBIENT_LAYERS } from '@/hooks/useMusic'
@@ -130,14 +131,50 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
       CustomTableCell,
       TableCellAttributes,
       Indent,
+      RunningHead,
+      PageNumberNode,
       LineHeight,
       ExitMarkOnArrowRight,
       ParagraphRole,
-      PageBreakNode,
       Placeholder.configure({ placeholder: 'Start writing…' }),
     ],
     content: '',
     onUpdate: ({ editor: e }) => onEditorUpdate(e),
+    editorProps: {
+      handleScrollToSelection: (view) => {
+        const scrollEl = editorScrollRef.current
+        if (!scrollEl) return false
+
+        const { selection } = view.state
+
+        // During a CellSelection drag the head cell changes on every mousemove,
+        // so coords derived from `selection.from` jump around causing jitter.
+        // Always measure from the stable anchor cell instead.
+        const stablePos =
+          selection instanceof CellSelection ? selection.$anchorCell.pos : selection.from
+
+        let coords: { top: number; bottom: number }
+        try {
+          coords = view.coordsAtPos(stablePos)
+        } catch {
+          return false
+        }
+
+        const box = scrollEl.getBoundingClientRect()
+        const TOP_CLEARANCE = 80  // px below toolbar before we scroll up
+        const BOT_CLEARANCE = 20  // px above bottom edge before we scroll down
+
+        if (coords.top < box.top + TOP_CLEARANCE) {
+          // Cursor is above the visible area — scroll up minimally
+          scrollEl.scrollTop += coords.top - (box.top + TOP_CLEARANCE)
+        } else if (coords.bottom > box.bottom - BOT_CLEARANCE) {
+          // Cursor is below the visible area — scroll down minimally
+          scrollEl.scrollTop += coords.bottom - (box.bottom - BOT_CLEARANCE)
+        }
+        // Always return true to suppress ProseMirror's default center-scroll
+        return true
+      },
+    },
   })
 
   useEffect(() => {
@@ -217,7 +254,6 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
     settings.wordCountExcludesHeader && (document?.format === 'mla' || document?.format === 'apa')
   )
 
-  usePageBreaks(editor)
   useRowResize(editor)
 
   const sessionStats = useSessionStats(wordCount)
@@ -431,7 +467,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
           >
             <div className={cn('mx-auto my-8 w-[816px] self-start', focusModeActive && 'my-16')}>
               <div className={cn('editor-page relative min-h-[1056px] bg-white dark:bg-zinc-800 px-24 py-24', formatClass)}>
-                <PageHeader format={format} content={currentJson} fontFamily={editorFontFamily} />
+                <PageHeader format={format} content={currentJson} fontFamily={editorFontFamily} editor={editor} />
                 <EditorContent
                   editor={editor}
                   className="prose-editor min-h-full outline-none"

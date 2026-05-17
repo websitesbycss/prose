@@ -14,6 +14,7 @@ interface MenuCtx {
   isOnLink: boolean
   linkHref: string | null
   isInTable: boolean
+  isInHeaderRole: boolean
   canUndo: boolean
   canRedo: boolean
 }
@@ -65,6 +66,10 @@ export function EditorContextMenu({ editor }: EditorContextMenuProps): JSX.Eleme
       const canUndo = editor!.can().undo()
       const canRedo = editor!.can().redo()
 
+      const $pos = state.doc.resolve(state.selection.from)
+      const role = $pos.parent.attrs.role as string | undefined
+      const isInHeaderRole = role === 'mla-header' || role === 'apa-header'
+
       setCtx({
         x: e.clientX,
         y: e.clientY,
@@ -75,6 +80,7 @@ export function EditorContextMenu({ editor }: EditorContextMenuProps): JSX.Eleme
         isOnLink,
         linkHref,
         isInTable,
+        isInHeaderRole,
         canUndo,
         canRedo,
       })
@@ -211,6 +217,13 @@ export function EditorContextMenu({ editor }: EditorContextMenuProps): JSX.Eleme
         })
       },
     })
+    if (ctx.isInHeaderRole) {
+      items.push({
+        type: 'btn',
+        label: 'Insert page number',
+        onClick: () => run(() => editor.chain().focus().insertPageNumber().run()),
+      })
+    }
 
     if (ctx.hasSelection) {
       items.push({ type: 'sep' })

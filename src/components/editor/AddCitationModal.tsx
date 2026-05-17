@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
@@ -7,6 +7,10 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import {
+  Tooltip, TooltipContent, TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { formatAll } from '@/lib/citations'
 import type { Citation, CitationFields } from '@/types'
 import { Loader2 } from 'lucide-react'
@@ -69,6 +73,18 @@ export default function AddCitationModal({
   const [urlLoading, setUrlLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isOnline, setIsOnline] = useState(navigator.onLine)
+
+  useEffect(() => {
+    const onOnline = (): void => setIsOnline(true)
+    const onOffline = (): void => setIsOnline(false)
+    window.addEventListener('online', onOnline)
+    window.addEventListener('offline', onOffline)
+    return () => {
+      window.removeEventListener('online', onOnline)
+      window.removeEventListener('offline', onOffline)
+    }
+  }, [])
 
   const setField = useCallback((key: keyof CitationFields, val: string) => {
     setFields((prev) => ({ ...prev, [key]: val || undefined }))
@@ -137,6 +153,7 @@ export default function AddCitationModal({
   const visibleFieldKeys = VISIBLE_FIELDS[type]
 
   return (
+    <TooltipProvider>
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
       <DialogContent className="flex max-h-[90vh] w-[580px] max-w-[95vw] flex-col gap-0 p-0">
         <DialogHeader className="shrink-0 border-b border-border px-5 py-4">
@@ -177,15 +194,26 @@ export default function AddCitationModal({
                   onChange={(e) => setDoiInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && void lookupDoi()}
                 />
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="h-7 shrink-0 px-3 text-xs"
-                  disabled={!doiInput.trim() || doiLoading}
-                  onClick={() => void lookupDoi()}
-                >
-                  {doiLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Look up'}
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-7 shrink-0 px-3 text-xs"
+                        disabled={!doiInput.trim() || doiLoading || !isOnline}
+                        onClick={() => void lookupDoi()}
+                      >
+                        {doiLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Look up'}
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  {!isOnline && (
+                    <TooltipContent side="top">
+                      <p className="text-xs">Internet connection required</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
               </div>
               <div className="flex gap-2">
                 <Input
@@ -195,15 +223,26 @@ export default function AddCitationModal({
                   onChange={(e) => setUrlInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && void autofillUrl()}
                 />
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="h-7 shrink-0 px-3 text-xs"
-                  disabled={!urlInput.trim() || urlLoading}
-                  onClick={() => void autofillUrl()}
-                >
-                  {urlLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Auto-fill'}
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-7 shrink-0 px-3 text-xs"
+                        disabled={!urlInput.trim() || urlLoading || !isOnline}
+                        onClick={() => void autofillUrl()}
+                      >
+                        {urlLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Auto-fill'}
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  {!isOnline && (
+                    <TooltipContent side="top">
+                      <p className="text-xs">Internet connection required</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
               </div>
             </div>
 
@@ -257,5 +296,6 @@ export default function AddCitationModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    </TooltipProvider>
   )
 }

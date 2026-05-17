@@ -1,8 +1,14 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion } from 'motion/react'
 import { Pencil, Download, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import { formatRelativeTime, extractWordCount } from '@/lib/utils'
 import type { Document, Category } from '@/types'
 
@@ -112,15 +118,7 @@ export default function DocumentCard({
         >
           <Pencil className="h-3.5 w-3.5" />
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 opacity-50 cursor-not-allowed"
-          title="Export"
-          disabled
-        >
-          <Download className="h-3.5 w-3.5" />
-        </Button>
+        <ExportMenu documentId={document.id} />
         <Button
           variant="ghost"
           size="icon"
@@ -132,5 +130,51 @@ export default function DocumentCard({
         </Button>
       </div>
     </motion.div>
+  )
+}
+
+function ExportMenu({ documentId }: { documentId: string }): JSX.Element {
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  async function run(fn: () => Promise<void>, label: string): Promise<void> {
+    setBusy(true)
+    setOpen(false)
+    try {
+      await fn()
+      toast.success(`Exported as ${label}`)
+    } catch {
+      toast.error('Export failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const formats: Array<{ label: string; fn: () => Promise<void> }> = [
+    { label: 'Word (.docx)', fn: () => window.prose.export.toDocx(documentId) },
+    { label: 'PDF',          fn: () => window.prose.export.toPdf(documentId) },
+    { label: 'Markdown',     fn: () => window.prose.export.toMarkdown(documentId) },
+    { label: 'Plain text',   fn: () => window.prose.export.toPlainText(documentId) },
+  ]
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-7 w-7" title="Export" disabled={busy}>
+          <Download className="h-3.5 w-3.5" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-40 p-1" side="bottom" align="end">
+        {formats.map(({ label, fn }) => (
+          <button
+            key={label}
+            className="w-full rounded px-3 py-1.5 text-left text-xs transition-colors hover:bg-accent"
+            onClick={() => void run(fn, label)}
+          >
+            {label}
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
   )
 }

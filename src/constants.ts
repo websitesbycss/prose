@@ -11,6 +11,6 @@ export const EDITOR_DEFAULT_FONT_FAMILY = 'Times New Roman' as const
 export const EDITOR_DEFAULT_FONT_SIZE = 12 as const
 export const SIDEBAR_COLLAPSED_WIDTH = 42 as const
 export const SIDEBAR_EXPANDED_WIDTH = 220 as const
-export const AI_PANEL_WIDTH = 220 as const
+export const AI_PANEL_WIDTH = 280 as const
 export const MIN_WINDOW_WIDTH = 960 as const
 export const MIN_WINDOW_HEIGHT = 600 as const

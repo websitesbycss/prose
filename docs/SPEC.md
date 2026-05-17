@@ -771,13 +771,15 @@ Build in this exact order. Do not skip ahead. Each phase should be fully working
 - Auto-updater setup via GitHub releases
 - README with install instructions, feature list, and screenshot
 
-## To-Do List (delete after everything is done)
-- Work on export: pdf makes double the left and top margins, microsoft word cannot open .docx, importing .docx to google drive removes lists and shrinks tables and doesnt have images
-- add justified text align option
-- if you keep extending a list and adding more things to it, it expands the current page and keeps making the page break go lower and lower instead of moving on to another page when necessary
-- custom app icon 
-- make export from dashboard work because right now it is greyed out
-- make the default right sidebar (ai assistant/citations) width show the full 'ask anything about your document...' text
+## TODO (to be deleted once everything is complete)
+- Make "insert works cited" actually work for both APA and MLA formatting because right now it's just an empty button
+- Is the auto fill url/look up DOI feature online-only? If so, when the user is not connected to the internet, make both Look Up and Auto-fill buttons be greyed out and the tooltip should say something along the lines of Internet connection is required. If not, disregard.
+- Make the add citation modal scrollable, because some of the fields for entering infromation are getting cut off at the bottom.
+- Make the header with last name and page number be editable because right now it is just fixed there
+- Let the user insert a header on a non-formatted (not apa or mla) document if they want to by double clicking at the top of the page. This should cause everything below it to shift down accordingly so the header is at the top of the page but at proper margin. Do the same for a footer but opposite behavior (double clicking at bottom of page) but I guess yu dont need to shift everything up only add additional space at bottom as needed.
+- Upon export, the default paragraph indents (mla/apa) are not shown, even though they are shown in the editor. Fix this.
+- Upon export, the header from mla/apa template is not being shown in the result. Fix this and make it show on every page like a header should. Also figure out a way to make the page number increase accordingly as the pages increase in the export result.
+- Since the page number will need to be more of a special feature, we should add a tool in the toolbar for page number "Insert page number" that only shows up when you are in the header or footer, and also put the same tool in the right click menu when you right click inside of a header or a footer. And then you can conditionally take that upon export to increase it as the pages increase in the export, so this feature is not just constricted to pages with mla/apa format. The tool can live in the toolbar after "APA" button in the same section as mla/apa, and below paste in the right click menu.
 
 ## README structure (to be written last)
 

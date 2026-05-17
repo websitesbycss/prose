@@ -1,4 +1,4 @@
-import { dialog, BrowserWindow, app } from 'electron'
+import { dialog, BrowserWindow } from 'electron'
 import { writeFile } from 'fs/promises'
 import { join } from 'path'
 import { tmpdir } from 'os'
@@ -8,23 +8,27 @@ import {
   Packer,
   Paragraph,
   TextRun,
+  ImageRun,
   HeadingLevel,
   AlignmentType,
   UnderlineType,
+  LevelFormat,
   Table as DocxTable,
   TableRow as DocxTableRow,
   TableCell as DocxTableCell,
   WidthType,
   BorderStyle,
+  Header,
+  PageNumber,
 } from 'docx'
 import type { JSONContent } from '@tiptap/core'
 import type Database from 'better-sqlite3'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-function fetchDocument(db: Database.Database, id: string): { content: string; title: string } | null {
-  const row = db.prepare('SELECT title, content FROM documents WHERE id = ?').get(id) as
-    | { title: string; content: string }
+function fetchDocument(db: Database.Database, id: string): { content: string; title: string; format: string } | null {
+  const row = db.prepare('SELECT title, content, format FROM documents WHERE id = ?').get(id) as
+    | { title: string; content: string; format: string }
     | undefined
   return row ?? null
 }
@@ -35,6 +39,25 @@ function parseContent(raw: string): JSONContent {
   } catch {
     return { type: 'doc', content: [] }
   }
+}
+
+function extractRunningHead(doc: JSONContent, format: string): string | null {
+  const override = doc.attrs?.runningHead as string | null | undefined
+  if (override) return override
+  const nodes = doc.content ?? []
+  if (format === 'mla') {
+    const headerNode = nodes.find((n) => n.attrs?.role === 'mla-header')
+    const name = (headerNode?.content?.[0] as JSONContent | undefined)?.text ?? ''
+    if (!name.trim()) return null
+    const parts = name.trim().split(/\s+/)
+    return parts[parts.length - 1] ?? null
+  }
+  if (format === 'apa') {
+    const headerNode = nodes.find((n) => n.attrs?.role === 'apa-header')
+    const title = (headerNode?.content?.[0] as JSONContent | undefined)?.text ?? ''
+    return title ? title.toUpperCase().slice(0, 50) : 'RUNNING HEAD'
+  }
+  return null
 }
 
 function inlineText(node: JSONContent): string {
@@ -177,6 +200,12 @@ export async function exportToMarkdown(db: Database.Database, id: string): Promi
 
 // ── PDF via hidden BrowserWindow ──────────────────────────────────────────────
 
+const BIBLIOGRAPHY_HEADINGS = /^(works cited|references|bibliography|works consulted|reference list|sources)$/i
+
+function isBibliographyHeading(node: JSONContent): boolean {
+  return BIBLIOGRAPHY_HEADINGS.test(inlineText(node).trim())
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -213,68 +242,126 @@ function inlineToHtml(node: JSONContent): string {
   return (node.content ?? []).map(inlineToHtml).join('')
 }
 
-function nodeToHtml(node: JSONContent): string {
+function nodeToHtml(node: JSONContent, format = 'none'): string {
   const align = (node.attrs?.textAlign as string) ?? ''
-  const alignStyle = align && align !== 'left' ? ` style="text-align:${align}"` : ''
+  const alignStyle = align && align !== 'left' ? `text-align:${align}` : ''
+  const isFormatted = format === 'mla' || format === 'apa'
+
   switch (node.type) {
-    case 'doc':
-      return (node.content ?? []).map(nodeToHtml).join('')
-    case 'paragraph':
-      return `<p${alignStyle}>${(node.content ?? []).map(inlineToHtml).join('') || '&nbsp;'}</p>`
+    case 'doc': {
+      if (format === 'apa') {
+        const nodes = node.content ?? []
+        const apaHeaderNodes: JSONContent[] = []
+        let inHeaders = true
+        let splitIdx = 0
+        for (let i = 0; i < nodes.length; i++) {
+          if (inHeaders && nodes[i]!.attrs?.role === 'apa-header') {
+            apaHeaderNodes.push(nodes[i]!)
+            splitIdx = i + 1
+          } else {
+            inHeaders = false
+          }
+        }
+        const rest = nodes.slice(splitIdx)
+        const headerHtml = apaHeaderNodes.map((n) => nodeToHtml(n, format)).join('')
+        const restHtml = rest.map((n) => nodeToHtml(n, format)).join('')
+        const titlePage = `<div style="min-height:9in;display:flex;flex-direction:column;align-items:center;justify-content:center;">${headerHtml}</div>`
+        return titlePage + restHtml
+      }
+      return (node.content ?? []).map((n) => nodeToHtml(n, format)).join('')
+    }
+    case 'paragraph': {
+      const role = node.attrs?.role as string | undefined
+      const noIndent = node.attrs?.noIndent as boolean | undefined
+      const hasRole = !!role
+      const firstLine =
+        isFormatted && !hasRole && !noIndent ? 'text-indent:0.5in' : ''
+      const pageBreak = role === 'abstract-heading' ? 'page-break-before:always' : ''
+      const styles = [alignStyle, firstLine, pageBreak].filter(Boolean).join(';')
+      const styleAttr = styles ? ` style="${styles}"` : ''
+      return `<p${styleAttr}>${(node.content ?? []).map(inlineToHtml).join('') || '&nbsp;'}</p>`
+    }
     case 'heading': {
       const level = (node.attrs?.level as number) ?? 1
-      return `<h${level}${alignStyle}>${(node.content ?? []).map(inlineToHtml).join('')}</h${level}>`
+      const headingStyles = [
+        alignStyle,
+        isBibliographyHeading(node) ? 'page-break-before:always' : '',
+      ].filter(Boolean).join(';')
+      const styleAttr = headingStyles ? ` style="${headingStyles}"` : ''
+      return `<h${level}${styleAttr}>${(node.content ?? []).map(inlineToHtml).join('')}</h${level}>`
     }
     case 'bulletList':
-      return `<ul>${(node.content ?? []).map(nodeToHtml).join('')}</ul>`
+      return `<ul>${(node.content ?? []).map((n) => nodeToHtml(n, format)).join('')}</ul>`
     case 'orderedList':
-      return `<ol>${(node.content ?? []).map(nodeToHtml).join('')}</ol>`
+      return `<ol>${(node.content ?? []).map((n) => nodeToHtml(n, format)).join('')}</ol>`
     case 'listItem':
-      return `<li>${(node.content ?? []).map(nodeToHtml).join('')}</li>`
+      return `<li>${(node.content ?? []).map((n) => nodeToHtml(n, format)).join('')}</li>`
     case 'blockquote':
-      return `<blockquote>${(node.content ?? []).map(nodeToHtml).join('')}</blockquote>`
+      return `<blockquote>${(node.content ?? []).map((n) => nodeToHtml(n, format)).join('')}</blockquote>`
     case 'horizontalRule':
       return '<hr>'
     case 'codeBlock':
       return `<pre><code>${escapeHtml(inlineText(node))}</code></pre>`
+    case 'pageNumber':
+      return '<span class="pn"></span>'
     case 'image': {
       const src = escapeHtml((node.attrs?.src as string) ?? '')
       const alt = escapeHtml((node.attrs?.alt as string) ?? '')
       return `<img src="${src}" alt="${alt}" style="max-width:100%">`
     }
     case 'table':
-      return `<table border="1" style="border-collapse:collapse;width:100%">${(node.content ?? []).map(nodeToHtml).join('')}</table>`
+      return `<table border="1" style="border-collapse:collapse;width:100%">${(node.content ?? []).map((n) => nodeToHtml(n, format)).join('')}</table>`
     case 'tableRow':
-      return `<tr>${(node.content ?? []).map(nodeToHtml).join('')}</tr>`
+      return `<tr>${(node.content ?? []).map((n) => nodeToHtml(n, format)).join('')}</tr>`
     case 'tableHeader':
-      return `<th style="padding:4px 8px">${(node.content ?? []).map(nodeToHtml).join('')}</th>`
+      return `<th style="padding:4px 8px">${(node.content ?? []).map((n) => nodeToHtml(n, format)).join('')}</th>`
     case 'tableCell':
-      return `<td style="padding:4px 8px">${(node.content ?? []).map(nodeToHtml).join('')}</td>`
+      return `<td style="padding:4px 8px">${(node.content ?? []).map((n) => nodeToHtml(n, format)).join('')}</td>`
     default:
-      return (node.content ?? []).map(nodeToHtml).join('')
+      return (node.content ?? []).map((n) => nodeToHtml(n, format)).join('')
   }
 }
 
-function buildHtmlPage(title: string, body: string): string {
+function buildHtmlPage(
+  title: string,
+  body: string,
+  format = 'none',
+  runningHead: string | null = null,
+): string {
+  const pageNumSpan = '<span style="font-variant-numeric:normal" class="pn"></span>'
+
+  let headerHtml = ''
+  if (runningHead && (format === 'mla' || format === 'apa')) {
+    const hStyle = 'position:fixed;top:0.5in;font-family:"Times New Roman",serif;font-size:12pt;line-height:1;'
+    if (format === 'mla') {
+      headerHtml = `<div style="${hStyle}right:1in;">${escapeHtml(runningHead)} ${pageNumSpan}</div>`
+    } else {
+      headerHtml = `<div style="${hStyle}left:1in;right:1in;display:flex;justify-content:space-between;"><span style="text-transform:uppercase">${escapeHtml(runningHead)}</span>${pageNumSpan}</div>`
+    }
+  }
+
   return `<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>${escapeHtml(title)}</title>
 <style>
-  body { font-family: 'Times New Roman', serif; font-size: 12pt; margin: 1in; line-height: 2; color: #000; }
+  @page { margin: 1in; }
+  body { font-family: 'Times New Roman', serif; font-size: 12pt; margin: 0; line-height: 2; color: #000; }
+  .pn::before { content: counter(page); }
   h1 { font-size: 14pt; } h2 { font-size: 13pt; } h3 { font-size: 12pt; }
-  p { margin: 0 0 0.5em; } ul, ol { margin: 0.5em 0; padding-left: 2em; }
+  p { margin: 0; } ul, ol { margin: 0.5em 0; padding-left: 2em; }
   blockquote { margin: 0.5em 2em; } pre { background: #f5f5f5; padding: 0.5em; }
   table { width: 100%; border-collapse: collapse; margin: 0.5em 0; }
   th, td { border: 1px solid #000; padding: 4px 8px; }
   img { max-width: 100%; }
 </style>
-</head><body>${body}</body></html>`
+</head><body>${headerHtml}${body}</body></html>`
 }
 
 export async function exportToPdf(db: Database.Database, id: string): Promise<void> {
   const row = fetchDocument(db, id)
   if (!row) throw new Error('Document not found')
   const doc = parseContent(row.content)
-  const html = buildHtmlPage(row.title, nodeToHtml(doc))
+  const runningHead = extractRunningHead(doc, row.format)
+  const html = buildHtmlPage(row.title, nodeToHtml(doc, row.format), row.format, runningHead)
 
   const { filePath } = await dialog.showSaveDialog({
     title: 'Export as PDF',
@@ -290,7 +377,7 @@ export async function exportToPdf(db: Database.Database, id: string): Promise<vo
   const win = new BrowserWindow({ show: false, webPreferences: { sandbox: true } })
   await win.loadFile(tmpHtml)
   const pdfBuffer = await win.webContents.printToPDF({
-    margins: { marginType: 'custom', top: 1, bottom: 1, left: 1, right: 1 },
+    margins: { marginType: 'none' },
     pageSize: 'Letter',
     printBackground: false,
   })
@@ -304,6 +391,17 @@ export async function exportToPdf(db: Database.Database, id: string): Promise<vo
 // ── DOCX ──────────────────────────────────────────────────────────────────────
 
 type DocxChild = Paragraph | DocxTable
+
+interface NumberingDef {
+  reference: string
+  levels: Array<{
+    level: number
+    format: LevelFormat
+    text: string
+    alignment: typeof AlignmentType[keyof typeof AlignmentType]
+    style: { paragraph: { indent: { left: number; hanging: number } } }
+  }>
+}
 
 function marksToRun(text: string, marks: JSONContent['marks']): TextRun {
   const opts: ConstructorParameters<typeof TextRun>[0] = { text }
@@ -324,31 +422,72 @@ function marksToRun(text: string, marks: JSONContent['marks']): TextRun {
 function inlineToRuns(node: JSONContent): TextRun[] {
   if (node.type === 'text') return [marksToRun(node.text ?? '', node.marks)]
   if (node.type === 'hardBreak') return [new TextRun({ break: 1 })]
+  if (node.type === 'pageNumber') return [new TextRun({ children: [PageNumber.CURRENT] })]
   return (node.content ?? []).flatMap(inlineToRuns)
 }
 
-function alignToDocx(align: string | undefined): (typeof AlignmentType)[keyof typeof AlignmentType] {
+function alignToDocx(align: string | undefined): typeof AlignmentType[keyof typeof AlignmentType] {
   if (align === 'center') return AlignmentType.CENTER
   if (align === 'right') return AlignmentType.RIGHT
   if (align === 'justify') return AlignmentType.JUSTIFIED
   return AlignmentType.LEFT
 }
 
-function nodeToParagraphs(node: JSONContent, numId?: number, level = 0): DocxChild[] {
+// Content width for a letter page with 1in margins on each side: 6.5in × 1440 twips/in
+const CONTENT_WIDTH_TWIPS = 9360
+
+// Max image width in pixels (6.5in × 96dpi). Height is derived to preserve aspect ratio.
+const MAX_IMG_WIDTH_PX = 624
+
+function getImageDimensions(data: Buffer, type: string): { width: number; height: number } | null {
+  try {
+    if (type === 'png') {
+      return { width: data.readUInt32BE(16), height: data.readUInt32BE(20) }
+    }
+    if (type === 'jpg' || type === 'jpeg') {
+      let i = 2
+      while (i < data.length - 8) {
+        if (data[i] !== 0xFF) break
+        const marker = data[i + 1]!
+        if (marker >= 0xC0 && marker <= 0xC3) {
+          return { height: data.readUInt16BE(i + 5), width: data.readUInt16BE(i + 7) }
+        }
+        if (marker === 0xD9) break
+        i += 2 + data.readUInt16BE(i + 2)
+      }
+    }
+  } catch { /* ignore */ }
+  return null
+}
+
+function nodeToParagraphs(
+  node: JSONContent,
+  reg: NumberingDef[],
+  format = 'none',
+  numRef?: string,
+  level = 0,
+): DocxChild[] {
   const align = node.attrs?.textAlign as string | undefined
+  const isFormatted = format === 'mla' || format === 'apa'
+
   switch (node.type) {
     case 'paragraph': {
+      const role = node.attrs?.role as string | undefined
+      const noIndent = node.attrs?.noIndent as boolean | undefined
+      const applyFirstLine = isFormatted && !role && !noIndent && numRef === undefined
       const runs = (node.content ?? []).flatMap(inlineToRuns)
-      const p = new Paragraph({
-        children: runs.length ? runs : [new TextRun('')],
-        alignment: alignToDocx(align),
-        spacing: { line: 480, after: 0 },
-        ...(numId !== undefined
-          ? { numbering: { reference: `list-${numId}`, level } }
-          : {}),
-      })
-      return [p]
+      return [
+        new Paragraph({
+          children: runs.length ? runs : [new TextRun('')],
+          alignment: alignToDocx(align),
+          spacing: { line: 480, after: 0 },
+          ...(applyFirstLine ? { indent: { firstLine: 720 } } : {}),
+          ...(numRef !== undefined ? { numbering: { reference: numRef, level } } : {}),
+          ...(role === 'abstract-heading' ? { pageBreakBefore: true } : {}),
+        }),
+      ]
     }
+
     case 'heading': {
       const lvl = (node.attrs?.level as number) ?? 1
       const headingMap: Record<number, HeadingLevel> = {
@@ -361,47 +500,90 @@ function nodeToParagraphs(node: JSONContent, numId?: number, level = 0): DocxChi
           children: (node.content ?? []).flatMap(inlineToRuns),
           heading: headingMap[lvl] ?? HeadingLevel.HEADING_1,
           alignment: alignToDocx(align),
+          pageBreakBefore: isBibliographyHeading(node),
         }),
       ]
     }
+
     case 'bulletList': {
-      const id = Math.floor(Math.random() * 900000) + 100000
-      return (node.content ?? []).flatMap((item) =>
-        (item.content ?? []).flatMap((child) => nodeToParagraphs(child, id, level))
-      )
-    }
-    case 'orderedList': {
-      const id = Math.floor(Math.random() * 900000) + 100000
-      return (node.content ?? []).flatMap((item) =>
-        (item.content ?? []).flatMap((child) => nodeToParagraphs(child, id + 1, level))
-      )
-    }
-    case 'blockquote':
-      return (node.content ?? []).flatMap((n) => {
-        const children = nodeToParagraphs(n)
-        return children.map((child) => {
-          if (child instanceof Paragraph) {
-            return new Paragraph({
-              children: (child as unknown as { options: { children: TextRun[] } }).options.children,
-              indent: { left: 720 },
-              spacing: { line: 480, after: 0 },
-            })
-          }
-          return child
-        })
+      const ref = `bullet-${randomUUID()}`
+      reg.push({
+        reference: ref,
+        levels: [
+          { level: 0, format: LevelFormat.BULLET, text: '•', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 720, hanging: 360 } } } },
+          { level: 1, format: LevelFormat.BULLET, text: '◦', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 1440, hanging: 360 } } } },
+          { level: 2, format: LevelFormat.BULLET, text: '▪', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 2160, hanging: 360 } } } },
+        ],
       })
+      return (node.content ?? []).flatMap((item) =>
+        (item.content ?? []).flatMap((child) => nodeToParagraphs(child, reg, format, ref, level))
+      )
+    }
+
+    case 'orderedList': {
+      const ref = `ordered-${randomUUID()}`
+      reg.push({
+        reference: ref,
+        levels: [
+          { level: 0, format: LevelFormat.DECIMAL, text: '%1.', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 720, hanging: 360 } } } },
+          { level: 1, format: LevelFormat.LOWER_LETTER, text: '%2.', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 1440, hanging: 360 } } } },
+          { level: 2, format: LevelFormat.LOWER_ROMAN, text: '%3.', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 2160, hanging: 360 } } } },
+        ],
+      })
+      return (node.content ?? []).flatMap((item) =>
+        (item.content ?? []).flatMap((child) => nodeToParagraphs(child, reg, format, ref, level))
+      )
+    }
+
+    case 'blockquote':
+      return (node.content ?? []).flatMap((n) => [
+        new Paragraph({
+          children: (n.content ?? []).flatMap(inlineToRuns),
+          indent: { left: 720 },
+          spacing: { line: 480, after: 0 },
+          alignment: alignToDocx(n.attrs?.textAlign as string | undefined),
+        }),
+      ])
+
     case 'horizontalRule':
       return [new Paragraph({ children: [new TextRun('─'.repeat(40))], spacing: { after: 0 } })]
+
     case 'codeBlock':
       return [new Paragraph({ children: [new TextRun({ text: inlineText(node), font: 'Courier New' })], spacing: { after: 0 } })]
+
+    case 'image': {
+      const src = (node.attrs?.src as string) ?? ''
+      const match = src.match(/^data:image\/(\w+);base64,(.+)$/)
+      if (!match) return []
+      const imgType = (match[1] ?? 'png') as 'png' | 'jpg' | 'jpeg' | 'gif' | 'bmp' | 'svg' | 'webp'
+      const imgData = Buffer.from(match[2]!, 'base64')
+      const dims = getImageDimensions(imgData, imgType)
+      const naturalW = dims?.width ?? MAX_IMG_WIDTH_PX
+      const naturalH = dims?.height ?? Math.round(MAX_IMG_WIDTH_PX * 0.75)
+      const scale = naturalW > MAX_IMG_WIDTH_PX ? MAX_IMG_WIDTH_PX / naturalW : 1
+      const width = Math.round(naturalW * scale)
+      const height = Math.round(naturalH * scale)
+      return [
+        new Paragraph({
+          children: [
+            new ImageRun({ data: imgData, transformation: { width, height }, type: imgType }),
+          ],
+          spacing: { after: 0 },
+        }),
+      ]
+    }
+
     case 'table': {
+      const firstRow = node.content?.[0]
+      const colCount = firstRow?.content?.length ?? 1
+      const cellWidth = Math.floor(CONTENT_WIDTH_TWIPS / colCount)
       const rows = (node.content ?? []).map((row) =>
         new DocxTableRow({
           children: (row.content ?? []).map(
             (cell) =>
               new DocxTableCell({
-                children: (cell.content ?? []).flatMap((n) => nodeToParagraphs(n)) as Paragraph[],
-                width: { size: 2000, type: WidthType.DXA },
+                children: (cell.content ?? []).flatMap((n) => nodeToParagraphs(n, reg, format)) as Paragraph[],
+                width: { size: cellWidth, type: WidthType.DXA },
                 borders: {
                   top: { style: BorderStyle.SINGLE, size: 1 },
                   bottom: { style: BorderStyle.SINGLE, size: 1 },
@@ -412,13 +594,45 @@ function nodeToParagraphs(node: JSONContent, numId?: number, level = 0): DocxChi
           ),
         })
       )
-      return [new DocxTable({ rows, width: { size: 100, type: WidthType.PERCENTAGE } })]
+      return [new DocxTable({ rows, width: { size: CONTENT_WIDTH_TWIPS, type: WidthType.DXA } })]
     }
+
     case 'doc':
-      return (node.content ?? []).flatMap((n) => nodeToParagraphs(n))
+      return (node.content ?? []).flatMap((n) => nodeToParagraphs(n, reg, format))
+
     default:
       return []
   }
+}
+
+function buildDocxHeader(runningHead: string | null, format: string): Header | undefined {
+  if (!runningHead || (format !== 'mla' && format !== 'apa')) return undefined
+  if (format === 'mla') {
+    return new Header({
+      children: [
+        new Paragraph({
+          children: [
+            new TextRun({ text: `${runningHead} ` }),
+            new TextRun({ children: [PageNumber.CURRENT] }),
+          ],
+          alignment: AlignmentType.RIGHT,
+        }),
+      ],
+    })
+  }
+  // APA: short title left, page number right (two-column approach via tab stop)
+  return new Header({
+    children: [
+      new Paragraph({
+        children: [
+          new TextRun({ text: runningHead.toUpperCase() }),
+          new TextRun({ children: [PageNumber.CURRENT] }),
+        ],
+        alignment: AlignmentType.RIGHT,
+        tabStops: [{ type: 'left', position: 0 }],
+      }),
+    ],
+  })
 }
 
 export async function exportToDocx(db: Database.Database, id: string): Promise<void> {
@@ -426,24 +640,26 @@ export async function exportToDocx(db: Database.Database, id: string): Promise<v
   if (!row) throw new Error('Document not found')
   const doc = parseContent(row.content)
 
-  const children = nodeToParagraphs(doc)
+  const runningHead = extractRunningHead(doc, row.format)
+  const docxHeader = buildDocxHeader(runningHead, row.format)
+
+  const numberingDefs: NumberingDef[] = []
+  const children = nodeToParagraphs(doc, numberingDefs, row.format)
 
   const docxDoc = new DocxDocument({
+    ...(numberingDefs.length > 0 ? { numbering: { config: numberingDefs } } : {}),
     sections: [
       {
         properties: {
-          page: {
-            margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
-          },
+          page: { margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } },
         },
-        children: children as Paragraph[],
+        ...(docxHeader ? { headers: { default: docxHeader } } : {}),
+        children: children as (Paragraph | DocxTable)[],
       },
     ],
     styles: {
       default: {
-        document: {
-          run: { font: 'Times New Roman', size: 24 },
-        },
+        document: { run: { font: 'Times New Roman', size: 24 } },
       },
     },
   })

@@ -3,6 +3,7 @@ import { TableCell } from '@tiptap/extension-table-cell'
 import { TableHeader } from '@tiptap/extension-table-header'
 import { TableRow } from '@tiptap/extension-table-row'
 import type { Node as PmNode } from '@tiptap/pm/model'
+import { CellSelection } from '@tiptap/pm/tables'
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -85,10 +86,25 @@ export const TableCellAttributes = Extension.create({
       setCellAttribute:
         (attr: string, value: unknown) =>
         ({ state, dispatch }) => {
+          const { selection } = state
+
+          // Multi-cell selection: apply to every selected cell in one transaction
+          if (selection instanceof CellSelection) {
+            if (dispatch) {
+              const tr = state.tr
+              selection.forEachCell((node, pos) => {
+                tr.setNodeMarkup(pos, undefined, { ...node.attrs, [attr]: value })
+              })
+              dispatch(tr)
+            }
+            return true
+          }
+
+          // Single cell: find the cell containing the cursor
           const cell = findParentNode(
             (node: PmNode) =>
               node.type.name === 'tableCell' || node.type.name === 'tableHeader'
-          )(state.selection)
+          )(selection)
 
           if (!cell) return false
 
