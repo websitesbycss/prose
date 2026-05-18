@@ -9,7 +9,7 @@ import { TextStyle } from '@tiptap/extension-text-style'
 import { FontFamily } from '@tiptap/extension-font-family'
 import { Color } from '@tiptap/extension-color'
 import Highlight from '@tiptap/extension-highlight'
-import { Image } from '@tiptap/extension-image'
+import { CustomImage } from '@/extensions/imageExtension'
 import { Link } from '@tiptap/extension-link'
 import { Table } from '@tiptap/extension-table'
 import { CellSelection } from '@tiptap/pm/tables'
@@ -26,7 +26,6 @@ import { motion, AnimatePresence } from 'motion/react'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { FontSize } from '@/extensions/fontSize'
 import { Indent } from '@/extensions/indent'
-import { RunningHead } from '@/extensions/runningHead'
 import { PageNumberNode } from '@/extensions/pageNumber'
 import { LineHeight } from '@/extensions/lineHeight'
 import { ExitMarkOnArrowRight } from '@/extensions/exitMarkOnArrowRight'
@@ -51,7 +50,7 @@ import Toolbar from './Toolbar'
 import StatusBar from './StatusBar'
 import FocusBar from './FocusBar'
 import FormatModal from './FormatModal'
-import PageHeader from './PageHeader'
+import { HeaderFooterEditor, parseHeaderContent, buildRunningHeadContent } from './HeaderFooterEditor'
 import OutlinePanel from './OutlinePanel'
 import PomodoroPanel from './PomodoroPanel'
 import AiPanel from './AiPanel'
@@ -63,7 +62,7 @@ import { EditorContextMenu } from './EditorContextMenu'
 import SettingsModal from '@/components/settings/SettingsModal'
 import type { AppSettings, Document } from '@/types'
 import { List, Timer, BarChart2, History, ChevronLeft, ChevronRight, Settings } from 'lucide-react'
-import { AI_PANEL_WIDTH } from '@/constants'
+import { AI_PANEL_WIDTH, PAGE_MARGIN_X_PX, PAGE_MARGIN_Y_PX } from '@/constants'
 
 type SidebarPanel = 'outline' | 'pomodoro' | 'stats' | 'history'
 
@@ -88,6 +87,10 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   const [typewriterMode, setTypewriterMode] = useState(false)
   const [aiPanelWidth, setAiPanelWidth] = useState(AI_PANEL_WIDTH)
   const dragStartRef = useRef<{ x: number; width: number } | null>(null)
+
+  // Tracks when header/footer content should be forcibly reset in the child editors
+  const [headerContentKey, setHeaderContentKey] = useState(() => crypto.randomUUID())
+  const [footerContentKey] = useState(() => crypto.randomUUID())
 
   const { document, saveStatus, saveNow, onEditorUpdate, updateTitle, patchDocument } =
     useDocument(documentId)
@@ -123,7 +126,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
       FontSize,
       Color,
       Highlight.configure({ multicolor: true }),
-      Image.configure({ allowBase64: true }),
+      CustomImage,
       Link.configure({ openOnClick: false, HTMLAttributes: { rel: 'noopener noreferrer' } }),
       Table.configure({ resizable: true }),
       CustomTableRow,
@@ -131,7 +134,6 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
       CustomTableCell,
       TableCellAttributes,
       Indent,
-      RunningHead,
       PageNumberNode,
       LineHeight,
       ExitMarkOnArrowRight,
@@ -147,9 +149,6 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
 
         const { selection } = view.state
 
-        // During a CellSelection drag the head cell changes on every mousemove,
-        // so coords derived from `selection.from` jump around causing jitter.
-        // Always measure from the stable anchor cell instead.
         const stablePos =
           selection instanceof CellSelection ? selection.$anchorCell.pos : selection.from
 
@@ -161,17 +160,14 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
         }
 
         const box = scrollEl.getBoundingClientRect()
-        const TOP_CLEARANCE = 80  // px below toolbar before we scroll up
-        const BOT_CLEARANCE = 20  // px above bottom edge before we scroll down
+        const TOP_CLEARANCE = 80
+        const BOT_CLEARANCE = 20
 
         if (coords.top < box.top + TOP_CLEARANCE) {
-          // Cursor is above the visible area — scroll up minimally
           scrollEl.scrollTop += coords.top - (box.top + TOP_CLEARANCE)
         } else if (coords.bottom > box.bottom - BOT_CLEARANCE) {
-          // Cursor is below the visible area — scroll down minimally
           scrollEl.scrollTop += coords.bottom - (box.bottom - BOT_CLEARANCE)
         }
-        // Always return true to suppress ProseMirror's default center-scroll
         return true
       },
     },
@@ -206,7 +202,6 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
     return () => window.removeEventListener('keydown', handler)
   }, [editor, saveNow, setFocusModeActive])
 
-  // Resize handler for AI/Citations panel drag
   useEffect(() => {
     function onMouseMove(e: MouseEvent): void {
       if (!dragStartRef.current) return
@@ -227,7 +222,6 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
     }
   }, [])
 
-  // Typewriter mode: keep cursor vertically centered in the scroll container
   useEffect(() => {
     if (!editor || !typewriterMode) return
 
@@ -259,10 +253,9 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   const sessionStats = useSessionStats(wordCount)
 
   const applyTemplate = useCallback(
-    async (format: 'mla' | 'apa', newContent: JSONContent): Promise<void> => {
+    async (format: 'mla' | 'apa', newContent: JSONContent, headerJson: JSONContent): Promise<void> => {
       if (!editor) return
       editor.commands.setContent(newContent, false)
-      // MLA and APA require double spacing — select all, apply, then collapse
       editor.chain()
         .selectAll()
         .updateAttributes('paragraph', { lineHeight: 2.0 })
@@ -270,9 +263,15 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
         .setTextSelection(1)
         .run()
       const contentStr = JSON.stringify(editor.getJSON())
+      const headerStr = JSON.stringify(headerJson)
       try {
-        await window.prose.documents.update(documentId, { format, content: contentStr })
-        patchDocument({ format, content: contentStr })
+        await window.prose.documents.update(documentId, {
+          format,
+          content: contentStr,
+          headerContent: headerStr,
+        })
+        patchDocument({ format, content: contentStr, headerContent: headerStr })
+        setHeaderContentKey(crypto.randomUUID())
       } catch (err) {
         console.error('Template apply error:', err)
       }
@@ -287,7 +286,9 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
       const currentJson = editor.getJSON()
       const body = extractBodyNodes(currentJson)
       const newContent = buildMlaContent(fields, body)
-      void applyTemplate('mla', newContent)
+      const lastName = fields.studentName.trim().split(/\s+/).pop() ?? ''
+      const headerJson = buildRunningHeadContent(lastName)
+      void applyTemplate('mla', newContent, headerJson)
     },
     [editor, applyTemplate]
   )
@@ -298,7 +299,9 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
       const currentJson = editor.getJSON()
       const body = extractBodyNodes(currentJson)
       const newContent = buildApaContent(fields, body)
-      void applyTemplate('apa', newContent)
+      const lastName = fields.studentName.trim().split(/\s+/).pop() ?? ''
+      const headerJson = buildRunningHeadContent(lastName)
+      void applyTemplate('apa', newContent, headerJson)
     },
     [editor, applyTemplate]
   )
@@ -327,8 +330,9 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   }
 
   const formatClass = format === 'mla' ? 'format-mla' : format === 'apa' ? 'format-apa' : ''
-  const editorFontFamily =
-    (editor?.getAttributes('textStyle').fontFamily as string | undefined) ?? 'Times New Roman'
+
+  const headerContent = parseHeaderContent(document?.headerContent ?? null)
+  const footerContent = parseHeaderContent(document?.footerContent ?? null)
 
   return (
     <TooltipProvider delayDuration={400}>
@@ -466,13 +470,45 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
             className="flex flex-1 overflow-auto bg-zinc-100 dark:bg-zinc-900"
           >
             <div className={cn('mx-auto my-8 w-[816px] self-start', focusModeActive && 'my-16')}>
-              <div className={cn('editor-page relative min-h-[1056px] bg-white dark:bg-zinc-800 px-24 py-24', formatClass)}>
-                <PageHeader format={format} content={currentJson} fontFamily={editorFontFamily} editor={editor} />
-                <EditorContent
-                  editor={editor}
-                  className="prose-editor min-h-full outline-none"
+              {/* Page — header zone + rule + body + rule + footer zone.
+                  --page-margin-x drives the horizontal inset for header, body, and footer
+                  so all three stay aligned. Future custom margins: change this one variable. */}
+              <div
+                className={cn('editor-page relative bg-white dark:bg-zinc-800', formatClass)}
+                style={{
+                  '--page-margin-x': `${PAGE_MARGIN_X_PX}px`,
+                  '--page-margin-y': `${PAGE_MARGIN_Y_PX}px`,
+                } as React.CSSProperties}
+              >
+                {/* Header zone */}
+                <HeaderFooterEditor
+                  zone="header"
+                  documentId={documentId}
+                  contentKey={headerContentKey}
+                  initialContent={headerContent}
                 />
-                <EditorContextMenu editor={editor} />
+                <div className="border-b border-border" />
+
+                {/* Body content — horizontal padding inherits --page-margin-x */}
+                <div
+                  className="min-h-[900px] py-16"
+                  style={{ paddingLeft: 'var(--page-margin-x)', paddingRight: 'var(--page-margin-x)' }}
+                >
+                  <EditorContent
+                    editor={editor}
+                    className="prose-editor min-h-full outline-none"
+                  />
+                  <EditorContextMenu editor={editor} />
+                </div>
+
+                {/* Footer zone */}
+                <div className="border-t border-border" />
+                <HeaderFooterEditor
+                  zone="footer"
+                  documentId={documentId}
+                  contentKey={footerContentKey}
+                  initialContent={footerContent}
+                />
               </div>
             </div>
           </div>

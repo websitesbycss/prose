@@ -12,6 +12,8 @@ interface DocumentRow {
   created_at: string
   updated_at: string
   category_id: string | null
+  header_content: string | null
+  footer_content: string | null
 }
 
 interface DocumentOut {
@@ -23,6 +25,8 @@ interface DocumentOut {
   createdAt: string
   updatedAt: string
   categoryId: string | null
+  headerContent: string | null
+  footerContent: string | null
 }
 
 const VALID_FORMATS = new Set(['none', 'mla', 'apa', 'chicago', 'ieee'])
@@ -37,6 +41,8 @@ function rowToDocument(row: DocumentRow): DocumentOut {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     categoryId: row.category_id,
+    headerContent: row.header_content ?? null,
+    footerContent: row.footer_content ?? null,
   }
 }
 
@@ -108,14 +114,30 @@ export function registerDocumentHandlers(db: Database): void {
           ? d.categoryId
           : existing.category_id
         : existing.category_id
+    const headerContent =
+      'headerContent' in d
+        ? d.headerContent === null
+          ? null
+          : typeof d.headerContent === 'string'
+          ? d.headerContent
+          : existing.header_content
+        : existing.header_content
+    const footerContent =
+      'footerContent' in d
+        ? d.footerContent === null
+          ? null
+          : typeof d.footerContent === 'string'
+          ? d.footerContent
+          : existing.footer_content
+        : existing.footer_content
 
     db.prepare(
       `UPDATE documents
-       SET title = ?, content = ?, format = ?, word_count_goal = ?, updated_at = ?, category_id = ?
+       SET title = ?, content = ?, format = ?, word_count_goal = ?, updated_at = ?,
+           category_id = ?, header_content = ?, footer_content = ?
        WHERE id = ?`
-    ).run(title, content, format, wordCountGoal, new Date().toISOString(), categoryId, id)
+    ).run(title, content, format, wordCountGoal, new Date().toISOString(), categoryId, headerContent, footerContent, id)
 
-    // Attempt snapshot creation whenever content was explicitly included in the update
     if (typeof d.content === 'string') {
       try {
         tryCreateSnapshot(db, id, content)

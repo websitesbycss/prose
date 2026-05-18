@@ -7,6 +7,8 @@ export interface Document {
   createdAt: string
   updatedAt: string
   categoryId: string | null
+  headerContent: string | null
+  footerContent: string | null
 }
 
 export interface Category {
@@ -64,6 +66,8 @@ export interface UpdateDocumentInput {
   format?: DocumentFormat
   wordCountGoal?: number | null
   categoryId?: string | null
+  headerContent?: string | null
+  footerContent?: string | null
 }
 
 export interface CreateCategoryInput {

@@ -55,6 +55,9 @@ export function initDatabase(): void {
   db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')
   db.exec(SCHEMA)
+  // Migrations — safe to run repeatedly; silently ignore if column already exists
+  try { db.exec('ALTER TABLE documents ADD COLUMN header_content TEXT') } catch { /* exists */ }
+  try { db.exec('ALTER TABLE documents ADD COLUMN footer_content TEXT') } catch { /* exists */ }
 }
 
 export function getDb(): Database.Database {

@@ -243,6 +243,36 @@
   padding: 0;
 }
 
+/* ── Header / footer zone editors ─────────────────────────────── */
+
+/* Paragraphs containing a right-tab spacer become flex rows so the spacer
+   can push trailing content (e.g. page numbers) to the right edge. */
+.header-footer-editor .ProseMirror p:has(.right-tab) {
+  display: flex;
+  align-items: baseline;
+}
+
+/* The spacer itself — flex:1 fills all available horizontal space */
+.right-tab {
+  flex: 1;
+  display: inline-block;
+  min-width: 0.25em;
+}
+
+.header-footer-editor .ProseMirror {
+  @apply outline-none;
+}
+
+.header-footer-editor .ProseMirror p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Suppress the body editor's placeholder style leaking into header/footer */
+.header-footer-editor .ProseMirror p.is-editor-empty:first-child::before {
+  content: none;
+}
+
 /* ── Subscript / superscript ───────────────────────────────────── */
 
 /* Tailwind Preflight resets sub/sup to position:relative + top/bottom which
@@ -290,9 +320,30 @@
   text-indent: 0;
 }
 
-/* APA title page — push content toward vertical center of the page */
-.format-apa .ProseMirror > p[data-role='apa-header']:first-child {
-  padding-top: 280px;
+/* No first-line indent inside table cells */
+.format-mla .ProseMirror td p,
+.format-mla .ProseMirror th p,
+.format-apa .ProseMirror td p,
+.format-apa .ProseMirror th p {
+  text-indent: 0;
+}
+
+/* No first-line indent in the header / footer editors */
+.header-footer-editor .ProseMirror p {
+  text-indent: 0 !important;
+}
+
+/* APA title block: print-only vertical centering for PDF export compliance.
+   The editor canvas shows no extra whitespace; Puppeteer sees the print rule. */
+@media print {
+  .apa-title-block {
+    min-height: calc(11in - 2in);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    page-break-after: always;
+  }
 }
 
 /* APA Abstract heading — visual page-break separator in the editor */

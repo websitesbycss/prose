@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { ScrollArea } from '@/components/ui/scroll-area'
+
 import {
   Tooltip, TooltipContent, TooltipTrigger,
 } from '@/components/ui/tooltip'
@@ -160,7 +160,7 @@ export default function AddCitationModal({
           <DialogTitle className="text-sm font-semibold">Add Citation</DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1">
+        <div className="flex-1 overflow-y-auto min-h-0">
           <div className="flex flex-col gap-5 px-5 py-4">
             {/* Type selector */}
             <div className="flex flex-col gap-1.5">
@@ -283,7 +283,7 @@ export default function AddCitationModal({
               <p className="text-xs text-destructive">{error}</p>
             )}
           </div>
-        </ScrollArea>
+        </div>
 
         <DialogFooter className="shrink-0 border-t border-border px-5 py-3">
           <Button variant="ghost" size="sm" className="text-xs" onClick={onClose}>

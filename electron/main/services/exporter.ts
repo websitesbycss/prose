@@ -26,9 +26,14 @@ import type Database from 'better-sqlite3'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-function fetchDocument(db: Database.Database, id: string): { content: string; title: string; format: string } | null {
-  const row = db.prepare('SELECT title, content, format FROM documents WHERE id = ?').get(id) as
-    | { title: string; content: string; format: string }
+function fetchDocument(
+  db: Database.Database,
+  id: string
+): { content: string; title: string; format: string; header_content: string | null; footer_content: string | null } | null {
+  const row = db
+    .prepare('SELECT title, content, format, header_content, footer_content FROM documents WHERE id = ?')
+    .get(id) as
+    | { title: string; content: string; format: string; header_content: string | null; footer_content: string | null }
     | undefined
   return row ?? null
 }
@@ -239,6 +244,7 @@ function inlineToHtml(node: JSONContent): string {
     return text
   }
   if (node.type === 'hardBreak') return '<br>'
+  if (node.type === 'rightTab') return '<span class="right-tab"></span>'
   return (node.content ?? []).map(inlineToHtml).join('')
 }
 
@@ -265,7 +271,7 @@ function nodeToHtml(node: JSONContent, format = 'none'): string {
         const rest = nodes.slice(splitIdx)
         const headerHtml = apaHeaderNodes.map((n) => nodeToHtml(n, format)).join('')
         const restHtml = rest.map((n) => nodeToHtml(n, format)).join('')
-        const titlePage = `<div style="min-height:9in;display:flex;flex-direction:column;align-items:center;justify-content:center;">${headerHtml}</div>`
+        const titlePage = `<div class="apa-title-block">${headerHtml}</div>`
         return titlePage + restHtml
       }
       return (node.content ?? []).map((n) => nodeToHtml(n, format)).join('')
@@ -277,7 +283,9 @@ function nodeToHtml(node: JSONContent, format = 'none'): string {
       const firstLine =
         isFormatted && !hasRole && !noIndent ? 'text-indent:0.5in' : ''
       const pageBreak = role === 'abstract-heading' ? 'page-break-before:always' : ''
-      const styles = [alignStyle, firstLine, pageBreak].filter(Boolean).join(';')
+      const hasRightTab = (node.content ?? []).some((n) => n.type === 'rightTab')
+      const flexStyle = hasRightTab ? 'display:flex;align-items:baseline' : ''
+      const styles = [alignStyle, firstLine, pageBreak, flexStyle].filter(Boolean).join(';')
       const styleAttr = styles ? ` style="${styles}"` : ''
       return `<p${styleAttr}>${(node.content ?? []).map(inlineToHtml).join('') || '&nbsp;'}</p>`
     }
@@ -304,6 +312,8 @@ function nodeToHtml(node: JSONContent, format = 'none'): string {
       return `<pre><code>${escapeHtml(inlineText(node))}</code></pre>`
     case 'pageNumber':
       return '<span class="pn"></span>'
+    case 'rightTab':
+      return '<span class="right-tab"></span>'
     case 'image': {
       const src = escapeHtml((node.attrs?.src as string) ?? '')
       const alt = escapeHtml((node.attrs?.alt as string) ?? '')
@@ -322,21 +332,57 @@ function nodeToHtml(node: JSONContent, format = 'none'): string {
   }
 }
 
+// Convert stored header/footer Tiptap JSON to an HTML string for the fixed zone.
+function zoneJsonToHtml(raw: string | null): string {
+  if (!raw) return ''
+  try {
+    const doc = JSON.parse(raw) as JSONContent
+    return (doc.content ?? []).map((n) => nodeToHtml(n, 'none')).join('')
+  } catch {
+    return ''
+  }
+}
+
+// Build a legacy fixed running-head div for old MLA/APA docs that don't have
+// header_content stored yet.
+function legacyRunningHeadHtml(runningHead: string, format: string): string {
+  const pn = '<span class="pn"></span>'
+  const hStyle =
+    'position:fixed;top:0.5in;font-family:"Times New Roman",serif;font-size:12pt;line-height:1;'
+  if (format === 'mla') {
+    return `<div style="${hStyle}right:1in;">${escapeHtml(runningHead)} ${pn}</div>`
+  }
+  return `<div style="${hStyle}left:1in;right:1in;display:flex;justify-content:space-between;"><span style="text-transform:uppercase">${escapeHtml(runningHead)}</span>${pn}</div>`
+}
+
 function buildHtmlPage(
   title: string,
   body: string,
   format = 'none',
-  runningHead: string | null = null,
+  headerRaw: string | null = null,
+  footerRaw: string | null = null,
+  legacyRunningHead: string | null = null,
 ): string {
-  const pageNumSpan = '<span style="font-variant-numeric:normal" class="pn"></span>'
-
+  // Prefer stored header/footer JSON; fall back to auto-detected running head for old docs
   let headerHtml = ''
-  if (runningHead && (format === 'mla' || format === 'apa')) {
-    const hStyle = 'position:fixed;top:0.5in;font-family:"Times New Roman",serif;font-size:12pt;line-height:1;'
-    if (format === 'mla') {
-      headerHtml = `<div style="${hStyle}right:1in;">${escapeHtml(runningHead)} ${pageNumSpan}</div>`
-    } else {
-      headerHtml = `<div style="${hStyle}left:1in;right:1in;display:flex;justify-content:space-between;"><span style="text-transform:uppercase">${escapeHtml(runningHead)}</span>${pageNumSpan}</div>`
+  if (headerRaw) {
+    const inner = zoneJsonToHtml(headerRaw)
+    if (inner) {
+      const zoneStyle =
+        'position:fixed;top:0;left:0;right:0;padding:0.35in 1in 0;font-family:"Times New Roman",serif;font-size:12pt;'
+      headerHtml = `<div class="export-header" style="${zoneStyle}">${inner}</div>`
+    }
+  } else if (legacyRunningHead && (format === 'mla' || format === 'apa')) {
+    headerHtml = legacyRunningHeadHtml(legacyRunningHead, format)
+  }
+
+  let footerHtml = ''
+  if (footerRaw) {
+    const inner = zoneJsonToHtml(footerRaw)
+    if (inner) {
+      const zoneStyle =
+        'position:fixed;bottom:0;left:0;right:0;padding:0 1in 0.35in;font-family:"Times New Roman",serif;font-size:12pt;'
+      footerHtml = `<div class="export-footer" style="${zoneStyle}">${inner}</div>`
     }
   }
 
@@ -346,22 +392,36 @@ function buildHtmlPage(
   @page { margin: 1in; }
   body { font-family: 'Times New Roman', serif; font-size: 12pt; margin: 0; line-height: 2; color: #000; }
   .pn::before { content: counter(page); }
+  .right-tab { flex: 1; display: inline-block; }
+  .export-header p, .export-footer p { margin: 0; line-height: 1.5; }
+  .export-header p:has(.right-tab), .export-footer p:has(.right-tab) { display: flex; align-items: baseline; }
   h1 { font-size: 14pt; } h2 { font-size: 13pt; } h3 { font-size: 12pt; }
   p { margin: 0; } ul, ol { margin: 0.5em 0; padding-left: 2em; }
   blockquote { margin: 0.5em 2em; } pre { background: #f5f5f5; padding: 0.5em; }
   table { width: 100%; border-collapse: collapse; margin: 0.5em 0; }
   th, td { border: 1px solid #000; padding: 4px 8px; }
   img { max-width: 100%; }
+  @media print {
+    .apa-title-block { min-height: calc(11in - 2in); display: flex; flex-direction: column; align-items: center; justify-content: center; page-break-after: always; }
+  }
 </style>
-</head><body>${headerHtml}${body}</body></html>`
+</head><body>${headerHtml}${footerHtml}${body}</body></html>`
 }
 
 export async function exportToPdf(db: Database.Database, id: string): Promise<void> {
   const row = fetchDocument(db, id)
   if (!row) throw new Error('Document not found')
   const doc = parseContent(row.content)
-  const runningHead = extractRunningHead(doc, row.format)
-  const html = buildHtmlPage(row.title, nodeToHtml(doc, row.format), row.format, runningHead)
+  // Fall back to auto-detected running head only for old docs without stored header_content
+  const legacyRunningHead = row.header_content ? null : extractRunningHead(doc, row.format)
+  const html = buildHtmlPage(
+    row.title,
+    nodeToHtml(doc, row.format),
+    row.format,
+    row.header_content,
+    row.footer_content,
+    legacyRunningHead,
+  )
 
   const { filePath } = await dialog.showSaveDialog({
     title: 'Export as PDF',
@@ -635,13 +695,54 @@ function buildDocxHeader(runningHead: string | null, format: string): Header | u
   })
 }
 
+// Extract plain-text left and right portions from a header/footer zone JSON,
+// split on the first rightTab node. Returns [leftText, rightRuns].
+function parseZoneForDocx(
+  raw: string | null
+): { leftText: string; hasPageNum: boolean } | null {
+  if (!raw) return null
+  try {
+    const doc = JSON.parse(raw) as JSONContent
+    const firstPara = doc.content?.[0]
+    if (!firstPara) return null
+    const nodes = firstPara.content ?? []
+    const tabIdx = nodes.findIndex((n) => n.type === 'rightTab')
+    const leftNodes = tabIdx >= 0 ? nodes.slice(0, tabIdx) : nodes
+    const rightNodes = tabIdx >= 0 ? nodes.slice(tabIdx + 1) : []
+    const leftText = leftNodes.map((n) => (n.type === 'text' ? (n.text ?? '') : '')).join('')
+    const hasPageNum = [...leftNodes, ...rightNodes].some((n) => n.type === 'pageNumber')
+    return { leftText: leftText.trim(), hasPageNum }
+  } catch {
+    return null
+  }
+}
+
 export async function exportToDocx(db: Database.Database, id: string): Promise<void> {
   const row = fetchDocument(db, id)
   if (!row) throw new Error('Document not found')
   const doc = parseContent(row.content)
 
-  const runningHead = extractRunningHead(doc, row.format)
-  const docxHeader = buildDocxHeader(runningHead, row.format)
+  // Use stored header_content if present; otherwise fall back to auto-detected running head
+  let docxHeader: Header | undefined
+  if (row.header_content) {
+    const parsed = parseZoneForDocx(row.header_content)
+    if (parsed) {
+      docxHeader = new Header({
+        children: [
+          new Paragraph({
+            children: [
+              new TextRun({ text: parsed.leftText + (parsed.leftText ? ' ' : '') }),
+              ...(parsed.hasPageNum ? [new TextRun({ children: [PageNumber.CURRENT] })] : []),
+            ],
+            alignment: AlignmentType.RIGHT,
+          }),
+        ],
+      })
+    }
+  } else {
+    const runningHead = extractRunningHead(doc, row.format)
+    docxHeader = buildDocxHeader(runningHead, row.format)
+  }
 
   const numberingDefs: NumberingDef[] = []
   const children = nodeToParagraphs(doc, numberingDefs, row.format)

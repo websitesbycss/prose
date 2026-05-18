@@ -1,5 +1,6 @@
 import { useEffect, useRef, useLayoutEffect, useCallback, useState } from 'react'
 import type { Editor } from '@tiptap/react'
+import { NodeSelection } from '@tiptap/pm/state'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store/appStore'
 import { toast } from 'sonner'
@@ -9,6 +10,7 @@ interface MenuCtx {
   y: number
   isOnImage: boolean
   imageSrc: string | null
+  imageBorderRadius: number
   hasSelection: boolean
   selectedText: string
   isOnLink: boolean
@@ -41,6 +43,12 @@ export function EditorContextMenu({ editor }: EditorContextMenuProps): JSX.Eleme
 
   const dismiss = useCallback(() => setCtx(null), [])
 
+  // Live corner radius value for the context-menu slider (separate from ctx snapshot)
+  const [liveRadius, setLiveRadius] = useState(0)
+  useEffect(() => {
+    if (ctx?.isOnImage) setLiveRadius(ctx.imageBorderRadius)
+  }, [ctx])
+
   // Attach contextmenu listener to editor DOM
   useEffect(() => {
     if (!editor) return
@@ -52,6 +60,27 @@ export function EditorContextMenu({ editor }: EditorContextMenuProps): JSX.Eleme
       const target = e.target as HTMLElement
       const isOnImage = target.tagName === 'IMG'
       const imageSrc = isOnImage ? (target as HTMLImageElement).src : null
+
+      // Select the image node so updateAttributes works from the context menu
+      let imageBorderRadius = 0
+      if (isOnImage) {
+        const posData = editor!.view.posAtCoords({ left: e.clientX, top: e.clientY })
+        if (posData) {
+          const doc = editor!.view.state.doc
+          for (const tryPos of [posData.inside, posData.pos, posData.pos - 1]) {
+            if (tryPos < 0) continue
+            try {
+              const sel = NodeSelection.create(doc, tryPos)
+              if (sel.node.type.name === 'image') {
+                editor!.view.dispatch(editor!.view.state.tr.setSelection(sel))
+                break
+              }
+            } catch { /* not a valid node selection at this pos */ }
+          }
+        }
+        const attrs = editor!.getAttributes('image')
+        imageBorderRadius = typeof attrs.borderRadius === 'number' ? attrs.borderRadius : 0
+      }
 
       const { state } = editor!
       const { selection } = state
@@ -75,6 +104,7 @@ export function EditorContextMenu({ editor }: EditorContextMenuProps): JSX.Eleme
         y: e.clientY,
         isOnImage,
         imageSrc,
+        imageBorderRadius,
         hasSelection,
         selectedText,
         isOnLink,
@@ -135,9 +165,22 @@ export function EditorContextMenu({ editor }: EditorContextMenuProps): JSX.Eleme
 
   async function copyImage(src: string): Promise<void> {
     try {
-      const res = await fetch(src)
-      const blob = await res.blob()
-      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })])
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve()
+        img.onerror = () => reject(new Error('load failed'))
+        img.src = src
+      })
+      const canvas = document.createElement('canvas')
+      canvas.width = img.naturalWidth
+      canvas.height = img.naturalHeight
+      const ctx2d = canvas.getContext('2d')!
+      ctx2d.drawImage(img, 0, 0)
+      const blob = await new Promise<Blob>((resolve, reject) =>
+        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/png')
+      )
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
       toast.success('Image copied')
     } catch {
       toast.error('Failed to copy image')
@@ -169,26 +212,7 @@ export function EditorContextMenu({ editor }: EditorContextMenuProps): JSX.Eleme
   // Build menu items
   const items: MenuItem[] = []
 
-  if (ctx.isOnImage && ctx.imageSrc) {
-    // Image-exclusive menu
-    items.push({
-      type: 'btn',
-      label: 'Copy image',
-      onClick: () => { void copyImage(ctx.imageSrc!) },
-    })
-    items.push({
-      type: 'btn',
-      label: 'Save image as…',
-      onClick: () => { void saveImage(ctx.imageSrc!) },
-    })
-    items.push({ type: 'sep' })
-    items.push({
-      type: 'btn',
-      label: 'Delete image',
-      destructive: true,
-      onClick: () => run(() => editor.commands.deleteSelection()),
-    })
-  } else {
+  if (!ctx.isOnImage) {
     // Standard menu
     items.push({
       type: 'btn',
@@ -338,31 +362,84 @@ export function EditorContextMenu({ editor }: EditorContextMenuProps): JSX.Eleme
     <div
       ref={menuRef}
       style={{ position: 'fixed', top: ctx.y, left: ctx.x, zIndex: 9999 }}
-      className="min-w-[160px] rounded-lg border border-border bg-background py-1 text-[13px] shadow-lg"
+      className="min-w-[180px] rounded-lg border border-border bg-background py-1 text-[13px] shadow-lg"
       onMouseDown={(e) => e.preventDefault()}
     >
-      {cleaned.map((item, i) => {
-        if (item.type === 'sep') {
-          return <div key={i} className="my-1 h-px bg-border" />
-        }
-        return (
+      {ctx.isOnImage && ctx.imageSrc ? (
+        <>
           <button
-            key={i}
-            disabled={item.disabled}
-            className={cn(
-              'flex w-full items-center px-3 py-1.5 text-left transition-colors',
-              item.destructive
-                ? 'text-destructive hover:bg-destructive/10'
-                : 'text-foreground hover:bg-muted/50',
-              item.disabled && 'cursor-not-allowed opacity-40'
-            )}
+            className="flex w-full items-center px-3 py-1.5 text-left text-foreground transition-colors hover:bg-muted/50"
             onMouseDown={(e) => e.preventDefault()}
-            onClick={item.disabled ? undefined : item.onClick}
+            onClick={() => { void copyImage(ctx.imageSrc!) }}
           >
-            {item.label}
+            Copy image
           </button>
-        )
-      })}
+          <button
+            className="flex w-full items-center px-3 py-1.5 text-left text-foreground transition-colors hover:bg-muted/50"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => { void saveImage(ctx.imageSrc!) }}
+          >
+            Save image as…
+          </button>
+          <div className="my-1 h-px bg-border" />
+          {/* Corner radius slider */}
+          <div
+            className="flex flex-col gap-1.5 px-3 py-2"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <span className="text-[11px] font-medium text-muted-foreground">Corner radius</span>
+            <div className="flex items-center gap-2">
+              <input
+                type="range"
+                min={0}
+                max={50}
+                step={1}
+                value={liveRadius}
+                className="h-1.5 flex-1 accent-primary"
+                onChange={(e) => {
+                  const v = Number(e.target.value)
+                  setLiveRadius(v)
+                  editor.chain().focus().updateAttributes('image', { borderRadius: v }).run()
+                }}
+              />
+              <span className="min-w-[28px] text-right font-sans text-[11px] text-muted-foreground">
+                {liveRadius}px
+              </span>
+            </div>
+          </div>
+          <div className="my-1 h-px bg-border" />
+          <button
+            className="flex w-full items-center px-3 py-1.5 text-left text-destructive transition-colors hover:bg-destructive/10"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => run(() => editor.commands.deleteSelection())}
+          >
+            Delete image
+          </button>
+        </>
+      ) : (
+        cleaned.map((item, i) => {
+          if (item.type === 'sep') {
+            return <div key={i} className="my-1 h-px bg-border" />
+          }
+          return (
+            <button
+              key={i}
+              disabled={item.disabled}
+              className={cn(
+                'flex w-full items-center px-3 py-1.5 text-left transition-colors',
+                item.destructive
+                  ? 'text-destructive hover:bg-destructive/10'
+                  : 'text-foreground hover:bg-muted/50',
+                item.disabled && 'cursor-not-allowed opacity-40'
+              )}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={item.disabled ? undefined : item.onClick}
+            >
+              {item.label}
+            </button>
+          )
+        })
+      )}
     </div>
   )
 }
