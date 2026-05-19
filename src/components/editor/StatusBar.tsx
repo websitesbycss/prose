@@ -5,6 +5,7 @@ import type { SaveStatus } from '@/hooks/useDocument'
 interface StatusBarProps {
   document: Document | null
   wordCount: number
+  selectionWordCount?: number
   saveStatus: SaveStatus
   nowPlaying?: string | null
   ambientPlaying?: string | null
@@ -22,6 +23,7 @@ const FORMAT_LABELS: Record<string, string> = {
 export default function StatusBar({
   document,
   wordCount,
+  selectionWordCount = 0,
   saveStatus,
   nowPlaying,
   ambientPlaying,
@@ -35,9 +37,19 @@ export default function StatusBar({
     <div className="flex h-7 shrink-0 items-center border-t border-border px-4 text-[11px] text-muted-foreground">
       <div className="flex flex-1 items-center gap-2">
         <span>
-          {wordCount.toLocaleString()} {wordCount === 1 ? 'word' : 'words'}
-          {goal !== null && (
-            <span className="text-muted-foreground/70"> / {goal.toLocaleString()} goal</span>
+          {selectionWordCount > 0 ? (
+            <>
+              {selectionWordCount.toLocaleString()}
+              <span className="text-muted-foreground/60">/{wordCount.toLocaleString()}</span>
+              {' '}{selectionWordCount === 1 ? 'word' : 'words'}
+            </>
+          ) : (
+            <>
+              {wordCount.toLocaleString()} {wordCount === 1 ? 'word' : 'words'}
+              {goal !== null && (
+                <span className="text-muted-foreground/70"> / {goal.toLocaleString()} goal</span>
+              )}
+            </>
           )}
         </span>
       </div>

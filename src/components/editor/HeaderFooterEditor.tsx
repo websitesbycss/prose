@@ -191,14 +191,32 @@ export function HeaderFooterEditor({
   )
 }
 
-export function buildRunningHeadContent(lastName: string): JSONContent {
+// MLA: everything right-aligned — rightTab pushes lastName + pageNum to the right
+export function buildMlaHeaderContent(lastName: string): JSONContent {
   return {
     type: 'doc',
     content: [
       {
         type: 'paragraph',
         content: [
+          { type: 'rightTab' },
           ...(lastName ? [{ type: 'text', text: lastName + ' ' }] : []),
+          { type: 'pageNumber' },
+        ],
+      },
+    ],
+  }
+}
+
+// APA: short title left, rightTab spacer, page number right
+export function buildApaHeaderContent(shortTitle: string): JSONContent {
+  return {
+    type: 'doc',
+    content: [
+      {
+        type: 'paragraph',
+        content: [
+          ...(shortTitle ? [{ type: 'text', text: shortTitle }] : []),
           { type: 'rightTab' },
           { type: 'pageNumber' },
         ],

@@ -43,6 +43,14 @@ function todayMla(): string {
   return `${day} ${month} ${year}`
 }
 
+function todayApa(): string {
+  const d = new Date()
+  const month = d.toLocaleDateString('en-US', { month: 'long' })
+  const day = d.getDate()
+  const year = d.getFullYear()
+  return `${month} ${day}, ${year}`
+}
+
 export function buildMlaContent(fields: MlaFields, body: JSONContent[]): JSONContent {
   return {
     type: 'doc',
@@ -67,7 +75,7 @@ export function buildApaContent(fields: ApaFields, body: JSONContent[]): JSONCon
       para(fields.institution, 'apa-header', 'center'),
       para(fields.courseAndNumber, 'apa-header', 'center'),
       para(fields.instructorName, 'apa-header', 'center'),
-      para(todayMla(), 'apa-header', 'center'),
+      para(todayApa(), 'apa-header', 'center'),
       emptyPara(),
       paraBold('Abstract', 'abstract-heading'),
       para(

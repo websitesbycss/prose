@@ -39,8 +39,10 @@ const VISIBLE_FIELDS: Record<CitationType, Array<keyof CitationFields>> = {
 interface AddCitationModalProps {
   open: boolean
   documentId: string
+  editCitation?: Citation
   onClose(): void
   onAdded(citation: Citation): void
+  onUpdated?(citation: Citation): void
 }
 
 function PreviewBlock({ html, label }: { html: string; label: string }): JSX.Element {
@@ -62,18 +64,38 @@ function PreviewBlock({ html, label }: { html: string; label: string }): JSX.Ele
 export default function AddCitationModal({
   open,
   documentId,
+  editCitation,
   onClose,
   onAdded,
+  onUpdated,
 }: AddCitationModalProps): JSX.Element {
+  const isEditing = !!editCitation
   const [type, setType] = useState<CitationType>('book')
   const [fields, setFields] = useState<CitationFields>({})
   const [doiInput, setDoiInput] = useState('')
   const [urlInput, setUrlInput] = useState('')
+  const [isbnInput, setIsbnInput] = useState('')
   const [doiLoading, setDoiLoading] = useState(false)
   const [urlLoading, setUrlLoading] = useState(false)
+  const [isbnLoading, setIsbnLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isOnline, setIsOnline] = useState(navigator.onLine)
+
+  useEffect(() => {
+    if (!open) return
+    if (editCitation) {
+      setType(editCitation.type)
+      setFields(editCitation.fields as CitationFields)
+    } else {
+      setType('book')
+      setFields({})
+    }
+    setDoiInput('')
+    setUrlInput('')
+    setIsbnInput('')
+    setError(null)
+  }, [open, editCitation])
 
   useEffect(() => {
     const onOnline = (): void => setIsOnline(true)
@@ -105,6 +127,21 @@ export default function AddCitationModal({
     }
   }, [doiInput])
 
+  const lookupIsbn = useCallback(async (): Promise<void> => {
+    if (!isbnInput.trim()) return
+    setIsbnLoading(true)
+    setError(null)
+    try {
+      const result = await window.prose.citations.fetchByIsbn(isbnInput.trim())
+      if (result) setFields((prev) => ({ ...prev, ...result }))
+      else setError('ISBN not found. Check the number and try again.')
+    } catch {
+      setError('ISBN lookup failed. Make sure you are connected to the internet.')
+    } finally {
+      setIsbnLoading(false)
+    }
+  }, [isbnInput])
+
   const autofillUrl = useCallback(async (): Promise<void> => {
     if (!urlInput.trim()) return
     setUrlLoading(true)
@@ -129,17 +166,18 @@ export default function AddCitationModal({
     setError(null)
     try {
       const formatted = formatAll(type, fields)
-      const citation = await window.prose.citations.create({
-        documentId,
-        type,
-        fields,
-        formatted,
-      } as Parameters<typeof window.prose.citations.create>[0])
-      onAdded(citation as Citation)
-      setFields({})
-      setDoiInput('')
-      setUrlInput('')
-      setType('book')
+      if (isEditing && editCitation) {
+        const updated = await window.prose.citations.update(editCitation.id, { type, fields, formatted })
+        onUpdated?.(updated as Citation)
+      } else {
+        const citation = await window.prose.citations.create({
+          documentId,
+          type,
+          fields,
+          formatted,
+        } as Parameters<typeof window.prose.citations.create>[0])
+        onAdded(citation as Citation)
+      }
       onClose()
     } catch (err) {
       setError('Failed to save citation.')
@@ -147,7 +185,7 @@ export default function AddCitationModal({
     } finally {
       setSaving(false)
     }
-  }, [type, fields, documentId, onAdded, onClose])
+  }, [type, fields, documentId, isEditing, editCitation, onAdded, onUpdated, onClose])
 
   const formatted = formatAll(type, fields)
   const visibleFieldKeys = VISIBLE_FIELDS[type]
@@ -157,7 +195,7 @@ export default function AddCitationModal({
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
       <DialogContent className="flex max-h-[90vh] w-[580px] max-w-[95vw] flex-col gap-0 p-0">
         <DialogHeader className="shrink-0 border-b border-border px-5 py-4">
-          <DialogTitle className="text-sm font-semibold">Add Citation</DialogTitle>
+          <DialogTitle className="text-sm font-semibold">{isEditing ? 'Edit Citation' : 'Add Citation'}</DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto min-h-0">
@@ -218,6 +256,35 @@ export default function AddCitationModal({
               <div className="flex gap-2">
                 <Input
                   className="h-7 flex-1 text-xs"
+                  placeholder="ISBN — e.g. 978-0-06-112008-4"
+                  value={isbnInput}
+                  onChange={(e) => setIsbnInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && void lookupIsbn()}
+                />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-7 shrink-0 px-3 text-xs"
+                        disabled={!isbnInput.trim() || isbnLoading || !isOnline}
+                        onClick={() => void lookupIsbn()}
+                      >
+                        {isbnLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Look up'}
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  {!isOnline && (
+                    <TooltipContent side="top">
+                      <p className="text-xs">Internet connection required</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  className="h-7 flex-1 text-xs"
                   placeholder="URL — https://…"
                   value={urlInput}
                   onChange={(e) => setUrlInput(e.target.value)}
@@ -244,6 +311,9 @@ export default function AddCitationModal({
                   )}
                 </Tooltip>
               </div>
+              {error && (
+                <p className="text-xs font-medium text-red-500">{error}</p>
+              )}
             </div>
 
             <Separator />
@@ -279,9 +349,6 @@ export default function AddCitationModal({
               <PreviewBlock html={formatted.ieee} label="IEEE" />
             </div>
 
-            {error && (
-              <p className="text-xs text-destructive">{error}</p>
-            )}
           </div>
         </div>
 
@@ -291,7 +358,7 @@ export default function AddCitationModal({
           </Button>
           <Button size="sm" className="text-xs" disabled={saving} onClick={() => void handleSave()}>
             {saving ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : null}
-            Save citation
+            {isEditing ? 'Save changes' : 'Save citation'}
           </Button>
         </DialogFooter>
       </DialogContent>

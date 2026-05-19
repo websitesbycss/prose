@@ -772,15 +772,9 @@ Build in this exact order. Do not skip ahead. Each phase should be fully working
 - README with install instructions, feature list, and screenshot
 
 
-## to do list ( to be deleted once complete ):
-- fix look of header & footer in dark mode - make line separating header/footer and body visible like in light mode. also when you click inside of a header/footer in dark mode it should not change background color, it should behave like in light mode and stay the color of the page.
-- Make 'header' and 'footer' labels visible at all times regardless of if there is content inside of the header/footer, make the text go below it so its sort of like a label
-- Fix light<->dark mode transitions by making sure that every single item in the UI of prose, including tools in the toolbar, panels, pages, etc. transition at the exact same time, smoothly and taking the same amount of time as well. I don't want there to be a stray that distracts the user.
-- update README to include a note that prose is mostly offline but some features like the initial download of ollama and the model, and also doi lookup and website citation autofill require internet, given that those all actually require internet.
-- make changes to the content in the header/footer apply only to the content in the header/footer, and this includes in mla/apa templates. Right now if I highlight text in the header, for example, and change it to be right aligned, it does nothing with the text in the header and right aligns the student name. That example is in MLA format, and APA format behaves weird as well. Practically the only thing that works inside both the header and the footer right now is just typing plain text; tools like changing font, size, bold/italic/underline, etc. just dont work.
-- Make the page number only be insertable inside the header or the footer. Right now I can click anywhere inside the MLA/APA title, student name, course, etc. section and insert a page number there - however, I do not want this to be the case and think the page number should only be an option in the header/footer, both in the toolbar and the right click menu.
-- Prevent tables from being expanded width-wise beyond the margins of the page. Right now you can just drag the end of the last column beyond the width of the page and out into the depths; keeping it within the margins will make it look better too. I've observed some weird things within tables causing table widths to expand beyond the width of the page, so just whatever the case I dont want it to be able to expand beyond the margins of the page.
-- Fix a bug where if I click export in the dashboard, and then move mouse down to the menu to select a export format, hovering over this menu creates a weird effect where it vibrates and goes to the top left of the screen like sporatically. Just make it stay in place and easy to select an export option
+## ambitious goals list:
+- migrate database to a hybrid .prose file-based system that lives in ~/Documents/Prose
+- Custom layout engine
 
 
 ## README structure (to be written last)

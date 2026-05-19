@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -50,14 +50,22 @@ export default function FormatModal({
   const [mla, setMla] = useState<MlaFields>(EMPTY_MLA)
   const [apa, setApa] = useState<ApaFields>(EMPTY_APA)
 
+  // Capture initial values so the effect below can read them without being re-triggered when they change
+  const initialMlaRef = useRef(initialMla)
+  const initialApaRef = useRef(initialApa)
+  initialMlaRef.current = initialMla
+  initialApaRef.current = initialApa
+
+  // Only reset form state when the modal opens (not on every re-render while it's open)
   useEffect(() => {
     if (!open) return
     if (format === 'mla') {
-      setMla({ ...EMPTY_MLA, ...initialMla })
+      setMla({ ...EMPTY_MLA, ...initialMlaRef.current })
     } else if (format === 'apa') {
-      setApa({ ...EMPTY_APA, ...initialApa })
+      setApa({ ...EMPTY_APA, ...initialApaRef.current })
     }
-  }, [open, format, initialMla, initialApa])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, format])
 
   function handleApply(): void {
     if (format === 'mla') onApplyMla(mla)

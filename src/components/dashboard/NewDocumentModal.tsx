@@ -19,7 +19,7 @@ import {
 import { Separator } from '@/components/ui/separator'
 import type { Category, Document, DocumentFormat } from '@/types'
 import { buildMlaContent, buildApaContent } from '@/lib/templates'
-import { buildRunningHeadContent } from '@/components/editor/HeaderFooterEditor'
+import { buildMlaHeaderContent, buildApaHeaderContent } from '@/components/editor/HeaderFooterEditor'
 
 interface NewDocumentModalProps {
   open: boolean
@@ -103,7 +103,7 @@ export default function NewDocumentModal({
         )
         contentStr = JSON.stringify(content)
         const lastName = studentName.trim().split(/\s+/).pop() ?? ''
-        headerStr = JSON.stringify(buildRunningHeadContent(lastName))
+        headerStr = JSON.stringify(buildMlaHeaderContent(lastName))
       } else if (format === 'apa') {
         const content = buildApaContent(
           {
@@ -116,8 +116,8 @@ export default function NewDocumentModal({
           []
         )
         contentStr = JSON.stringify(content)
-        const lastName = studentName.trim().split(/\s+/).pop() ?? ''
-        headerStr = JSON.stringify(buildRunningHeadContent(lastName))
+        const shortTitle = essayTitle.trim().toUpperCase().slice(0, 50)
+        headerStr = JSON.stringify(buildApaHeaderContent(shortTitle))
       }
 
       const doc = await window.prose.documents.create({
@@ -133,7 +133,7 @@ export default function NewDocumentModal({
         await window.prose.documents.update((doc as Document).id, { headerContent: headerStr })
       }
 
-      onCreated(doc as Document)
+      onCreated(headerStr ? { ...(doc as Document), headerContent: headerStr } : (doc as Document))
       reset()
     } catch (err) {
       console.error('Create document error:', err)

@@ -32,6 +32,7 @@ import { ExitMarkOnArrowRight } from '@/extensions/exitMarkOnArrowRight'
 import { ParagraphRole } from '@/extensions/paragraphRole'
 import { useDocument } from '@/hooks/useDocument'
 import { useWordCount } from '@/hooks/useWordCount'
+import { useSelectionWordCount } from '@/hooks/useSelectionWordCount'
 import { usePomodoro } from '@/hooks/usePomodoro'
 import { useSessionStats } from '@/hooks/useSessionStats'
 import { useMusic, AMBIENT_LAYERS } from '@/hooks/useMusic'
@@ -50,7 +51,7 @@ import Toolbar from './Toolbar'
 import StatusBar from './StatusBar'
 import FocusBar from './FocusBar'
 import FormatModal from './FormatModal'
-import { HeaderFooterEditor, parseHeaderContent, buildRunningHeadContent } from './HeaderFooterEditor'
+import { HeaderFooterEditor, parseHeaderContent, buildMlaHeaderContent, buildApaHeaderContent } from './HeaderFooterEditor'
 import OutlinePanel from './OutlinePanel'
 import PomodoroPanel from './PomodoroPanel'
 import AiPanel from './AiPanel'
@@ -270,6 +271,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
     editor,
     settings.wordCountExcludesHeader && (document?.format === 'mla' || document?.format === 'apa')
   )
+  const selectionWordCount = useSelectionWordCount(editor)
 
   useRowResize(editor)
 
@@ -310,7 +312,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
       const body = extractBodyNodes(currentJson)
       const newContent = buildMlaContent(fields, body)
       const lastName = fields.studentName.trim().split(/\s+/).pop() ?? ''
-      const headerJson = buildRunningHeadContent(lastName)
+      const headerJson = buildMlaHeaderContent(lastName)
       void applyTemplate('mla', newContent, headerJson)
     },
     [editor, applyTemplate]
@@ -322,8 +324,8 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
       const currentJson = editor.getJSON()
       const body = extractBodyNodes(currentJson)
       const newContent = buildApaContent(fields, body)
-      const lastName = fields.studentName.trim().split(/\s+/).pop() ?? ''
-      const headerJson = buildRunningHeadContent(lastName)
+      const shortTitle = fields.essayTitle.trim().toUpperCase().slice(0, 50)
+      const headerJson = buildApaHeaderContent(shortTitle)
       void applyTemplate('apa', newContent, headerJson)
     },
     [editor, applyTemplate]
@@ -583,6 +585,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
           <StatusBar
             document={document}
             wordCount={wordCount}
+            selectionWordCount={selectionWordCount}
             saveStatus={saveStatus}
             nowPlaying={music.nowPlayingTitle}
             ambientPlaying={(() => {

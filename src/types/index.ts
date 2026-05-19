@@ -162,9 +162,11 @@ export interface ProseAPI {
   citations: {
     getByDocument(documentId: string): Promise<Citation[]>
     create(data: CreateCitationInput): Promise<Citation>
+    update(id: string, data: Record<string, unknown>): Promise<Citation>
     delete(id: string): Promise<void>
     fetchByDoi(doi: string): Promise<CitationFields | null>
     fetchByUrl(url: string): Promise<CitationFields | null>
+    fetchByIsbn(isbn: string): Promise<CitationFields | null>
   }
   settings: {
     get(): Promise<AppSettings>

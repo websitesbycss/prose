@@ -45,9 +45,11 @@ contextBridge.exposeInMainWorld('prose', {
     getByDocument: (documentId: string) =>
       ipcRenderer.invoke('citations:getByDocument', documentId),
     create: (data: Record<string, unknown>) => ipcRenderer.invoke('citations:create', data),
+    update: (id: string, data: Record<string, unknown>) => ipcRenderer.invoke('citations:update', id, data),
     delete: (id: string) => ipcRenderer.invoke('citations:delete', id),
     fetchByDoi: (doi: string) => ipcRenderer.invoke('citations:fetchByDoi', doi),
     fetchByUrl: (url: string) => ipcRenderer.invoke('citations:fetchByUrl', url),
+    fetchByIsbn: (isbn: string) => ipcRenderer.invoke('citations:fetchByIsbn', isbn),
   },
 
   settings: {

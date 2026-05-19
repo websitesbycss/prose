@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { toast } from 'sonner'
 import { ArrowLeft, Sun, Moon, Maximize2, Sparkles, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -21,10 +22,10 @@ interface TitleBarProps {
 }
 
 const EXPORT_FORMATS = [
-  { label: 'Word Document (.docx)', fn: 'toDocx' },
-  { label: 'PDF (.pdf)', fn: 'toPdf' },
-  { label: 'Markdown (.md)', fn: 'toMarkdown' },
-  { label: 'Plain Text (.txt)', fn: 'toPlainText' },
+  { label: 'Word Document (.docx)', fn: 'toDocx',      typeName: 'a Word Document' },
+  { label: 'PDF (.pdf)',            fn: 'toPdf',       typeName: 'a PDF' },
+  { label: 'Markdown (.md)',        fn: 'toMarkdown',  typeName: 'a Markdown File' },
+  { label: 'Plain Text (.txt)',     fn: 'toPlainText', typeName: 'a Plain Text File' },
 ] as const
 
 const FORMAT_LABELS: Record<string, string> = {
@@ -54,14 +55,16 @@ export default function TitleBar({
   const [exporting, setExporting] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  async function handleExport(fn: typeof EXPORT_FORMATS[number]['fn']): Promise<void> {
+  async function handleExport(fmt: typeof EXPORT_FORMATS[number]): Promise<void> {
     if (!document) return
     setExporting(true)
     setExportOpen(false)
     try {
-      await window.prose.export[fn](document.id)
+      await window.prose.export[fmt.fn](document.id)
+      toast.success(`${document.title} successfully exported as ${fmt.typeName}`)
     } catch (err) {
       console.error('Export error:', err)
+      toast.error('Export failed')
     } finally {
       setExporting(false)
     }
@@ -160,7 +163,7 @@ export default function TitleBar({
                 <button
                   key={fmt.fn}
                   className="flex w-full items-center rounded-md px-2.5 py-1.5 text-left text-xs hover:bg-accent hover:text-accent-foreground transition-colors"
-                  onClick={() => void handleExport(fmt.fn)}
+                  onClick={() => void handleExport(fmt)}
                 >
                   {fmt.label}
                 </button>

@@ -3,10 +3,12 @@ import type { Editor } from '@tiptap/react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { toast } from 'sonner'
 import { worksSection } from '@/lib/citations'
 import AddCitationModal from './AddCitationModal'
 import type { Citation } from '@/types'
-import { Plus, Trash2, FileText } from 'lucide-react'
+import { Plus, Trash2, FileText, Copy, Pencil } from 'lucide-react'
 
 interface CitationPanelProps {
   documentId: string
@@ -14,28 +16,84 @@ interface CitationPanelProps {
   editor: Editor | null
 }
 
+const COPY_FORMATS: { key: keyof Citation['formatted']; label: string }[] = [
+  { key: 'mla', label: 'MLA' },
+  { key: 'apa', label: 'APA' },
+  { key: 'chicago', label: 'Chicago' },
+  { key: 'ieee', label: 'IEEE' },
+]
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+}
+
 function CitationItem({
   citation,
   formatKey,
+  onEdit,
   onDelete,
 }: {
   citation: Citation
   formatKey: keyof Citation['formatted']
+  onEdit(): void
   onDelete(): void
 }): JSX.Element {
+  const [copyOpen, setCopyOpen] = useState(false)
+
+  function handleCopy(key: keyof Citation['formatted']): void {
+    void navigator.clipboard.writeText(stripHtml(citation.formatted[key]))
+    toast.success(`Copied as ${COPY_FORMATS.find((f) => f.key === key)?.label}`)
+    setCopyOpen(false)
+  }
+
   return (
     <div className="group flex min-w-0 flex-col gap-1 overflow-hidden rounded-md border border-border p-2.5">
       <div className="flex items-start justify-between gap-1">
         <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
           {citation.type}
         </span>
-        <button
-          className="opacity-0 transition-opacity group-hover:opacity-100 text-muted-foreground hover:text-destructive"
-          onClick={onDelete}
-          title="Delete citation"
-        >
-          <Trash2 className="h-3 w-3" />
-        </button>
+        <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 has-[[data-state=open]]:opacity-100">
+          <Popover open={copyOpen} onOpenChange={setCopyOpen}>
+            <PopoverTrigger asChild>
+              <button
+                className="text-muted-foreground hover:text-foreground"
+                title="Copy citation"
+              >
+                <Copy className="h-3 w-3" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-32 p-1" side="bottom" align="end">
+              {COPY_FORMATS.map(({ key, label }) => (
+                <button
+                  key={key}
+                  className="w-full rounded px-3 py-1.5 text-left text-xs transition-colors hover:bg-accent"
+                  onClick={() => handleCopy(key)}
+                >
+                  {label}
+                </button>
+              ))}
+            </PopoverContent>
+          </Popover>
+          <button
+            className="text-muted-foreground hover:text-foreground"
+            onClick={onEdit}
+            title="Edit citation"
+          >
+            <Pencil className="h-3 w-3" />
+          </button>
+          <button
+            className="text-muted-foreground hover:text-destructive"
+            onClick={onDelete}
+            title="Delete citation"
+          >
+            <Trash2 className="h-3 w-3" />
+          </button>
+        </div>
       </div>
       <p
         className="text-xs leading-relaxed text-foreground break-all"
@@ -50,6 +108,7 @@ function CitationItem({
 export default function CitationPanel({ documentId, format, editor }: CitationPanelProps): JSX.Element {
   const [citations, setCitations] = useState<Citation[]>([])
   const [addOpen, setAddOpen] = useState(false)
+  const [editCitation, setEditCitation] = useState<Citation | null>(null)
   const [loading, setLoading] = useState(true)
 
   const { heading, key: formatKey } = worksSection(format)
@@ -66,6 +125,10 @@ export default function CitationPanel({ documentId, format, editor }: CitationPa
     setCitations((prev) => [...prev, citation])
   }, [])
 
+  const handleUpdated = useCallback((citation: Citation): void => {
+    setCitations((prev) => prev.map((c) => c.id === citation.id ? citation : c))
+  }, [])
+
   const handleDelete = useCallback(async (id: string): Promise<void> => {
     try {
       await window.prose.citations.delete(id)
@@ -78,7 +141,7 @@ export default function CitationPanel({ documentId, format, editor }: CitationPa
   const insertWorksSection = useCallback((): void => {
     if (!editor || citations.length === 0) return
 
-    const { size } = editor.state.doc
+    const endPos = editor.state.doc.content.size
 
     const sorted = [...citations].sort((a, b) => {
       const la = firstAuthorLastName(a)
@@ -100,7 +163,7 @@ export default function CitationPanel({ documentId, format, editor }: CitationPa
       })),
     ]
 
-    editor.chain().focus().insertContentAt(size, content).run()
+    editor.chain().focus().insertContentAt(endPos, content).run()
   }, [editor, citations, heading, formatKey])
 
   return (
@@ -138,6 +201,7 @@ export default function CitationPanel({ documentId, format, editor }: CitationPa
               key={c.id}
               citation={c}
               formatKey={formatKey}
+              onEdit={() => setEditCitation(c)}
               onDelete={() => void handleDelete(c.id)}
             />
           ))}
@@ -167,6 +231,14 @@ export default function CitationPanel({ documentId, format, editor }: CitationPa
         documentId={documentId}
         onClose={() => setAddOpen(false)}
         onAdded={handleAdded}
+      />
+      <AddCitationModal
+        open={editCitation !== null}
+        documentId={documentId}
+        editCitation={editCitation ?? undefined}
+        onClose={() => setEditCitation(null)}
+        onAdded={handleAdded}
+        onUpdated={handleUpdated}
       />
     </div>
   )
