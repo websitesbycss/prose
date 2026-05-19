@@ -34,6 +34,7 @@ interface ToolbarProps {
   document: Document | null
   onApplyFormat: (format: 'mla' | 'apa') => void
   headingFontSizes: HeadingFontSizes
+  isZoneEditor?: boolean
 }
 
 const FONT_FAMILIES = [
@@ -122,7 +123,7 @@ function ColorSwatchGrid({
               current === color && 'ring-2 ring-ring ring-offset-1'
             )}
             style={{ backgroundColor: color }}
-            onClick={() => onSelect(color)}
+            onMouseDown={(e) => { e.preventDefault(); onSelect(color) }}
             title={color}
           />
         ))}
@@ -139,7 +140,7 @@ function ColorSwatchGrid({
         <span className="text-[10px] text-muted-foreground">Custom</span>
         <span className="ml-auto font-mono text-[10px] text-muted-foreground">{customColor}</span>
       </div>
-      <Button variant="ghost" size="sm" className="h-6 w-full text-xs" onClick={onReset}>
+      <Button variant="ghost" size="sm" className="h-6 w-full text-xs" onMouseDown={(e) => { e.preventDefault(); onReset() }}>
         {resetLabel}
       </Button>
     </div>
@@ -172,7 +173,13 @@ function ColorPicker({
         </TooltipTrigger>
         <TooltipContent side="bottom" className="text-xs">Font color</TooltipContent>
       </Tooltip>
-      <PopoverContent className="w-auto p-0" side="bottom" align="start">
+      <PopoverContent
+        className="w-auto p-0"
+        side="bottom"
+        align="start"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onCloseAutoFocus={(e) => e.preventDefault()}
+      >
         <ColorSwatchGrid
           palette={themedPalette}
           current={currentColor}
@@ -208,7 +215,13 @@ function HighlightPicker({
         </TooltipTrigger>
         <TooltipContent side="bottom" className="text-xs">Highlight</TooltipContent>
       </Tooltip>
-      <PopoverContent className="w-auto p-0" side="bottom" align="start">
+      <PopoverContent
+        className="w-auto p-0"
+        side="bottom"
+        align="start"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onCloseAutoFocus={(e) => e.preventDefault()}
+      >
         <ColorSwatchGrid
           palette={HIGHLIGHT_PALETTE}
           current={currentHighlight ?? ''}
@@ -313,11 +326,11 @@ function FontSizeInput({
         className="w-16 p-1"
         side="bottom"
         align="start"
+        onOpenAutoFocus={(e) => e.preventDefault()}
         onCloseAutoFocus={(e) => e.preventDefault()}
       >
         <Input
           className="mb-1 h-7 w-full text-center text-xs focus-visible:ring-1 focus-visible:ring-offset-0"
-          autoFocus
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
@@ -859,11 +872,13 @@ function ToolbarInner({
   document,
   onApplyFormat,
   headingFontSizes,
+  isZoneEditor,
 }: {
   editor: Editor
   document: Document | null
   onApplyFormat: (format: 'mla' | 'apa') => void
   headingFontSizes: HeadingFontSizes
+  isZoneEditor: boolean
 }): JSX.Element {
   const format = document?.format
   const setMusicPanelOpen = useAppStore((s) => s.setMusicPanelOpen)
@@ -1048,31 +1063,35 @@ function ToolbarInner({
         onClick={() => editor.chain().focus().setTextAlign('justify').run()}
       />
 
-      <Sep />
+      {!isZoneEditor && <Sep />}
 
       {/* Lists and indent */}
-      <ToolbarBtn
-        icon={List}
-        title="Bullet list"
-        active={s.isBulletList}
-        onClick={() => editor.chain().focus().toggleBulletList().run()}
-      />
-      <ToolbarBtn
-        icon={ListOrdered}
-        title="Numbered list"
-        active={s.isOrderedList}
-        onClick={() => editor.chain().focus().toggleOrderedList().run()}
-      />
-      <ToolbarBtn
-        icon={IndentIcon}
-        title="Indent (Tab)"
-        onClick={() => editor.chain().focus().indent().run()}
-      />
-      <ToolbarBtn
-        icon={Outdent}
-        title="Outdent (Shift+Tab)"
-        onClick={() => editor.chain().focus().outdent().run()}
-      />
+      {!isZoneEditor && (
+        <>
+          <ToolbarBtn
+            icon={List}
+            title="Bullet list"
+            active={s.isBulletList}
+            onClick={() => editor.chain().focus().toggleBulletList().run()}
+          />
+          <ToolbarBtn
+            icon={ListOrdered}
+            title="Numbered list"
+            active={s.isOrderedList}
+            onClick={() => editor.chain().focus().toggleOrderedList().run()}
+          />
+          <ToolbarBtn
+            icon={IndentIcon}
+            title="Indent (Tab)"
+            onClick={() => editor.chain().focus().indent().run()}
+          />
+          <ToolbarBtn
+            icon={Outdent}
+            title="Outdent (Shift+Tab)"
+            onClick={() => editor.chain().focus().outdent().run()}
+          />
+        </>
+      )}
 
       <Sep />
 
@@ -1094,17 +1113,28 @@ function ToolbarInner({
       <Sep />
 
       {/* Insert */}
-      <ToolbarBtn
-        icon={Image}
-        title="Insert image"
-        onClick={() => void handleImageInsert()}
-      />
+      {!isZoneEditor && (
+        <ToolbarBtn
+          icon={Image}
+          title="Insert image"
+          onClick={() => void handleImageInsert()}
+        />
+      )}
       <LinkPopover editor={editor} isLink={s.isLink} />
-      <ToolbarBtn
-        icon={Table2}
-        title="Insert table"
-        onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
-      />
+      {isZoneEditor && (
+        <ToolbarBtn
+          icon={Hash}
+          title="Insert page number"
+          onClick={() => editor.chain().focus().insertPageNumber().run()}
+        />
+      )}
+      {!isZoneEditor && (
+        <ToolbarBtn
+          icon={Table2}
+          title="Insert table"
+          onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+        />
+      )}
 
       {/* Table cell tools — only visible when cursor is inside a table */}
       {s.isInTable && (
@@ -1151,14 +1181,6 @@ function ToolbarInner({
         </TooltipTrigger>
         <TooltipContent side="bottom" className="text-xs">Apply APA format</TooltipContent>
       </Tooltip>
-      {s.isInHeaderRole && (
-        <ToolbarBtn
-          icon={Hash}
-          title="Insert page number"
-          onClick={() => editor.chain().focus().insertPageNumber().run()}
-        />
-      )}
-
       <Sep />
 
       {/* Panels */}
@@ -1180,7 +1202,7 @@ function ToolbarInner({
   )
 }
 
-export default function Toolbar({ editor, document, onApplyFormat, headingFontSizes }: ToolbarProps): JSX.Element {
+export default function Toolbar({ editor, document, onApplyFormat, headingFontSizes, isZoneEditor = false }: ToolbarProps): JSX.Element {
   if (!editor) return <div className="h-10 shrink-0 border-b border-border" />
   return (
     <ToolbarInner
@@ -1188,6 +1210,7 @@ export default function Toolbar({ editor, document, onApplyFormat, headingFontSi
       document={document}
       onApplyFormat={onApplyFormat}
       headingFontSizes={headingFontSizes}
+      isZoneEditor={isZoneEditor}
     />
   )
 }

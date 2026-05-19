@@ -106,7 +106,7 @@ export default function DocumentCard({
       </div>
 
       <div
-        className="absolute right-2 top-2 hidden items-center gap-0.5 group-hover:flex"
+        className="absolute right-2 top-2 hidden items-center gap-0.5 group-hover:flex has-[[data-state=open]]:flex"
         onClick={(e) => e.stopPropagation()}
       >
         <Button

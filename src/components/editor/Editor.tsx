@@ -92,12 +92,33 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   const [headerContentKey, setHeaderContentKey] = useState(() => crypto.randomUUID())
   const [footerContentKey] = useState(() => crypto.randomUUID())
 
+  // When a zone editor (header/footer) is focused, toolbar commands target it instead of the body editor
+  const [zoneEditor, setZoneEditor] = useState<import('@tiptap/core').Editor | null>(null)
+  const zoneBlurTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function handleZoneFocus(editor: import('@tiptap/core').Editor): void {
+    if (zoneBlurTimer.current) {
+      clearTimeout(zoneBlurTimer.current)
+      zoneBlurTimer.current = null
+    }
+    setZoneEditor(editor)
+  }
+
+  function handleZoneBlur(): void {
+    zoneBlurTimer.current = setTimeout(() => {
+      zoneBlurTimer.current = null
+      setZoneEditor(null)
+    }, 200)
+  }
+
   const { document, saveStatus, saveNow, onEditorUpdate, updateTitle, patchDocument } =
     useDocument(documentId)
 
   const [settings, setSettings] = useState<Pick<AppSettings, 'wordCountExcludesHeader'>>({
     wordCountExcludesHeader: true,
   })
+  const [editorFontFamily, setEditorFontFamily] = useState('Calibri')
+  const [editorFontSize, setEditorFontSize] = useState(11)
   const [headingFontSizes, setHeadingFontSizes] = useState({ h1: 36, h2: 24, h3: 18 })
   const [formatModalTarget, setFormatModalTarget] = useState<'mla' | 'apa' | null>(null)
   const [activePanel, setActivePanel] = useState<SidebarPanel>('outline')
@@ -111,6 +132,8 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
       setSettings({ wordCountExcludesHeader: appSettings.wordCountExcludesHeader })
       setTypewriterMode(appSettings.typewriterMode ?? false)
       if (appSettings.headingFontSizes) setHeadingFontSizes(appSettings.headingFontSizes)
+      if (appSettings.editorFontFamily) setEditorFontFamily(appSettings.editorFontFamily)
+      if (appSettings.editorFontSize) setEditorFontSize(appSettings.editorFontSize)
     })
   }, [])
 
@@ -357,10 +380,11 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                 onTitleChange={updateTitle}
               />
               <Toolbar
-                editor={editor}
+                editor={zoneEditor ?? editor}
                 document={document}
                 onApplyFormat={setFormatModalTarget}
                 headingFontSizes={headingFontSizes}
+                isZoneEditor={zoneEditor !== null}
               />
             </motion.div>
           )}
@@ -486,13 +510,20 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                   documentId={documentId}
                   contentKey={headerContentKey}
                   initialContent={headerContent}
+                  onZoneFocus={handleZoneFocus}
+                  onZoneBlur={handleZoneBlur}
                 />
-                <div className="border-b border-border" />
+                <div className="border-b border-border dark:border-zinc-600" />
 
                 {/* Body content — horizontal padding inherits --page-margin-x */}
                 <div
                   className="min-h-[900px] py-16"
-                  style={{ paddingLeft: 'var(--page-margin-x)', paddingRight: 'var(--page-margin-x)' }}
+                  style={{
+                    paddingLeft: 'var(--page-margin-x)',
+                    paddingRight: 'var(--page-margin-x)',
+                    '--prose-editor-font-family': editorFontFamily,
+                    '--prose-editor-font-size': `${editorFontSize}pt`,
+                  } as React.CSSProperties}
                 >
                   <EditorContent
                     editor={editor}
@@ -502,12 +533,14 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                 </div>
 
                 {/* Footer zone */}
-                <div className="border-t border-border" />
+                <div className="border-t border-border dark:border-zinc-600" />
                 <HeaderFooterEditor
                   zone="footer"
                   documentId={documentId}
                   contentKey={footerContentKey}
                   initialContent={footerContent}
+                  onZoneFocus={handleZoneFocus}
+                  onZoneBlur={handleZoneBlur}
                 />
               </div>
             </div>

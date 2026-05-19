@@ -33,7 +33,7 @@ const DEFAULTS: AppSettingsOut = {
   musicVolume: 70,
   ambientVolumes: {},
   typewriterMode: false,
-  editorFontFamily: 'Times New Roman',
+  editorFontFamily: 'Calibri',
   editorFontSize: 12,
   headingFontSizes: { h1: 36, h2: 24, h3: 18 },
 }

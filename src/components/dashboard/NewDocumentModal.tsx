@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import {
   Dialog,
@@ -18,6 +18,8 @@ import {
 } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import type { Category, Document, DocumentFormat } from '@/types'
+import { buildMlaContent, buildApaContent } from '@/lib/templates'
+import { buildRunningHeadContent } from '@/components/editor/HeaderFooterEditor'
 
 interface NewDocumentModalProps {
   open: boolean
@@ -48,7 +50,20 @@ export default function NewDocumentModal({
   const [studentName, setStudentName] = useState('')
   const [instructorName, setInstructorName] = useState('')
   const [courseName, setCourseName] = useState('')
+  const [institution, setInstitution] = useState('')
+  const [essayTitle, setEssayTitle] = useState('')
+  const [defaultWordCountGoal, setDefaultWordCountGoal] = useState<number | null>(null)
   const [creating, setCreating] = useState(false)
+
+  // Pre-fill format and word count goal from settings on each open
+  useEffect(() => {
+    if (!open) return
+    void window.prose.settings.get().then((s) => {
+      const appSettings = s as { defaultFormat: string; defaultWordCountGoal: number | null }
+      setFormat(appSettings.defaultFormat as DocumentFormat)
+      setDefaultWordCountGoal(appSettings.defaultWordCountGoal)
+    })
+  }, [open])
 
   const needsHeader = HEADER_FORMATS.has(format)
 
@@ -59,6 +74,8 @@ export default function NewDocumentModal({
     setStudentName('')
     setInstructorName('')
     setCourseName('')
+    setInstitution('')
+    setEssayTitle('')
   }
 
   function handleClose(): void {
@@ -71,18 +88,50 @@ export default function NewDocumentModal({
 
     setCreating(true)
     try {
-      const initialContent = buildInitialContent(format, {
-        studentName: studentName.trim(),
-        instructorName: instructorName.trim(),
-        courseName: courseName.trim(),
-      })
+      let contentStr = '{}'
+      let headerStr: string | null = null
+
+      if (format === 'mla') {
+        const content = buildMlaContent(
+          {
+            studentName: studentName.trim(),
+            instructorName: instructorName.trim(),
+            courseName: courseName.trim(),
+            essayTitle: essayTitle.trim(),
+          },
+          []
+        )
+        contentStr = JSON.stringify(content)
+        const lastName = studentName.trim().split(/\s+/).pop() ?? ''
+        headerStr = JSON.stringify(buildRunningHeadContent(lastName))
+      } else if (format === 'apa') {
+        const content = buildApaContent(
+          {
+            essayTitle: essayTitle.trim(),
+            studentName: studentName.trim(),
+            institution: institution.trim(),
+            courseAndNumber: courseName.trim(),
+            instructorName: instructorName.trim(),
+          },
+          []
+        )
+        contentStr = JSON.stringify(content)
+        const lastName = studentName.trim().split(/\s+/).pop() ?? ''
+        headerStr = JSON.stringify(buildRunningHeadContent(lastName))
+      }
 
       const doc = await window.prose.documents.create({
         title: title.trim(),
         format,
         categoryId: categoryId === 'none' ? null : categoryId,
-        content: initialContent,
+        content: contentStr,
+        wordCountGoal: defaultWordCountGoal,
       } as Parameters<typeof window.prose.documents.create>[0])
+
+      // documents:create doesn't accept headerContent — set it in a follow-up update
+      if (headerStr) {
+        await window.prose.documents.update((doc as Document).id, { headerContent: headerStr })
+      }
 
       onCreated(doc as Document)
       reset()
@@ -108,7 +157,7 @@ export default function NewDocumentModal({
               placeholder="Untitled"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+              onKeyDown={(e) => e.key === 'Enter' && void handleCreate()}
               autoFocus
             />
           </div>
@@ -171,10 +220,22 @@ export default function NewDocumentModal({
                   value={instructorName}
                   onChange={(e) => setInstructorName(e.target.value)}
                 />
+                {format === 'apa' && (
+                  <Input
+                    placeholder="Institution"
+                    value={institution}
+                    onChange={(e) => setInstitution(e.target.value)}
+                  />
+                )}
                 <Input
-                  placeholder="Course name"
+                  placeholder={format === 'apa' ? 'Course name and number' : 'Course name'}
                   value={courseName}
                   onChange={(e) => setCourseName(e.target.value)}
+                />
+                <Input
+                  placeholder={format === 'apa' ? 'Paper title' : 'Essay title'}
+                  value={essayTitle}
+                  onChange={(e) => setEssayTitle(e.target.value)}
                 />
               </div>
             </>
@@ -185,36 +246,11 @@ export default function NewDocumentModal({
           <Button variant="ghost" onClick={handleClose} disabled={creating}>
             Cancel
           </Button>
-          <Button onClick={handleCreate} disabled={!title.trim() || creating}>
+          <Button onClick={() => void handleCreate()} disabled={!title.trim() || creating}>
             {creating ? 'Creating…' : 'Create'}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   )
-}
-
-function buildInitialContent(
-  format: DocumentFormat,
-  header: { studentName: string; instructorName: string; courseName: string }
-): string {
-  if (format !== 'mla' && format !== 'apa') return '{}'
-
-  const today = new Date().toLocaleDateString('en-US', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  })
-
-  const headerLines =
-    format === 'mla'
-      ? [header.studentName, header.instructorName, header.courseName, today].filter(Boolean)
-      : [header.studentName, header.instructorName, header.courseName, today].filter(Boolean)
-
-  const paragraphs = headerLines.map((line) => ({
-    type: 'paragraph',
-    content: line ? [{ type: 'text', text: line }] : [],
-  }))
-
-  return JSON.stringify({ type: 'doc', content: paragraphs.length ? paragraphs : [{ type: 'paragraph' }] })
 }

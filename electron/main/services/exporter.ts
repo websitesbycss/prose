@@ -282,10 +282,11 @@ function nodeToHtml(node: JSONContent, format = 'none'): string {
       const hasRole = !!role
       const firstLine =
         isFormatted && !hasRole && !noIndent ? 'text-indent:0.5in' : ''
-      const pageBreak = role === 'abstract-heading' ? 'page-break-before:always' : ''
+      const pageBreak = (role === 'abstract-heading' || role === 'works-cited-heading') ? 'page-break-before:always' : ''
+      const hangingIndent = role === 'citation' ? 'text-indent:-0.5in;padding-left:0.5in' : ''
       const hasRightTab = (node.content ?? []).some((n) => n.type === 'rightTab')
       const flexStyle = hasRightTab ? 'display:flex;align-items:baseline' : ''
-      const styles = [alignStyle, firstLine, pageBreak, flexStyle].filter(Boolean).join(';')
+      const styles = [alignStyle, firstLine, pageBreak, hangingIndent, flexStyle].filter(Boolean).join(';')
       const styleAttr = styles ? ` style="${styles}"` : ''
       return `<p${styleAttr}>${(node.content ?? []).map(inlineToHtml).join('') || '&nbsp;'}</p>`
     }
@@ -536,14 +537,20 @@ function nodeToParagraphs(
       const noIndent = node.attrs?.noIndent as boolean | undefined
       const applyFirstLine = isFormatted && !role && !noIndent && numRef === undefined
       const runs = (node.content ?? []).flatMap(inlineToRuns)
+      const pageBreakBefore = role === 'abstract-heading' || role === 'works-cited-heading'
+      const indent = applyFirstLine
+        ? { firstLine: 720 }
+        : role === 'citation'
+          ? { left: 720, hanging: 720 }
+          : undefined
       return [
         new Paragraph({
           children: runs.length ? runs : [new TextRun('')],
           alignment: alignToDocx(align),
           spacing: { line: 480, after: 0 },
-          ...(applyFirstLine ? { indent: { firstLine: 720 } } : {}),
+          ...(indent ? { indent } : {}),
           ...(numRef !== undefined ? { numbering: { reference: numRef, level } } : {}),
-          ...(role === 'abstract-heading' ? { pageBreakBefore: true } : {}),
+          ...(pageBreakBefore ? { pageBreakBefore: true } : {}),
         }),
       ]
     }

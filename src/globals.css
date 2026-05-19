@@ -58,6 +58,15 @@
   }
 }
 
+/* Smooth color transitions only during theme switch — not on every hover/active change */
+html.theme-transitioning *,
+html.theme-transitioning *::before,
+html.theme-transitioning *::after {
+  transition-property: color, background-color, border-color !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transition-duration: 200ms !important;
+}
+
 /* ── Scrollbars ────────────────────────────────────────────────── */
 
 ::-webkit-scrollbar {
@@ -104,7 +113,8 @@
 
 .prose-editor .ProseMirror {
   @apply outline-none min-h-full;
-  font-family: Calibri, sans-serif;
+  font-family: var(--prose-editor-font-family, Calibri), sans-serif;
+  font-size: var(--prose-editor-font-size, 11pt);
 }
 
 .prose-editor .ProseMirror > * + * {
@@ -143,8 +153,15 @@
   @apply text-primary underline underline-offset-2 cursor-pointer;
 }
 
+.prose-editor .ProseMirror .tableWrapper {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
 .prose-editor .ProseMirror table {
   @apply border-collapse my-4 w-full;
+  max-width: 100%;
+  table-layout: fixed;
 }
 
 .prose-editor .ProseMirror td,
@@ -261,6 +278,8 @@
 
 .header-footer-editor .ProseMirror {
   @apply outline-none;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .header-footer-editor .ProseMirror p {
@@ -365,6 +384,18 @@
 .format-apa .ProseMirror [data-role='abstract-heading'],
 .format-apa .ProseMirror [data-role='abstract-body'] {
   text-indent: 0;
+}
+
+/* Works Cited / References heading — centered, no indent */
+.prose-editor .ProseMirror [data-role='works-cited-heading'] {
+  text-align: center;
+  text-indent: 0;
+}
+
+/* Citation paragraphs — hanging indent */
+.prose-editor .ProseMirror [data-role='citation'] {
+  text-indent: -0.5in;
+  padding-left: 0.5in;
 }
 
 /* Headings in MLA/APA also double-spaced */

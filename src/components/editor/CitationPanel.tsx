@@ -80,17 +80,23 @@ export default function CitationPanel({ documentId, format, editor }: CitationPa
 
     const { size } = editor.state.doc
 
+    const sorted = [...citations].sort((a, b) => {
+      const la = firstAuthorLastName(a)
+      const lb = firstAuthorLastName(b)
+      return la.localeCompare(lb)
+    })
+
     const content = [
-      { type: 'paragraph', content: [] },
-      { type: 'paragraph', content: [] },
+      { type: 'paragraph', attrs: { lineHeight: 2.0 }, content: [] },
       {
-        type: 'heading',
-        attrs: { level: 1, textAlign: 'center' },
+        type: 'paragraph',
+        attrs: { role: 'works-cited-heading', textAlign: 'center', lineHeight: 2.0 },
         content: [{ type: 'text', text: heading }],
       },
-      ...citations.map((c) => ({
+      ...sorted.map((c) => ({
         type: 'paragraph',
-        content: [{ type: 'text', text: stripHtml(c.formatted[formatKey]) }],
+        attrs: { role: 'citation', lineHeight: 2.0 },
+        content: htmlToInlineContent(c.formatted[formatKey]),
       })),
     ]
 
@@ -166,6 +172,35 @@ export default function CitationPanel({ documentId, format, editor }: CitationPa
   )
 }
 
-function stripHtml(html: string): string {
-  return html.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&ldquo;/g, '“').replace(/&rdquo;/g, '”')
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '”')
+    .replace(/&ldquo;/g, '“')
+    .replace(/&rdquo;/g, '”')
+}
+
+function htmlToInlineContent(html: string): import('@tiptap/core').JSONContent[] {
+  const nodes: import('@tiptap/core').JSONContent[] = []
+  const parts = html.split(/(<em>.*?<\/em>)/g)
+  for (const part of parts) {
+    if (!part) continue
+    if (part.startsWith('<em>')) {
+      const text = decodeEntities(part.slice(4, -5))
+      if (text) nodes.push({ type: 'text', text, marks: [{ type: 'italic' }] })
+    } else {
+      const text = decodeEntities(part)
+      if (text) nodes.push({ type: 'text', text })
+    }
+  }
+  return nodes.length ? nodes : [{ type: 'text', text: '' }]
+}
+
+function firstAuthorLastName(citation: Citation): string {
+  const author = (citation.fields.author as string | undefined) ?? ''
+  if (!author.trim()) return ''
+  const firstAuthor = author.split(';')[0]!.trim()
+  return firstAuthor.split(',')[0]!.trim().toLowerCase()
 }

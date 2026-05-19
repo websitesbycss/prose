@@ -60,8 +60,12 @@ export const useAppStore = create<AppState>()((set) => ({
     try {
       localStorage.setItem('prose-theme', theme)
     } catch (_) {}
+    // Gate the color transition so it only fires during the theme switch,
+    // not on every hover/active state change throughout the session.
+    document.documentElement.classList.add('theme-transitioning')
     document.documentElement.classList.toggle('dark', theme === 'dark')
     set({ theme })
+    setTimeout(() => document.documentElement.classList.remove('theme-transitioning'), 250)
   },
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   // AI and citation panels are mutually exclusive — opening one closes the other

@@ -4,6 +4,8 @@ A focused, fully offline essay writing app for Windows with a built-in AI assist
 
 Works on a plane. No account. No subscription. No data leaves your machine.
 
+> **Internet note:** Prose is mostly offline. The following features require an internet connection: the one-time Ollama binary download on first launch, the initial AI model download, DOI lookup for citations, and website metadata auto-fill for citations. Everything else — writing, AI feedback, export, and all formatting — works fully offline.
+
 ---
 
 ## Features

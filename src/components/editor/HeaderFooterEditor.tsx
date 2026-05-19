@@ -1,20 +1,34 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
+import type { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
+import Subscript from '@tiptap/extension-subscript'
+import Superscript from '@tiptap/extension-superscript'
 import TextAlign from '@tiptap/extension-text-align'
+import { TextStyle } from '@tiptap/extension-text-style'
+import { FontFamily } from '@tiptap/extension-font-family'
+import { Color } from '@tiptap/extension-color'
+import Highlight from '@tiptap/extension-highlight'
+import { Link } from '@tiptap/extension-link'
 import type { JSONContent } from '@tiptap/core'
 import { cn } from '@/lib/utils'
 import { RightTab, TabToRightAlign } from '@/extensions/rightTab'
 import { PageNumberNode } from '@/extensions/pageNumber'
+import { FontSize } from '@/extensions/fontSize'
+import { Indent } from '@/extensions/indent'
+import { LineHeight } from '@/extensions/lineHeight'
+import { ExitMarkOnArrowRight } from '@/extensions/exitMarkOnArrowRight'
 import { AUTO_SAVE_DEBOUNCE_MS } from '@/constants'
+import { HeaderFooterContextMenu } from './HeaderFooterContextMenu'
 
 interface HeaderFooterEditorProps {
   zone: 'header' | 'footer'
   documentId: string
-  // contentKey changes when the parent wants to force a content reset (e.g. after template apply)
   contentKey: string
   initialContent: JSONContent | null
+  onZoneFocus?: (editor: Editor) => void
+  onZoneBlur?: () => void
 }
 
 const EMPTY_DOC: JSONContent = { type: 'doc', content: [{ type: 'paragraph' }] }
@@ -31,9 +45,10 @@ export function HeaderFooterEditor({
   documentId,
   contentKey,
   initialContent,
+  onZoneFocus,
+  onZoneBlur,
 }: HeaderFooterEditorProps): JSX.Element {
   const [active, setActive] = useState(false)
-  const [isEmpty, setIsEmpty] = useState(true)
   const containerRef = useRef<HTMLDivElement>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const docIdRef = useRef(documentId)
@@ -59,30 +74,43 @@ export function HeaderFooterEditor({
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        heading: false,
+        heading: { levels: [1, 2, 3] },
         bulletList: false,
         orderedList: false,
         listItem: false,
-        blockquote: false,
-        codeBlock: false,
-        horizontalRule: false,
       }),
       Underline,
-      TextAlign.configure({ types: ['paragraph'] }),
+      Subscript,
+      Superscript,
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      TextStyle,
+      FontFamily,
+      FontSize,
+      Color,
+      Highlight.configure({ multicolor: true }),
+      Link.configure({ openOnClick: false, HTMLAttributes: { rel: 'noopener noreferrer' } }),
+      Indent,
+      LineHeight,
+      ExitMarkOnArrowRight,
       RightTab,
       TabToRightAlign,
       PageNumberNode,
     ],
     content: initialContent ?? EMPTY_DOC,
-    onCreate: ({ editor: e }) => setIsEmpty(e.isEmpty),
+    onFocus: ({ editor: e }) => {
+      setActive(true)
+      onZoneFocus?.(e)
+    },
     onUpdate: ({ editor: e }) => {
-      setIsEmpty(e.isEmpty)
       if (saveTimer.current) clearTimeout(saveTimer.current)
       saveTimer.current = setTimeout(() => {
         void persistContent(e.getJSON())
       }, AUTO_SAVE_DEBOUNCE_MS)
     },
-    onBlur: () => setActive(false),
+    onBlur: () => {
+      setActive(false)
+      onZoneBlur?.()
+    },
     editorProps: {
       handleKeyDown: (_view, event) => {
         if (event.key === 'Escape') {
@@ -98,7 +126,6 @@ export function HeaderFooterEditor({
   useEffect(() => {
     if (!editor) return
     editor.commands.setContent(initialContent ?? EMPTY_DOC, false)
-    setIsEmpty(editor.isEmpty)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documentId, contentKey])
 
@@ -124,7 +151,6 @@ export function HeaderFooterEditor({
   function handleClick(): void {
     if (!active) {
       setActive(true)
-      // Defer focus so the activation state renders first
       setTimeout(() => editor?.commands.focus('end'), 0)
     }
   }
@@ -134,40 +160,37 @@ export function HeaderFooterEditor({
   return (
     <div
       ref={containerRef}
-      title={`Double-click to edit ${label.toLowerCase()}. Page numbers update on export.`}
+      title={`Click to edit ${label.toLowerCase()}. Page numbers update on export.`}
       className={cn(
-        'relative min-h-[2em] cursor-text transition-colors duration-150',
-        active
-          ? 'bg-background ring-1 ring-inset ring-primary/20'
-          : 'bg-muted/5 hover:bg-muted/10'
+        'cursor-text',
+        active && 'ring-1 ring-inset ring-primary/20'
       )}
       onClick={handleClick}
       onDoubleClick={handleClick}
     >
-      {!active && isEmpty && (
-        <span
-          className="pointer-events-none absolute top-1.5 select-none text-[11px] text-muted-foreground/30"
-          style={{ left: 'var(--page-margin-x)' }}
-        >
-          {label}
-        </span>
-      )}
+      {/* Persistent zone label — always visible, acts as a field caption */}
+      <div
+        className="pointer-events-none select-none pt-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/35"
+        style={{ paddingLeft: 'var(--page-margin-x)' }}
+      >
+        {label}
+      </div>
       <EditorContent
         editor={editor}
         className={cn(
-          'header-footer-editor py-1.5 outline-none',
+          'header-footer-editor pb-1.5 outline-none',
           !active && 'pointer-events-none'
         )}
         style={{
           paddingLeft: 'var(--page-margin-x)',
-          paddingRight: 'calc(var(--page-margin-x) / 2)',
+          paddingRight: 'var(--page-margin-x)',
         }}
       />
+      <HeaderFooterContextMenu editor={editor} containerRef={containerRef} />
     </div>
   )
 }
 
-// Build a Tiptap doc JSON for a right-aligned "LastName #" header line.
 export function buildRunningHeadContent(lastName: string): JSONContent {
   return {
     type: 'doc',

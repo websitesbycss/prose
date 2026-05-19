@@ -23,7 +23,7 @@ const SECTIONS: { id: Section; label: string; icon: React.ComponentType<{ classN
   { id: 'about', label: 'About', icon: Info },
 ]
 
-const FONT_FAMILIES = ['Times New Roman', 'Georgia', 'Arial', 'Helvetica', 'Courier New']
+const FONT_FAMILIES = ['Calibri', 'Times New Roman', 'Georgia', 'Arial', 'Helvetica', 'Courier New']
 const FONT_SIZES = [10, 11, 12, 14, 16, 18, 24]
 const FORMATS = [
   { value: 'none', label: 'None' },
@@ -343,7 +343,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps): JS
                         className="flex items-center gap-1.5 text-xs text-primary hover:underline"
                         onClick={(e) => {
                           e.preventDefault()
-                          // Links open in system browser via Electron webContents handler
+                          window.open('https://github.com/websitesbycss/prose', '_blank')
                         }}
                       >
                         <ExternalLink className="h-3 w-3" />

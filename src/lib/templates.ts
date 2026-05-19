@@ -18,7 +18,7 @@ export interface ApaFields {
 function para(text: string, role: string, align?: string): JSONContent {
   return {
     type: 'paragraph',
-    attrs: { role, ...(align ? { textAlign: align } : {}) },
+    attrs: { role, lineHeight: 2.0, ...(align ? { textAlign: align } : {}) },
     content: text ? [{ type: 'text', text }] : [],
   }
 }
@@ -26,13 +26,13 @@ function para(text: string, role: string, align?: string): JSONContent {
 function paraBold(text: string, role: string, align?: string): JSONContent {
   return {
     type: 'paragraph',
-    attrs: { role, ...(align ? { textAlign: align } : {}) },
+    attrs: { role, lineHeight: 2.0, ...(align ? { textAlign: align } : {}) },
     content: text ? [{ type: 'text', text, marks: [{ type: 'bold' }] }] : [],
   }
 }
 
 function emptyPara(): JSONContent {
-  return { type: 'paragraph' }
+  return { type: 'paragraph', attrs: { lineHeight: 2.0 } }
 }
 
 function todayMla(): string {
