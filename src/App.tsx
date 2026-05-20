@@ -1,24 +1,32 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Toaster } from 'sonner'
 import { useAppStore } from '@/store/appStore'
 import Dashboard from '@/components/dashboard/Dashboard'
 import Editor from '@/components/editor/Editor'
 import Welcome from '@/components/onboarding/Welcome'
+import SaveLocation from '@/components/onboarding/SaveLocation'
 import OllamaInstall from '@/components/onboarding/OllamaInstall'
 import ModelDownload from '@/components/onboarding/ModelDownload'
-import type { DownloadStatus, OllamaStatus } from '@/types'
+import MigrationOverlay from '@/components/migration/MigrationOverlay'
+import type { DownloadStatus, OllamaStatus, MigrationProgress } from '@/types'
 
-type OnboardingStep = 'welcome' | 'ollama-install' | 'model-download'
+type OnboardingStep = 'welcome' | 'save-location' | 'ollama-install' | 'model-download'
 
 export default function App(): JSX.Element {
   const theme = useAppStore((s) => s.theme)
   const currentDocumentId = useAppStore((s) => s.currentDocumentId)
+  const setCurrentDocumentId = useAppStore((s) => s.setCurrentDocumentId)
   const setOllamaStatus = useAppStore((s) => s.setOllamaStatus)
 
-  // null = still loading
+  // null = still checking
   const [ollamaInstalled, setOllamaInstalled] = useState<boolean | null>(null)
   const [downloadStatus, setDownloadStatus] = useState<DownloadStatus | null>(null)
   const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>('welcome')
+  const [defaultFolder, setDefaultFolder] = useState('')
+
+  // Migration: null = not yet checked, otherwise current status
+  const [migrationStatus, setMigrationStatus] = useState<MigrationProgress['status'] | null>(null)
+  const [migrationDone, setMigrationDone] = useState(false)
 
   useEffect(() => {
     async function checkSetup(): Promise<void> {
@@ -28,12 +36,21 @@ export default function App(): JSX.Element {
         const status = await window.prose.ollama.getDownloadStatus()
         setDownloadStatus(status as DownloadStatus)
       }
+      const info = await window.prose.documents.getStorageInfo()
+      setDefaultFolder(info.folder)
     }
     void checkSetup()
   }, [])
 
-  // Poll Ollama status until ready — keep polling even if unavailable so we
-  // catch cases where Ollama finishes installing after the app has launched
+  useEffect(() => {
+    void window.prose.migration.getStatus().then((p) => {
+      const s = (p as MigrationProgress).status
+      setMigrationStatus(s)
+      if (s === 'complete' || s === 'not_needed') setMigrationDone(true)
+    })
+  }, [])
+
+  // Poll Ollama status until ready
   useEffect(() => {
     let cancelled = false
     let timer: ReturnType<typeof setTimeout> | null = null
@@ -63,15 +80,49 @@ export default function App(): JSX.Element {
     }
   }, [setOllamaStatus])
 
+  // File association — double-click .prose file opens it
+  useEffect(() => {
+    const unsub = window.prose.app.onOpenFile(async (filePath) => {
+      try {
+        const doc = await window.prose.documents.openByPath(filePath)
+        setCurrentDocumentId(doc.id)
+      } catch (err) {
+        console.error('Failed to open file:', filePath, err)
+      }
+    })
+    return unsub
+  }, [setCurrentDocumentId])
+
+  const handleMigrationComplete = useCallback(() => setMigrationDone(true), [])
+
   // Still checking
   if (ollamaInstalled === null) {
     return <div className="flex h-screen items-center justify-center bg-background" />
   }
 
-  // Ollama not installed — run install onboarding
+  const showMigration =
+    !migrationDone &&
+    migrationStatus !== null &&
+    migrationStatus !== 'complete' &&
+    migrationStatus !== 'not_needed'
+
+  // Ollama not installed — onboarding
   if (!ollamaInstalled) {
     if (onboardingStep === 'welcome') {
-      return <Welcome onNext={() => setOnboardingStep('ollama-install')} />
+      return (
+        <>
+          {showMigration && <MigrationOverlay onComplete={handleMigrationComplete} />}
+          <Welcome onNext={() => setOnboardingStep('save-location')} />
+        </>
+      )
+    }
+    if (onboardingStep === 'save-location') {
+      return (
+        <SaveLocation
+          defaultFolder={defaultFolder}
+          onNext={() => setOnboardingStep('ollama-install')}
+        />
+      )
     }
     if (onboardingStep === 'ollama-install') {
       return (
@@ -87,14 +138,26 @@ export default function App(): JSX.Element {
     }
   }
 
-  // Ollama installed but model not downloaded yet
   if (downloadStatus === null) {
     return <div className="flex h-screen items-center justify-center bg-background" />
   }
 
   if (!downloadStatus.downloaded) {
     if (onboardingStep === 'welcome') {
-      return <Welcome onNext={() => setOnboardingStep('model-download')} />
+      return (
+        <>
+          {showMigration && <MigrationOverlay onComplete={handleMigrationComplete} />}
+          <Welcome onNext={() => setOnboardingStep('save-location')} />
+        </>
+      )
+    }
+    if (onboardingStep === 'save-location') {
+      return (
+        <SaveLocation
+          defaultFolder={defaultFolder}
+          onNext={() => setOnboardingStep('model-download')}
+        />
+      )
     }
     return (
       <ModelDownload
@@ -105,6 +168,7 @@ export default function App(): JSX.Element {
 
   return (
     <>
+      {showMigration && <MigrationOverlay onComplete={handleMigrationComplete} />}
       {currentDocumentId ? (
         <Editor documentId={currentDocumentId} />
       ) : (

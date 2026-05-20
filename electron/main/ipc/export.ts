@@ -1,23 +1,22 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron'
 import { writeFile } from 'fs/promises'
-import type Database from 'better-sqlite3'
 import { exportToDocx, exportToPdf, exportToMarkdown, exportToPlainText } from '../services/exporter'
 
-export function registerExportHandlers(db: Database.Database): void {
+export function registerExportHandlers(): void {
   ipcMain.handle('export:toDocx', async (_event, id: string) => {
-    await exportToDocx(db, id)
+    await exportToDocx(id)
   })
 
   ipcMain.handle('export:toPdf', async (_event, id: string) => {
-    await exportToPdf(db, id)
+    await exportToPdf(id)
   })
 
   ipcMain.handle('export:toMarkdown', async (_event, id: string) => {
-    await exportToMarkdown(db, id)
+    await exportToMarkdown(id)
   })
 
   ipcMain.handle('export:toPlainText', async (_event, id: string) => {
-    await exportToPlainText(db, id)
+    await exportToPlainText(id)
   })
 
   ipcMain.handle('export:saveImage', async (event, src: unknown): Promise<void> => {

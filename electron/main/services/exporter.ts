@@ -22,20 +22,23 @@ import {
   PageNumber,
 } from 'docx'
 import type { JSONContent } from '@tiptap/core'
-import type Database from 'better-sqlite3'
+import { resolveDocument } from './fileService'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-function fetchDocument(
-  db: Database.Database,
+async function fetchDocument(
   id: string
-): { content: string; title: string; format: string; header_content: string | null; footer_content: string | null } | null {
-  const row = db
-    .prepare('SELECT title, content, format, header_content, footer_content FROM documents WHERE id = ?')
-    .get(id) as
-    | { title: string; content: string; format: string; header_content: string | null; footer_content: string | null }
-    | undefined
-  return row ?? null
+): Promise<{ content: string; title: string; format: string; header_content: string | null; footer_content: string | null } | null> {
+  const resolved = await resolveDocument(id)
+  if (!resolved) return null
+  const { doc } = resolved
+  return {
+    title: doc.title,
+    content: JSON.stringify(doc.content),
+    format: doc.format,
+    header_content: doc.headerContent != null ? JSON.stringify(doc.headerContent) : null,
+    footer_content: doc.footerContent != null ? JSON.stringify(doc.footerContent) : null,
+  }
 }
 
 function parseContent(raw: string): JSONContent {
@@ -107,8 +110,8 @@ function nodeToPlainText(node: JSONContent, indent = 0): string {
   }
 }
 
-export async function exportToPlainText(db: Database.Database, id: string): Promise<void> {
-  const row = fetchDocument(db, id)
+export async function exportToPlainText(id: string): Promise<void> {
+  const row = await fetchDocument(id)
   if (!row) throw new Error('Document not found')
   const doc = parseContent(row.content)
   const text = nodeToPlainText(doc)
@@ -190,8 +193,8 @@ function nodeToMarkdown(node: JSONContent, listIndex = 0): string {
   }
 }
 
-export async function exportToMarkdown(db: Database.Database, id: string): Promise<void> {
-  const row = fetchDocument(db, id)
+export async function exportToMarkdown(id: string): Promise<void> {
+  const row = await fetchDocument(id)
   if (!row) throw new Error('Document not found')
   const doc = parseContent(row.content)
   const md = nodeToMarkdown(doc)
@@ -409,8 +412,8 @@ function buildHtmlPage(
 </head><body>${headerHtml}${footerHtml}${body}</body></html>`
 }
 
-export async function exportToPdf(db: Database.Database, id: string): Promise<void> {
-  const row = fetchDocument(db, id)
+export async function exportToPdf(id: string): Promise<void> {
+  const row = await fetchDocument(id)
   if (!row) throw new Error('Document not found')
   const doc = parseContent(row.content)
   // Fall back to auto-detected running head only for old docs without stored header_content
@@ -724,8 +727,8 @@ function parseZoneForDocx(
   }
 }
 
-export async function exportToDocx(db: Database.Database, id: string): Promise<void> {
-  const row = fetchDocument(db, id)
+export async function exportToDocx(id: string): Promise<void> {
+  const row = await fetchDocument(id)
   if (!row) throw new Error('Document not found')
   const doc = parseContent(row.content)
 

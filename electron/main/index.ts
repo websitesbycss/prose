@@ -1,7 +1,9 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, shell, ipcMain } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { join } from 'path'
-import { initDatabase, getDb, closeDatabase } from './services/database'
+import { initSettingsDb, closeSettingsDb } from './services/settingsDb'
+import { initIndexDb, closeIndexDb } from './services/indexDb'
+import { ensureDocumentsFolderExists, isDocumentsFolderAccessible } from './services/fileService'
 import { ollamaManager } from './services/ollama'
 import { registerDocumentHandlers } from './ipc/documents'
 import { registerSettingsHandlers } from './ipc/settings'
@@ -12,8 +14,14 @@ import { registerExportHandlers } from './ipc/export'
 import { registerOllamaHandlers } from './ipc/ollama'
 import { registerDialogHandlers } from './ipc/dialog'
 import { registerSnapshotHandlers } from './ipc/snapshots'
+import { registerMigrationHandlers, checkAndRunMigration } from './ipc/migration'
+import { registerImportHandlers } from './ipc/import'
+import { registerFileAssociation } from './services/fileAssociation'
 
-function createWindow(): void {
+// Pending file open from OS (before window is ready or while running)
+let pendingFileOpen: string | null = null
+
+function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -31,6 +39,11 @@ function createWindow(): void {
 
   win.on('ready-to-show', () => {
     win.show()
+    // Deliver any file that was opened before the window was ready
+    if (pendingFileOpen) {
+      win.webContents.send('app:open-file', pendingFileOpen)
+      pendingFileOpen = null
+    }
   })
 
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -43,37 +56,91 @@ function createWindow(): void {
   } else {
     win.loadFile(join(__dirname, '../renderer/index.html'))
   }
+
+  return win
 }
 
-app.whenReady().then(() => {
+// Handle file-open events (macOS open-file / Windows second-instance)
+app.on('open-file', (event, filePath) => {
+  event.preventDefault()
+  const focused = BrowserWindow.getFocusedWindow()
+  if (focused && !focused.isDestroyed()) {
+    focused.webContents.send('app:open-file', filePath)
+  } else {
+    pendingFileOpen = filePath
+  }
+})
+
+// Handle second-instance (Windows/Linux: user double-clicked a .prose file while app running)
+const gotLock = app.requestSingleInstanceLock()
+if (!gotLock) {
+  app.quit()
+} else {
+  app.on('second-instance', (_event, argv) => {
+    // On Windows, the file path is passed as a command-line argument
+    const filePath = argv.find((arg) => arg.endsWith('.prose'))
+    const win = BrowserWindow.getAllWindows()[0]
+    if (win) {
+      if (win.isMinimized()) win.restore()
+      win.focus()
+      if (filePath) win.webContents.send('app:open-file', filePath)
+    } else if (filePath) {
+      pendingFileOpen = filePath
+    }
+  })
+}
+
+app.whenReady().then(async () => {
+  // Register .prose file association so double-click works without an installer
+  registerFileAssociation()
+
   try {
-    initDatabase()
-    const db = getDb()
-    registerDocumentHandlers(db)
-    registerSettingsHandlers(db)
-    registerCategoryHandlers(db)
-    registerCitationHandlers(db)
-    registerAiHandlers(db, ollamaManager)
-    registerExportHandlers(db)
-    registerOllamaHandlers(db, ollamaManager)
+    // Initialize databases first
+    initSettingsDb()
+    initIndexDb()
+
+    // Ensure documents folder exists
+    await ensureDocumentsFolderExists()
+
+    // Register all IPC handlers
+    registerDocumentHandlers()
+    registerSettingsHandlers()
+    registerCategoryHandlers()
+    registerCitationHandlers()
+    registerAiHandlers(ollamaManager)
+    registerExportHandlers()
+    registerOllamaHandlers(ollamaManager)
     registerDialogHandlers()
-    registerSnapshotHandlers(db)
+    registerSnapshotHandlers()
+    registerMigrationHandlers()
+    registerImportHandlers()
+
+    // Documents folder accessibility check IPC
+    ipcMain.handle('documents:folderAccessible', () => isDocumentsFolderAccessible())
+
   } catch (err) {
     console.error('Startup error:', err)
     app.quit()
     return
   }
 
-  createWindow()
+  const win = createWindow()
 
-  // Only check for updates in production builds
+  // Run migration after window is created so it can display progress
+  checkAndRunMigration().catch((err) => {
+    console.error('Migration check failed:', err)
+  })
+
+  // Handle .prose file passed as command-line arg on first launch (Windows)
+  const fileArg = process.argv.find((arg) => arg.endsWith('.prose') && arg !== process.execPath)
+  if (fileArg) pendingFileOpen = fileArg
+
   if (app.isPackaged) {
     autoUpdater.checkForUpdatesAndNotify().catch((err) => {
       console.error('Auto-update check failed:', err)
     })
   }
 
-  // Start Ollama in background — renderer polls ai:getStatus
   void ollamaManager.start().catch((err) => {
     console.error('Ollama start error:', err)
   })
@@ -89,5 +156,6 @@ app.on('window-all-closed', () => {
 
 app.on('will-quit', () => {
   ollamaManager.stop()
-  closeDatabase()
+  closeSettingsDb()
+  closeIndexDb()
 })

@@ -1,0 +1,86 @@
+import { ipcMain, dialog, BrowserWindow } from 'electron'
+import { extname } from 'path'
+import { importProseFile, importMarkdownFile, importDocxFile, resolveDocument, type ProseFileDocument } from '../services/fileService'
+import { getAllIndexRows } from '../services/indexDb'
+
+function docToOut(doc: ProseFileDocument) {
+  return {
+    id: doc.id,
+    title: doc.title,
+    content: JSON.stringify(doc.content),
+    format: doc.format,
+    wordCountGoal: doc.wordCountGoal,
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
+    categoryId: doc.categoryId,
+    headerContent: doc.headerContent != null ? JSON.stringify(doc.headerContent) : null,
+    footerContent: doc.footerContent != null ? JSON.stringify(doc.footerContent) : null,
+  }
+}
+
+async function importOneFile(filePath: string): Promise<ProseFileDocument> {
+  const ext = extname(filePath).toLowerCase()
+  if (ext === '.prose') return importProseFile(filePath)
+  if (ext === '.md' || ext === '.markdown') return importMarkdownFile(filePath)
+  if (ext === '.docx') return importDocxFile(filePath)
+  throw new Error(`Unsupported file type: ${ext}`)
+}
+
+export function registerImportHandlers(): void {
+  // Called with explicit file paths (drag-and-drop) or no args (opens picker)
+  ipcMain.handle('documents:importFiles', async (event, filePaths: unknown) => {
+    let paths: string[]
+
+    if (Array.isArray(filePaths) && filePaths.every((p) => typeof p === 'string')) {
+      paths = filePaths as string[]
+    } else {
+      const win = BrowserWindow.fromWebContents(event.sender) ?? BrowserWindow.getFocusedWindow()
+      const result = await dialog.showOpenDialog(win!, {
+        title: 'Import documents',
+        filters: [
+          { name: 'Supported formats', extensions: ['prose', 'md', 'markdown', 'docx'] },
+          { name: 'Prose documents', extensions: ['prose'] },
+          { name: 'Markdown files', extensions: ['md', 'markdown'] },
+          { name: 'Word documents', extensions: ['docx'] },
+        ],
+        properties: ['openFile', 'multiSelections'],
+      })
+      if (result.canceled || !result.filePaths.length) return { imported: [], errors: [] }
+      paths = result.filePaths
+    }
+
+    const results: ReturnType<typeof docToOut>[] = []
+    const errors: string[] = []
+
+    for (const filePath of paths) {
+      try {
+        const doc = await importOneFile(filePath)
+        results.push(docToOut(doc))
+      } catch (err) {
+        errors.push(`${filePath}: ${(err as Error).message}`)
+        console.error('[import] Failed to import', filePath, err)
+      }
+    }
+
+    return { imported: results, errors }
+  })
+
+  // Open a .prose file by path (used by file association handler in main/index.ts)
+  ipcMain.handle('documents:openByPath', async (_, filePath: unknown) => {
+    if (typeof filePath !== 'string') throw new Error('Invalid path')
+    const ext = extname(filePath).toLowerCase()
+    if (ext !== '.prose') throw new Error('Only .prose files can be opened directly')
+
+    // If already in index, return existing doc
+    for (const row of getAllIndexRows()) {
+      if (row.file_path === filePath) {
+        const resolved = await resolveDocument(row.id)
+        if (resolved) return docToOut(resolved.doc)
+      }
+    }
+
+    // Not in index — import it
+    const doc = await importProseFile(filePath)
+    return docToOut(doc)
+  })
+}

@@ -8,6 +8,15 @@ contextBridge.exposeInMainWorld('prose', {
     update: (id: string, data: Record<string, unknown>) =>
       ipcRenderer.invoke('documents:update', id, data),
     delete: (id: string) => ipcRenderer.invoke('documents:delete', id),
+    getStorageInfo: () => ipcRenderer.invoke('documents:getStorageInfo'),
+    changeFolder: (newPath: string, moveFiles: boolean) =>
+      ipcRenderer.invoke('documents:changeFolder', newPath, moveFiles),
+    pickFolder: () => ipcRenderer.invoke('documents:pickFolder'),
+    setFolder: (folder: string) => ipcRenderer.invoke('documents:setFolder', folder),
+    openFolder: () => ipcRenderer.invoke('documents:openFolder'),
+    importFiles: (filePaths?: string[]) => ipcRenderer.invoke('documents:importFiles', filePaths),
+    openByPath: (filePath: string) => ipcRenderer.invoke('documents:openByPath', filePath),
+    folderAccessible: () => ipcRenderer.invoke('documents:folderAccessible'),
   },
 
   categories: {
@@ -74,18 +83,33 @@ contextBridge.exposeInMainWorld('prose', {
     installOllama: (): Promise<void> => ipcRenderer.invoke('ollama:installOllama'),
     listModels: (): Promise<string[]> => ipcRenderer.invoke('ollama:listModels'),
     onInstallProgress: (callback: (progress: unknown) => void): (() => void) => {
-      const listener = (_: Electron.IpcRendererEvent, progress: unknown): void =>
-        callback(progress)
+      const listener = (_: Electron.IpcRendererEvent, progress: unknown): void => callback(progress)
       ipcRenderer.on('ollama:install-progress', listener)
       return () => ipcRenderer.removeListener('ollama:install-progress', listener)
     },
     getDownloadStatus: () => ipcRenderer.invoke('ollama:getDownloadStatus'),
     startDownload: () => ipcRenderer.invoke('ollama:startDownload'),
     onDownloadProgress: (callback: (progress: unknown) => void): (() => void) => {
-      const listener = (_: Electron.IpcRendererEvent, progress: unknown): void =>
-        callback(progress)
+      const listener = (_: Electron.IpcRendererEvent, progress: unknown): void => callback(progress)
       ipcRenderer.on('ollama:download-progress', listener)
       return () => ipcRenderer.removeListener('ollama:download-progress', listener)
+    },
+  },
+
+  migration: {
+    getStatus: () => ipcRenderer.invoke('migration:getStatus'),
+    onProgress: (callback: (progress: unknown) => void): (() => void) => {
+      const listener = (_: Electron.IpcRendererEvent, progress: unknown): void => callback(progress)
+      ipcRenderer.on('migration:progress', listener)
+      return () => ipcRenderer.removeListener('migration:progress', listener)
+    },
+  },
+
+  app: {
+    onOpenFile: (callback: (filePath: string) => void): (() => void) => {
+      const listener = (_: Electron.IpcRendererEvent, filePath: string): void => callback(filePath)
+      ipcRenderer.on('app:open-file', listener)
+      return () => ipcRenderer.removeListener('app:open-file', listener)
     },
   },
 })

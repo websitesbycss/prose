@@ -1,27 +1,16 @@
 import { ipcMain } from 'electron'
-import type { Database } from 'better-sqlite3'
 import { randomUUID } from 'crypto'
+import { resolveDocument, writeProseFile, type ProseFileCitation } from '../services/fileService'
+import { getAllIndexRows } from '../services/indexDb'
 
-interface CitationRow {
-  id: string
-  document_id: string
-  type: string
-  fields: string
-  formatted: string
-  created_at: string
-}
+// ── Output types (same shape the renderer expects) ────────────────────────────
 
 interface CitationOut {
   id: string
   documentId: string
   type: string
   fields: Record<string, string>
-  formatted: {
-    mla: string
-    apa: string
-    chicago: string
-    ieee: string
-  }
+  formatted: { mla: string; apa: string; chicago: string; ieee: string }
   createdAt: string
 }
 
@@ -39,16 +28,18 @@ interface CitationFieldsOut {
 
 const VALID_CITATION_TYPES = new Set(['book', 'article', 'website', 'journal'])
 
-function rowToCitation(row: CitationRow): CitationOut {
+function citationToOut(c: ProseFileCitation, documentId: string): CitationOut {
   return {
-    id: row.id,
-    documentId: row.document_id,
-    type: row.type,
-    fields: JSON.parse(row.fields) as Record<string, string>,
-    formatted: JSON.parse(row.formatted) as CitationOut['formatted'],
-    createdAt: row.created_at,
+    id: c.id,
+    documentId,
+    type: c.type,
+    fields: c.fields as Record<string, string>,
+    formatted: c.formatted,
+    createdAt: c.createdAt,
   }
 }
+
+// ── Network fetchers (unchanged from previous implementation) ─────────────────
 
 async function fetchDoiMetadata(doi: string): Promise<CitationFieldsOut | null> {
   const url = `https://api.crossref.org/works/${encodeURIComponent(doi)}`
@@ -58,7 +49,6 @@ async function fetchDoiMetadata(doi: string): Promise<CitationFieldsOut | null> 
       signal: AbortSignal.timeout(8000),
     })
     if (!res.ok) return null
-
     const body = (await res.json()) as {
       message?: {
         title?: string[]
@@ -74,12 +64,8 @@ async function fetchDoiMetadata(doi: string): Promise<CitationFieldsOut | null> 
     }
     const msg = body.message
     if (!msg) return null
-
-    const authors = (msg.author ?? [])
-      .map((a) => [a.family, a.given].filter(Boolean).join(', '))
-      .join('; ')
+    const authors = (msg.author ?? []).map((a) => [a.family, a.given].filter(Boolean).join(', ')).join('; ')
     const year = msg['published-print']?.['date-parts']?.[0]?.[0]?.toString() ?? ''
-
     return {
       author: authors || undefined,
       title: msg.title?.[0] ?? undefined,
@@ -91,48 +77,27 @@ async function fetchDoiMetadata(doi: string): Promise<CitationFieldsOut | null> 
       issue: msg.issue ?? undefined,
       url: msg.URL ?? undefined,
     }
-  } catch {
-    return null
-  }
+  } catch { return null }
 }
 
 async function fetchUrlMetadata(url: string): Promise<CitationFieldsOut | null> {
   try {
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'Prose/1.0' },
-      signal: AbortSignal.timeout(8000),
-    })
+    const res = await fetch(url, { headers: { 'User-Agent': 'Prose/1.0' }, signal: AbortSignal.timeout(8000) })
     if (!res.ok) return null
-
     const html = await res.text()
-
     const extract = (property: string): string | undefined => {
-      const ogMatch = html.match(
-        new RegExp(`<meta[^>]+property=["']og:${property}["'][^>]+content=["']([^"']+)["']`, 'i')
-      )
+      const ogMatch = html.match(new RegExp(`<meta[^>]+property=["']og:${property}["'][^>]+content=["']([^"']+)["']`, 'i'))
       if (ogMatch?.[1]) return ogMatch[1]
-      const nameMatch = html.match(
-        new RegExp(`<meta[^>]+name=["']${property}["'][^>]+content=["']([^"']+)["']`, 'i')
-      )
+      const nameMatch = html.match(new RegExp(`<meta[^>]+name=["']${property}["'][^>]+content=["']([^"']+)["']`, 'i'))
       return nameMatch?.[1]
     }
-
     const titleTagMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
     const title = extract('title') ?? titleTagMatch?.[1]?.trim()
     const author = extract('author')
     const siteName = extract('site_name')
-
     if (!title && !author) return null
-
-    return {
-      title: title ?? undefined,
-      author: author ?? undefined,
-      publisher: siteName ?? undefined,
-      url,
-    }
-  } catch {
-    return null
-  }
+    return { title: title ?? undefined, author: author ?? undefined, publisher: siteName ?? undefined, url }
+  } catch { return null }
 }
 
 function convertAuthorsToLastFirst(names: string[]): string {
@@ -151,11 +116,10 @@ function convertAuthorsToLastFirst(names: string[]): string {
 }
 
 async function fetchIsbnGoogle(clean: string): Promise<CitationFieldsOut | null> {
-  const url = `https://www.googleapis.com/books/v1/volumes?q=isbn:${encodeURIComponent(clean)}`
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'Prose/1.0' },
-    signal: AbortSignal.timeout(10000),
-  })
+  const res = await fetch(
+    `https://www.googleapis.com/books/v1/volumes?q=isbn:${encodeURIComponent(clean)}`,
+    { headers: { 'User-Agent': 'Prose/1.0' }, signal: AbortSignal.timeout(10000) }
+  )
   if (!res.ok) return null
   const body = (await res.json()) as {
     totalItems?: number
@@ -173,17 +137,13 @@ async function fetchIsbnGoogle(clean: string): Promise<CitationFieldsOut | null>
 }
 
 async function fetchIsbnOpenLibrary(clean: string): Promise<CitationFieldsOut | null> {
-  const url = `https://openlibrary.org/api/books?bibkeys=ISBN:${encodeURIComponent(clean)}&format=json&jscmd=data`
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'Prose/1.0' },
-    signal: AbortSignal.timeout(10000),
-  })
+  const res = await fetch(
+    `https://openlibrary.org/api/books?bibkeys=ISBN:${encodeURIComponent(clean)}&format=json&jscmd=data`,
+    { headers: { 'User-Agent': 'Prose/1.0' }, signal: AbortSignal.timeout(10000) }
+  )
   if (!res.ok) return null
   const body = (await res.json()) as Record<string, {
-    title?: string
-    authors?: { name?: string }[]
-    publish_date?: string
-    publishers?: { name?: string }[]
+    title?: string; authors?: { name?: string }[]; publish_date?: string; publishers?: { name?: string }[]
   }>
   const data = body[`ISBN:${clean}`]
   if (!data) return null
@@ -199,96 +159,96 @@ async function fetchIsbnOpenLibrary(clean: string): Promise<CitationFieldsOut | 
 
 async function fetchIsbnMetadata(isbn: string): Promise<CitationFieldsOut | null> {
   const clean = isbn.replace(/[-\s]/g, '')
-  try {
-    const googleResult = await fetchIsbnGoogle(clean)
-    if (googleResult) return googleResult
-  } catch (err) {
-    console.error('[ISBN] Google Books failed:', err)
-  }
-  try {
-    return await fetchIsbnOpenLibrary(clean)
-  } catch (err) {
-    console.error('[ISBN] Open Library failed:', err)
-    return null
-  }
+  try { const r = await fetchIsbnGoogle(clean); if (r) return r } catch (e) { console.error('[ISBN] Google:', e) }
+  try { return await fetchIsbnOpenLibrary(clean) } catch (e) { console.error('[ISBN] OpenLibrary:', e); return null }
 }
 
-export function registerCitationHandlers(db: Database): void {
-  ipcMain.handle('citations:getByDocument', (_, documentId: unknown): CitationOut[] => {
-    if (typeof documentId !== 'string' || !documentId)
-      throw new Error('Invalid document id')
-    const rows = db
-      .prepare('SELECT * FROM citations WHERE document_id = ? ORDER BY created_at ASC')
-      .all(documentId) as CitationRow[]
-    return rows.map(rowToCitation)
+// ── IPC handlers ──────────────────────────────────────────────────────────────
+
+export function registerCitationHandlers(): void {
+  ipcMain.handle('citations:getByDocument', async (_, documentId: unknown): Promise<CitationOut[]> => {
+    if (typeof documentId !== 'string' || !documentId) throw new Error('Invalid document id')
+    const resolved = await resolveDocument(documentId)
+    if (!resolved) return []
+    return resolved.doc.citations.map((c) => citationToOut(c, documentId))
   })
 
-  ipcMain.handle('citations:create', (_, data: unknown): CitationOut => {
+  ipcMain.handle('citations:create', async (_, data: unknown): Promise<CitationOut> => {
     if (!data || typeof data !== 'object') throw new Error('Invalid create payload')
     const d = data as Record<string, unknown>
-
-    if (typeof d.documentId !== 'string' || !d.documentId)
-      throw new Error('documentId is required')
-    if (typeof d.type !== 'string' || !VALID_CITATION_TYPES.has(d.type))
-      throw new Error('Invalid citation type')
+    if (typeof d.documentId !== 'string' || !d.documentId) throw new Error('documentId is required')
+    if (typeof d.type !== 'string' || !VALID_CITATION_TYPES.has(d.type)) throw new Error('Invalid citation type')
     if (!d.fields || typeof d.fields !== 'object') throw new Error('fields is required')
     if (!d.formatted || typeof d.formatted !== 'object') throw new Error('formatted is required')
 
-    const id = randomUUID()
-    const now = new Date().toISOString()
+    const resolved = await resolveDocument(d.documentId)
+    if (!resolved) throw new Error('Document not found')
 
-    db.prepare(
-      'INSERT INTO citations (id, document_id, type, fields, formatted, created_at) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run(id, d.documentId, d.type, JSON.stringify(d.fields), JSON.stringify(d.formatted), now)
+    const citation: ProseFileCitation = {
+      id: randomUUID(),
+      type: d.type,
+      fields: d.fields as Record<string, unknown>,
+      formatted: d.formatted as ProseFileCitation['formatted'],
+      createdAt: new Date().toISOString(),
+    }
 
-    return rowToCitation(
-      db.prepare('SELECT * FROM citations WHERE id = ?').get(id) as CitationRow
-    )
+    const updatedDoc = { ...resolved.doc, citations: [...resolved.doc.citations, citation] }
+    await writeProseFile(resolved.filePath, updatedDoc)
+
+    return citationToOut(citation, d.documentId)
   })
 
-  ipcMain.handle('citations:update', (_, id: unknown, data: unknown): CitationOut => {
+  ipcMain.handle('citations:update', async (_, id: unknown, data: unknown): Promise<CitationOut> => {
     if (typeof id !== 'string' || !id) throw new Error('Invalid citation id')
     if (!data || typeof data !== 'object') throw new Error('Invalid update payload')
     const d = data as Record<string, unknown>
     if (typeof d.type !== 'string' || !VALID_CITATION_TYPES.has(d.type)) throw new Error('Invalid citation type')
     if (!d.fields || typeof d.fields !== 'object') throw new Error('fields is required')
     if (!d.formatted || typeof d.formatted !== 'object') throw new Error('formatted is required')
-    db.prepare('UPDATE citations SET type = ?, fields = ?, formatted = ? WHERE id = ?')
-      .run(d.type, JSON.stringify(d.fields), JSON.stringify(d.formatted), id)
-    return rowToCitation(db.prepare('SELECT * FROM citations WHERE id = ?').get(id) as CitationRow)
+
+    // Find which document has this citation — iterate index
+    for (const row of getAllIndexRows()) {
+      const resolved = await resolveDocument(row.id)
+      if (!resolved) continue
+      const idx = resolved.doc.citations.findIndex((c) => c.id === id)
+      if (idx === -1) continue
+
+      const updated = { ...resolved.doc.citations[idx]!, type: d.type, fields: d.fields as Record<string, unknown>, formatted: d.formatted as ProseFileCitation['formatted'] }
+      const citations = [...resolved.doc.citations]
+      citations[idx] = updated
+      await writeProseFile(resolved.filePath, { ...resolved.doc, citations })
+      return citationToOut(updated, row.id)
+    }
+    throw new Error('Citation not found')
   })
 
-  ipcMain.handle('citations:delete', (_, id: unknown): void => {
+  ipcMain.handle('citations:delete', async (_, id: unknown): Promise<void> => {
     if (typeof id !== 'string' || !id) throw new Error('Invalid citation id')
-    db.prepare('DELETE FROM citations WHERE id = ?').run(id)
+
+    for (const row of getAllIndexRows()) {
+      const resolved = await resolveDocument(row.id)
+      if (!resolved) continue
+      const idx = resolved.doc.citations.findIndex((c) => c.id === id)
+      if (idx === -1) continue
+      const citations = resolved.doc.citations.filter((c) => c.id !== id)
+      await writeProseFile(resolved.filePath, { ...resolved.doc, citations })
+      return
+    }
   })
 
-  ipcMain.handle(
-    'citations:fetchByDoi',
-    (_, doi: unknown): Promise<CitationFieldsOut | null> => {
-      if (typeof doi !== 'string' || !doi) throw new Error('Invalid DOI')
-      return fetchDoiMetadata(doi.trim())
-    }
-  )
+  ipcMain.handle('citations:fetchByDoi', (_, doi: unknown) => {
+    if (typeof doi !== 'string' || !doi) throw new Error('Invalid DOI')
+    return fetchDoiMetadata(doi.trim())
+  })
 
-  ipcMain.handle(
-    'citations:fetchByUrl',
-    (_, url: unknown): Promise<CitationFieldsOut | null> => {
-      if (typeof url !== 'string' || !url) throw new Error('Invalid URL')
-      try {
-        new URL(url)
-      } catch {
-        throw new Error('Malformed URL')
-      }
-      return fetchUrlMetadata(url)
-    }
-  )
+  ipcMain.handle('citations:fetchByUrl', (_, url: unknown) => {
+    if (typeof url !== 'string' || !url) throw new Error('Invalid URL')
+    try { new URL(url) } catch { throw new Error('Malformed URL') }
+    return fetchUrlMetadata(url)
+  })
 
-  ipcMain.handle(
-    'citations:fetchByIsbn',
-    (_, isbn: unknown): Promise<CitationFieldsOut | null> => {
-      if (typeof isbn !== 'string' || !isbn) throw new Error('Invalid ISBN')
-      return fetchIsbnMetadata(isbn.trim())
-    }
-  )
+  ipcMain.handle('citations:fetchByIsbn', (_, isbn: unknown) => {
+    if (typeof isbn !== 'string' || !isbn) throw new Error('Invalid ISBN')
+    return fetchIsbnMetadata(isbn.trim())
+  })
 }

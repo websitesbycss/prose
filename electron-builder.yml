@@ -11,6 +11,11 @@ win:
     - target: nsis
       arch: x64
   icon: resources/icons/prose.ico
+  fileAssociations:
+    - ext: prose
+      name: Prose Document
+      description: Prose writing document
+      role: Editor
 
 nsis:
   oneClick: false

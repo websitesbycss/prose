@@ -1,7 +1,7 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { toast } from 'sonner'
-import { Plus, Search, Settings, FolderPlus, X, ChevronRight } from 'lucide-react'
+import { Plus, Search, Settings, FolderPlus, X, ChevronRight, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -19,7 +19,7 @@ import {
 import DocumentCard, { cardVariants } from './DocumentCard'
 import NewDocumentModal from './NewDocumentModal'
 import SettingsModal from '@/components/settings/SettingsModal'
-import type { Document, Category } from '@/types'
+import type { Document, Category, ImportResult } from '@/types'
 import { useAppStore } from '@/store/appStore'
 
 type SidebarFilter = 'all' | 'uncategorized' | string
@@ -49,6 +49,8 @@ export default function Dashboard(): JSX.Element {
   const [newCatName, setNewCatName] = useState('')
   const [newCatColor, setNewCatColor] = useState(CATEGORY_COLORS[0])
   const [addingCat, setAddingCat] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
   const catInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -69,6 +71,64 @@ export default function Dashboard(): JSX.Element {
       setCategories(cats)
     } catch (err) {
       console.error('Load error:', err)
+    }
+  }
+
+  const handleImportResult = useCallback((result: ImportResult) => {
+    if (result.imported.length > 0) {
+      setDocuments((prev) => [...result.imported as Document[], ...prev])
+      toast.success(`Imported ${result.imported.length} document${result.imported.length !== 1 ? 's' : ''}`)
+    }
+    if (result.errors.length > 0) {
+      toast.error(`${result.errors.length} file${result.errors.length !== 1 ? 's' : ''} could not be imported`)
+      console.error('[import] errors:', result.errors)
+    }
+  }, [])
+
+  async function handleImport(): Promise<void> {
+    if (importing) return
+    setImporting(true)
+    try {
+      const result = await window.prose.documents.importFiles() as ImportResult
+      handleImportResult(result)
+    } catch (err) {
+      console.error('Import error:', err)
+      toast.error('Import failed')
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  function handleDragOver(e: React.DragEvent): void {
+    const hasFiles = Array.from(e.dataTransfer.types).includes('Files')
+    if (!hasFiles) return
+    e.preventDefault()
+    setDragOver(true)
+  }
+
+  function handleDragLeave(e: React.DragEvent): void {
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false)
+  }
+
+  async function handleDrop(e: React.DragEvent): Promise<void> {
+    e.preventDefault()
+    setDragOver(false)
+    const paths: string[] = []
+    for (const file of Array.from(e.dataTransfer.files)) {
+      // Electron exposes the real filesystem path on File objects
+      const path = (file as File & { path?: string }).path
+      if (path) paths.push(path)
+    }
+    if (!paths.length) return
+    setImporting(true)
+    try {
+      const result = await window.prose.documents.importFiles(paths) as ImportResult
+      handleImportResult(result)
+    } catch (err) {
+      console.error('Drop import error:', err)
+      toast.error('Import failed')
+    } finally {
+      setImporting(false)
     }
   }
 
@@ -124,7 +184,12 @@ export default function Dashboard(): JSX.Element {
   })
 
   return (
-    <div className="flex h-screen bg-background text-foreground">
+    <div
+      className={`flex h-screen bg-background text-foreground ${dragOver ? 'ring-2 ring-inset ring-primary/50' : ''}`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={(e) => void handleDrop(e)}
+    >
       {/* Sidebar */}
       <aside className="flex w-[220px] shrink-0 flex-col border-r border-border">
         <div className="flex h-14 items-center px-4">
@@ -265,6 +330,17 @@ export default function Dashboard(): JSX.Element {
           </div>
           <Button
             size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => void handleImport()}
+            disabled={importing}
+            title="Import .prose, .md, or .docx file"
+          >
+            <Upload className="h-4 w-4" />
+            Import
+          </Button>
+          <Button
+            size="sm"
             className="gap-1.5"
             onClick={() => setNewDocOpen(true)}
           >
@@ -276,7 +352,12 @@ export default function Dashboard(): JSX.Element {
         {/* Document grid */}
         <ScrollArea className="flex-1">
           <div className="p-6">
-            {filtered.length === 0 ? (
+            {dragOver && (
+              <div className="mb-4 rounded-lg border-2 border-dashed border-primary/50 bg-primary/5 p-4 text-center text-sm text-primary">
+                Drop .prose, .md, or .docx files to import
+              </div>
+            )}
+            {filtered.length === 0 && !dragOver ? (
               <EmptyState
                 hasSearch={!!search}
                 onNew={() => setNewDocOpen(true)}

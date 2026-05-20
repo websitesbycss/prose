@@ -9,6 +9,8 @@ export interface Document {
   categoryId: string | null
   headerContent: string | null
   footerContent: string | null
+  // Present on dashboard listing (pre-computed from index)
+  wordCount?: number
 }
 
 export interface Category {
@@ -58,6 +60,8 @@ export interface CreateDocumentInput {
   format?: DocumentFormat
   categoryId?: string | null
   wordCountGoal?: number | null
+  headerContent?: string | null
+  footerContent?: string | null
 }
 
 export interface UpdateDocumentInput {
@@ -130,6 +134,26 @@ export interface CreateCitationInput {
   formatted: Citation['formatted']
 }
 
+export interface StorageInfo {
+  folder: string
+  totalSize: number
+  documentCount: number
+}
+
+export type MigrationStatus = 'not_needed' | 'needed' | 'running' | 'complete' | 'error'
+
+export interface MigrationProgress {
+  status: MigrationStatus
+  current: number
+  total: number
+  label: string
+}
+
+export interface ImportResult {
+  imported: Document[]
+  errors: string[]
+}
+
 export interface ProseAPI {
   dialog: {
     openImage(): Promise<string | null>
@@ -140,6 +164,14 @@ export interface ProseAPI {
     create(data: CreateDocumentInput): Promise<Document>
     update(id: string, data: UpdateDocumentInput): Promise<Document>
     delete(id: string): Promise<void>
+    getStorageInfo(): Promise<StorageInfo>
+    changeFolder(newPath: string, moveFiles: boolean): Promise<void>
+    pickFolder(): Promise<string | null>
+    setFolder(folder: string): Promise<void>
+    openFolder(): Promise<void>
+    importFiles(filePaths?: string[]): Promise<ImportResult>
+    openByPath(filePath: string): Promise<Document>
+    folderAccessible(): Promise<boolean>
   }
   categories: {
     getAll(): Promise<Category[]>
@@ -186,6 +218,13 @@ export interface ProseAPI {
     getDownloadStatus(): Promise<DownloadStatus>
     startDownload(): Promise<void>
     onDownloadProgress(callback: (progress: DownloadProgress) => void): () => void
+  }
+  migration: {
+    getStatus(): Promise<MigrationProgress>
+    onProgress(callback: (progress: MigrationProgress) => void): () => void
+  }
+  app: {
+    onOpenFile(callback: (filePath: string) => void): () => void
   }
 }
 

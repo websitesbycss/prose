@@ -1,158 +1,193 @@
 import { ipcMain } from 'electron'
-import type { Database } from 'better-sqlite3'
-import { randomUUID } from 'crypto'
-import { tryCreateSnapshot } from './snapshots'
-
-interface DocumentRow {
-  id: string
-  title: string
-  content: string
-  format: string
-  word_count_goal: number | null
-  created_at: string
-  updated_at: string
-  category_id: string | null
-  header_content: string | null
-  footer_content: string | null
-}
-
-interface DocumentOut {
-  id: string
-  title: string
-  content: string
-  format: string
-  wordCountGoal: number | null
-  createdAt: string
-  updatedAt: string
-  categoryId: string | null
-  headerContent: string | null
-  footerContent: string | null
-}
+import {
+  createDocument,
+  updateDocument,
+  deleteDocument,
+  resolveDocument,
+  getAllDocumentsFromIndex,
+  countWordsFromContent,
+  tryAddSnapshot,
+  writeProseFile,
+  getFolderStats,
+  changeDocumentsFolder,
+  getDocumentsFolder,
+  setDocumentsFolder,
+  type ProseFileDocument,
+} from '../services/fileService'
+import { upsertIndex } from '../services/indexDb'
+import { shell, dialog, BrowserWindow } from 'electron'
+import { extname } from 'path'
 
 const VALID_FORMATS = new Set(['none', 'mla', 'apa', 'chicago', 'ieee'])
 
-function rowToDocument(row: DocumentRow): DocumentOut {
+// Convert a full .prose file to the shape the renderer expects
+function docToOut(doc: ProseFileDocument, filePath?: string) {
   return {
-    id: row.id,
-    title: row.title,
-    content: row.content,
-    format: row.format,
-    wordCountGoal: row.word_count_goal,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    categoryId: row.category_id,
-    headerContent: row.header_content ?? null,
-    footerContent: row.footer_content ?? null,
+    id: doc.id,
+    title: doc.title,
+    content: JSON.stringify(doc.content),
+    format: doc.format,
+    wordCountGoal: doc.wordCountGoal,
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
+    categoryId: doc.categoryId,
+    headerContent: doc.headerContent != null ? JSON.stringify(doc.headerContent) : null,
+    footerContent: doc.footerContent != null ? JSON.stringify(doc.footerContent) : null,
   }
 }
 
-export function registerDocumentHandlers(db: Database): void {
-  ipcMain.handle('documents:getAll', (): DocumentOut[] => {
-    const rows = db
-      .prepare('SELECT * FROM documents ORDER BY updated_at DESC')
-      .all() as DocumentRow[]
-    return rows.map(rowToDocument)
+// Convert dashboard index row to the minimum shape Dashboard.tsx needs
+// (it only uses: id, title, format, wordCountGoal, createdAt, updatedAt, categoryId, content for word count)
+function dashboardDocToOut(doc: ReturnType<typeof getAllDocumentsFromIndex>[0]) {
+  return {
+    id: doc.id,
+    title: doc.title,
+    content: '{}',  // not used by the dashboard card (it uses pre-computed wordCount)
+    format: doc.format,
+    wordCountGoal: null,
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
+    categoryId: doc.categoryId,
+    headerContent: null,
+    footerContent: null,
+    // Extra field for dashboard word count display
+    wordCount: doc.wordCount,
+  }
+}
+
+export function registerDocumentHandlers(): void {
+  // Dashboard — index only (fast)
+  ipcMain.handle('documents:getAll', () => {
+    return getAllDocumentsFromIndex().map(dashboardDocToOut)
   })
 
-  ipcMain.handle('documents:getById', (_, id: unknown): DocumentOut | null => {
+  // Editor — reads full file
+  ipcMain.handle('documents:getById', async (_, id: unknown) => {
     if (typeof id !== 'string' || !id) throw new Error('Invalid document id')
-    const row = db.prepare('SELECT * FROM documents WHERE id = ?').get(id) as DocumentRow | undefined
-    return row ? rowToDocument(row) : null
+    const resolved = await resolveDocument(id)
+    if (!resolved) return null
+    return docToOut(resolved.doc, resolved.filePath)
   })
 
-  ipcMain.handle('documents:create', (_, data: unknown): DocumentOut => {
+  ipcMain.handle('documents:create', async (_, data: unknown) => {
     if (!data || typeof data !== 'object') throw new Error('Invalid create payload')
     const d = data as Record<string, unknown>
 
     if (typeof d.title !== 'string' || !d.title.trim()) throw new Error('title is required')
-    const format = d.format !== undefined ? d.format : 'none'
-    if (typeof format !== 'string' || !VALID_FORMATS.has(format)) throw new Error('Invalid format')
-
-    const id = randomUUID()
-    const now = new Date().toISOString()
-    const content = typeof d.content === 'string' ? d.content : '{}'
-    const wordCountGoal =
-      d.wordCountGoal !== undefined && d.wordCountGoal !== null ? Number(d.wordCountGoal) : null
+    const format = typeof d.format === 'string' && VALID_FORMATS.has(d.format) ? d.format : 'none'
+    const wordCountGoal = d.wordCountGoal != null ? Number(d.wordCountGoal) : null
     const categoryId = typeof d.categoryId === 'string' ? d.categoryId : null
+    const headerContent = d.headerContent != null ? parseJsonField(d.headerContent) : null
+    const footerContent = d.footerContent != null ? parseJsonField(d.footerContent) : null
 
-    db.prepare(
-      `INSERT INTO documents (id, title, content, format, word_count_goal, created_at, updated_at, category_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(id, d.title.trim(), content, format, wordCountGoal, now, now, categoryId)
+    let content: unknown = { type: 'doc', content: [] }
+    if (typeof d.content === 'string' && d.content !== '{}') {
+      try { content = JSON.parse(d.content) } catch { /* use empty */ }
+    }
 
-    return rowToDocument(
-      db.prepare('SELECT * FROM documents WHERE id = ?').get(id) as DocumentRow
-    )
+    const doc = await createDocument({
+      title: d.title.trim(),
+      format,
+      content,
+      headerContent,
+      footerContent,
+      wordCountGoal,
+      categoryId,
+    })
+
+    return docToOut(doc)
   })
 
-  ipcMain.handle('documents:update', (_, id: unknown, data: unknown): DocumentOut => {
+  ipcMain.handle('documents:update', async (_, id: unknown, data: unknown) => {
     if (typeof id !== 'string' || !id) throw new Error('Invalid document id')
     if (!data || typeof data !== 'object') throw new Error('Invalid update payload')
     const d = data as Record<string, unknown>
 
-    const existing = db
-      .prepare('SELECT * FROM documents WHERE id = ?')
-      .get(id) as DocumentRow | undefined
-    if (!existing) throw new Error('Document not found')
+    const resolved = await resolveDocument(id)
+    if (!resolved) throw new Error('Document not found')
+    const { doc, filePath } = resolved
 
-    const title =
-      typeof d.title === 'string' && d.title.trim() ? d.title.trim() : existing.title
-    const content = typeof d.content === 'string' ? d.content : existing.content
-    const format =
-      typeof d.format === 'string' && VALID_FORMATS.has(d.format) ? d.format : existing.format
-    const wordCountGoal =
-      d.wordCountGoal !== undefined
-        ? d.wordCountGoal === null
-          ? null
-          : Number(d.wordCountGoal)
-        : existing.word_count_goal
-    const categoryId =
-      'categoryId' in d
-        ? d.categoryId === null
-          ? null
-          : typeof d.categoryId === 'string'
-          ? d.categoryId
-          : existing.category_id
-        : existing.category_id
-    const headerContent =
-      'headerContent' in d
-        ? d.headerContent === null
-          ? null
-          : typeof d.headerContent === 'string'
-          ? d.headerContent
-          : existing.header_content
-        : existing.header_content
-    const footerContent =
-      'footerContent' in d
-        ? d.footerContent === null
-          ? null
-          : typeof d.footerContent === 'string'
-          ? d.footerContent
-          : existing.footer_content
-        : existing.footer_content
+    const patch: Partial<ProseFileDocument> = {}
 
-    db.prepare(
-      `UPDATE documents
-       SET title = ?, content = ?, format = ?, word_count_goal = ?, updated_at = ?,
-           category_id = ?, header_content = ?, footer_content = ?
-       WHERE id = ?`
-    ).run(title, content, format, wordCountGoal, new Date().toISOString(), categoryId, headerContent, footerContent, id)
+    if (typeof d.title === 'string' && d.title.trim()) patch.title = d.title.trim()
+    if (typeof d.format === 'string' && VALID_FORMATS.has(d.format)) patch.format = d.format
+    if ('wordCountGoal' in d) patch.wordCountGoal = d.wordCountGoal != null ? Number(d.wordCountGoal) : null
+    if ('categoryId' in d) patch.categoryId = typeof d.categoryId === 'string' ? d.categoryId : null
+    if ('headerContent' in d) {
+      patch.headerContent = d.headerContent != null ? parseJsonField(d.headerContent) : null
+    }
+    if ('footerContent' in d) {
+      patch.footerContent = d.footerContent != null ? parseJsonField(d.footerContent) : null
+    }
 
+    let newContent: unknown | undefined
     if (typeof d.content === 'string') {
+      try { newContent = JSON.parse(d.content) } catch { newContent = doc.content }
+      patch.content = newContent
+    }
+
+    const updatedDoc = await updateDocument(id, patch)
+
+    // Auto-snapshot when content changes
+    if (newContent !== undefined) {
       try {
-        tryCreateSnapshot(db, id, content)
+        const withSnapshot = tryAddSnapshot(updatedDoc, updatedDoc.content)
+        if (withSnapshot.snapshots.length !== updatedDoc.snapshots.length) {
+          await writeProseFile(filePath, withSnapshot)
+        }
       } catch (err) {
-        console.error('[snapshots] tryCreateSnapshot failed:', err)
+        console.error('[snapshots] tryAddSnapshot failed:', err)
       }
     }
 
-    return rowToDocument(
-      db.prepare('SELECT * FROM documents WHERE id = ?').get(id) as DocumentRow
-    )
+    return docToOut(updatedDoc)
   })
 
-  ipcMain.handle('documents:delete', (_, id: unknown): void => {
+  ipcMain.handle('documents:delete', async (_, id: unknown) => {
     if (typeof id !== 'string' || !id) throw new Error('Invalid document id')
-    db.prepare('DELETE FROM documents WHERE id = ?').run(id)
+    await deleteDocument(id)
   })
+
+  // Storage info
+  ipcMain.handle('documents:getStorageInfo', async () => {
+    return getFolderStats()
+  })
+
+  // Change folder
+  ipcMain.handle('documents:changeFolder', async (event, newPath: unknown, moveFiles: unknown) => {
+    if (typeof newPath !== 'string' || !newPath) throw new Error('Invalid folder path')
+    const shouldMove = moveFiles === true
+    await changeDocumentsFolder(newPath, shouldMove)
+  })
+
+  // Pick and change folder via dialog
+  ipcMain.handle('documents:pickFolder', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender) ?? BrowserWindow.getFocusedWindow()
+    const result = await dialog.showOpenDialog(win!, {
+      title: 'Choose documents folder',
+      defaultPath: getDocumentsFolder(),
+      properties: ['openDirectory', 'createDirectory'],
+    })
+    if (result.canceled || !result.filePaths[0]) return null
+    return result.filePaths[0]
+  })
+
+  // Set folder without moving files (used by onboarding)
+  ipcMain.handle('documents:setFolder', async (_, folder: unknown) => {
+    if (typeof folder !== 'string' || !folder) throw new Error('Invalid folder')
+    setDocumentsFolder(folder)
+  })
+
+  // Open folder in File Explorer
+  ipcMain.handle('documents:openFolder', async () => {
+    shell.openPath(getDocumentsFolder())
+  })
+}
+
+function parseJsonField(value: unknown): unknown {
+  if (typeof value === 'string') {
+    try { return JSON.parse(value) } catch { return null }
+  }
+  if (typeof value === 'object') return value
+  return null
 }

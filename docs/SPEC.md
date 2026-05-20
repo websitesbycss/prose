@@ -775,6 +775,7 @@ Build in this exact order. Do not skip ahead. Each phase should be fully working
 ## ambitious goals list:
 - migrate database to a hybrid .prose file-based system that lives in ~/Documents/Prose
 - Custom layout engine
+- azure software signing
 
 
 ## README structure (to be written last)

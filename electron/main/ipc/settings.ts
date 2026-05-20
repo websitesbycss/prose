@@ -1,10 +1,5 @@
 import { ipcMain } from 'electron'
-import type { Database } from 'better-sqlite3'
-
-interface SettingsRow {
-  key: string
-  value: string
-}
+import { getSettingsDb } from '../services/settingsDb'
 
 interface AppSettingsOut {
   theme: 'dark' | 'light'
@@ -40,28 +35,22 @@ const DEFAULTS: AppSettingsOut = {
 
 const VALID_FORMATS = new Set(['none', 'mla', 'apa', 'chicago', 'ieee'])
 const VALID_THEMES = new Set(['dark', 'light'])
+const APP_SETTING_KEYS = new Set(Object.keys(DEFAULTS))
 
-function loadSettings(db: Database): AppSettingsOut {
-  const rows = db.prepare('SELECT key, value FROM settings').all() as SettingsRow[]
+function loadSettings(): AppSettingsOut {
+  const db = getSettingsDb()
+  const rows = db.prepare('SELECT key, value FROM settings').all() as Array<{ key: string; value: string }>
   const map = new Map(rows.map((r) => [r.key, r.value]))
 
   const get = <T>(key: string, fallback: T): T => {
     const raw = map.get(key)
     if (raw === undefined) return fallback
-    try {
-      return JSON.parse(raw) as T
-    } catch {
-      return fallback
-    }
+    try { return JSON.parse(raw) as T } catch { return fallback }
   }
 
   return {
-    theme: VALID_THEMES.has(get('theme', DEFAULTS.theme))
-      ? get('theme', DEFAULTS.theme)
-      : DEFAULTS.theme,
-    defaultFormat: VALID_FORMATS.has(get('defaultFormat', DEFAULTS.defaultFormat))
-      ? get('defaultFormat', DEFAULTS.defaultFormat)
-      : DEFAULTS.defaultFormat,
+    theme: VALID_THEMES.has(get('theme', DEFAULTS.theme)) ? get('theme', DEFAULTS.theme) : DEFAULTS.theme,
+    defaultFormat: VALID_FORMATS.has(get('defaultFormat', DEFAULTS.defaultFormat)) ? get('defaultFormat', DEFAULTS.defaultFormat) : DEFAULTS.defaultFormat,
     wordCountExcludesHeader: get('wordCountExcludesHeader', DEFAULTS.wordCountExcludesHeader),
     defaultWordCountGoal: get('defaultWordCountGoal', DEFAULTS.defaultWordCountGoal),
     ollamaModel: get('ollamaModel', DEFAULTS.ollamaModel) || DEFAULTS.ollamaModel,
@@ -75,31 +64,23 @@ function loadSettings(db: Database): AppSettingsOut {
     headingFontSizes: (() => {
       const v = get('headingFontSizes', DEFAULTS.headingFontSizes)
       const clamp = (n: number) => Math.max(8, Math.min(96, n))
-      return {
-        h1: clamp(v.h1 ?? DEFAULTS.headingFontSizes.h1),
-        h2: clamp(v.h2 ?? DEFAULTS.headingFontSizes.h2),
-        h3: clamp(v.h3 ?? DEFAULTS.headingFontSizes.h3),
-      }
+      return { h1: clamp(v.h1 ?? DEFAULTS.headingFontSizes.h1), h2: clamp(v.h2 ?? DEFAULTS.headingFontSizes.h2), h3: clamp(v.h3 ?? DEFAULTS.headingFontSizes.h3) }
     })(),
   }
 }
 
-export function registerSettingsHandlers(db: Database): void {
-  const upsert = db.prepare(
+export function registerSettingsHandlers(): void {
+  const upsert = getSettingsDb().prepare(
     'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value'
   )
 
-  ipcMain.handle('settings:get', (): AppSettingsOut => {
-    return loadSettings(db)
-  })
+  ipcMain.handle('settings:get', (): AppSettingsOut => loadSettings())
 
   ipcMain.handle('settings:set', (_, data: unknown): void => {
     if (!data || typeof data !== 'object') throw new Error('Invalid settings payload')
     const d = data as Record<string, unknown>
-
-    const allowed = new Set(Object.keys(DEFAULTS))
     for (const [key, value] of Object.entries(d)) {
-      if (!allowed.has(key)) continue
+      if (!APP_SETTING_KEYS.has(key)) continue
       upsert.run(key, JSON.stringify(value))
     }
   })

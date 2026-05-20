@@ -8,18 +8,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { useAppStore } from '@/store/appStore'
 import { cn } from '@/lib/utils'
-import type { AppSettings } from '@/types'
-import { Palette, PenLine, Sparkles, Timer, Info, ExternalLink } from 'lucide-react'
+import type { AppSettings, StorageInfo } from '@/types'
+import { Palette, PenLine, Sparkles, Timer, Info, ExternalLink, HardDrive } from 'lucide-react'
 
-type Section = 'appearance' | 'writing' | 'ai' | 'pomodoro' | 'about'
+type Section = 'appearance' | 'writing' | 'ai' | 'pomodoro' | 'storage' | 'about'
 
 const SECTIONS: { id: Section; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'writing', label: 'Writing', icon: PenLine },
   { id: 'ai', label: 'AI', icon: Sparkles },
   { id: 'pomodoro', label: 'Pomodoro', icon: Timer },
+  { id: 'storage', label: 'Storage', icon: HardDrive },
   { id: 'about', label: 'About', icon: Info },
 ]
 
@@ -63,11 +68,14 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps): JS
   const [section, setSection] = useState<Section>('appearance')
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [models, setModels] = useState<string[]>([])
+  const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null)
+  const [changeFolderDialog, setChangeFolderDialog] = useState<{ newPath: string } | null>(null)
 
   useEffect(() => {
     if (!open) return
     void window.prose.settings.get().then((s) => setSettings(s as AppSettings))
     void window.prose.ollama.listModels().then(setModels)
+    void window.prose.documents.getStorageInfo().then((info) => setStorageInfo(info as StorageInfo))
   }, [open])
 
   const save = useCallback(async (patch: Partial<AppSettings>): Promise<void> => {
@@ -79,9 +87,27 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps): JS
     }
   }, [])
 
+  async function handlePickNewFolder(): Promise<void> {
+    const picked = await window.prose.documents.pickFolder()
+    if (picked) setChangeFolderDialog({ newPath: picked })
+  }
+
+  async function handleConfirmChangeFolder(moveFiles: boolean): Promise<void> {
+    if (!changeFolderDialog) return
+    setChangeFolderDialog(null)
+    try {
+      await window.prose.documents.changeFolder(changeFolderDialog.newPath, moveFiles)
+      const info = await window.prose.documents.getStorageInfo()
+      setStorageInfo(info as StorageInfo)
+    } catch (err) {
+      console.error('Change folder error:', err)
+    }
+  }
+
   if (!settings) return <></>
 
   return (
+    <>
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
       <DialogContent className="flex h-[540px] max-h-[90vh] w-[680px] max-w-[95vw] flex-col gap-0 p-0">
         <DialogHeader className="shrink-0 border-b border-border px-5 py-4">
@@ -323,6 +349,43 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps): JS
                 </>
               )}
 
+              {section === 'storage' && (
+                <>
+                  <SectionTitle>Storage</SectionTitle>
+                  <SettingRow label="Documents folder">
+                    <span className="max-w-[200px] truncate text-right text-xs text-muted-foreground font-mono" title={storageInfo?.folder}>
+                      {storageInfo?.folder ?? '—'}
+                    </span>
+                  </SettingRow>
+                  <Separator />
+                  <SettingRow label="Disk usage" description={storageInfo ? `${storageInfo.documentCount} document${storageInfo.documentCount !== 1 ? 's' : ''}` : undefined}>
+                    <span className="text-xs text-muted-foreground">
+                      {storageInfo ? formatBytes(storageInfo.totalBytes) : '—'}
+                    </span>
+                  </SettingRow>
+                  <Separator />
+                  {storageInfo && !storageInfo.accessible && (
+                    <div className="mb-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                      Folder is not accessible. Documents cannot be saved until a valid folder is set.
+                    </div>
+                  )}
+                  <div className="flex gap-2 py-3">
+                    <button
+                      onClick={() => void handlePickNewFolder()}
+                      className="flex-1 rounded-md border border-border px-3 py-1.5 text-xs text-foreground hover:bg-accent transition-colors"
+                    >
+                      Change location…
+                    </button>
+                    <button
+                      onClick={() => void window.prose.documents.openFolder()}
+                      className="flex-1 rounded-md border border-border px-3 py-1.5 text-xs text-foreground hover:bg-accent transition-colors"
+                    >
+                      Open in Explorer
+                    </button>
+                  </div>
+                </>
+              )}
+
               {section === 'about' && (
                 <>
                   <SectionTitle>About</SectionTitle>
@@ -365,6 +428,27 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps): JS
         </div>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={!!changeFolderDialog} onOpenChange={(o) => { if (!o) setChangeFolderDialog(null) }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Change documents folder?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Move your existing documents to{' '}
+            <span className="font-mono text-xs">{changeFolderDialog?.newPath}</span>?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => void handleConfirmChangeFolder(false)}>
+            Keep files in place
+          </AlertDialogCancel>
+          <AlertDialogAction onClick={() => void handleConfirmChangeFolder(true)}>
+            Move files
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   )
 }
 
@@ -374,4 +458,11 @@ function SectionTitle({ children }: { children: React.ReactNode }): JSX.Element 
       {children}
     </h3>
   )
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
 }

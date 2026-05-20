@@ -96,10 +96,12 @@ export const Indent = Extension.create({
     return {
       Tab: ({ editor }) => {
         if (editor.isActive('listItem')) return false
+        if (editor.isActive('tableCell') || editor.isActive('tableHeader')) return false
         return editor.commands.indent()
       },
       'Shift-Tab': ({ editor }) => {
         if (editor.isActive('listItem')) return false
+        if (editor.isActive('tableCell') || editor.isActive('tableHeader')) return false
         return editor.commands.outdent()
       },
       Backspace: ({ editor }) => {
