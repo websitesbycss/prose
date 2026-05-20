@@ -463,7 +463,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                       {activePanel === 'pomodoro' && <PomodoroPanel controls={pomodoroControls} />}
                       {activePanel === 'stats' && <SessionStatsPanel stats={sessionStats} />}
                       {activePanel === 'history' && (
-                        <HistoryPanel documentId={documentId} editor={editor} />
+                        <HistoryPanel documentId={documentId} editor={editor} format={format} />
                       )}
                     </motion.div>
                   )}

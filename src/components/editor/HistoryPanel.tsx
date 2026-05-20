@@ -2,8 +2,32 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { useEditor, EditorContent } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import Underline from '@tiptap/extension-underline'
+import Subscript from '@tiptap/extension-subscript'
+import Superscript from '@tiptap/extension-superscript'
+import TextAlign from '@tiptap/extension-text-align'
+import { TextStyle } from '@tiptap/extension-text-style'
+import { FontFamily } from '@tiptap/extension-font-family'
+import { Color } from '@tiptap/extension-color'
+import Highlight from '@tiptap/extension-highlight'
+import { CustomImage } from '@/extensions/imageExtension'
+import { Link } from '@tiptap/extension-link'
+import { Table } from '@tiptap/extension-table'
+import {
+  CustomTableRow,
+  CustomTableHeader,
+  CustomTableCell,
+  TableCellAttributes,
+} from '@/extensions/tableExtensions'
+import { FontSize } from '@/extensions/fontSize'
+import { Indent } from '@/extensions/indent'
+import { PageNumberNode } from '@/extensions/pageNumber'
+import { LineHeight } from '@/extensions/lineHeight'
+import { ParagraphRole } from '@/extensions/paragraphRole'
 import type { Editor } from '@tiptap/react'
-import type { Snapshot } from '@/types'
+import type { Snapshot, AppSettings } from '@/types'
 import {
   Dialog,
   DialogContent,
@@ -11,6 +35,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { PAGE_MARGIN_X_PX, PAGE_MARGIN_Y_PX } from '@/constants'
+
+const PAGE_WIDTH_PX = 816   // 8.5" at 96 dpi
+const PAGE_HEIGHT_PX = 1056 // 11" at 96 dpi
 
 // ---------------------------------------------------------------------------
 // Utilities
@@ -66,15 +94,91 @@ function relativeTime(dateStr: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Read-only Tiptap preview
+// ---------------------------------------------------------------------------
+
+function SnapshotPreviewEditor({
+  content,
+  format,
+  fontFamily,
+  fontSize,
+}: {
+  content: string
+  format: string
+  fontFamily: string
+  fontSize: number
+}): JSX.Element {
+  const parsed = (() => {
+    try { return JSON.parse(content) as object } catch { return '' }
+  })()
+
+  const previewEditor = useEditor({
+    extensions: [
+      StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
+      Underline,
+      Subscript,
+      Superscript,
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      TextStyle,
+      FontFamily,
+      FontSize,
+      Color,
+      Highlight.configure({ multicolor: true }),
+      CustomImage,
+      Link.configure({ openOnClick: false }),
+      Table.configure({ resizable: false }),
+      CustomTableRow,
+      CustomTableHeader,
+      CustomTableCell,
+      TableCellAttributes,
+      Indent,
+      PageNumberNode,
+      LineHeight,
+      ParagraphRole,
+    ],
+    content: parsed,
+    editable: false,
+    immediatelyRender: true,
+  })
+
+  const formatClass = format === 'mla' ? 'format-mla' : format === 'apa' ? 'format-apa' : ''
+
+  return (
+    <div
+      className={cn('editor-page bg-white dark:bg-zinc-800', formatClass)}
+      style={{
+        '--page-margin-x': `${PAGE_MARGIN_X_PX}px`,
+        '--page-margin-y': `${PAGE_MARGIN_Y_PX}px`,
+        minHeight: PAGE_HEIGHT_PX,
+      } as React.CSSProperties}
+    >
+      <div
+        style={{
+          paddingLeft: 'var(--page-margin-x)',
+          paddingRight: 'var(--page-margin-x)',
+          paddingTop: PAGE_MARGIN_Y_PX,
+          paddingBottom: PAGE_MARGIN_Y_PX,
+          '--prose-editor-font-family': fontFamily,
+          '--prose-editor-font-size': `${fontSize}pt`,
+        } as React.CSSProperties}
+      >
+        <EditorContent editor={previewEditor} className="prose-editor outline-none" />
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 interface HistoryPanelProps {
   documentId: string
   editor: Editor | null
+  format?: string
 }
 
-export function HistoryPanel({ documentId, editor }: HistoryPanelProps): JSX.Element {
+export function HistoryPanel({ documentId, editor, format = 'none' }: HistoryPanelProps): JSX.Element {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -82,6 +186,29 @@ export function HistoryPanel({ documentId, editor }: HistoryPanelProps): JSX.Ele
   const [confirmRestore, setConfirmRestore] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [restoring, setRestoring] = useState(false)
+  const [previewFontFamily, setPreviewFontFamily] = useState('Calibri')
+  const [previewFontSize, setPreviewFontSize] = useState(11)
+  const previewContainerRef = useRef<HTMLDivElement>(null)
+  const [previewScale, setPreviewScale] = useState(1)
+
+  // Load settings and compute scale when the preview dialog opens
+  useEffect(() => {
+    if (!previewOpen) return
+    void window.prose.settings.get().then((s) => {
+      const appSettings = s as AppSettings
+      if (appSettings.editorFontFamily) setPreviewFontFamily(appSettings.editorFontFamily)
+      if (appSettings.editorFontSize) setPreviewFontSize(appSettings.editorFontSize)
+    })
+    const el = previewContainerRef.current
+    if (!el) return
+    const compute = (): void => {
+      setPreviewScale(Math.min(el.clientHeight / PAGE_HEIGHT_PX, 1))
+    }
+    compute()
+    const ro = new ResizeObserver(compute)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [previewOpen])
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
@@ -89,7 +216,6 @@ export function HistoryPanel({ documentId, editor }: HistoryPanelProps): JSX.Ele
       const snaps = await window.prose.snapshots.getByDocument(documentId)
       setSnapshots(snaps)
       setSelectedId((prev) => {
-        // Keep selection if it still exists, otherwise pick most recent
         if (prev && snaps.some((s) => s.id === prev)) return prev
         return snaps.length > 0 ? (snaps[0]?.id ?? null) : null
       })
@@ -101,7 +227,6 @@ export function HistoryPanel({ documentId, editor }: HistoryPanelProps): JSX.Ele
     }
   }, [documentId])
 
-  // Load on mount / document change
   useEffect(() => {
     setSnapshots([])
     setSelectedId(null)
@@ -110,7 +235,6 @@ export function HistoryPanel({ documentId, editor }: HistoryPanelProps): JSX.Ele
     void load()
   }, [documentId, load])
 
-  // Auto-refresh every 20 s so newly created snapshots appear without reopening the panel
   const loadRef = useRef(load)
   loadRef.current = load
   useEffect(() => {
@@ -119,6 +243,7 @@ export function HistoryPanel({ documentId, editor }: HistoryPanelProps): JSX.Ele
   }, [])
 
   const selected = snapshots.find((s) => s.id === selectedId) ?? null
+  const selectedIsCurrent = selected?.id === snapshots[0]?.id
 
   const previewText = selected
     ? truncate(contentToPlainText(selected.content))
@@ -321,7 +446,7 @@ export function HistoryPanel({ documentId, editor }: HistoryPanelProps): JSX.Ele
               </Button>
             </div>
           </div>
-        ) : (
+        ) : !selectedIsCurrent ? (
           <div className="flex gap-1.5">
             <Button
               variant="outline"
@@ -342,23 +467,44 @@ export function HistoryPanel({ documentId, editor }: HistoryPanelProps): JSX.Ele
               restore
             </Button>
           </div>
+        ) : (
+          <p className="text-center text-[10px] text-muted-foreground/50">
+            select an older version to preview or restore
+          </p>
         )}
       </div>
 
       {/* ── Full preview modal ── */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="flex max-h-[70vh] max-w-2xl flex-col gap-3">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[90vh] w-[900px] max-w-[95vw] flex-col gap-3 p-0">
+          <DialogHeader className="shrink-0 border-b border-border px-5 py-4">
             <DialogTitle className="text-sm font-medium">
               {selected ? relativeTime(selected.createdAt) : 'Preview'}
+              {selected && (
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  · {selected.wordCount.toLocaleString()} words
+                </span>
+              )}
             </DialogTitle>
           </DialogHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto rounded-md border border-border bg-muted/5 p-4">
-            <p className="whitespace-pre-wrap font-serif text-sm leading-relaxed text-foreground">
-              {selected ? contentToPlainText(selected.content) : ''}
-            </p>
+
+          <div
+            ref={previewContainerRef}
+            className="min-h-0 flex-1 overflow-auto bg-zinc-100 dark:bg-zinc-900 flex justify-center"
+          >
+            <div style={{ zoom: previewScale, width: PAGE_WIDTH_PX }}>
+              {selected && (
+                <SnapshotPreviewEditor
+                  content={selected.content}
+                  format={format}
+                  fontFamily={previewFontFamily}
+                  fontSize={previewFontSize}
+                />
+              )}
+            </div>
           </div>
-          <div className="flex justify-end gap-2 pt-1">
+
+          <div className="shrink-0 border-t border-border px-5 py-3 flex justify-end gap-2">
             <Button variant="outline" size="sm" onClick={() => setPreviewOpen(false)}>
               Close
             </Button>
