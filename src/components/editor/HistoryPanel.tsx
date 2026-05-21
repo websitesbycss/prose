@@ -26,6 +26,7 @@ import { Indent } from '@/extensions/indent'
 import { PageNumberNode } from '@/extensions/pageNumber'
 import { LineHeight } from '@/extensions/lineHeight'
 import { ParagraphRole } from '@/extensions/paragraphRole'
+import { RightTab, TabToRightAlign } from '@/extensions/rightTab'
 import type { Editor } from '@tiptap/react'
 import type { Snapshot, AppSettings } from '@/types'
 import {
@@ -97,16 +98,78 @@ function relativeTime(dateStr: string): string {
 // Read-only Tiptap preview
 // ---------------------------------------------------------------------------
 
+const ZONE_EMPTY_DOC = { type: 'doc', content: [{ type: 'paragraph' }] }
+
+function hasZoneContent(content: string | null): boolean {
+  if (!content) return false
+  try {
+    const doc = JSON.parse(content) as { content?: Array<{ type: string; content?: unknown[] }> }
+    const nodes = doc.content ?? []
+    if (nodes.length === 0) return false
+    if (nodes.length === 1 && nodes[0]?.type === 'paragraph' && !nodes[0]?.content?.length) return false
+    return true
+  } catch {
+    return false
+  }
+}
+
+function ZonePreview({ content, fontFamily, fontSize }: {
+  content: string | null
+  fontFamily: string
+  fontSize: number
+}): JSX.Element {
+  const parsed = (() => {
+    if (!content) return null
+    try { return JSON.parse(content) as object } catch { return null }
+  })()
+
+  const zoneEditor = useEditor({
+    extensions: [
+      StarterKit.configure({ heading: { levels: [1, 2, 3] }, bulletList: false, orderedList: false, listItem: false }),
+      Underline, Subscript, Superscript,
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      TextStyle, FontFamily, FontSize, Color,
+      Highlight.configure({ multicolor: true }),
+      Link.configure({ openOnClick: false }),
+      Indent, LineHeight,
+      RightTab, TabToRightAlign,
+      PageNumberNode,
+    ],
+    content: parsed ?? ZONE_EMPTY_DOC,
+    editable: false,
+    immediatelyRender: true,
+  })
+
+  if (!parsed) return <></>
+
+  return (
+    <EditorContent
+      editor={zoneEditor}
+      className="header-footer-editor pb-1.5 outline-none pointer-events-none"
+      style={{
+        paddingLeft: 'var(--page-margin-x)',
+        paddingRight: 'var(--page-margin-x)',
+        '--prose-editor-font-family': fontFamily,
+        '--prose-editor-font-size': `${fontSize}pt`,
+      } as React.CSSProperties}
+    />
+  )
+}
+
 function SnapshotPreviewEditor({
   content,
   format,
   fontFamily,
   fontSize,
+  headerContent,
+  footerContent,
 }: {
   content: string
   format: string
   fontFamily: string
   fontSize: number
+  headerContent: string | null
+  footerContent: string | null
 }): JSX.Element {
   const parsed = (() => {
     try { return JSON.parse(content) as object } catch { return '' }
@@ -143,6 +206,9 @@ function SnapshotPreviewEditor({
 
   const formatClass = format === 'mla' ? 'format-mla' : format === 'apa' ? 'format-apa' : ''
 
+  const showHeader = hasZoneContent(headerContent)
+  const showFooter = hasZoneContent(footerContent)
+
   return (
     <div
       className={cn('editor-page bg-white dark:bg-zinc-800', formatClass)}
@@ -152,18 +218,28 @@ function SnapshotPreviewEditor({
         minHeight: PAGE_HEIGHT_PX,
       } as React.CSSProperties}
     >
+      {showHeader && (
+        <div style={{ paddingTop: Math.round(PAGE_MARGIN_Y_PX / 2) }}>
+          <ZonePreview content={headerContent} fontFamily={fontFamily} fontSize={fontSize} />
+        </div>
+      )}
       <div
         style={{
           paddingLeft: 'var(--page-margin-x)',
           paddingRight: 'var(--page-margin-x)',
-          paddingTop: PAGE_MARGIN_Y_PX,
-          paddingBottom: PAGE_MARGIN_Y_PX,
+          paddingTop: showHeader ? Math.round(PAGE_MARGIN_Y_PX / 2) : PAGE_MARGIN_Y_PX,
+          paddingBottom: showFooter ? Math.round(PAGE_MARGIN_Y_PX / 2) : PAGE_MARGIN_Y_PX,
           '--prose-editor-font-family': fontFamily,
           '--prose-editor-font-size': `${fontSize}pt`,
         } as React.CSSProperties}
       >
         <EditorContent editor={previewEditor} className="prose-editor outline-none" />
       </div>
+      {showFooter && (
+        <div style={{ paddingBottom: Math.round(PAGE_MARGIN_Y_PX / 2) }}>
+          <ZonePreview content={footerContent} fontFamily={fontFamily} fontSize={fontSize} />
+        </div>
+      )}
     </div>
   )
 }
@@ -188,16 +264,25 @@ export function HistoryPanel({ documentId, editor, format = 'none' }: HistoryPan
   const [restoring, setRestoring] = useState(false)
   const [previewFontFamily, setPreviewFontFamily] = useState('Calibri')
   const [previewFontSize, setPreviewFontSize] = useState(11)
+  const [previewHeaderContent, setPreviewHeaderContent] = useState<string | null>(null)
+  const [previewFooterContent, setPreviewFooterContent] = useState<string | null>(null)
   const previewContainerRef = useRef<HTMLDivElement>(null)
   const [previewScale, setPreviewScale] = useState(1)
 
-  // Load settings and compute scale when the preview dialog opens
+  // Load settings, header/footer, and compute scale when the preview dialog opens
   useEffect(() => {
     if (!previewOpen) return
-    void window.prose.settings.get().then((s) => {
+    void Promise.all([
+      window.prose.settings.get(),
+      window.prose.documents.getById(documentId),
+    ]).then(([s, doc]) => {
       const appSettings = s as AppSettings
       if (appSettings.editorFontFamily) setPreviewFontFamily(appSettings.editorFontFamily)
       if (appSettings.editorFontSize) setPreviewFontSize(appSettings.editorFontSize)
+      if (doc) {
+        setPreviewHeaderContent((doc as { headerContent?: string | null }).headerContent ?? null)
+        setPreviewFooterContent((doc as { footerContent?: string | null }).footerContent ?? null)
+      }
     })
     const el = previewContainerRef.current
     if (!el) return
@@ -499,6 +584,8 @@ export function HistoryPanel({ documentId, editor, format = 'none' }: HistoryPan
                   format={format}
                   fontFamily={previewFontFamily}
                   fontSize={previewFontSize}
+                  headerContent={previewHeaderContent}
+                  footerContent={previewFooterContent}
                 />
               )}
             </div>

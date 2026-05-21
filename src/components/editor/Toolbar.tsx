@@ -50,12 +50,12 @@ const COLOR_PALETTE = [
   '#000000', '#374151', '#6b7280',
   '#ef4444', '#f97316', '#eab308',
   '#22c55e', '#06b6d4', '#3b82f6',
-  '#8b5cf6', '#7F77DD', '#ec4899',
+  '#D4840E', '#EF9F27', '#ec4899',
 ]
 
 const HIGHLIGHT_PALETTE = [
   '#fef08a', '#fde68a', '#fed7aa',
-  '#fca5a5', '#f9a8d4', '#d8b4fe',
+  '#fca5a5', '#f9a8d4', '#fcd9a0',
   '#a5f3fc', '#86efac', '#bfdbfe',
   '#f3f4f6', '#e5e7eb', '#d1d5db',
 ]

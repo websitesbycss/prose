@@ -40,7 +40,7 @@ export default function DocumentCard({
   onDelete,
 }: DocumentCardProps): JSX.Element {
   const category = categories.find((c) => c.id === document.categoryId)
-  const wordCount = extractWordCount(document.content)
+  const wordCount = document.wordCount ?? extractWordCount(document.content)
   const formatLabel = FORMAT_LABELS[document.format]
 
   const [editing, setEditing] = useState(false)
