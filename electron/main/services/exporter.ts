@@ -352,7 +352,7 @@ function zoneJsonToHtml(raw: string | null): string {
 function legacyRunningHeadHtml(runningHead: string, format: string): string {
   const pn = '<span class="pn"></span>'
   const hStyle =
-    'position:fixed;top:0.5in;font-family:"Times New Roman",serif;font-size:12pt;line-height:1;'
+    'position:fixed;top:-0.5in;font-family:"Times New Roman",serif;font-size:12pt;line-height:1.5;'
   if (format === 'mla') {
     return `<div style="${hStyle}right:1in;">${escapeHtml(runningHead)} ${pn}</div>`
   }
@@ -373,7 +373,7 @@ function buildHtmlPage(
     const inner = zoneJsonToHtml(headerRaw)
     if (inner) {
       const zoneStyle =
-        'position:fixed;top:0;left:0;right:0;padding:0.35in 1in 0;font-family:"Times New Roman",serif;font-size:12pt;'
+        'position:fixed;top:-0.5in;left:0;right:0;padding:0 1in;font-family:"Times New Roman",serif;font-size:12pt;line-height:1.5;'
       headerHtml = `<div class="export-header" style="${zoneStyle}">${inner}</div>`
     }
   } else if (legacyRunningHead && (format === 'mla' || format === 'apa')) {
@@ -385,7 +385,7 @@ function buildHtmlPage(
     const inner = zoneJsonToHtml(footerRaw)
     if (inner) {
       const zoneStyle =
-        'position:fixed;bottom:0;left:0;right:0;padding:0 1in 0.35in;font-family:"Times New Roman",serif;font-size:12pt;'
+        'position:fixed;bottom:-0.5in;left:0;right:0;padding:0 1in;font-family:"Times New Roman",serif;font-size:12pt;line-height:1.5;'
       footerHtml = `<div class="export-footer" style="${zoneStyle}">${inner}</div>`
     }
   }
@@ -483,10 +483,22 @@ function marksToRun(text: string, marks: JSONContent['marks']): TextRun {
   return new TextRun(opts)
 }
 
-function inlineToRuns(node: JSONContent): TextRun[] {
+function inlineToRuns(node: JSONContent): (TextRun | ImageRun)[] {
   if (node.type === 'text') return [marksToRun(node.text ?? '', node.marks)]
   if (node.type === 'hardBreak') return [new TextRun({ break: 1 })]
   if (node.type === 'pageNumber') return [new TextRun({ children: [PageNumber.CURRENT] })]
+  if (node.type === 'image') {
+    const src = (node.attrs?.src as string) ?? ''
+    const match = src.match(/^data:image\/(\w+);base64,(.+)$/)
+    if (!match) return []
+    const imgType = (match[1] ?? 'png') as 'png' | 'jpg' | 'jpeg' | 'gif' | 'bmp' | 'svg' | 'webp'
+    const imgData = Buffer.from(match[2]!, 'base64')
+    const dims = getImageDimensions(imgData, imgType)
+    const naturalW = dims?.width ?? MAX_IMG_WIDTH_PX
+    const naturalH = dims?.height ?? Math.round(MAX_IMG_WIDTH_PX * 0.75)
+    const scale = naturalW > MAX_IMG_WIDTH_PX ? MAX_IMG_WIDTH_PX / naturalW : 1
+    return [new ImageRun({ data: imgData, transformation: { width: Math.round(naturalW * scale), height: Math.round(naturalH * scale) }, type: imgType })]
+  }
   return (node.content ?? []).flatMap(inlineToRuns)
 }
 

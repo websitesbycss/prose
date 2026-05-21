@@ -25,13 +25,13 @@ import { useAppStore } from '@/store/appStore'
 type SidebarFilter = 'all' | 'uncategorized' | string
 
 const CATEGORY_COLORS = [
-  '#EF9F27',
+  '#7F77DD',
   '#E879A0',
   '#34D399',
   '#FBBF24',
   '#60A5FA',
   '#F87171',
-  '#F5C262',
+  '#A78BFA',
   '#2DD4BF',
 ]
 

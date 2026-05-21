@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ChromeColorPicker } from '@/components/ui/ChromeColorPicker'
 import { useEditorState } from '@tiptap/react'
 import type { Editor } from '@tiptap/react'
 import {
@@ -50,12 +51,12 @@ const COLOR_PALETTE = [
   '#000000', '#374151', '#6b7280',
   '#ef4444', '#f97316', '#eab308',
   '#22c55e', '#06b6d4', '#3b82f6',
-  '#D4840E', '#EF9F27', '#ec4899',
+  '#8b5cf6', '#7F77DD', '#ec4899',
 ]
 
 const HIGHLIGHT_PALETTE = [
   '#fef08a', '#fde68a', '#fed7aa',
-  '#fca5a5', '#f9a8d4', '#fcd9a0',
+  '#fca5a5', '#f9a8d4', '#d8b4fe',
   '#a5f3fc', '#86efac', '#bfdbfe',
   '#f3f4f6', '#e5e7eb', '#d1d5db',
 ]
@@ -97,55 +98,6 @@ function Sep(): JSX.Element {
   return <Separator orientation="vertical" className="mx-0.5 h-5" />
 }
 
-function ColorSwatchGrid({
-  palette,
-  current,
-  onSelect,
-  onReset,
-  resetLabel,
-}: {
-  palette: string[]
-  current: string
-  onSelect: (color: string) => void
-  onReset: () => void
-  resetLabel: string
-}): JSX.Element {
-  const [customColor, setCustomColor] = useState(current || '#000000')
-
-  return (
-    <div className="flex flex-col gap-2 p-2">
-      <div className="grid grid-cols-6 gap-1">
-        {palette.map((color) => (
-          <button
-            key={color}
-            className={cn(
-              'h-5 w-5 rounded ring-offset-background transition-all hover:ring-2 hover:ring-ring hover:ring-offset-1',
-              current === color && 'ring-2 ring-ring ring-offset-1'
-            )}
-            style={{ backgroundColor: color }}
-            onMouseDown={(e) => { e.preventDefault(); onSelect(color) }}
-            title={color}
-          />
-        ))}
-      </div>
-      <div className="flex items-center gap-2">
-        <input
-          type="color"
-          value={customColor}
-          onChange={(e) => setCustomColor(e.target.value)}
-          onBlur={(e) => onSelect(e.target.value)}
-          className="h-6 w-6 cursor-pointer rounded border border-border bg-transparent p-0"
-          title="Custom color"
-        />
-        <span className="text-[10px] text-muted-foreground">Custom</span>
-        <span className="ml-auto font-mono text-[10px] text-muted-foreground">{customColor}</span>
-      </div>
-      <Button variant="ghost" size="sm" className="h-6 w-full text-xs" onMouseDown={(e) => { e.preventDefault(); onReset() }}>
-        {resetLabel}
-      </Button>
-    </div>
-  )
-}
 
 function ColorPicker({
   editor,
@@ -174,16 +126,18 @@ function ColorPicker({
         <TooltipContent side="bottom" className="text-xs">Font color</TooltipContent>
       </Tooltip>
       <PopoverContent
-        className="w-auto p-0"
+        className="w-auto p-0 border-0 bg-transparent shadow-xl"
         side="bottom"
-        align="start"
+        align="center"
         onOpenAutoFocus={(e) => e.preventDefault()}
         onCloseAutoFocus={(e) => e.preventDefault()}
       >
-        <ColorSwatchGrid
-          palette={themedPalette}
+        <ChromeColorPicker
+          color={currentColor || '#000000'}
           current={currentColor}
-          onSelect={(c) => editor.chain().focus().setColor(c).run()}
+          palette={themedPalette}
+          onChange={(c) => editor.chain().setColor(c).run()}
+          onPaletteSelect={(c) => editor.chain().setColor(c).run()}
           onReset={() => editor.chain().focus().unsetColor().run()}
           resetLabel="Reset color"
         />
@@ -216,16 +170,18 @@ function HighlightPicker({
         <TooltipContent side="bottom" className="text-xs">Highlight</TooltipContent>
       </Tooltip>
       <PopoverContent
-        className="w-auto p-0"
+        className="w-auto p-0 border-0 bg-transparent shadow-xl"
         side="bottom"
-        align="start"
+        align="center"
         onOpenAutoFocus={(e) => e.preventDefault()}
         onCloseAutoFocus={(e) => e.preventDefault()}
       >
-        <ColorSwatchGrid
-          palette={HIGHLIGHT_PALETTE}
+        <ChromeColorPicker
+          color={currentHighlight || '#fef08a'}
           current={currentHighlight ?? ''}
-          onSelect={(c) => editor.chain().focus().setHighlight({ color: c }).run()}
+          palette={HIGHLIGHT_PALETTE}
+          onChange={(c) => editor.chain().setHighlight({ color: c }).run()}
+          onPaletteSelect={(c) => editor.chain().setHighlight({ color: c }).run()}
           onReset={() => editor.chain().focus().unsetHighlight().run()}
           resetLabel="Remove highlight"
         />
@@ -674,11 +630,13 @@ function CellFillPicker({
         </TooltipTrigger>
         <TooltipContent side="bottom" className="text-xs">Cell fill color</TooltipContent>
       </Tooltip>
-      <PopoverContent className="w-auto p-0" side="bottom" align="start">
-        <ColorSwatchGrid
-          palette={HIGHLIGHT_PALETTE}
+      <PopoverContent className="w-auto p-0 border-0 bg-transparent shadow-xl" side="bottom" align="center">
+        <ChromeColorPicker
+          color={currentFill || '#fef08a'}
           current={currentFill ?? ''}
-          onSelect={(c) => editor.chain().focus().setCellAttribute('backgroundColor', c).run()}
+          palette={HIGHLIGHT_PALETTE}
+          onChange={(c) => editor.chain().setCellAttribute('backgroundColor', c).run()}
+          onPaletteSelect={(c) => editor.chain().setCellAttribute('backgroundColor', c).run()}
           onReset={() => editor.chain().focus().setCellAttribute('backgroundColor', null).run()}
           resetLabel="Remove fill"
         />
@@ -716,11 +674,13 @@ function CellBorderColorPicker({
         </TooltipTrigger>
         <TooltipContent side="bottom" className="text-xs">Border color</TooltipContent>
       </Tooltip>
-      <PopoverContent className="w-auto p-0" side="bottom" align="start">
-        <ColorSwatchGrid
-          palette={themedPalette}
+      <PopoverContent className="w-auto p-0 border-0 bg-transparent shadow-xl" side="bottom" align="center">
+        <ChromeColorPicker
+          color={currentColor || '#000000'}
           current={currentColor ?? ''}
-          onSelect={(c) => editor.chain().focus().setCellAttribute('borderColor', c).run()}
+          palette={themedPalette}
+          onChange={(c) => editor.chain().setCellAttribute('borderColor', c).run()}
+          onPaletteSelect={(c) => editor.chain().setCellAttribute('borderColor', c).run()}
           onReset={() => editor.chain().focus().setCellAttribute('borderColor', null).run()}
           resetLabel="Reset border color"
         />
