@@ -267,6 +267,21 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
     return () => { editor.off('selectionUpdate', scrollToCursor) }
   }, [editor, typewriterMode])
 
+  // Keep caret-color in sync with the active text color (including stored marks
+  // set before any character is typed on an empty selection).
+  useEffect(() => {
+    if (!editor) return
+    function syncCaretColor() {
+      const storedColor = editor.state.storedMarks
+        ?.find((m) => m.type.name === 'textStyle')?.attrs.color as string | undefined
+      const color = storedColor ?? (editor.getAttributes('textStyle').color as string | undefined) ?? ''
+      ;(editor.view.dom as HTMLElement).style.caretColor = color
+    }
+    editor.on('transaction', syncCaretColor)
+    syncCaretColor()
+    return () => { editor.off('transaction', syncCaretColor) }
+  }, [editor])
+
   const wordCount = useWordCount(
     editor,
     settings.wordCountExcludesHeader && (document?.format === 'mla' || document?.format === 'apa')

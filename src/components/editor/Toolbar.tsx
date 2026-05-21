@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
+import { motion, AnimatePresence } from 'motion/react'
 import { ChromeColorPicker } from '@/components/ui/ChromeColorPicker'
 import { useEditorState } from '@tiptap/react'
 import type { Editor } from '@tiptap/react'
@@ -19,6 +21,77 @@ import {
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from '@/components/ui/popover'
+
+// Plain portal dropdown — bypasses Radix focus/pointer issues in Electron
+function ColorPickerDropdown({
+  trigger,
+  tooltip,
+  children,
+}: {
+  trigger: React.ReactNode
+  tooltip: string
+  children: (close: () => void) => React.ReactNode
+}) {
+  const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState({ top: 0, left: 0 })
+  const btnRef = useRef<HTMLDivElement>(null)
+  const pickerRef = useRef<HTMLDivElement>(null)
+
+  const close = useCallback(() => setOpen(false), [])
+
+  useEffect(() => {
+    if (!open) return
+    function onDown(e: MouseEvent) {
+      if (pickerRef.current?.contains(e.target as Node)) return
+      if (btnRef.current?.contains(e.target as Node)) return
+      setOpen(false)
+    }
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey) }
+  }, [open])
+
+  function handleClick() {
+    if (!btnRef.current) return
+    const r = btnRef.current.getBoundingClientRect()
+    const left = Math.max(4, r.left + r.width / 2 - 110)
+    setPos({ top: r.bottom + 4, left })
+    setOpen((o) => !o)
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div ref={btnRef} onClick={handleClick} style={{ display: 'inline-flex' }}>
+          {trigger}
+        </div>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="text-xs">{tooltip}</TooltipContent>
+      {createPortal(
+        <AnimatePresence>
+          {open && (
+            <div
+              ref={pickerRef}
+              style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 99999 }}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: -4 }}
+                transition={{ duration: 0.18, ease: [0.25, 0.1, 0.25, 1] }}
+              >
+                {children(close)}
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
+    </Tooltip>
+  )
+}
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store/appStore'
@@ -113,36 +186,27 @@ function ColorPicker({
   )
 
   return (
-    <Popover>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1">
-              <span className="text-[11px] font-bold leading-none">A</span>
-              <span className="mt-0.5 h-1 w-4 rounded-sm" style={{ backgroundColor: currentColor }} />
-            </Button>
-          </PopoverTrigger>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">Font color</TooltipContent>
-      </Tooltip>
-      <PopoverContent
-        className="w-auto p-0 border-0 bg-transparent shadow-xl"
-        side="bottom"
-        align="center"
-        onOpenAutoFocus={(e) => e.preventDefault()}
-        onCloseAutoFocus={(e) => e.preventDefault()}
-      >
+    <ColorPickerDropdown
+      tooltip="Font color"
+      trigger={
+        <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1">
+          <span className="text-[11px] font-bold leading-none">A</span>
+          <span className="mt-0.5 h-1 w-4 rounded-sm" style={{ backgroundColor: currentColor }} />
+        </Button>
+      }
+    >
+      {(close) => (
         <ChromeColorPicker
           color={currentColor || '#000000'}
           current={currentColor}
           palette={themedPalette}
           onChange={(c) => editor.chain().setColor(c).run()}
           onPaletteSelect={(c) => editor.chain().setColor(c).run()}
-          onReset={() => editor.chain().focus().unsetColor().run()}
+          onReset={() => { editor.chain().focus().unsetColor().run(); close() }}
           resetLabel="Reset color"
         />
-      </PopoverContent>
-    </Popover>
+      )}
+    </ColorPickerDropdown>
   )
 }
 
@@ -154,39 +218,28 @@ function HighlightPicker({
   currentHighlight: string | null
 }): JSX.Element {
   return (
-    <Popover>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1">
-              <Highlighter className="h-3.5 w-3.5 leading-none" />
-              <span
-                className="mt-0.5 h-1 w-4 rounded-sm border border-border/40"
-                style={{ backgroundColor: currentHighlight ?? 'transparent' }}
-              />
-            </Button>
-          </PopoverTrigger>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">Highlight</TooltipContent>
-      </Tooltip>
-      <PopoverContent
-        className="w-auto p-0 border-0 bg-transparent shadow-xl"
-        side="bottom"
-        align="center"
-        onOpenAutoFocus={(e) => e.preventDefault()}
-        onCloseAutoFocus={(e) => e.preventDefault()}
-      >
+    <ColorPickerDropdown
+      tooltip="Highlight"
+      trigger={
+        <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1">
+          <Highlighter className="h-3.5 w-3.5 leading-none" />
+          <span className="mt-0.5 h-1 w-4 rounded-sm border border-border/40"
+            style={{ backgroundColor: currentHighlight ?? 'transparent' }} />
+        </Button>
+      }
+    >
+      {(close) => (
         <ChromeColorPicker
           color={currentHighlight || '#fef08a'}
           current={currentHighlight ?? ''}
           palette={HIGHLIGHT_PALETTE}
           onChange={(c) => editor.chain().setHighlight({ color: c }).run()}
           onPaletteSelect={(c) => editor.chain().setHighlight({ color: c }).run()}
-          onReset={() => editor.chain().focus().unsetHighlight().run()}
+          onReset={() => { editor.chain().focus().unsetHighlight().run(); close() }}
           resetLabel="Remove highlight"
         />
-      </PopoverContent>
-    </Popover>
+      )}
+    </ColorPickerDropdown>
   )
 }
 
@@ -615,33 +668,28 @@ function CellFillPicker({
   currentFill: string | null
 }): JSX.Element {
   return (
-    <Popover>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1">
-              <PaintBucket className="h-3.5 w-3.5 leading-none" />
-              <span
-                className="mt-0.5 h-1 w-4 rounded-sm border border-border/40"
-                style={{ backgroundColor: currentFill ?? 'transparent' }}
-              />
-            </Button>
-          </PopoverTrigger>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">Cell fill color</TooltipContent>
-      </Tooltip>
-      <PopoverContent className="w-auto p-0 border-0 bg-transparent shadow-xl" side="bottom" align="center">
+    <ColorPickerDropdown
+      tooltip="Cell fill color"
+      trigger={
+        <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1">
+          <PaintBucket className="h-3.5 w-3.5 leading-none" />
+          <span className="mt-0.5 h-1 w-4 rounded-sm border border-border/40"
+            style={{ backgroundColor: currentFill ?? 'transparent' }} />
+        </Button>
+      }
+    >
+      {(close) => (
         <ChromeColorPicker
           color={currentFill || '#fef08a'}
           current={currentFill ?? ''}
           palette={HIGHLIGHT_PALETTE}
           onChange={(c) => editor.chain().setCellAttribute('backgroundColor', c).run()}
           onPaletteSelect={(c) => editor.chain().setCellAttribute('backgroundColor', c).run()}
-          onReset={() => editor.chain().focus().setCellAttribute('backgroundColor', null).run()}
+          onReset={() => { editor.chain().focus().setCellAttribute('backgroundColor', null).run(); close() }}
           resetLabel="Remove fill"
         />
-      </PopoverContent>
-    </Popover>
+      )}
+    </ColorPickerDropdown>
   )
 }
 
@@ -659,33 +707,28 @@ function CellBorderColorPicker({
   )
 
   return (
-    <Popover>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1">
-              <BorderColorIcon className="leading-none" />
-              <span
-                className="mt-0.5 h-1 w-4 rounded-sm border border-border/40"
-                style={{ backgroundColor: currentColor ?? 'transparent' }}
-              />
-            </Button>
-          </PopoverTrigger>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">Border color</TooltipContent>
-      </Tooltip>
-      <PopoverContent className="w-auto p-0 border-0 bg-transparent shadow-xl" side="bottom" align="center">
+    <ColorPickerDropdown
+      tooltip="Border color"
+      trigger={
+        <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1">
+          <BorderColorIcon className="leading-none" />
+          <span className="mt-0.5 h-1 w-4 rounded-sm border border-border/40"
+            style={{ backgroundColor: currentColor ?? 'transparent' }} />
+        </Button>
+      }
+    >
+      {(close) => (
         <ChromeColorPicker
           color={currentColor || '#000000'}
           current={currentColor ?? ''}
           palette={themedPalette}
           onChange={(c) => editor.chain().setCellAttribute('borderColor', c).run()}
           onPaletteSelect={(c) => editor.chain().setCellAttribute('borderColor', c).run()}
-          onReset={() => editor.chain().focus().setCellAttribute('borderColor', null).run()}
+          onReset={() => { editor.chain().focus().setCellAttribute('borderColor', null).run(); close() }}
           resetLabel="Reset border color"
         />
-      </PopoverContent>
-    </Popover>
+      )}
+    </ColorPickerDropdown>
   )
 }
 

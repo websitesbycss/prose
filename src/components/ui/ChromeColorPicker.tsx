@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Pipette } from 'lucide-react'
+import { Pipette, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // ── Color math ────────────────────────────────────────────────────────────────
@@ -189,17 +189,12 @@ export interface ChromeColorPickerProps {
 
 const FORMAT_LABELS: Record<Format, string> = { hex: 'Hex', rgb: 'RGB', hsl: 'HSL', cmyk: 'CMYK' }
 
-function computeInputs(c: Hsv) {
+function hsvToDisplayVals(c: Hsv) {
   const [r, g, b] = hsvToRgb(c.h, c.s, c.v)
   const hex = rgbToHex(r, g, b).replace('#', '').toUpperCase()
   const [hl, sl, ll] = rgbToHsl(r, g, b)
   const [cm, mm, ym, km] = rgbToCmyk(r, g, b)
-  return {
-    hex,
-    r: String(r), g: String(g), b: String(b),
-    h: String(Math.round(hl)), s: String(Math.round(sl)), l: String(Math.round(ll)),
-    c: String(cm), m: String(mm), y: String(ym), k: String(km),
-  }
+  return { hex, r, g, b, hh: Math.round(hl), hs: Math.round(sl), hl: Math.round(ll), cm, mm, ym, km }
 }
 
 export function ChromeColorPicker({
@@ -215,88 +210,102 @@ export function ChromeColorPicker({
   const [hsv, setHsv] = useState<Hsv>(init)
   const [format, setFormat] = useState<Format>('hex')
   const [formatOpen, setFormatOpen] = useState(false)
-  const [inputs, setInputs] = useState(() => computeInputs(init))
-
   const prevColor = useRef(color)
 
-  function isInputActive() { return document.activeElement instanceof HTMLInputElement }
+  // Refs for all inputs — uncontrolled so React never overwrites user keystrokes
+  const hexRef = useRef<HTMLInputElement>(null)
+  const rRef   = useRef<HTMLInputElement>(null)
+  const gRef   = useRef<HTMLInputElement>(null)
+  const bRef   = useRef<HTMLInputElement>(null)
+  const hhRef  = useRef<HTMLInputElement>(null)
+  const hsRef  = useRef<HTMLInputElement>(null)
+  const hlRef  = useRef<HTMLInputElement>(null)
+  const cRef   = useRef<HTMLInputElement>(null)
+  const mRef   = useRef<HTMLInputElement>(null)
+  const yRef   = useRef<HTMLInputElement>(null)
+  const kRef   = useRef<HTMLInputElement>(null)
 
-  // Sync picker when an external source (swatch/prop) changes the color
+  // Imperatively update input DOM values; skipFocused=true preserves user edits in the active field
+  function pushToInputs(c: Hsv, skipFocused = true) {
+    const v = hsvToDisplayVals(c)
+    const active = skipFocused ? document.activeElement : null
+    const set = (ref: React.RefObject<HTMLInputElement>, val: string) => {
+      if (ref.current && ref.current !== active) ref.current.value = val
+    }
+    set(hexRef, v.hex)
+    set(rRef,  String(v.r));  set(gRef, String(v.g));  set(bRef, String(v.b))
+    set(hhRef, String(v.hh)); set(hsRef, String(v.hs)); set(hlRef, String(v.hl))
+    set(cRef,  String(v.cm)); set(mRef,  String(v.mm)); set(yRef,  String(v.ym)); set(kRef, String(v.km))
+  }
+
+  // Sync when an external source (palette click) changes the color prop
   useEffect(() => {
     if (color === prevColor.current) return
     prevColor.current = color
     const parsed = hexToHsv(color)
-    if (parsed) {
-      setHsv(parsed)
-      if (!isInputActive()) setInputs(computeInputs(parsed))
-    }
-  }, [color])
+    if (parsed) { setHsv(parsed); pushToInputs(parsed) }
+  }, [color]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function applyHsv(next: Hsv) {
     setHsv(next)
     const hex = hsvToHex(next)
     prevColor.current = hex
     onChange(hex)
-    if (!isInputActive()) setInputs(computeInputs(next))
+    pushToInputs(next, false)
   }
 
   // ── Hex ──
   function onHexChange(raw: string) {
     const clean = raw.replace(/[^0-9a-fA-F]/g, '').slice(0, 6)
-    setInputs((p) => ({ ...p, hex: clean.toUpperCase() }))
     const full = clean.length === 3 ? clean.split('').map((c) => c + c).join('') : clean
     if (full.length === 6) {
       const parsed = hexToHsv('#' + full)
-      if (parsed) { setHsv(parsed); prevColor.current = '#' + full; onChange('#' + full) }
+      if (parsed) { setHsv(parsed); prevColor.current = '#' + full; onChange('#' + full); pushToInputs(parsed) }
     }
   }
   function onHexBlur() {
-    const full = inputs.hex.replace(/[^0-9a-fA-F]/g, '').padEnd(6, '0').slice(0, 6)
+    const raw = hexRef.current?.value ?? ''
+    const full = raw.replace(/[^0-9a-fA-F]/g, '').padEnd(6, '0').slice(0, 6)
     const parsed = hexToHsv('#' + full)
     if (parsed) { setHsv(parsed); prevColor.current = '#' + full; onChange('#' + full) }
-    setInputs((p) => ({ ...p, hex: full.toUpperCase() }))
+    if (hexRef.current) hexRef.current.value = full.toUpperCase()
   }
 
   // ── RGB ──
-  function onRgbChange(field: 'r' | 'g' | 'b', raw: string) {
-    const clean = raw.replace(/[^0-9]/g, '').slice(0, 3)
-    setInputs((p) => ({ ...p, [field]: clean }))
-    const vals = { r: parseInt(inputs.r) || 0, g: parseInt(inputs.g) || 0, b: parseInt(inputs.b) || 0, [field]: Math.min(255, parseInt(clean) || 0) }
-    const [h, s, v] = rgbToHsv(vals.r, vals.g, vals.b)
-    const next = { h, s, v }
-    setHsv(next); prevColor.current = rgbToHex(vals.r, vals.g, vals.b); onChange(prevColor.current)
-  }
-  function onRgbBlur(field: 'r' | 'g' | 'b') {
-    setInputs((p) => ({ ...p, [field]: String(Math.max(0, Math.min(255, parseInt(p[field]) || 0))) }))
+  function onRgbChange() {
+    const r = Math.min(255, parseInt(rRef.current?.value ?? '0') || 0)
+    const g = Math.min(255, parseInt(gRef.current?.value ?? '0') || 0)
+    const b = Math.min(255, parseInt(bRef.current?.value ?? '0') || 0)
+    const [h, s, v] = rgbToHsv(r, g, b)
+    setHsv({ h, s, v }); prevColor.current = rgbToHex(r, g, b); onChange(prevColor.current)
+    pushToInputs({ h, s, v })
   }
 
   // ── HSL ──
-  function onHslChange(field: 'h' | 's' | 'l', raw: string) {
-    const clean = raw.replace(/[^0-9]/g, '').slice(0, 3)
-    setInputs((p) => ({ ...p, [field]: clean }))
-    const maxes = { h: 360, s: 100, l: 100 }
-    const vals = { h: parseInt(inputs.h) || 0, s: parseInt(inputs.s) || 0, l: parseInt(inputs.l) || 0, [field]: Math.min(maxes[field], parseInt(clean) || 0) }
-    const [r, g, b] = hslToRgb(vals.h, vals.s, vals.l)
+  function onHslChange() {
+    const h = Math.min(360, parseInt(hhRef.current?.value ?? '0') || 0)
+    const s = Math.min(100, parseInt(hsRef.current?.value ?? '0') || 0)
+    const l = Math.min(100, parseInt(hlRef.current?.value ?? '0') || 0)
+    const [r, g, b] = hslToRgb(h, s, l)
     const [hv, sv, vv] = rgbToHsv(r, g, b)
-    const next = { h: hv, s: sv, v: vv }
-    setHsv(next); prevColor.current = rgbToHex(r, g, b); onChange(prevColor.current)
-  }
-  function onHslBlur(field: 'h' | 's' | 'l') {
-    const max = field === 'h' ? 360 : 100
-    setInputs((p) => ({ ...p, [field]: String(Math.max(0, Math.min(max, parseInt(p[field]) || 0))) }))
+    setHsv({ h: hv, s: sv, v: vv }); prevColor.current = rgbToHex(r, g, b); onChange(prevColor.current)
+    pushToInputs({ h: hv, s: sv, v: vv })
   }
 
   // ── CMYK ──
-  function onCmykChange(field: 'c' | 'm' | 'y' | 'k', raw: string) {
-    const clean = raw.replace(/[^0-9]/g, '').slice(0, 3)
-    setInputs((p) => ({ ...p, [field]: clean }))
-    const vals = { c: parseInt(inputs.c) || 0, m: parseInt(inputs.m) || 0, y: parseInt(inputs.y) || 0, k: parseInt(inputs.k) || 0, [field]: Math.min(100, parseInt(clean) || 0) }
-    const [r, g, b] = cmykToRgb(vals.c, vals.m, vals.y, vals.k)
-    const [h, s, v] = rgbToHsv(r, g, b)
-    setHsv({ h, s, v }); prevColor.current = rgbToHex(r, g, b); onChange(prevColor.current)
+  function onCmykChange() {
+    const c = Math.min(100, parseInt(cRef.current?.value ?? '0') || 0)
+    const m = Math.min(100, parseInt(mRef.current?.value ?? '0') || 0)
+    const y = Math.min(100, parseInt(yRef.current?.value ?? '0') || 0)
+    const k = Math.min(100, parseInt(kRef.current?.value ?? '0') || 0)
+    const [r, g, b] = cmykToRgb(c, m, y, k)
+    const [hv, sv, vv] = rgbToHsv(r, g, b)
+    setHsv({ h: hv, s: sv, v: vv }); prevColor.current = rgbToHex(r, g, b); onChange(prevColor.current)
+    pushToInputs({ h: hv, s: sv, v: vv })
   }
-  function onCmykBlur(field: 'c' | 'm' | 'y' | 'k') {
-    setInputs((p) => ({ ...p, [field]: String(Math.max(0, Math.min(100, parseInt(p[field]) || 0))) }))
+
+  function clampRef(ref: React.RefObject<HTMLInputElement>, max: number) {
+    if (ref.current) ref.current.value = String(Math.max(0, Math.min(max, parseInt(ref.current.value) || 0)))
   }
 
   async function handleEyedropper() {
@@ -309,17 +318,18 @@ export function ChromeColorPicker({
   }
 
   const currentHex = hsvToHex(hsv)
+  const initVals = hsvToDisplayVals(init)
   const paletteLC = palette.map((c) => c.toLowerCase())
   const isCustomActive = !!current && !paletteLC.includes(current.toLowerCase())
   const inputBase = 'min-w-0 w-full bg-transparent text-center font-mono text-[11px] text-white outline-none leading-none'
 
   return (
-    <div className="w-[220px] select-none rounded-lg overflow-hidden" style={{ background: '#1c1c1e' }}>
+    <div className="w-[220px] rounded-lg overflow-hidden" style={{ background: '#1c1c1e' }}>
 
-      {/* Saturation box — has its own overflow-hidden + rounded-t-lg */}
+      {/* Saturation box */}
       <SaturationBox h={hsv.h} s={hsv.s} v={hsv.v} onChange={(s, v) => applyHsv({ ...hsv, s, v })} />
 
-      {/* Hue slider + eyedropper + preview */}
+      {/* Hue slider + eyedropper + preview dot */}
       <div className="flex items-center gap-2 px-2.5 pt-2.5 pb-1.5">
         <button
           className="shrink-0 rounded p-0.5 transition-colors"
@@ -342,17 +352,16 @@ export function ChromeColorPicker({
       {/* Format selector + value inputs */}
       <div className="flex gap-1 px-2.5 pb-2.5">
 
-        {/* Format dropdown — z-50 and no parent overflow-hidden so it always shows fully */}
+        {/* Format dropdown */}
         <div className="relative shrink-0">
           <button
-
             className="flex h-7 items-center gap-0.5 rounded px-2 text-[11px] transition-colors hover:bg-white/5"
             style={{ background: '#2e2e30', color: '#aaa' }}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => setFormatOpen((o) => !o)}
           >
             {FORMAT_LABELS[format]}
-            <span className="ml-0.5 text-[9px]" style={{ color: '#555' }}>▾</span>
+            <ChevronDown className="ml-0.5 h-3 w-3" style={{ color: '#888' }} />
           </button>
           {formatOpen && (
             <div
@@ -374,12 +383,13 @@ export function ChromeColorPicker({
           )}
         </div>
 
-        {/* Hex */}
+        {/* Hex — uncontrolled */}
         {format === 'hex' && (
           <div className="flex h-7 flex-1 min-w-0 items-center rounded px-2" style={{ background: '#2e2e30' }}>
             <input
+              ref={hexRef}
               className="min-w-0 flex-1 bg-transparent font-mono text-[11px] text-white outline-none"
-              value={inputs.hex}
+              defaultValue={initVals.hex}
               maxLength={6}
               spellCheck={false}
               onChange={(e) => onHexChange(e.target.value)}
@@ -388,37 +398,40 @@ export function ChromeColorPicker({
           </div>
         )}
 
-        {/* RGB */}
+        {/* RGB — uncontrolled */}
         {format === 'rgb' && (
           <div className="flex flex-1 gap-1">
-            {(['r', 'g', 'b'] as const).map((f) => (
-              <div key={f} className="flex h-7 min-w-0 flex-1 flex-col items-center justify-center rounded py-0.5" style={{ background: '#2e2e30' }}>
-                <input className={inputBase} value={inputs[f]} maxLength={3} onChange={(e) => onRgbChange(f, e.target.value)} onBlur={() => onRgbBlur(f)} />
-                <span className="text-[8px]" style={{ color: '#555', lineHeight: 1 }}>{f.toUpperCase()}</span>
+            {([['R', rRef, initVals.r, 255], ['G', gRef, initVals.g, 255], ['B', bRef, initVals.b, 255]] as const).map(([label, ref, dv, max]) => (
+              <div key={label} className="flex h-7 min-w-0 flex-1 flex-col items-center justify-center rounded py-0.5" style={{ background: '#2e2e30' }}>
+                <input ref={ref} className={inputBase} defaultValue={String(dv)} maxLength={3}
+                  onChange={onRgbChange} onBlur={() => clampRef(ref, max)} />
+                <span className="text-[8px]" style={{ color: '#555', lineHeight: 1 }}>{label}</span>
               </div>
             ))}
           </div>
         )}
 
-        {/* HSL */}
+        {/* HSL — uncontrolled */}
         {format === 'hsl' && (
           <div className="flex flex-1 gap-1">
-            {(['h', 's', 'l'] as const).map((f) => (
-              <div key={f} className="flex h-7 min-w-0 flex-1 flex-col items-center justify-center rounded py-0.5" style={{ background: '#2e2e30' }}>
-                <input className={inputBase} value={inputs[f]} maxLength={3} onChange={(e) => onHslChange(f, e.target.value)} onBlur={() => onHslBlur(f)} />
-                <span className="text-[8px]" style={{ color: '#555', lineHeight: 1 }}>{f.toUpperCase()}</span>
+            {([['H', hhRef, initVals.hh, 360], ['S', hsRef, initVals.hs, 100], ['L', hlRef, initVals.hl, 100]] as const).map(([label, ref, dv, max]) => (
+              <div key={label} className="flex h-7 min-w-0 flex-1 flex-col items-center justify-center rounded py-0.5" style={{ background: '#2e2e30' }}>
+                <input ref={ref} className={inputBase} defaultValue={String(dv)} maxLength={3}
+                  onChange={onHslChange} onBlur={() => clampRef(ref, max)} />
+                <span className="text-[8px]" style={{ color: '#555', lineHeight: 1 }}>{label}</span>
               </div>
             ))}
           </div>
         )}
 
-        {/* CMYK */}
+        {/* CMYK — uncontrolled */}
         {format === 'cmyk' && (
           <div className="flex flex-1 gap-1">
-            {(['c', 'm', 'y', 'k'] as const).map((f) => (
-              <div key={f} className="flex h-7 min-w-0 flex-1 flex-col items-center justify-center rounded py-0.5" style={{ background: '#2e2e30' }}>
-                <input className={inputBase} value={inputs[f]} maxLength={3} onChange={(e) => onCmykChange(f, e.target.value)} onBlur={() => onCmykBlur(f)} />
-                <span className="text-[8px]" style={{ color: '#555', lineHeight: 1 }}>{f.toUpperCase()}</span>
+            {([['C', cRef, initVals.cm], ['M', mRef, initVals.mm], ['Y', yRef, initVals.ym], ['K', kRef, initVals.km]] as const).map(([label, ref, dv]) => (
+              <div key={label} className="flex h-7 min-w-0 flex-1 flex-col items-center justify-center rounded py-0.5" style={{ background: '#2e2e30' }}>
+                <input ref={ref} className={inputBase} defaultValue={String(dv)} maxLength={3}
+                  onChange={onCmykChange} onBlur={() => clampRef(ref, 100)} />
+                <span className="text-[8px]" style={{ color: '#555', lineHeight: 1 }}>{label}</span>
               </div>
             ))}
           </div>
@@ -428,29 +441,34 @@ export function ChromeColorPicker({
       {/* Palette swatches */}
       {palette.length > 0 && (
         <div className="border-t px-2.5 pb-2.5" style={{ borderColor: '#2e2e30' }}>
-          <div className="flex flex-wrap justify-center gap-[8px] pt-2.5">
-            {palette.map((c) => (
-              <button
-                key={c}
-                className={cn(
-                  'h-[22px] w-[22px] rounded transition-all',
-                  current.toLowerCase() === c.toLowerCase() && !isCustomActive
-                    ? 'ring-2 ring-[#EF9F27] ring-offset-1 ring-offset-[#1c1c1e]'
-                    : 'hover:ring-2 hover:ring-white/40 hover:ring-offset-1 hover:ring-offset-[#1c1c1e]'
-                )}
-                style={{ backgroundColor: c }}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => onPaletteSelect?.(c)}
-                title={c}
-              />
-            ))}
-          </div>
-          {isCustomActive && (
-            <div className="mt-2 flex items-center gap-1.5">
-              <div className="h-[22px] w-[22px] shrink-0 rounded ring-2 ring-[#EF9F27] ring-offset-1 ring-offset-[#1c1c1e]" style={{ backgroundColor: current }} />
-              <span className="font-mono text-[10px]" style={{ color: '#888' }}>{current.toUpperCase()}</span>
+          <div className="flex justify-center pt-2.5">
+            <div>
+              <div className="grid gap-[8px]" style={{ gridTemplateColumns: `repeat(${Math.min(palette.length, 6)}, 22px)` }}>
+                {palette.map((c) => (
+                  <button
+                    key={c}
+                    className={cn(
+                      'h-[22px] w-[22px] rounded transition-all',
+                      current.toLowerCase() === c.toLowerCase() && !isCustomActive
+                        ? 'ring-2 ring-[#EF9F27] ring-offset-1 ring-offset-[#1c1c1e]'
+                        : 'hover:ring-2 hover:ring-white/40 hover:ring-offset-1 hover:ring-offset-[#1c1c1e]'
+                    )}
+                    style={{ backgroundColor: c }}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => onPaletteSelect?.(c)}
+                    title={c}
+                  />
+                ))}
+              </div>
+              {isCustomActive && (
+                <div className="mt-2 flex items-center gap-1.5">
+                  <span className="text-[10px]" style={{ color: '#888' }}>Custom:</span>
+                  <div className="h-[22px] w-[22px] shrink-0 rounded ring-2 ring-[#EF9F27] ring-offset-1 ring-offset-[#1c1c1e]" style={{ backgroundColor: current }} />
+                  <span className="font-mono text-[10px]" style={{ color: '#888' }}>{current.toUpperCase()}</span>
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       )}
 

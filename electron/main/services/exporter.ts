@@ -232,7 +232,10 @@ function inlineToHtml(node: JSONContent): string {
       else if (mark.type === 'underline') text = `<u>${text}</u>`
       else if (mark.type === 'strike') text = `<s>${text}</s>`
       else if (mark.type === 'code') text = `<code>${text}</code>`
-      else if (mark.type === 'textStyle') {
+      else if (mark.type === 'highlight') {
+        const color = (mark.attrs?.color as string) ?? 'yellow'
+        text = `<mark style="background-color:${color}">${text}</mark>`
+      } else if (mark.type === 'textStyle') {
         const attrs = mark.attrs ?? {}
         const styles: string[] = []
         if (attrs.color) styles.push(`color:${attrs.color}`)
@@ -248,6 +251,11 @@ function inlineToHtml(node: JSONContent): string {
   }
   if (node.type === 'hardBreak') return '<br>'
   if (node.type === 'rightTab') return '<span class="right-tab"></span>'
+  if (node.type === 'image') {
+    const src = (node.attrs?.src as string) ?? ''
+    const alt = escapeHtml((node.attrs?.alt as string) ?? '')
+    return `<img src="${src}" alt="${alt}" style="max-width:100%">`
+  }
   return (node.content ?? []).map(inlineToHtml).join('')
 }
 
@@ -328,9 +336,24 @@ function nodeToHtml(node: JSONContent, format = 'none'): string {
     case 'tableRow':
       return `<tr>${(node.content ?? []).map((n) => nodeToHtml(n, format)).join('')}</tr>`
     case 'tableHeader':
-      return `<th style="padding:4px 8px">${(node.content ?? []).map((n) => nodeToHtml(n, format)).join('')}</th>`
-    case 'tableCell':
-      return `<td style="padding:4px 8px">${(node.content ?? []).map((n) => nodeToHtml(n, format)).join('')}</td>`
+    case 'tableCell': {
+      const ca = node.attrs ?? {}
+      const cellStyles: string[] = ['padding:4px 8px']
+      if (ca.backgroundColor) cellStyles.push(`background-color:${ca.backgroundColor as string}`)
+      const bColor = ca.borderColor as string | null | undefined
+      const bWidth = ca.borderWidth as number | null | undefined
+      if (bColor || bWidth) cellStyles.push(`border:${bWidth ?? 1}px solid ${bColor ?? '#000'}`)
+      const colwidths = ca.colwidth as number[] | null | undefined
+      if (colwidths?.[0]) cellStyles.push(`width:${colwidths[0]}px`)
+      const rowspan = ca.rowspan as number | undefined
+      const colspan = ca.colspan as number | undefined
+      const spanAttrs = [
+        rowspan && rowspan > 1 ? `rowspan="${rowspan}"` : '',
+        colspan && colspan > 1 ? `colspan="${colspan}"` : '',
+      ].filter(Boolean).join(' ')
+      const tag = node.type === 'tableHeader' ? 'th' : 'td'
+      return `<${tag} style="${cellStyles.join(';')}"${spanAttrs ? ' ' + spanAttrs : ''}>${(node.content ?? []).map((n) => nodeToHtml(n, format)).join('')}</${tag}>`
+    }
     default:
       return (node.content ?? []).map((n) => nodeToHtml(n, format)).join('')
   }
@@ -443,7 +466,7 @@ export async function exportToPdf(id: string): Promise<void> {
   const pdfBuffer = await win.webContents.printToPDF({
     margins: { marginType: 'none' },
     pageSize: 'Letter',
-    printBackground: false,
+    printBackground: true,
   })
   win.destroy()
 
