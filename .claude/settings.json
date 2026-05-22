@@ -39,6 +39,7 @@
     ],
     "additionalDirectories": [
       "C:\\"
-    ]
+    ],
+    "allowedTools": ["bash", "edit", "read", "write"]
   }
 }

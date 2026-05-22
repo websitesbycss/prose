@@ -15,6 +15,7 @@ export const PageNumberNode = Node.create({
   atom: true,
   selectable: true,
   draggable: false,
+  marks: '_',
 
   parseHTML() {
     return [{ tag: 'span[data-page-number]' }]
@@ -28,7 +29,7 @@ export const PageNumberNode = Node.create({
     return () => {
       const span = document.createElement('span')
       span.setAttribute('data-page-number', '')
-      span.className = 'page-number-node inline-flex select-none rounded bg-muted px-1 text-[0.7em] font-mono text-muted-foreground'
+      span.className = 'page-number-node inline-flex select-none rounded bg-muted px-1 text-[0.7em] text-muted-foreground'
       span.textContent = '#'
       span.title = 'Page number (auto-increments on export)'
       return { dom: span }

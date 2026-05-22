@@ -19,7 +19,11 @@ import {
   WidthType,
   BorderStyle,
   Header,
+  Footer,
   PageNumber,
+  PageBreak,
+  TabStopType,
+  VerticalAlignSection,
 } from 'docx'
 import type { JSONContent } from '@tiptap/core'
 import { resolveDocument } from './fileService'
@@ -293,7 +297,7 @@ function nodeToHtml(node: JSONContent, format = 'none'): string {
       const hasRole = !!role
       const firstLine =
         isFormatted && !hasRole && !noIndent ? 'text-indent:0.5in' : ''
-      const pageBreak = (role === 'abstract-heading' || role === 'works-cited-heading') ? 'page-break-before:always' : ''
+      const pageBreak = role === 'abstract-heading' ? 'page-break-before:always' : ''
       const hangingIndent = role === 'citation' ? 'text-indent:-0.5in;padding-left:0.5in' : ''
       const hasRightTab = (node.content ?? []).some((n) => n.type === 'rightTab')
       const flexStyle = hasRightTab ? 'display:flex;align-items:baseline' : ''
@@ -324,6 +328,8 @@ function nodeToHtml(node: JSONContent, format = 'none'): string {
       return `<pre><code>${escapeHtml(inlineText(node))}</code></pre>`
     case 'pageNumber':
       return '<span class="pn"></span>'
+    case 'pageBreak':
+      return '<div style="page-break-before:always;break-before:page;height:0;margin:0;padding:0;overflow:hidden;"></div>'
     case 'rightTab':
       return '<span class="right-tab"></span>'
     case 'image': {
@@ -372,11 +378,31 @@ function zoneToElectronTemplate(raw: string | null, fallbackAlign = 'left'): str
     const tabIdx = nodes.findIndex((n) => n.type === 'rightTab')
     const renderNodes = (ns: JSONContent[]) =>
       ns.map((n) => {
-        if (n.type === 'pageNumber') return '<span class="pageNumber"></span>'
+        if (n.type === 'pageNumber') {
+          // Wrap <span class="pageNumber"> with any marks the user applied
+          const marks = n.marks ?? []
+          const styles: string[] = []
+          let isBold = false, isItalic = false
+          for (const mark of marks) {
+            if (mark.type === 'bold') isBold = true
+            if (mark.type === 'italic') isItalic = true
+            if (mark.type === 'textStyle') {
+              const a = mark.attrs ?? {}
+              if (a.color) styles.push(`color:${a.color as string}`)
+              if (a.fontSize) styles.push(`font-size:${a.fontSize as string}`)
+              if (a.fontFamily) styles.push(`font-family:${a.fontFamily as string}`)
+            }
+          }
+          let result = '<span class="pageNumber"></span>'
+          if (styles.length) result = `<span style="${styles.join(';')}">${result}</span>`
+          if (isItalic) result = `<em>${result}</em>`
+          if (isBold) result = `<strong>${result}</strong>`
+          return result
+        }
         return inlineToHtml(n)
       }).join('')
-    // 96px = 1in at 96dpi; using px avoids unit scaling issues in headerTemplate context
-    const base = 'font-size:16px;font-family:"Times New Roman",serif;width:100%;box-sizing:border-box;padding:0 96px;'
+    // 96px = 1in at 96dpi; single quotes inside style attr avoid breaking the HTML attribute
+    const base = "font-size:16px;font-family:'Times New Roman',serif;width:100%;box-sizing:border-box;padding:0 96px;"
     if (tabIdx === 0) {
       // rightTab at start means everything after it is right-aligned (e.g. MLA: "LastName #")
       const right = renderNodes(nodes.slice(1))
@@ -396,7 +422,7 @@ function zoneToElectronTemplate(raw: string | null, fallbackAlign = 'left'): str
 // Build an Electron template for legacy MLA/APA running heads.
 function legacyRunningHeadTemplate(runningHead: string, format: string): string {
   const pn = '<span class="pageNumber"></span>'
-  const base = 'font-size:16px;font-family:"Times New Roman",serif;width:100%;box-sizing:border-box;padding:0 96px;'
+  const base = "font-size:16px;font-family:'Times New Roman',serif;width:100%;box-sizing:border-box;padding:0 96px;"
   if (format === 'mla') {
     return `<div style="${base}text-align:right;">${escapeHtml(runningHead)} ${pn}</div>`
   }
@@ -418,9 +444,9 @@ function buildHtmlPage(title: string, body: string, _format = 'none', hasHeaderF
   table { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 0.5em 0; }
   th, td { border: 1px solid #000; padding: 4px 8px; }
   img { max-width: 100%; }
-  @media print {
-    .apa-title-block { min-height: 9in; display: flex; flex-direction: column; align-items: center; justify-content: center; break-after: page; }
-  }
+  /* APA title page: fixed height = one page, flex-centered. height (not min-height) prevents
+     flex space-distribution from spilling across a page boundary and creating a blank page. */
+  .apa-title-block { height: 9in; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; page-break-after: always; break-after: page; }
 </style>
 </head><body>${body}</body></html>`
 }
@@ -580,7 +606,7 @@ function nodeToParagraphs(
       const noIndent = node.attrs?.noIndent as boolean | undefined
       const applyFirstLine = isFormatted && !role && !noIndent && numRef === undefined
       const runs = (node.content ?? []).flatMap(inlineToRuns)
-      const pageBreakBefore = role === 'abstract-heading' || role === 'works-cited-heading'
+      const pageBreakBefore = role === 'abstract-heading'
       const indent = applyFirstLine
         ? { firstLine: 720 }
         : role === 'citation'
@@ -707,6 +733,9 @@ function nodeToParagraphs(
       return [new DocxTable({ rows, width: { size: CONTENT_WIDTH_TWIPS, type: WidthType.DXA } })]
     }
 
+    case 'pageBreak':
+      return [new Paragraph({ children: [new PageBreak()], spacing: { after: 0 } })]
+
     case 'doc':
       return (node.content ?? []).flatMap((n) => nodeToParagraphs(n, reg, format))
 
@@ -745,11 +774,16 @@ function buildDocxHeader(runningHead: string | null, format: string): Header | u
   })
 }
 
-// Extract plain-text left and right portions from a header/footer zone JSON,
-// split on the first rightTab node. Returns [leftText, rightRuns].
-function parseZoneForDocx(
-  raw: string | null
-): { leftText: string; hasPageNum: boolean } | null {
+interface ZoneDocxParsed {
+  leftText: string
+  rightText: string
+  hasPageNum: boolean
+  pageNumOnRight: boolean
+  hasRightTab: boolean
+  textAlign: string
+}
+
+function parseZoneForDocx(raw: string | null): ZoneDocxParsed | null {
   if (!raw) return null
   try {
     const doc = JSON.parse(raw) as JSONContent
@@ -759,12 +793,54 @@ function parseZoneForDocx(
     const tabIdx = nodes.findIndex((n) => n.type === 'rightTab')
     const leftNodes = tabIdx >= 0 ? nodes.slice(0, tabIdx) : nodes
     const rightNodes = tabIdx >= 0 ? nodes.slice(tabIdx + 1) : []
-    const leftText = leftNodes.map((n) => (n.type === 'text' ? (n.text ?? '') : '')).join('')
-    const hasPageNum = [...leftNodes, ...rightNodes].some((n) => n.type === 'pageNumber')
-    return { leftText: leftText.trim(), hasPageNum }
+    const leftText = leftNodes.filter((n) => n.type !== 'pageNumber').map((n) => (n.type === 'text' ? (n.text ?? '') : '')).join('').trim()
+    const rightText = rightNodes.filter((n) => n.type !== 'pageNumber').map((n) => (n.type === 'text' ? (n.text ?? '') : '')).join('').trim()
+    const pageNumOnRight = rightNodes.some((n) => n.type === 'pageNumber')
+    const hasPageNum = leftNodes.some((n) => n.type === 'pageNumber') || pageNumOnRight
+    const textAlign = (firstPara.attrs?.textAlign as string) ?? 'left'
+    return { leftText, rightText, hasPageNum, pageNumOnRight, hasRightTab: tabIdx >= 0, textAlign }
   } catch {
     return null
   }
+}
+
+// Build a single Paragraph from a parsed zone, respecting left/right tab structure.
+function buildDocxZoneParagraph(parsed: ZoneDocxParsed): Paragraph {
+  if (parsed.hasRightTab && parsed.leftText) {
+    // APA-style: "Running Head [tab] [pageNum]" — tab pushes page number to right margin
+    return new Paragraph({
+      tabStops: [{ type: TabStopType.RIGHT, position: CONTENT_WIDTH_TWIPS }],
+      children: [
+        new TextRun({ text: parsed.leftText }),
+        new TextRun({ text: '\t' }),
+        ...(parsed.rightText ? [new TextRun({ text: parsed.rightText })] : []),
+        ...(parsed.pageNumOnRight ? [new TextRun({ children: [PageNumber.CURRENT] })] : []),
+        ...(!parsed.pageNumOnRight && parsed.hasPageNum ? [new TextRun({ children: [PageNumber.CURRENT] })] : []),
+      ],
+      alignment: AlignmentType.LEFT,
+    })
+  }
+  if (parsed.hasRightTab && !parsed.leftText) {
+    // MLA-style: everything right-aligned (rightTab at index 0, text+pageNum after it)
+    return new Paragraph({
+      children: [
+        ...(parsed.rightText ? [new TextRun({ text: parsed.rightText + ' ' })] : []),
+        ...(parsed.hasPageNum ? [new TextRun({ children: [PageNumber.CURRENT] })] : []),
+      ],
+      alignment: AlignmentType.RIGHT,
+    })
+  }
+  // No rightTab: use paragraph's own text alignment
+  const alignment =
+    parsed.textAlign === 'center' ? AlignmentType.CENTER :
+    parsed.textAlign === 'right' ? AlignmentType.RIGHT : AlignmentType.LEFT
+  return new Paragraph({
+    children: [
+      ...(parsed.leftText ? [new TextRun({ text: parsed.leftText })] : []),
+      ...(parsed.hasPageNum ? [new TextRun({ children: [PageNumber.CURRENT] })] : []),
+    ],
+    alignment,
+  })
 }
 
 export async function exportToDocx(id: string): Promise<void> {
@@ -772,42 +848,69 @@ export async function exportToDocx(id: string): Promise<void> {
   if (!row) throw new Error('Document not found')
   const doc = parseContent(row.content)
 
-  // Use stored header_content if present; otherwise fall back to auto-detected running head
+  // Build DOCX header
   let docxHeader: Header | undefined
   if (row.header_content) {
     const parsed = parseZoneForDocx(row.header_content)
-    if (parsed) {
-      docxHeader = new Header({
-        children: [
-          new Paragraph({
-            children: [
-              new TextRun({ text: parsed.leftText + (parsed.leftText ? ' ' : '') }),
-              ...(parsed.hasPageNum ? [new TextRun({ children: [PageNumber.CURRENT] })] : []),
-            ],
-            alignment: AlignmentType.RIGHT,
-          }),
-        ],
-      })
-    }
+    if (parsed) docxHeader = new Header({ children: [buildDocxZoneParagraph(parsed)] })
   } else {
     const runningHead = extractRunningHead(doc, row.format)
     docxHeader = buildDocxHeader(runningHead, row.format)
   }
 
+  // Build DOCX footer
+  let docxFooter: Footer | undefined
+  if (row.footer_content) {
+    const parsed = parseZoneForDocx(row.footer_content)
+    if (parsed) docxFooter = new Footer({ children: [buildDocxZoneParagraph(parsed)] })
+  }
+
+  const PAGE_MARGIN = { top: 1440, right: 1440, bottom: 1440, left: 1440 }
   const numberingDefs: NumberingDef[] = []
-  const children = nodeToParagraphs(doc, numberingDefs, row.format)
+
+  // For APA: split content into title page (vertically centered) + body sections
+  let sections: object[]
+  if (row.format === 'apa') {
+    const docNodes = (doc.content ?? []) as JSONContent[]
+    let splitIdx = 0
+    for (let i = 0; i < docNodes.length; i++) {
+      if ((docNodes[i].attrs?.role as string | undefined) === 'apa-header') splitIdx = i + 1
+      else break
+    }
+    const titleDoc: JSONContent = { type: 'doc', content: docNodes.slice(0, splitIdx) }
+    const bodyDoc: JSONContent = { type: 'doc', content: docNodes.slice(splitIdx) }
+    const titleChildren = nodeToParagraphs(titleDoc, numberingDefs, row.format) as (Paragraph | DocxTable)[]
+    const bodyChildren = nodeToParagraphs(bodyDoc, numberingDefs, row.format) as (Paragraph | DocxTable)[]
+    sections = [
+      {
+        // Title page: vertically centered, header only (no footer on title page is standard APA)
+        properties: { page: { margin: PAGE_MARGIN }, verticalAlign: VerticalAlignSection.CENTER },
+        ...(docxHeader ? { headers: { default: docxHeader } } : {}),
+        children: titleChildren.length ? titleChildren : [new Paragraph({ children: [] })],
+      },
+      {
+        properties: { page: { margin: PAGE_MARGIN } },
+        ...(docxHeader ? { headers: { default: docxHeader } } : {}),
+        ...(docxFooter ? { footers: { default: docxFooter } } : {}),
+        children: bodyChildren,
+      },
+    ]
+  } else {
+    const children = nodeToParagraphs(doc, numberingDefs, row.format)
+    sections = [
+      {
+        properties: { page: { margin: PAGE_MARGIN } },
+        ...(docxHeader ? { headers: { default: docxHeader } } : {}),
+        ...(docxFooter ? { footers: { default: docxFooter } } : {}),
+        children: children as (Paragraph | DocxTable)[],
+      },
+    ]
+  }
 
   const docxDoc = new DocxDocument({
     ...(numberingDefs.length > 0 ? { numbering: { config: numberingDefs } } : {}),
-    sections: [
-      {
-        properties: {
-          page: { margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } },
-        },
-        ...(docxHeader ? { headers: { default: docxHeader } } : {}),
-        children: children as (Paragraph | DocxTable)[],
-      },
-    ],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    sections: sections as any,
     styles: {
       default: {
         document: { run: { font: 'Times New Roman', size: 24 } },

@@ -76,7 +76,7 @@ export function buildApaContent(fields: ApaFields, body: JSONContent[]): JSONCon
       para(fields.courseAndNumber, 'apa-header', 'center'),
       para(fields.instructorName, 'apa-header', 'center'),
       para(todayApa(), 'apa-header', 'center'),
-      emptyPara(),
+      { type: 'pageBreak' },
       paraBold('Abstract', 'abstract-heading'),
       para(
         '[Write a 150–250 word summary of your paper here.]',
@@ -92,7 +92,7 @@ const HEADER_ROLES = new Set(['mla-header', 'apa-header', 'abstract-heading', 'a
 
 export function extractBodyNodes(content: JSONContent): JSONContent[] {
   return (content.content ?? []).filter(
-    (node) => !HEADER_ROLES.has(node.attrs?.role as string)
+    (node) => node.type !== 'pageBreak' && !HEADER_ROLES.has(node.attrs?.role as string)
   )
 }
 

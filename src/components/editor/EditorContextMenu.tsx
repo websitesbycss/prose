@@ -17,6 +17,7 @@ interface MenuCtx {
   isOnImage: boolean
   imageSrc: string | null
   imageBorderRadius: number
+  isOnPageBreak: boolean
   hasSelection: boolean
   selectedText: string
   isOnLink: boolean
@@ -76,21 +77,27 @@ export function EditorContextMenu({ editor }: EditorContextMenuProps): JSX.Eleme
 
       // Select the image node so updateAttributes works from the context menu
       let imageBorderRadius = 0
-      if (isOnImage) {
-        const posData = editor!.view.posAtCoords({ left: e.clientX, top: e.clientY })
-        if (posData) {
-          const doc = editor!.view.state.doc
-          for (const tryPos of [posData.inside, posData.pos, posData.pos - 1]) {
-            if (tryPos < 0) continue
-            try {
-              const sel = NodeSelection.create(doc, tryPos)
-              if (sel.node.type.name === 'image') {
-                editor!.view.dispatch(editor!.view.state.tr.setSelection(sel))
-                break
-              }
-            } catch { /* not a valid node selection at this pos */ }
-          }
+      let isOnPageBreak = false
+      const posData = editor!.view.posAtCoords({ left: e.clientX, top: e.clientY })
+      if (posData) {
+        const doc = editor!.view.state.doc
+        for (const tryPos of [posData.inside, posData.pos, posData.pos - 1]) {
+          if (tryPos < 0) continue
+          try {
+            const sel = NodeSelection.create(doc, tryPos)
+            if (isOnImage && sel.node.type.name === 'image') {
+              editor!.view.dispatch(editor!.view.state.tr.setSelection(sel))
+              break
+            }
+            if (sel.node.type.name === 'pageBreak') {
+              editor!.view.dispatch(editor!.view.state.tr.setSelection(sel))
+              isOnPageBreak = true
+              break
+            }
+          } catch { /* not a valid node selection at this pos */ }
         }
+      }
+      if (isOnImage && !isOnPageBreak) {
         const attrs = editor!.getAttributes('image')
         imageBorderRadius = typeof attrs.borderRadius === 'number' ? attrs.borderRadius : 0
       }
@@ -116,6 +123,7 @@ export function EditorContextMenu({ editor }: EditorContextMenuProps): JSX.Eleme
         isOnImage,
         imageSrc,
         imageBorderRadius,
+        isOnPageBreak,
         hasSelection,
         selectedText,
         isOnLink,
@@ -258,53 +266,60 @@ export function EditorContextMenu({ editor }: EditorContextMenuProps): JSX.Eleme
     items.push({ type: 'btn', label: 'Paste', icon: Clipboard, onClick: () => run(() => { document.execCommand('paste') }) })
     items.push({ type: 'btn', label: 'Paste without formatting', icon: RemoveFormatting, onClick: () => void pasteWithoutFormatting() })
 
-    if (ctx.hasSelection) {
-      items.push({ type: 'sep' })
-      items.push({ type: 'btn', label: 'Cut', icon: Scissors, onClick: () => run(() => { document.execCommand('cut') }) })
-      items.push({ type: 'btn', label: 'Copy', icon: Copy, onClick: () => run(() => { document.execCommand('copy') }) })
-      items.push({ type: 'sep' })
-      items.push({
-        type: 'btn',
-        label: 'Insert link',
-        icon: Link2,
-        onClick: () => {
-          const existing = editor.getAttributes('link').href as string | undefined
-          setLinkDraft(existing ?? '')
-          setLinkMode(true)
-        },
-      })
-      items.push({ type: 'btn', label: 'Clear formatting', icon: Eraser, onClick: () => run(() => editor.chain().clearNodes().unsetAllMarks().run()) })
-      items.push({ type: 'sep' })
-      items.push({
-        type: 'btn',
-        label: 'AI: Improve this selection',
-        icon: Sparkles,
-        onClick: () => {
-          setPendingAiPrompt(`Improve this selection: "${ctx.selectedText}"`)
-          setAiPanelOpen(true)
-          dismiss()
-        },
-      })
-    }
+    if (!ctx.isOnPageBreak) {
+      if (ctx.hasSelection) {
+        items.push({ type: 'sep' })
+        items.push({ type: 'btn', label: 'Cut', icon: Scissors, onClick: () => run(() => { document.execCommand('cut') }) })
+        items.push({ type: 'btn', label: 'Copy', icon: Copy, onClick: () => run(() => { document.execCommand('copy') }) })
+        items.push({ type: 'sep' })
+        items.push({
+          type: 'btn',
+          label: 'Insert link',
+          icon: Link2,
+          onClick: () => {
+            const existing = editor.getAttributes('link').href as string | undefined
+            setLinkDraft(existing ?? '')
+            setLinkMode(true)
+          },
+        })
+        items.push({ type: 'btn', label: 'Clear formatting', icon: Eraser, onClick: () => run(() => editor.chain().clearNodes().unsetAllMarks().run()) })
+        items.push({ type: 'sep' })
+        items.push({
+          type: 'btn',
+          label: 'AI: Improve this selection',
+          icon: Sparkles,
+          onClick: () => {
+            setPendingAiPrompt(`Improve this selection: "${ctx.selectedText}"`)
+            setAiPanelOpen(true)
+            dismiss()
+          },
+        })
+      }
 
-    if (ctx.isOnLink && ctx.linkHref) {
-      items.push({ type: 'sep' })
-      items.push({ type: 'btn', label: 'Open link', icon: ExternalLink, onClick: () => { window.open(ctx.linkHref!, '_blank'); dismiss() } })
-      items.push({ type: 'btn', label: 'Copy link', icon: Link, onClick: () => { void navigator.clipboard.writeText(ctx.linkHref!); dismiss() } })
-      items.push({ type: 'btn', label: 'Remove link', icon: Unlink2, onClick: () => run(() => editor.chain().focus().unsetLink().run()) })
-    }
+      if (ctx.isOnLink && ctx.linkHref) {
+        items.push({ type: 'sep' })
+        items.push({ type: 'btn', label: 'Open link', icon: ExternalLink, onClick: () => { window.open(ctx.linkHref!, '_blank'); dismiss() } })
+        items.push({ type: 'btn', label: 'Copy link', icon: Link, onClick: () => { void navigator.clipboard.writeText(ctx.linkHref!); dismiss() } })
+        items.push({ type: 'btn', label: 'Remove link', icon: Unlink2, onClick: () => run(() => editor.chain().focus().unsetLink().run()) })
+      }
 
-    if (ctx.isInTable) {
-      items.push({ type: 'sep' })
-      items.push({ type: 'btn', label: 'Insert row above', icon: ArrowUp, onClick: () => run(() => editor.chain().focus().addRowBefore().run()) })
-      items.push({ type: 'btn', label: 'Insert row below', icon: ArrowDown, onClick: () => run(() => editor.chain().focus().addRowAfter().run()) })
-      items.push({ type: 'btn', label: 'Insert column left', icon: ArrowLeft, onClick: () => run(() => editor.chain().focus().addColumnBefore().run()) })
-      items.push({ type: 'btn', label: 'Insert column right', icon: ArrowRight, onClick: () => run(() => editor.chain().focus().addColumnAfter().run()) })
-      items.push({ type: 'sep' })
-      items.push({ type: 'btn', label: 'Delete row', icon: Trash2, destructive: true, onClick: () => run(() => editor.chain().focus().deleteRow().run()) })
-      items.push({ type: 'btn', label: 'Delete column', icon: Trash2, destructive: true, onClick: () => run(() => editor.chain().focus().deleteColumn().run()) })
-      items.push({ type: 'btn', label: 'Delete table', icon: Trash2, destructive: true, onClick: () => run(() => editor.chain().focus().deleteTable().run()) })
+      if (ctx.isInTable) {
+        items.push({ type: 'sep' })
+        items.push({ type: 'btn', label: 'Insert row above', icon: ArrowUp, onClick: () => run(() => editor.chain().focus().addRowBefore().run()) })
+        items.push({ type: 'btn', label: 'Insert row below', icon: ArrowDown, onClick: () => run(() => editor.chain().focus().addRowAfter().run()) })
+        items.push({ type: 'btn', label: 'Insert column left', icon: ArrowLeft, onClick: () => run(() => editor.chain().focus().addColumnBefore().run()) })
+        items.push({ type: 'btn', label: 'Insert column right', icon: ArrowRight, onClick: () => run(() => editor.chain().focus().addColumnAfter().run()) })
+        items.push({ type: 'sep' })
+        items.push({ type: 'btn', label: 'Delete row', icon: Trash2, destructive: true, onClick: () => run(() => editor.chain().focus().deleteRow().run()) })
+        items.push({ type: 'btn', label: 'Delete column', icon: Trash2, destructive: true, onClick: () => run(() => editor.chain().focus().deleteColumn().run()) })
+        items.push({ type: 'btn', label: 'Delete table', icon: Trash2, destructive: true, onClick: () => run(() => editor.chain().focus().deleteTable().run()) })
+      }
     }
+  }
+
+  if (ctx.isOnPageBreak) {
+    items.push({ type: 'sep' })
+    items.push({ type: 'btn', label: 'Delete page break', icon: Trash2, destructive: true, onClick: () => run(() => editor.commands.deleteSelection()) })
   }
 
   // Collapse leading/trailing/consecutive separators

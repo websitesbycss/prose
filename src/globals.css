@@ -365,7 +365,49 @@ html.theme-transitioning *::after {
   }
 }
 
-/* APA Abstract heading — visual page-break separator in the editor */
+/* Page break node — horizontal dashed divider with centered label */
+.page-break-node {
+  position: relative;
+  width: 100%;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  cursor: default;
+  user-select: none;
+  margin: 0.4em 0;
+}
+.page-break-node::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 1px dashed hsl(var(--border));
+}
+.page-break-node::after {
+  content: 'page break';
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  line-height: 1;
+  padding: 2px 6px;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--background));
+  font-family: system-ui, sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border-radius: 2px;
+}
+/* Selection: amber ring with enough offset to keep the dashed line visible */
+.ProseMirror-selectednode.page-break-node {
+  outline: 2px solid rgb(245 158 11);
+  outline-offset: 5px;
+  border-radius: 1px;
+}
+
+/* APA Abstract heading — keep dashed line for legacy documents created before page-break node existed */
 .format-apa .ProseMirror [data-role='abstract-heading'] {
   margin-top: 1.5em;
   padding-top: 1em;

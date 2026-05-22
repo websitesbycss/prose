@@ -9,7 +9,7 @@ import {
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
   List, ListOrdered, IndentIcon, Outdent,
   Subscript, Superscript,
-  Image, Link2, Table2, Music, BookOpen, Hash,
+  Image, Link2, Table2, Music, BookOpen, Hash, SeparatorHorizontal,
   ChevronDown, Undo2, Redo2, Highlighter, PaintBucket,
 } from 'lucide-react'
 import type { DocumentFormat } from '@/types'
@@ -1136,6 +1136,13 @@ function ToolbarInner({
           icon={Table2}
           title="Insert table"
           onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+        />
+      )}
+      {!isZoneEditor && (
+        <ToolbarBtn
+          icon={SeparatorHorizontal}
+          title="Insert page break"
+          onClick={() => editor.chain().focus().insertPageBreak().run()}
         />
       )}
 

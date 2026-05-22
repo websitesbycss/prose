@@ -27,6 +27,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { FontSize } from '@/extensions/fontSize'
 import { Indent } from '@/extensions/indent'
 import { PageNumberNode } from '@/extensions/pageNumber'
+import { PageBreakNode } from '@/extensions/pageBreak'
 import { LineHeight } from '@/extensions/lineHeight'
 import { ExitMarkOnArrowRight } from '@/extensions/exitMarkOnArrowRight'
 import { ParagraphRole } from '@/extensions/paragraphRole'
@@ -159,6 +160,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
       TableCellAttributes,
       Indent,
       PageNumberNode,
+      PageBreakNode,
       LineHeight,
       ExitMarkOnArrowRight,
       ParagraphRole,

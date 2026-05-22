@@ -150,7 +150,7 @@ export default function CitationPanel({ documentId, format, editor }: CitationPa
     })
 
     const content = [
-      { type: 'paragraph', attrs: { lineHeight: 2.0 }, content: [] },
+      { type: 'pageBreak' },
       {
         type: 'paragraph',
         attrs: { role: 'works-cited-heading', textAlign: 'center', lineHeight: 2.0 },
