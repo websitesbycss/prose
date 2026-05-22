@@ -12,6 +12,7 @@ interface UseDocumentReturn {
   onEditorUpdate: (editor: Editor) => void
   updateTitle: (title: string) => Promise<void>
   patchDocument: (updates: Partial<Document>) => void
+  notifySaveStatus: (status: SaveStatus) => void
 }
 
 export function useDocument(id: string): UseDocumentReturn {
@@ -82,5 +83,13 @@ export function useDocument(id: string): UseDocumentReturn {
     setDocument((prev) => (prev ? { ...prev, ...updates } : null))
   }, [])
 
-  return { document, saveStatus, saveNow, onEditorUpdate, updateTitle, patchDocument }
+  const notifySaveStatus = useCallback((status: SaveStatus): void => {
+    setSaveStatus(status)
+    if (status === 'saved') {
+      if (savedTimer.current) clearTimeout(savedTimer.current)
+      savedTimer.current = setTimeout(() => setSaveStatus('idle'), 2000)
+    }
+  }, [])
+
+  return { document, saveStatus, saveNow, onEditorUpdate, updateTitle, patchDocument, notifySaveStatus }
 }

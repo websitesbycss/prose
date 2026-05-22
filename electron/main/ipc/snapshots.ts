@@ -6,6 +6,8 @@ interface SnapshotOut {
   id: string
   documentId: string
   content: string
+  headerContent: string | null
+  footerContent: string | null
   wordCount: number
   createdAt: string
   label: string | null
@@ -23,6 +25,8 @@ export function registerSnapshotHandlers(): void {
         id: s.id,
         documentId,
         content: JSON.stringify(s.content),
+        headerContent: s.headerContent != null ? JSON.stringify(s.headerContent) : null,
+        footerContent: s.footerContent != null ? JSON.stringify(s.footerContent) : null,
         wordCount: s.wordCount,
         createdAt: s.createdAt,
         label: s.label,
@@ -40,7 +44,13 @@ export function registerSnapshotHandlers(): void {
       if (!snap) continue
 
       const now = new Date().toISOString()
-      const updated = { ...resolved.doc, content: snap.content, updatedAt: now }
+      const updated = {
+        ...resolved.doc,
+        content: snap.content,
+        headerContent: 'headerContent' in snap ? snap.headerContent : resolved.doc.headerContent,
+        footerContent: 'footerContent' in snap ? snap.footerContent : resolved.doc.footerContent,
+        updatedAt: now,
+      }
       await writeProseFile(resolved.filePath, updated)
 
       const indexRow = getIndexRow(row.id)

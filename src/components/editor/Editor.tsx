@@ -91,7 +91,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
 
   // Tracks when header/footer content should be forcibly reset in the child editors
   const [headerContentKey, setHeaderContentKey] = useState(() => crypto.randomUUID())
-  const [footerContentKey] = useState(() => crypto.randomUUID())
+  const [footerContentKey, setFooterContentKey] = useState(() => crypto.randomUUID())
 
   // When a zone editor (header/footer) is focused, toolbar commands target it instead of the body editor
   const [zoneEditor, setZoneEditor] = useState<import('@tiptap/core').Editor | null>(null)
@@ -112,7 +112,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
     }, 200)
   }
 
-  const { document, saveStatus, saveNow, onEditorUpdate, updateTitle, patchDocument } =
+  const { document, saveStatus, saveNow, onEditorUpdate, updateTitle, patchDocument, notifySaveStatus } =
     useDocument(documentId)
 
   const [settings, setSettings] = useState<Pick<AppSettings, 'wordCountExcludesHeader'>>({
@@ -478,7 +478,16 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                       {activePanel === 'pomodoro' && <PomodoroPanel controls={pomodoroControls} />}
                       {activePanel === 'stats' && <SessionStatsPanel stats={sessionStats} />}
                       {activePanel === 'history' && (
-                        <HistoryPanel documentId={documentId} editor={editor} format={format} />
+                        <HistoryPanel
+                          documentId={documentId}
+                          editor={editor}
+                          format={format}
+                          onRestore={(hc, fc) => {
+                            patchDocument({ headerContent: hc, footerContent: fc })
+                            setHeaderContentKey(crypto.randomUUID())
+                            setFooterContentKey(crypto.randomUUID())
+                          }}
+                        />
                       )}
                     </motion.div>
                   )}
@@ -521,15 +530,18 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                   '--page-margin-y': `${PAGE_MARGIN_Y_PX}px`,
                 } as React.CSSProperties}
               >
-                {/* Header zone */}
-                <HeaderFooterEditor
-                  zone="header"
-                  documentId={documentId}
-                  contentKey={headerContentKey}
-                  initialContent={headerContent}
-                  onZoneFocus={handleZoneFocus}
-                  onZoneBlur={handleZoneBlur}
-                />
+                {/* Header zone — only rendered once document is loaded to prevent blank init on HMR */}
+                {document && (
+                  <HeaderFooterEditor
+                    zone="header"
+                    documentId={documentId}
+                    contentKey={headerContentKey}
+                    initialContent={headerContent}
+                    onZoneFocus={handleZoneFocus}
+                    onZoneBlur={handleZoneBlur}
+                    onSaveStatusChange={notifySaveStatus}
+                  />
+                )}
                 <div className="border-b border-border dark:border-zinc-600" />
 
                 {/* Body content — horizontal padding inherits --page-margin-x */}
@@ -549,16 +561,19 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                   <EditorContextMenu editor={editor} />
                 </div>
 
-                {/* Footer zone */}
+                {/* Footer zone — only rendered once document is loaded to prevent blank init on HMR */}
                 <div className="border-t border-border dark:border-zinc-600" />
-                <HeaderFooterEditor
-                  zone="footer"
-                  documentId={documentId}
-                  contentKey={footerContentKey}
-                  initialContent={footerContent}
-                  onZoneFocus={handleZoneFocus}
-                  onZoneBlur={handleZoneBlur}
-                />
+                {document && (
+                  <HeaderFooterEditor
+                    zone="footer"
+                    documentId={documentId}
+                    contentKey={footerContentKey}
+                    initialContent={footerContent}
+                    onZoneFocus={handleZoneFocus}
+                    onZoneBlur={handleZoneBlur}
+                    onSaveStatusChange={notifySaveStatus}
+                  />
+                )}
               </div>
             </div>
           </div>

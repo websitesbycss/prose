@@ -29,6 +29,7 @@ interface HeaderFooterEditorProps {
   initialContent: JSONContent | null
   onZoneFocus?: (editor: Editor) => void
   onZoneBlur?: () => void
+  onSaveStatusChange?: (status: 'idle' | 'saving' | 'saved') => void
 }
 
 const EMPTY_DOC: JSONContent = { type: 'doc', content: [{ type: 'paragraph' }] }
@@ -47,6 +48,7 @@ export function HeaderFooterEditor({
   initialContent,
   onZoneFocus,
   onZoneBlur,
+  onSaveStatusChange,
 }: HeaderFooterEditorProps): JSX.Element {
   const [active, setActive] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -59,16 +61,19 @@ export function HeaderFooterEditor({
 
   const persistContent = useCallback(
     async (content: JSONContent): Promise<void> => {
+      onSaveStatusChange?.('saving')
       try {
         const field = zone === 'header' ? 'headerContent' : 'footerContent'
         await window.prose.documents.update(docIdRef.current, {
           [field]: JSON.stringify(content),
         })
+        onSaveStatusChange?.('saved')
       } catch (err) {
         console.error(`[HeaderFooterEditor:${zone}] save error:`, err)
+        onSaveStatusChange?.('idle')
       }
     },
-    [zone]
+    [zone, onSaveStatusChange]
   )
 
   const editor = useEditor({

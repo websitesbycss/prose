@@ -20,6 +20,8 @@ export interface ProseFileCitation {
 export interface ProseFileSnapshot {
   id: string
   content: unknown  // Tiptap JSONContent object
+  headerContent: unknown | null
+  footerContent: unknown | null
   wordCount: number
   createdAt: string
   label: string | null
@@ -517,6 +519,8 @@ export function tryAddSnapshot(doc: ProseFileDocument, content: unknown): ProseF
   const newSnapshot: ProseFileSnapshot = {
     id: randomUUID(),
     content,
+    headerContent: doc.headerContent ?? null,
+    footerContent: doc.footerContent ?? null,
     wordCount,
     createdAt: new Date().toISOString(),
     label: null,

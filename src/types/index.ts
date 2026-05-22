@@ -122,6 +122,8 @@ export interface Snapshot {
   id: string
   documentId: string
   content: string
+  headerContent: string | null
+  footerContent: string | null
   wordCount: number
   createdAt: string
   label: string | null

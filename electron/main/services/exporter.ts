@@ -332,7 +332,7 @@ function nodeToHtml(node: JSONContent, format = 'none'): string {
       return `<img src="${src}" alt="${alt}" style="max-width:100%">`
     }
     case 'table':
-      return `<table border="1" style="border-collapse:collapse;width:100%">${(node.content ?? []).map((n) => nodeToHtml(n, format)).join('')}</table>`
+      return `<table border="1" style="border-collapse:collapse;width:100%;table-layout:fixed">${(node.content ?? []).map((n) => nodeToHtml(n, format)).join('')}</table>`
     case 'tableRow':
       return `<tr>${(node.content ?? []).map((n) => nodeToHtml(n, format)).join('')}</tr>`
     case 'tableHeader':
@@ -359,80 +359,70 @@ function nodeToHtml(node: JSONContent, format = 'none'): string {
   }
 }
 
-// Convert stored header/footer Tiptap JSON to an HTML string for the fixed zone.
-function zoneJsonToHtml(raw: string | null): string {
-  if (!raw) return ''
+// Build an Electron displayHeaderFooter template string from a header/footer zone JSON.
+// Replaces pageNumber nodes with Electron's <span class="pageNumber"></span>.
+function zoneToElectronTemplate(raw: string | null, fallbackAlign = 'left'): string {
+  if (!raw) return '<span></span>'
   try {
     const doc = JSON.parse(raw) as JSONContent
-    return (doc.content ?? []).map((n) => nodeToHtml(n, 'none')).join('')
+    const firstPara = doc.content?.[0]
+    if (!firstPara) return '<span></span>'
+    const nodes = firstPara.content ?? []
+    const align = (firstPara.attrs?.textAlign as string) ?? fallbackAlign
+    const tabIdx = nodes.findIndex((n) => n.type === 'rightTab')
+    const renderNodes = (ns: JSONContent[]) =>
+      ns.map((n) => {
+        if (n.type === 'pageNumber') return '<span class="pageNumber"></span>'
+        return inlineToHtml(n)
+      }).join('')
+    // 96px = 1in at 96dpi; using px avoids unit scaling issues in headerTemplate context
+    const base = 'font-size:16px;font-family:"Times New Roman",serif;width:100%;box-sizing:border-box;padding:0 96px;'
+    if (tabIdx === 0) {
+      // rightTab at start means everything after it is right-aligned (e.g. MLA: "LastName #")
+      const right = renderNodes(nodes.slice(1))
+      return `<div style="${base}text-align:right;">${right}</div>`
+    }
+    if (tabIdx > 0) {
+      const left = renderNodes(nodes.slice(0, tabIdx))
+      const right = renderNodes(nodes.slice(tabIdx + 1))
+      return `<div style="${base}display:flex;justify-content:space-between;">${left}<span>${right}</span></div>`
+    }
+    return `<div style="${base}text-align:${align};">${renderNodes(nodes)}</div>`
   } catch {
-    return ''
+    return '<span></span>'
   }
 }
 
-// Build a legacy fixed running-head div for old MLA/APA docs that don't have
-// header_content stored yet.
-function legacyRunningHeadHtml(runningHead: string, format: string): string {
-  const pn = '<span class="pn"></span>'
-  const hStyle =
-    'position:fixed;top:-0.5in;font-family:"Times New Roman",serif;font-size:12pt;line-height:1.5;'
+// Build an Electron template for legacy MLA/APA running heads.
+function legacyRunningHeadTemplate(runningHead: string, format: string): string {
+  const pn = '<span class="pageNumber"></span>'
+  const base = 'font-size:16px;font-family:"Times New Roman",serif;width:100%;box-sizing:border-box;padding:0 96px;'
   if (format === 'mla') {
-    return `<div style="${hStyle}right:1in;">${escapeHtml(runningHead)} ${pn}</div>`
+    return `<div style="${base}text-align:right;">${escapeHtml(runningHead)} ${pn}</div>`
   }
-  return `<div style="${hStyle}left:1in;right:1in;display:flex;justify-content:space-between;"><span style="text-transform:uppercase">${escapeHtml(runningHead)}</span>${pn}</div>`
+  return `<div style="${base}display:flex;justify-content:space-between;"><span style="text-transform:uppercase">${escapeHtml(runningHead)}</span>${pn}</div>`
 }
 
-function buildHtmlPage(
-  title: string,
-  body: string,
-  format = 'none',
-  headerRaw: string | null = null,
-  footerRaw: string | null = null,
-  legacyRunningHead: string | null = null,
-): string {
-  // Prefer stored header/footer JSON; fall back to auto-detected running head for old docs
-  let headerHtml = ''
-  if (headerRaw) {
-    const inner = zoneJsonToHtml(headerRaw)
-    if (inner) {
-      const zoneStyle =
-        'position:fixed;top:-0.5in;left:0;right:0;padding:0 1in;font-family:"Times New Roman",serif;font-size:12pt;line-height:1.5;'
-      headerHtml = `<div class="export-header" style="${zoneStyle}">${inner}</div>`
-    }
-  } else if (legacyRunningHead && (format === 'mla' || format === 'apa')) {
-    headerHtml = legacyRunningHeadHtml(legacyRunningHead, format)
-  }
-
-  let footerHtml = ''
-  if (footerRaw) {
-    const inner = zoneJsonToHtml(footerRaw)
-    if (inner) {
-      const zoneStyle =
-        'position:fixed;bottom:-0.5in;left:0;right:0;padding:0 1in;font-family:"Times New Roman",serif;font-size:12pt;line-height:1.5;'
-      footerHtml = `<div class="export-footer" style="${zoneStyle}">${inner}</div>`
-    }
-  }
-
+function buildHtmlPage(title: string, body: string, _format = 'none', hasHeaderFooter = false): string {
+  // When using displayHeaderFooter, Electron uses custom print margins for header/footer space.
+  // The body CSS must only have horizontal margins so the print margins handle vertical spacing.
+  const bodyMargin = hasHeaderFooter ? '0 1in' : '1in'
   return `<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>${escapeHtml(title)}</title>
 <style>
-  @page { margin: 1in; }
-  body { font-family: 'Times New Roman', serif; font-size: 12pt; margin: 0; line-height: 2; color: #000; }
-  .pn::before { content: counter(page); }
+  body { font-family: 'Times New Roman', serif; font-size: 12pt; margin: ${bodyMargin}; line-height: 2; color: #000; }
   .right-tab { flex: 1; display: inline-block; }
-  .export-header p, .export-footer p { margin: 0; line-height: 1.5; }
-  .export-header p:has(.right-tab), .export-footer p:has(.right-tab) { display: flex; align-items: baseline; }
   h1 { font-size: 14pt; } h2 { font-size: 13pt; } h3 { font-size: 12pt; }
   p { margin: 0; } ul, ol { margin: 0.5em 0; padding-left: 2em; }
   blockquote { margin: 0.5em 2em; } pre { background: #f5f5f5; padding: 0.5em; }
-  table { width: 100%; border-collapse: collapse; margin: 0.5em 0; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 0.5em 0; }
   th, td { border: 1px solid #000; padding: 4px 8px; }
   img { max-width: 100%; }
   @media print {
-    .apa-title-block { min-height: calc(11in - 2in); display: flex; flex-direction: column; align-items: center; justify-content: center; page-break-after: always; }
+    .apa-title-block { min-height: 9in; display: flex; flex-direction: column; align-items: center; justify-content: center; break-after: page; }
   }
 </style>
-</head><body>${headerHtml}${footerHtml}${body}</body></html>`
+</head><body>${body}</body></html>`
 }
 
 export async function exportToPdf(id: string): Promise<void> {
@@ -441,14 +431,22 @@ export async function exportToPdf(id: string): Promise<void> {
   const doc = parseContent(row.content)
   // Fall back to auto-detected running head only for old docs without stored header_content
   const legacyRunningHead = row.header_content ? null : extractRunningHead(doc, row.format)
-  const html = buildHtmlPage(
-    row.title,
-    nodeToHtml(doc, row.format),
-    row.format,
-    row.header_content,
-    row.footer_content,
-    legacyRunningHead,
-  )
+
+  // Build Electron header/footer templates — these render in the print margin and
+  // support real page numbers via <span class="pageNumber"></span>.
+  let headerTemplate = '<span></span>'
+  if (row.header_content) {
+    headerTemplate = zoneToElectronTemplate(row.header_content, 'right')
+  } else if (legacyRunningHead) {
+    headerTemplate = legacyRunningHeadTemplate(legacyRunningHead, row.format)
+  }
+  let footerTemplate = '<span></span>'
+  if (row.footer_content) {
+    footerTemplate = zoneToElectronTemplate(row.footer_content, 'center')
+  }
+  const hasHeaderFooter = headerTemplate !== '<span></span>' || footerTemplate !== '<span></span>'
+
+  const html = buildHtmlPage(row.title, nodeToHtml(doc, row.format), row.format, hasHeaderFooter)
 
   const { filePath } = await dialog.showSaveDialog({
     title: 'Export as PDF',
@@ -464,9 +462,16 @@ export async function exportToPdf(id: string): Promise<void> {
   const win = new BrowserWindow({ show: false, webPreferences: { sandbox: true } })
   await win.loadFile(tmpHtml)
   const pdfBuffer = await win.webContents.printToPDF({
-    margins: { marginType: 'none' },
+    // With header/footer, use custom margins so Electron reserves space for them and
+    // the body CSS only controls horizontal margins (avoids double-stacking vertical margins).
+    margins: hasHeaderFooter
+      ? { marginType: 'custom', top: 1, bottom: 1, left: 0, right: 0 }
+      : { marginType: 'none' },
     pageSize: 'Letter',
     printBackground: true,
+    displayHeaderFooter: hasHeaderFooter,
+    headerTemplate: hasHeaderFooter ? headerTemplate : '<span></span>',
+    footerTemplate: hasHeaderFooter ? footerTemplate : '<span></span>',
   })
   win.destroy()
 

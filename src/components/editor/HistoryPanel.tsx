@@ -252,9 +252,10 @@ interface HistoryPanelProps {
   documentId: string
   editor: Editor | null
   format?: string
+  onRestore?: (headerContent: string | null, footerContent: string | null) => void
 }
 
-export function HistoryPanel({ documentId, editor, format = 'none' }: HistoryPanelProps): JSX.Element {
+export function HistoryPanel({ documentId, editor, format = 'none', onRestore }: HistoryPanelProps): JSX.Element {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -346,6 +347,7 @@ export function HistoryPanel({ documentId, editor, format = 'none' }: HistoryPan
         const json = JSON.parse(selected.content) as object
         editor.commands.setContent(json, false)
       }
+      onRestore?.(selected.headerContent ?? null, selected.footerContent ?? null)
       toast.success('Version restored')
       setConfirmRestore(false)
       setPreviewOpen(false)
