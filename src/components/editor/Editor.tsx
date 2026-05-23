@@ -28,10 +28,12 @@ import { FontSize } from '@/extensions/fontSize'
 import { Indent } from '@/extensions/indent'
 import { PageNumberNode } from '@/extensions/pageNumber'
 import { PageBreakNode } from '@/extensions/pageBreak'
+import { IssueHighlight } from '@/extensions/issueHighlight'
 import { LineHeight } from '@/extensions/lineHeight'
 import { ExitMarkOnArrowRight } from '@/extensions/exitMarkOnArrowRight'
 import { ParagraphRole } from '@/extensions/paragraphRole'
 import { useDocument } from '@/hooks/useDocument'
+import { useAnalysis } from '@/hooks/useAnalysis'
 import { useWordCount } from '@/hooks/useWordCount'
 import { useSelectionWordCount } from '@/hooks/useSelectionWordCount'
 import { usePomodoro } from '@/hooks/usePomodoro'
@@ -55,7 +57,7 @@ import FormatModal from './FormatModal'
 import { HeaderFooterEditor, parseHeaderContent, buildMlaHeaderContent, buildApaHeaderContent } from './HeaderFooterEditor'
 import OutlinePanel from './OutlinePanel'
 import PomodoroPanel from './PomodoroPanel'
-import AiPanel from './AiPanel'
+import AiPanel, { IssueTooltip } from './AiPanel'
 import CitationPanel from './CitationPanel'
 import MusicPanel from './MusicPanel'
 import { SessionStatsPanel } from './SessionStatsPanel'
@@ -127,6 +129,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
 
   const pomodoroControls = usePomodoro()
   const music = useMusic()
+  const analysis = useAnalysis()
 
   useEffect(() => {
     void window.prose.settings.get().then((s) => {
@@ -161,6 +164,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
       Indent,
       PageNumberNode,
       PageBreakNode,
+      IssueHighlight,
       LineHeight,
       ExitMarkOnArrowRight,
       ParagraphRole,
@@ -201,6 +205,10 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
 
   useEffect(() => {
     if (!editor || !document) return
+    // Clear analysis state from the previous document
+    analysis.clearIssues()
+    editor.commands.clearAnalysisIssues()
+    useAppStore.getState().setAssignmentContext('')
     try {
       const parsed = JSON.parse(document.content || '{}') as object
       editor.commands.setContent(parsed, false)
@@ -209,12 +217,25 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
     }
   }, [document?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Show/hide issue decorations based on panel visibility and analysis results
+  useEffect(() => {
+    if (!editor) return
+    if (aiPanelOpen) {
+      editor.commands.setAnalysisIssues(analysis.issues)
+    } else {
+      editor.commands.clearAnalysisIssues()
+    }
+  }, [editor, analysis.issues, aiPanelOpen])
+
   useEffect(() => {
     if (!editor) return
     const handler = (e: KeyboardEvent): void => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault()
         void saveNow(editor)
+        if (useAppStore.getState().analyzeOnSave) {
+          void analysis.analyze(editor.getText(), useAppStore.getState().assignmentContext)
+        }
       }
       if (e.key === 'F11') {
         e.preventDefault()
@@ -563,6 +584,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                     className="prose-editor min-h-full outline-none"
                   />
                   <EditorContextMenu editor={editor} />
+                  <IssueTooltip editor={editor} issues={analysis.issues} />
                 </div>
 
                 {/* Footer zone — only rendered once document is loaded to prevent blank init on HMR */}
@@ -604,7 +626,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                       document.body.style.userSelect = 'none'
                     }}
                   />
-                  {aiPanelOpen && <AiPanel editor={editor} />}
+                  {aiPanelOpen && <AiPanel editor={editor} analysis={analysis} />}
                   {citationPanelOpen && (
                     <CitationPanel documentId={documentId} format={format} editor={editor} />
                   )}

@@ -22,6 +22,10 @@ interface AppState {
   pomodoroState: PomodoroState
   ollamaStatus: OllamaStatus
   pendingAiPrompt: string | null
+  issueCount: number
+  analyzeOnSave: boolean
+  activeAiTab: 'chat' | 'analysis'
+  assignmentContext: string
 
   setCurrentDocumentId(id: string | null): void
   setTheme(theme: Theme): void
@@ -34,6 +38,10 @@ interface AppState {
   setPomodoroState(state: Partial<PomodoroState>): void
   setOllamaStatus(status: OllamaStatus): void
   setPendingAiPrompt(prompt: string | null): void
+  setIssueCount(n: number): void
+  setAnalyzeOnSave(v: boolean): void
+  setActiveAiTab(tab: 'chat' | 'analysis'): void
+  setAssignmentContext(ctx: string): void
 }
 
 const DEFAULT_POMODORO: PomodoroState = {
@@ -54,6 +62,10 @@ export const useAppStore = create<AppState>()((set) => ({
   pomodoroState: DEFAULT_POMODORO,
   ollamaStatus: 'loading',
   pendingAiPrompt: null,
+  issueCount: 0,
+  analyzeOnSave: false,
+  activeAiTab: 'chat',
+  assignmentContext: '',
 
   setCurrentDocumentId: (id) => set({ currentDocumentId: id }),
   setTheme: (theme) => {
@@ -80,4 +92,8 @@ export const useAppStore = create<AppState>()((set) => ({
     set((s) => ({ pomodoroState: { ...s.pomodoroState, ...state } })),
   setOllamaStatus: (status) => set({ ollamaStatus: status }),
   setPendingAiPrompt: (prompt) => set({ pendingAiPrompt: prompt }),
+  setIssueCount: (n) => set({ issueCount: n }),
+  setAnalyzeOnSave: (v) => set({ analyzeOnSave: v }),
+  setActiveAiTab: (tab) => set({ activeAiTab: tab }),
+  setAssignmentContext: (ctx) => set({ assignmentContext: ctx }),
 }))

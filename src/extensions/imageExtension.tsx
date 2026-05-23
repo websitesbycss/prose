@@ -127,19 +127,25 @@ function ImageNodeView({ node, updateAttributes, selected, editor }: NodeViewPro
     setToolbarBelow(rect.top < 56)
   }, [selected])
 
-  // Block ProseMirror's native mousedown handler from seeing clicks on the
-  // floating toolbar — otherwise it resets the NodeSelection. The CornerSlider
-  // child handles its own mousedown with stopPropagation + preventDefault, so
-  // this handler only needs to cover the rest of the toolbar surface.
+  // Block ProseMirror from seeing any pointer events on the floating toolbar.
+  // ProseMirror resets NodeSelection on both mousedown AND click/mouseup, so
+  // we must stop all three to keep the image selected while interacting with
+  // the toolbar. CornerSlider handles its own mousedown internally.
   useEffect(() => {
     const el = floatingToolbarRef.current
     if (!el) return
-    function onMouseDown(e: MouseEvent): void {
+    function stopEvent(e: MouseEvent): void {
       e.stopPropagation()
       e.preventDefault()
     }
-    el.addEventListener('mousedown', onMouseDown)
-    return () => el.removeEventListener('mousedown', onMouseDown)
+    el.addEventListener('mousedown', stopEvent)
+    el.addEventListener('mouseup', stopEvent)
+    el.addEventListener('click', stopEvent)
+    return () => {
+      el.removeEventListener('mousedown', stopEvent)
+      el.removeEventListener('mouseup', stopEvent)
+      el.removeEventListener('click', stopEvent)
+    }
   }, [selected]) // re-attaches after toolbar mounts/unmounts with selection
 
   const getMaxWidth = useCallback((): number => {

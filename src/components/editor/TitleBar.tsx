@@ -48,6 +48,7 @@ export default function TitleBar({
   const aiPanelOpen = useAppStore((s) => s.aiPanelOpen)
   const setAiPanelOpen = useAppStore((s) => s.setAiPanelOpen)
   const ollamaStatus = useAppStore((s) => s.ollamaStatus)
+  const issueCount = useAppStore((s) => s.issueCount)
 
   const [editing, setEditing] = useState(false)
   const [draftTitle, setDraftTitle] = useState('')
@@ -175,12 +176,17 @@ export default function TitleBar({
         <Button
           variant="ghost"
           size="icon"
-          className={cn('h-7 w-7', aiPanelOpen && 'bg-accent text-accent-foreground')}
+          className={cn('relative h-7 w-7', aiPanelOpen && 'bg-accent text-accent-foreground')}
           onClick={() => setAiPanelOpen(!aiPanelOpen)}
           title={aiPanelOpen ? 'Hide AI panel' : 'Show AI panel'}
           disabled={ollamaStatus === 'unavailable'}
         >
           <Sparkles className="h-3.5 w-3.5" />
+          {issueCount > 0 && !aiPanelOpen && (
+            <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-primary px-0.5 text-[8px] font-bold leading-none text-primary-foreground">
+              {issueCount > 9 ? '9+' : issueCount}
+            </span>
+          )}
         </Button>
 
         <Button

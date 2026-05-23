@@ -15,6 +15,8 @@ interface AppSettingsOut {
   editorFontFamily: string
   editorFontSize: number
   headingFontSizes: { h1: number; h2: number; h3: number }
+  lightAccentColor: string | null
+  darkAccentColor: string | null
 }
 
 const DEFAULTS: AppSettingsOut = {
@@ -31,6 +33,8 @@ const DEFAULTS: AppSettingsOut = {
   editorFontFamily: 'Calibri',
   editorFontSize: 12,
   headingFontSizes: { h1: 36, h2: 24, h3: 18 },
+  lightAccentColor: null,
+  darkAccentColor: null,
 }
 
 const VALID_FORMATS = new Set(['none', 'mla', 'apa', 'chicago', 'ieee'])
@@ -66,6 +70,8 @@ function loadSettings(): AppSettingsOut {
       const clamp = (n: number) => Math.max(8, Math.min(96, n))
       return { h1: clamp(v.h1 ?? DEFAULTS.headingFontSizes.h1), h2: clamp(v.h2 ?? DEFAULTS.headingFontSizes.h2), h3: clamp(v.h3 ?? DEFAULTS.headingFontSizes.h3) }
     })(),
+    lightAccentColor: get('lightAccentColor', DEFAULTS.lightAccentColor),
+    darkAccentColor:  get('darkAccentColor',  DEFAULTS.darkAccentColor),
   }
 }
 

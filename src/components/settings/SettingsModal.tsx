@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
@@ -14,6 +15,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import { useAppStore } from '@/store/appStore'
 import { cn } from '@/lib/utils'
+import { applyAccentColors, LIGHT_PRESETS, DARK_PRESETS, DEFAULT_LIGHT_ACCENT, DEFAULT_DARK_ACCENT } from '@/lib/accentColor'
+import { ChromeColorPicker } from '@/components/ui/ChromeColorPicker'
 import type { AppSettings, StorageInfo } from '@/types'
 import { Palette, PenLine, Sparkles, Timer, Info, ExternalLink, HardDrive } from 'lucide-react'
 
@@ -87,6 +90,15 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps): JS
     }
   }, [])
 
+  // Apply accent colors whenever either value changes — uses fresh state, no stale closures
+  useEffect(() => {
+    if (!settings) return
+    applyAccentColors(
+      settings.lightAccentColor ?? DEFAULT_LIGHT_ACCENT,
+      settings.darkAccentColor  ?? DEFAULT_DARK_ACCENT,
+    )
+  }, [settings?.lightAccentColor, settings?.darkAccentColor])
+
   async function handlePickNewFolder(): Promise<void> {
     const picked = await window.prose.documents.pickFolder()
     if (picked) setChangeFolderDialog({ newPath: picked })
@@ -109,7 +121,10 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps): JS
   return (
     <>
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="flex h-[540px] max-h-[90vh] w-[680px] max-w-[95vw] flex-col gap-0 p-0">
+      <DialogContent
+        className="flex h-[540px] max-h-[90vh] w-[680px] max-w-[95vw] flex-col gap-0 p-0"
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader className="shrink-0 border-b border-border px-5 py-4">
           <DialogTitle className="text-sm font-semibold">Settings</DialogTitle>
         </DialogHeader>
@@ -158,6 +173,22 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps): JS
                       ))}
                     </div>
                   </SettingRow>
+                  <Separator />
+                  <AccentColorRow
+                    label="Light mode accent"
+                    presets={LIGHT_PRESETS}
+                    value={settings.lightAccentColor ?? DEFAULT_LIGHT_ACCENT}
+                    defaultValue={DEFAULT_LIGHT_ACCENT}
+                    onChange={(v) => void save({ lightAccentColor: v })}
+                  />
+                  <Separator />
+                  <AccentColorRow
+                    label="Dark mode accent"
+                    presets={DARK_PRESETS}
+                    value={settings.darkAccentColor ?? DEFAULT_DARK_ACCENT}
+                    defaultValue={DEFAULT_DARK_ACCENT}
+                    onChange={(v) => void save({ darkAccentColor: v })}
+                  />
                   <Separator />
                   <SettingRow label="Default font family">
                     <Select
@@ -449,6 +480,83 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps): JS
       </AlertDialogContent>
     </AlertDialog>
     </>
+  )
+}
+
+function AccentColorRow({
+  label,
+  presets,
+  value,
+  defaultValue,
+  onChange,
+}: {
+  label: string
+  presets: ReadonlyArray<{ label: string; hex: string }>
+  value: string
+  defaultValue: string
+  onChange: (hex: string) => void
+}): JSX.Element {
+  const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState({ top: 0, left: 0 })
+  const btnRef = useRef<HTMLDivElement>(null)
+  const pickerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function onDown(e: MouseEvent): void {
+      if (pickerRef.current?.contains(e.target as Node)) return
+      if (btnRef.current?.contains(e.target as Node)) return
+      setOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [open])
+
+  function handleToggle(): void {
+    const rect = btnRef.current?.getBoundingClientRect()
+    if (!rect) return
+    // Position to the left of the button so it doesn't overflow the modal
+    setPos({ top: rect.bottom + 6, left: Math.max(8, rect.right - 220) })
+    setOpen((o) => !o)
+  }
+
+  const palette = presets.map((p) => p.hex)
+
+  return (
+    <div className="flex items-center justify-between gap-4 py-3">
+      <span className="text-sm font-medium">{label}</span>
+      <div ref={btnRef}>
+        <button
+          className="flex items-center gap-2 rounded-md border border-input px-2.5 py-1.5 text-xs hover:bg-accent transition-colors"
+          onClick={handleToggle}
+        >
+          <div
+            className="h-3.5 w-3.5 rounded-full ring-1 ring-inset ring-black/10"
+            style={{ backgroundColor: value }}
+          />
+          <span className="font-mono text-muted-foreground">{value.toUpperCase()}</span>
+        </button>
+      </div>
+      {open && createPortal(
+        <div
+          ref={pickerRef}
+          style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 99999 }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <ChromeColorPicker
+            color={value}
+            current={value}
+            palette={palette}
+            onChange={onChange}
+            onPaletteSelect={(c) => { onChange(c); setOpen(false) }}
+            onReset={() => { onChange(defaultValue); setOpen(false) }}
+            resetLabel="Reset to default"
+          />
+        </div>,
+        document.body
+      )}
+    </div>
   )
 }
 

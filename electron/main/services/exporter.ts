@@ -491,7 +491,7 @@ export async function exportToPdf(id: string): Promise<void> {
     // With header/footer, use custom margins so Electron reserves space for them and
     // the body CSS only controls horizontal margins (avoids double-stacking vertical margins).
     margins: hasHeaderFooter
-      ? { marginType: 'custom', top: 1, bottom: 1, left: 0, right: 0 }
+      ? { marginType: 'custom', top: 1.25, bottom: 1.25, left: 0, right: 0 }
       : { marginType: 'none' },
     pageSize: 'Letter',
     printBackground: true,

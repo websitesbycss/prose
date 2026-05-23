@@ -261,6 +261,31 @@ html.theme-transitioning *::after {
   padding: 0;
 }
 
+/* ── Analysis issue highlights ────────────────────────────────── */
+
+.issue-highlight {
+  border-radius: 2px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1.5px;
+}
+
+.issue-highlight--error {
+  background-color: rgba(239, 68, 68, 0.12);
+  text-decoration-color: rgb(239, 68, 68);
+}
+
+.issue-highlight--clarity {
+  background-color: rgba(245, 158, 11, 0.12);
+  text-decoration-color: rgb(245, 158, 11);
+}
+
+.issue-highlight--style {
+  background-color: rgba(139, 92, 246, 0.12);
+  text-decoration-color: rgb(139, 92, 246);
+}
+
 /* ── Header / footer zone editors ─────────────────────────────── */
 
 /* Paragraphs containing a right-tab spacer become flex rows so the spacer

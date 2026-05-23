@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Toaster } from 'sonner'
 import { useAppStore } from '@/store/appStore'
+import { applyAccentColors, DEFAULT_LIGHT_ACCENT, DEFAULT_DARK_ACCENT } from '@/lib/accentColor'
 import Dashboard from '@/components/dashboard/Dashboard'
 import Editor from '@/components/editor/Editor'
 import Welcome from '@/components/onboarding/Welcome'
@@ -27,6 +28,16 @@ export default function App(): JSX.Element {
   // Migration: null = not yet checked, otherwise current status
   const [migrationStatus, setMigrationStatus] = useState<MigrationProgress['status'] | null>(null)
   const [migrationDone, setMigrationDone] = useState(false)
+
+  useEffect(() => {
+    void window.prose.settings.get().then((s) => {
+      const appSettings = s as import('@/types').AppSettings
+      applyAccentColors(
+        appSettings.lightAccentColor ?? DEFAULT_LIGHT_ACCENT,
+        appSettings.darkAccentColor  ?? DEFAULT_DARK_ACCENT,
+      )
+    })
+  }, [])
 
   useEffect(() => {
     async function checkSetup(): Promise<void> {

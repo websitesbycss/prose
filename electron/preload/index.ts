@@ -40,6 +40,8 @@ contextBridge.exposeInMainWorld('prose', {
         ipcRenderer.removeListener('ai:stream-chunk', listener)
       })
     },
+    analyze: (payload: { documentContent: string; assignmentContext?: string }) =>
+      ipcRenderer.invoke('ai:analyze', payload),
   },
 
   export: {

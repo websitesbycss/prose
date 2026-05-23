@@ -48,6 +48,8 @@ export interface AppSettings {
   editorFontFamily: string
   editorFontSize: number
   headingFontSizes: { h1: number; h2: number; h3: number }
+  lightAccentColor?: string
+  darkAccentColor?: string
 }
 
 export type OllamaStatus = 'ready' | 'loading' | 'unavailable'
@@ -88,6 +90,20 @@ export interface AiPromptPayload {
   documentContent: string
   assignmentContext?: string
   request: string
+}
+
+export interface Issue {
+  id: string
+  type: 'error' | 'clarity' | 'style'
+  category: string
+  quote: string
+  message: string
+  suggestion: string
+}
+
+export interface AnalysisResult {
+  issues: Issue[]
+  tone: string
 }
 
 export interface DownloadStatus {
@@ -185,6 +201,7 @@ export interface ProseAPI {
     prompt(payload: AiPromptPayload): Promise<string>
     getStatus(): Promise<OllamaStatus>
     streamPrompt(payload: AiPromptPayload, onChunk: (chunk: string) => void): Promise<void>
+    analyze(payload: { documentContent: string; assignmentContext?: string }): Promise<AnalysisResult>
   }
   export: {
     toDocx(id: string): Promise<void>

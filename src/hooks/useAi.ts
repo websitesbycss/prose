@@ -1,38 +1,49 @@
 import { useState, useCallback, useRef } from 'react'
 import { useAppStore } from '@/store/appStore'
 
-export interface AiState {
-  response: string
+export interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export interface AiChatState {
+  messages: ChatMessage[]
   streaming: boolean
   reloading: boolean
   error: string | null
 }
 
-export interface AiControls {
-  sendPrompt(request: string, documentContent: string, assignmentContext?: string): Promise<void>
-  clearResponse(): void
+export interface AiChatControls {
+  sendMessage(request: string, documentContent: string, assignmentContext?: string): Promise<void>
+  clearMessages(): void
 }
 
-export function useAi(): AiState & AiControls {
+export function useAi(): AiChatState & AiChatControls {
   const ollamaStatus = useAppStore((s) => s.ollamaStatus)
-  const [response, setResponse] = useState('')
+  const [messages, setMessages] = useState<ChatMessage[]>([])
   const [streaming, setStreaming] = useState(false)
   const [reloading, setReloading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const firstChunkRef = useRef(false)
   const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const assistantIdRef = useRef('')
 
-  const sendPrompt = useCallback(
+  const sendMessage = useCallback(
     async (request: string, documentContent: string, assignmentContext?: string): Promise<void> => {
       if (ollamaStatus !== 'ready') return
 
+      const userMsg: ChatMessage = { id: crypto.randomUUID(), role: 'user', content: request }
+      const assistantId = crypto.randomUUID()
+      assistantIdRef.current = assistantId
+      const assistantMsg: ChatMessage = { id: assistantId, role: 'assistant', content: '' }
+
+      setMessages((prev) => [...prev, userMsg, assistantMsg])
       setStreaming(true)
       setReloading(false)
-      setResponse('')
       setError(null)
       firstChunkRef.current = false
 
-      // Show "reloading" indicator if no chunk arrives within 1.5s (model warming up)
       reloadTimerRef.current = setTimeout(() => {
         if (!firstChunkRef.current) setReloading(true)
       }, 1500)
@@ -49,12 +60,17 @@ export function useAi(): AiState & AiControls {
                 reloadTimerRef.current = null
               }
             }
-            setResponse((prev) => prev + chunk)
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantIdRef.current ? { ...m, content: m.content + chunk } : m
+              )
+            )
           }
         )
       } catch (err) {
         setError('AI request failed. Is Ollama running?')
         console.error('useAi error:', err)
+        setMessages((prev) => prev.filter((m) => m.id !== assistantIdRef.current))
       } finally {
         if (reloadTimerRef.current) {
           clearTimeout(reloadTimerRef.current)
@@ -67,10 +83,10 @@ export function useAi(): AiState & AiControls {
     [ollamaStatus]
   )
 
-  const clearResponse = useCallback((): void => {
-    setResponse('')
+  const clearMessages = useCallback((): void => {
+    setMessages([])
     setError(null)
   }, [])
 
-  return { response, streaming, reloading, error, sendPrompt, clearResponse }
+  return { messages, streaming, reloading, error, sendMessage, clearMessages }
 }
