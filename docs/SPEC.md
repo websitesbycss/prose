@@ -773,9 +773,15 @@ Build in this exact order. Do not skip ahead. Each phase should be fully working
 
 
 ## ambitious goals list:
-- migrate database to a hybrid .prose file-based system that lives in ~/Documents/Prose
 - Custom layout engine
 - azure software signing
+- grammarly-like spelling & essay review
+- UI redesign
+
+## work on right now:
+- image border radius floating bar disappearing but still working
+- drastically improve AI feedback
+- more top spacing and more bottom spacing for header and footer, respectively
 
 
 ## README structure (to be written last)

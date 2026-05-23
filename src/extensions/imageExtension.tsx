@@ -14,6 +14,55 @@ import { cn } from '@/lib/utils'
 
 const MIN_SIZE = 48
 
+function CornerSlider({ value, onChange }: { value: number; onChange: (v: number) => void }): JSX.Element {
+  const trackRef = useRef<HTMLDivElement>(null)
+  const onChangeRef = useRef(onChange)
+  useEffect(() => { onChangeRef.current = onChange })
+
+  useEffect(() => {
+    const track = trackRef.current
+    if (!track) return
+
+    function onMouseDown(e: MouseEvent): void {
+      e.stopPropagation()
+      e.preventDefault()
+      const rect = track!.getBoundingClientRect()
+
+      function update(ev: MouseEvent): void {
+        const ratio = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width))
+        onChangeRef.current(Math.round(ratio * 50))
+      }
+
+      update(e)
+
+      function onMove(ev: MouseEvent): void { update(ev) }
+      function onUp(): void {
+        document.removeEventListener('mousemove', onMove)
+        document.removeEventListener('mouseup', onUp)
+      }
+      document.addEventListener('mousemove', onMove)
+      document.addEventListener('mouseup', onUp)
+    }
+
+    track.addEventListener('mousedown', onMouseDown)
+    return () => track.removeEventListener('mousedown', onMouseDown)
+  }, [])
+
+  const pct = (value / 50) * 100
+  return (
+    <div
+      ref={trackRef}
+      className="relative h-1.5 w-24 cursor-pointer rounded-full bg-muted"
+    >
+      <div className="pointer-events-none absolute inset-y-0 left-0 rounded-full bg-primary" style={{ width: `${pct}%` }} />
+      <div
+        className="pointer-events-none absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background bg-primary shadow-sm"
+        style={{ left: `${pct}%` }}
+      />
+    </div>
+  )
+}
+
 type HandlePos = 'nw' | 'n' | 'ne' | 'w' | 'e' | 'sw' | 's' | 'se'
 
 const CURSORS: Record<HandlePos, string> = {
@@ -79,17 +128,15 @@ function ImageNodeView({ node, updateAttributes, selected, editor }: NodeViewPro
   }, [selected])
 
   // Block ProseMirror's native mousedown handler from seeing clicks on the
-  // floating toolbar — otherwise it resets the NodeSelection. For range inputs
-  // we must NOT call preventDefault (that breaks slider drag), but we still
-  // need stopPropagation so ProseMirror's listener on the editor DOM never fires.
+  // floating toolbar — otherwise it resets the NodeSelection. The CornerSlider
+  // child handles its own mousedown with stopPropagation + preventDefault, so
+  // this handler only needs to cover the rest of the toolbar surface.
   useEffect(() => {
     const el = floatingToolbarRef.current
     if (!el) return
     function onMouseDown(e: MouseEvent): void {
       e.stopPropagation()
-      if ((e.target as HTMLElement).tagName !== 'INPUT') {
-        e.preventDefault()
-      }
+      e.preventDefault()
     }
     el.addEventListener('mousedown', onMouseDown)
     return () => el.removeEventListener('mousedown', onMouseDown)
@@ -203,15 +250,7 @@ function ImageNodeView({ node, updateAttributes, selected, editor }: NodeViewPro
           }}
         >
           <CornerRadiusIcon />
-          <input
-            type="range"
-            min={0}
-            max={50}
-            step={1}
-            value={borderRadius}
-            className="h-1.5 w-24 accent-primary"
-            onChange={(e) => updateAttributes({ borderRadius: Number(e.target.value) })}
-          />
+          <CornerSlider value={borderRadius} onChange={(v) => updateAttributes({ borderRadius: v })} />
           <span className="min-w-[28px] text-right font-sans text-[11px] text-muted-foreground">
             {borderRadius}px
           </span>

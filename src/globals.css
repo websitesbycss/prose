@@ -206,6 +206,7 @@ html.theme-transitioning *::after {
 
 .prose-editor .ProseMirror img {
   @apply max-w-full rounded;
+  cursor: pointer;
 }
 
 .prose-editor .ProseMirror blockquote {
@@ -372,7 +373,7 @@ html.theme-transitioning *::after {
   height: 28px;
   display: flex;
   align-items: center;
-  cursor: default;
+  cursor: pointer;
   user-select: none;
   margin: 0.4em 0;
 }
@@ -382,7 +383,7 @@ html.theme-transitioning *::after {
   left: 0;
   right: 0;
   top: 50%;
-  border-top: 1px dashed hsl(var(--border));
+  border-top: 1px dashed hsl(var(--muted-foreground));
 }
 .page-break-node::after {
   content: 'page break';
@@ -393,12 +394,16 @@ html.theme-transitioning *::after {
   line-height: 1;
   padding: 2px 6px;
   color: hsl(var(--muted-foreground));
-  background: hsl(var(--background));
+  background: white;
   font-family: system-ui, sans-serif;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   white-space: nowrap;
   border-radius: 2px;
+}
+
+.dark .page-break-node::after {
+  background: #27272a; /* zinc-800 — matches dark mode editor page bg */
 }
 /* Selection: amber ring with enough offset to keep the dashed line visible */
 .ProseMirror-selectednode.page-break-node {

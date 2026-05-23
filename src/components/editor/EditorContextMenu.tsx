@@ -337,7 +337,7 @@ export function EditorContextMenu({ editor }: EditorContextMenuProps): JSX.Eleme
       ref={menuRef}
       style={{ position: 'fixed', top: ctx.y, left: ctx.x, zIndex: 9999 }}
       className="min-w-[200px] rounded-lg border border-border bg-background py-1 text-[13px] shadow-lg"
-      onMouseDown={(e) => e.preventDefault()}
+      onMouseDown={(e) => { if ((e.target as HTMLElement).tagName !== 'INPUT') e.preventDefault() }}
     >
       {ctx.isOnImage && ctx.imageSrc ? (
         <>

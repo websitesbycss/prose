@@ -311,9 +311,11 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
           format,
           content: contentStr,
           headerContent: headerStr,
+          footerContent: null,
         })
-        patchDocument({ format, content: contentStr, headerContent: headerStr })
+        patchDocument({ format, content: contentStr, headerContent: headerStr, footerContent: null })
         setHeaderContentKey(crypto.randomUUID())
+        setFooterContentKey(crypto.randomUUID())
       } catch (err) {
         console.error('Template apply error:', err)
       }
