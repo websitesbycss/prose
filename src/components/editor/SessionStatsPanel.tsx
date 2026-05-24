@@ -42,10 +42,10 @@ export function SessionStatsPanel({ stats }: Props): JSX.Element {
   const progress = goal && goal > 0 ? Math.min(wordsToday / goal, 1) : 0
   const dashOffset = CIRC * (1 - progress)
 
-  // Last 7 days for streak dots
+  // Last 7 days for streak dots — oldest on left, today on right
   const last7 = Array.from({ length: 7 }, (_, i) => {
     const d = new Date()
-    d.setDate(d.getDate() - i)
+    d.setDate(d.getDate() - (6 - i))
     return d.toISOString().slice(0, 10)
   })
 

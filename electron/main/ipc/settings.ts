@@ -33,8 +33,8 @@ const DEFAULTS: AppSettingsOut = {
   editorFontFamily: 'Calibri',
   editorFontSize: 12,
   headingFontSizes: { h1: 36, h2: 24, h3: 18 },
-  lightAccentColor: null,
-  darkAccentColor: null,
+  lightAccentColor: '#2563eb',
+  darkAccentColor: '#60a5fa',
 }
 
 const VALID_FORMATS = new Set(['none', 'mla', 'apa', 'chicago', 'ieee'])

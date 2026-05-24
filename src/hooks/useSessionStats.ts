@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 
 const KEY_GOAL = 'prose-word-count-goal'
-const KEY_STREAK = 'prose-streak'
 const KEY_WRITING_DAYS = 'prose-writing-days'
+const WRITING_DAYS_LIMIT = 400
 
 export interface SessionStats {
   wordsToday: number
@@ -26,14 +26,6 @@ function loadGoal(): number | null {
   } catch { return null }
 }
 
-function loadStreak(): { count: number; lastDate: string | null } {
-  try {
-    const v = localStorage.getItem(KEY_STREAK)
-    if (!v) return { count: 0, lastDate: null }
-    return JSON.parse(v) as { count: number; lastDate: string | null }
-  } catch { return { count: 0, lastDate: null } }
-}
-
 function loadWritingDays(): string[] {
   try {
     const v = localStorage.getItem(KEY_WRITING_DAYS)
@@ -41,11 +33,24 @@ function loadWritingDays(): string[] {
   } catch { return [] }
 }
 
+function calculateStreak(writingDays: string[]): number {
+  const daySet = new Set(writingDays)
+  const today = todayStr()
+  const cursor = new Date()
+  // If today not yet written, try from yesterday so existing streak stays visible
+  if (!daySet.has(today)) cursor.setDate(cursor.getDate() - 1)
+  let streak = 0
+  while (daySet.has(cursor.toISOString().slice(0, 10))) {
+    streak++
+    cursor.setDate(cursor.getDate() - 1)
+  }
+  return streak
+}
+
 export function useSessionStats(wordCount: number): SessionStats {
   const [sessionStart, setSessionStart] = useState(() => Date.now())
   const [sessionMinutes, setSessionMinutes] = useState(0)
   const [goal, setGoalState] = useState<number | null>(loadGoal)
-  const [streak, setStreak] = useState(() => loadStreak().count)
   const [writingDays, setWritingDays] = useState<string[]>(loadWritingDays)
 
   // Capture word count baseline after editor settles (300ms after first render)
@@ -86,22 +91,10 @@ export function useSessionStats(wordCount: number): SessionStats {
     // Writing days
     const days = loadWritingDays()
     if (!days.includes(today)) {
-      const updated = [...days, today].slice(-60)
+      const updated = [...days, today].slice(-WRITING_DAYS_LIMIT)
       localStorage.setItem(KEY_WRITING_DAYS, JSON.stringify(updated))
       setWritingDays(updated)
     }
-
-    // Streak
-    const { count, lastDate } = loadStreak()
-    if (lastDate === today) {
-      setStreak(count)
-      return
-    }
-    const yesterday = new Date()
-    yesterday.setDate(yesterday.getDate() - 1)
-    const newCount = lastDate === yesterday.toISOString().slice(0, 10) ? count + 1 : 1
-    localStorage.setItem(KEY_STREAK, JSON.stringify({ count: newCount, lastDate: today }))
-    setStreak(newCount)
   }, [wordsToday])
 
   const setGoal = useCallback((g: number | null) => {
@@ -119,6 +112,7 @@ export function useSessionStats(wordCount: number): SessionStats {
     setSessionMinutes(0)
   }, [])
 
+  const streak = calculateStreak(writingDays)
   const avgWPM = sessionMinutes > 0 ? Math.round(wordsToday / sessionMinutes) : 0
 
   return {

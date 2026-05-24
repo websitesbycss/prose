@@ -636,7 +636,6 @@ export function IssueTooltip({
 // ── Main panel ────────────────────────────────────────────────────────────────
 
 export default function AiPanel({ editor, analysis }: AiPanelProps): JSX.Element {
-  const ollamaStatus = useAppStore((s) => s.ollamaStatus)
   const activeAiTab = useAppStore((s) => s.activeAiTab)
   const setActiveAiTab = useAppStore((s) => s.setActiveAiTab)
   const issueCount = useAppStore((s) => s.issueCount)
@@ -650,8 +649,8 @@ export default function AiPanel({ editor, analysis }: AiPanelProps): JSX.Element
         <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
         <span className="text-xs font-medium">AI assistant</span>
 
-        {/* Tab pills */}
-        <div className="ml-2 flex items-center rounded-md border border-border bg-muted/40 p-0.5 gap-0.5">
+        {/* Tab pills — right-aligned */}
+        <div className="ml-auto flex items-center rounded-md border border-border bg-muted/40 p-0.5 gap-0.5">
           <button
             onClick={() => setActiveAiTab('chat')}
             className={cn(
@@ -681,21 +680,6 @@ export default function AiPanel({ editor, analysis }: AiPanelProps): JSX.Element
               </span>
             )}
           </button>
-        </div>
-
-        {/* Status dot */}
-        <div className="ml-auto shrink-0">
-          <div
-            className={cn(
-              'h-1.5 w-1.5 rounded-full',
-              ollamaStatus === 'ready'
-                ? 'bg-green-500'
-                : ollamaStatus === 'loading'
-                ? 'animate-pulse bg-yellow-500'
-                : 'bg-muted-foreground/40'
-            )}
-            title={ollamaStatus}
-          />
         </div>
       </div>
 

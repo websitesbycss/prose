@@ -1,9 +1,9 @@
-export const DEFAULT_LIGHT_ACCENT = '#efa02a'
-export const DEFAULT_DARK_ACCENT  = '#f2b559'
+export const DEFAULT_LIGHT_ACCENT = '#2563eb'
+export const DEFAULT_DARK_ACCENT  = '#60a5fa'
 
 export const LIGHT_PRESETS = [
-  { label: 'Amber',   hex: '#efa02a' },
   { label: 'Blue',    hex: '#2563eb' },
+  { label: 'Amber',   hex: '#efa02a' },
   { label: 'Violet',  hex: '#7c3aed' },
   { label: 'Emerald', hex: '#059669' },
   { label: 'Rose',    hex: '#e11d48' },
@@ -13,8 +13,8 @@ export const LIGHT_PRESETS = [
 ] as const
 
 export const DARK_PRESETS = [
-  { label: 'Amber',   hex: '#f2b559' },
   { label: 'Blue',    hex: '#60a5fa' },
+  { label: 'Amber',   hex: '#f2b559' },
   { label: 'Violet',  hex: '#a78bfa' },
   { label: 'Emerald', hex: '#34d399' },
   { label: 'Rose',    hex: '#fb7185' },

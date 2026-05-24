@@ -775,7 +775,6 @@ Build in this exact order. Do not skip ahead. Each phase should be fully working
 ## ambitious goals list:
 - Custom layout engine
 - azure software signing
-- UI redesign
 
 
 ## README structure (to be written last)

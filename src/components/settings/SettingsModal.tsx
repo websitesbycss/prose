@@ -73,6 +73,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps): JS
   const [models, setModels] = useState<string[]>([])
   const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null)
   const [changeFolderDialog, setChangeFolderDialog] = useState<{ newPath: string } | null>(null)
+  const pickerLayerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!open) return
@@ -121,10 +122,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps): JS
   return (
     <>
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent
-        className="flex h-[540px] max-h-[90vh] w-[680px] max-w-[95vw] flex-col gap-0 p-0"
-        onInteractOutside={(e) => e.preventDefault()}
-      >
+      <DialogContent className="flex h-[540px] max-h-[90vh] w-[680px] max-w-[95vw] flex-col gap-0 p-0">
         <DialogHeader className="shrink-0 border-b border-border px-5 py-4">
           <DialogTitle className="text-sm font-semibold">Settings</DialogTitle>
         </DialogHeader>
@@ -180,6 +178,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps): JS
                     value={settings.lightAccentColor ?? DEFAULT_LIGHT_ACCENT}
                     defaultValue={DEFAULT_LIGHT_ACCENT}
                     onChange={(v) => void save({ lightAccentColor: v })}
+                    pickerLayer={pickerLayerRef}
                   />
                   <Separator />
                   <AccentColorRow
@@ -188,6 +187,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps): JS
                     value={settings.darkAccentColor ?? DEFAULT_DARK_ACCENT}
                     defaultValue={DEFAULT_DARK_ACCENT}
                     onChange={(v) => void save({ darkAccentColor: v })}
+                    pickerLayer={pickerLayerRef}
                   />
                   <Separator />
                   <SettingRow label="Default font family">
@@ -457,6 +457,8 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps): JS
         <div className="shrink-0 border-t border-border px-5 py-3 flex justify-end">
           <Button size="sm" className="text-xs" onClick={onClose}>Done</Button>
         </div>
+        {/* Picker portal layer — inside dialog DOM so it's exempt from Radix's inert marking */}
+        <div ref={pickerLayerRef} className="pointer-events-none absolute inset-0 overflow-visible" style={{ zIndex: 100 }} />
       </DialogContent>
     </Dialog>
 
@@ -489,18 +491,21 @@ function AccentColorRow({
   value,
   defaultValue,
   onChange,
+  pickerLayer,
 }: {
   label: string
   presets: ReadonlyArray<{ label: string; hex: string }>
   value: string
   defaultValue: string
   onChange: (hex: string) => void
+  pickerLayer: React.RefObject<HTMLDivElement>
 }): JSX.Element {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState({ top: 0, left: 0 })
-  const btnRef = useRef<HTMLDivElement>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
   const pickerRef = useRef<HTMLDivElement>(null)
 
+  // Close on outside click
   useEffect(() => {
     if (!open) return
     function onDown(e: MouseEvent): void {
@@ -513,34 +518,37 @@ function AccentColorRow({
   }, [open])
 
   function handleToggle(): void {
-    const rect = btnRef.current?.getBoundingClientRect()
-    if (!rect) return
-    // Position to the left of the button so it doesn't overflow the modal
-    setPos({ top: rect.bottom + 6, left: Math.max(8, rect.right - 220) })
+    const btnRect = btnRef.current?.getBoundingClientRect()
+    const layerRect = pickerLayer.current?.getBoundingClientRect()
+    if (!btnRect || !layerRect) return
+    // Position relative to the picker layer (which fills the dialog)
+    const top = btnRect.bottom + 6 - layerRect.top
+    const left = Math.max(8, btnRect.right - 240) - layerRect.left
+    setPos({ top, left })
     setOpen((o) => !o)
   }
 
   const palette = presets.map((p) => p.hex)
+  const layer = pickerLayer.current
 
   return (
     <div className="flex items-center justify-between gap-4 py-3">
       <span className="text-sm font-medium">{label}</span>
-      <div ref={btnRef}>
-        <button
-          className="flex items-center gap-2 rounded-md border border-input px-2.5 py-1.5 text-xs hover:bg-accent transition-colors"
-          onClick={handleToggle}
-        >
-          <div
-            className="h-3.5 w-3.5 rounded-full ring-1 ring-inset ring-black/10"
-            style={{ backgroundColor: value }}
-          />
-          <span className="font-mono text-muted-foreground">{value.toUpperCase()}</span>
-        </button>
-      </div>
-      {open && createPortal(
+      <button
+        ref={btnRef}
+        className="flex items-center gap-2 rounded-md border border-input px-2.5 py-1.5 text-xs hover:bg-accent transition-colors"
+        onClick={handleToggle}
+      >
+        <div
+          className="h-3.5 w-3.5 rounded-full ring-1 ring-inset ring-black/10"
+          style={{ backgroundColor: value }}
+        />
+        <span className="font-mono text-muted-foreground">{value.toUpperCase()}</span>
+      </button>
+      {open && layer && createPortal(
         <div
           ref={pickerRef}
-          style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 99999 }}
+          style={{ position: 'absolute', top: pos.top, left: pos.left, zIndex: 10, pointerEvents: 'auto' }}
           onMouseDown={(e) => e.stopPropagation()}
           onPointerDown={(e) => e.stopPropagation()}
         >
@@ -554,7 +562,7 @@ function AccentColorRow({
             resetLabel="Reset to default"
           />
         </div>,
-        document.body
+        layer
       )}
     </div>
   )
