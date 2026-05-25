@@ -307,22 +307,25 @@ export async function rebuildIndexFromFolder(): Promise<void> {
 
 // ── Folder disk usage ─────────────────────────────────────────────────────────
 
-export async function getFolderStats(): Promise<{ folder: string; totalSize: number; documentCount: number }> {
+export async function getFolderStats(): Promise<{ folder: string; totalBytes: number; documentCount: number; accessible: boolean }> {
   const folder = getDocumentsFolder()
-  let totalSize = 0
+  let totalBytes = 0
   let documentCount = 0
+  let accessible = false
   try {
+    await access(folder)
+    accessible = true
     const entries = await readdir(folder)
     for (const entry of entries) {
       if (!entry.endsWith('.prose')) continue
       try {
         const info = await stat(join(folder, entry))
-        totalSize += info.size
+        totalBytes += info.size
         documentCount++
       } catch { /* skip */ }
     }
-  } catch { /* folder missing */ }
-  return { folder, totalSize, documentCount }
+  } catch { /* folder missing or inaccessible */ }
+  return { folder, totalBytes, documentCount, accessible }
 }
 
 // ── Change documents folder ───────────────────────────────────────────────────
@@ -541,6 +544,9 @@ function markdownToTiptap(md: string): unknown {
   const nodes: unknown[] = []
 
   for (const line of lines) {
+    // Blank lines are paragraph separators in markdown — skip them
+    if (!line.trim()) continue
+
     const headingMatch = line.match(/^(#{1,6})\s+(.+)$/)
     if (headingMatch) {
       nodes.push({
@@ -553,16 +559,16 @@ function markdownToTiptap(md: string): unknown {
 
     if (line.startsWith('---') || line.startsWith('===')) continue
 
-    nodes.push({
-      type: 'paragraph',
-      content: inlineMarkdownToTiptap(line),
-    })
+    const inline = inlineMarkdownToTiptap(line)
+    nodes.push(inline.length > 0 ? { type: 'paragraph', content: inline } : { type: 'paragraph' })
   }
 
-  return { type: 'doc', content: nodes }
+  // Always return at least one empty paragraph so Tiptap has a valid document
+  return { type: 'doc', content: nodes.length > 0 ? nodes : [{ type: 'paragraph' }] }
 }
 
 function inlineMarkdownToTiptap(text: string): unknown[] {
+  if (!text) return []
   const nodes: unknown[] = []
   // Process bold, italic, inline code
   const re = /(\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`|(.+?))/g
@@ -574,7 +580,7 @@ function inlineMarkdownToTiptap(text: string): unknown[] {
     else if (match[5]) nodes.push({ type: 'text', text: match[5] })
     if (!match[0]) break
   }
-  return nodes.length ? nodes : [{ type: 'text', text: '' }]
+  return nodes
 }
 
 // ── HTML → Tiptap (for DOCX import via mammoth) ──────────────────────────────

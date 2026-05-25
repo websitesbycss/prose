@@ -155,7 +155,10 @@ function inlineToMd(node: JSONContent): string {
 function nodeToMarkdown(node: JSONContent, listIndex = 0): string {
   switch (node.type) {
     case 'doc':
-      return (node.content ?? []).map((n) => nodeToMarkdown(n)).join('\n\n')
+      return (node.content ?? [])
+        .map((n) => nodeToMarkdown(n))
+        .filter((s) => s.trim().length > 0)
+        .join('\n\n')
     case 'paragraph':
       return (node.content ?? []).map(inlineToMd).join('')
     case 'heading': {

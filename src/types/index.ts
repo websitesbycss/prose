@@ -154,8 +154,9 @@ export interface CreateCitationInput {
 
 export interface StorageInfo {
   folder: string
-  totalSize: number
+  totalBytes: number
   documentCount: number
+  accessible: boolean
 }
 
 export type MigrationStatus = 'not_needed' | 'needed' | 'running' | 'complete' | 'error'
