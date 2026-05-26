@@ -20,7 +20,6 @@ import { extname } from 'path'
 
 const VALID_FORMATS = new Set(['none', 'mla', 'apa', 'chicago', 'ieee'])
 
-// Convert a full .prose file to the shape the renderer expects
 function docToOut(doc: ProseFileDocument, filePath?: string) {
   return {
     id: doc.id,
@@ -36,8 +35,6 @@ function docToOut(doc: ProseFileDocument, filePath?: string) {
   }
 }
 
-// Convert dashboard index row to the minimum shape Dashboard.tsx needs
-// (it only uses: id, title, format, wordCountGoal, createdAt, updatedAt, categoryId, content for word count)
 function dashboardDocToOut(doc: ReturnType<typeof getAllDocumentsFromIndex>[0]) {
   return {
     id: doc.id,
@@ -56,12 +53,10 @@ function dashboardDocToOut(doc: ReturnType<typeof getAllDocumentsFromIndex>[0]) 
 }
 
 export function registerDocumentHandlers(): void {
-  // Dashboard — index only (fast)
   ipcMain.handle('documents:getAll', () => {
     return getAllDocumentsFromIndex().map(dashboardDocToOut)
   })
 
-  // Editor — reads full file
   ipcMain.handle('documents:getById', async (_, id: unknown) => {
     if (typeof id !== 'string' || !id) throw new Error('Invalid document id')
     const resolved = await resolveDocument(id)
@@ -128,7 +123,6 @@ export function registerDocumentHandlers(): void {
 
     const updatedDoc = await updateDocument(id, patch)
 
-    // Auto-snapshot when content changes
     if (newContent !== undefined) {
       try {
         const withSnapshot = tryAddSnapshot(updatedDoc, updatedDoc.content)
@@ -148,19 +142,16 @@ export function registerDocumentHandlers(): void {
     await deleteDocument(id)
   })
 
-  // Storage info
   ipcMain.handle('documents:getStorageInfo', async () => {
     return getFolderStats()
   })
 
-  // Change folder
   ipcMain.handle('documents:changeFolder', async (event, newPath: unknown, moveFiles: unknown) => {
     if (typeof newPath !== 'string' || !newPath) throw new Error('Invalid folder path')
     const shouldMove = moveFiles === true
     await changeDocumentsFolder(newPath, shouldMove)
   })
 
-  // Pick and change folder via dialog
   ipcMain.handle('documents:pickFolder', async (event) => {
     const win = BrowserWindow.fromWebContents(event.sender) ?? BrowserWindow.getFocusedWindow()
     const result = await dialog.showOpenDialog(win!, {
@@ -172,13 +163,11 @@ export function registerDocumentHandlers(): void {
     return result.filePaths[0]
   })
 
-  // Set folder without moving files (used by onboarding)
   ipcMain.handle('documents:setFolder', async (_, folder: unknown) => {
     if (typeof folder !== 'string' || !folder) throw new Error('Invalid folder')
     setDocumentsFolder(folder)
   })
 
-  // Open folder in File Explorer
   ipcMain.handle('documents:openFolder', async () => {
     shell.openPath(getDocumentsFolder())
   })

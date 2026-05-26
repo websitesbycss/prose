@@ -9,6 +9,7 @@ import {
   Paragraph,
   TextRun,
   ImageRun,
+  ExternalHyperlink,
   HeadingLevel,
   AlignmentType,
   UnderlineType,
@@ -18,6 +19,7 @@ import {
   TableCell as DocxTableCell,
   WidthType,
   BorderStyle,
+  ShadingType,
   Header,
   Footer,
   PageNumber,
@@ -237,7 +239,9 @@ function inlineToHtml(node: JSONContent): string {
       if (mark.type === 'bold') text = `<strong>${text}</strong>`
       else if (mark.type === 'italic') text = `<em>${text}</em>`
       else if (mark.type === 'underline') text = `<u>${text}</u>`
-      else if (mark.type === 'strike') text = `<s>${text}</s>`
+      else if (mark.type === 'strike') text = `<span style="text-decoration:line-through">${text}</span>`
+      else if (mark.type === 'superscript') text = `<sup>${text}</sup>`
+      else if (mark.type === 'subscript') text = `<sub>${text}</sub>`
       else if (mark.type === 'code') text = `<code>${text}</code>`
       else if (mark.type === 'highlight') {
         const color = (mark.attrs?.color as string) ?? 'yellow'
@@ -341,7 +345,7 @@ function nodeToHtml(node: JSONContent, format = 'none'): string {
       return `<img src="${src}" alt="${alt}" style="max-width:100%">`
     }
     case 'table':
-      return `<table border="1" style="border-collapse:collapse;width:100%;table-layout:fixed">${(node.content ?? []).map((n) => nodeToHtml(n, format)).join('')}</table>`
+      return `<div style="max-width:100%;overflow:hidden"><table border="1" style="border-collapse:collapse;width:100%;table-layout:fixed">${(node.content ?? []).map((n) => nodeToHtml(n, format)).join('')}</table></div>`
     case 'tableRow':
       return `<tr>${(node.content ?? []).map((n) => nodeToHtml(n, format)).join('')}</tr>`
     case 'tableHeader':
@@ -378,11 +382,9 @@ function zoneToElectronTemplate(raw: string | null, fallbackAlign = 'left'): str
     if (!firstPara) return '<span></span>'
     const nodes = firstPara.content ?? []
     const align = (firstPara.attrs?.textAlign as string) ?? fallbackAlign
-    const tabIdx = nodes.findIndex((n) => n.type === 'rightTab')
     const renderNodes = (ns: JSONContent[]) =>
       ns.map((n) => {
         if (n.type === 'pageNumber') {
-          // Wrap <span class="pageNumber"> with any marks the user applied
           const marks = n.marks ?? []
           const styles: string[] = []
           let isBold = false, isItalic = false
@@ -406,17 +408,32 @@ function zoneToElectronTemplate(raw: string | null, fallbackAlign = 'left'): str
       }).join('')
     // 96px = 1in at 96dpi; single quotes inside style attr avoid breaking the HTML attribute
     const base = "font-size:16px;font-family:'Times New Roman',serif;width:100%;box-sizing:border-box;padding:0 96px;"
-    if (tabIdx === 0) {
-      // rightTab at start means everything after it is right-aligned (e.g. MLA: "LastName #")
-      const right = renderNodes(nodes.slice(1))
-      return `<div style="${base}text-align:right;">${right}</div>`
+
+    // Split content by rightTab nodes into segments
+    const segments: JSONContent[][] = []
+    let cur: JSONContent[] = []
+    for (const n of nodes) {
+      if (n.type === 'rightTab') { segments.push(cur); cur = [] }
+      else cur.push(n)
     }
-    if (tabIdx > 0) {
-      const left = renderNodes(nodes.slice(0, tabIdx))
-      const right = renderNodes(nodes.slice(tabIdx + 1))
-      return `<div style="${base}display:flex;justify-content:space-between;">${left}<span>${right}</span></div>`
+    segments.push(cur)
+
+    if (segments.length === 1) {
+      return `<div style="${base}text-align:${align};">${renderNodes(segments[0]!)}</div>`
     }
-    return `<div style="${base}text-align:${align};">${renderNodes(nodes)}</div>`
+    if (segments.length === 2) {
+      const [left, right] = segments
+      if (!left!.length) {
+        return `<div style="${base}text-align:right;">${renderNodes(right!)}</div>`
+      }
+      return `<div style="${base}display:flex;justify-content:space-between;">${renderNodes(left!)}<span>${renderNodes(right!)}</span></div>`
+    }
+    // 3+ segments: equal-width flex columns, first=left, last=right, middle=center
+    const cols = segments.map((seg, i) => {
+      const ta = i === 0 ? 'left' : i === segments.length - 1 ? 'right' : 'center'
+      return `<span style="flex:1;text-align:${ta};">${renderNodes(seg)}</span>`
+    })
+    return `<div style="${base}display:flex;">${cols.join('')}</div>`
   } catch {
     return '<span></span>'
   }
@@ -531,7 +548,12 @@ function marksToRun(text: string, marks: JSONContent['marks']): TextRun {
     else if (mark.type === 'italic') opts.italics = true
     else if (mark.type === 'underline') opts.underline = { type: UnderlineType.SINGLE }
     else if (mark.type === 'strike') opts.strike = true
-    else if (mark.type === 'textStyle') {
+    else if (mark.type === 'superscript') opts.superScript = true
+    else if (mark.type === 'subscript') opts.subScript = true
+    else if (mark.type === 'highlight') {
+      const raw = (mark.attrs?.color as string) ?? '#ffff00'
+      opts.shading = { type: ShadingType.CLEAR, color: 'auto', fill: raw.replace('#', '') }
+    } else if (mark.type === 'textStyle') {
       if (mark.attrs?.color) opts.color = (mark.attrs.color as string).replace('#', '')
       if (mark.attrs?.fontSize) opts.size = Math.round(parseFloat(mark.attrs.fontSize as string) * 2)
       if (mark.attrs?.fontFamily) opts.font = mark.attrs.fontFamily as string
@@ -540,8 +562,16 @@ function marksToRun(text: string, marks: JSONContent['marks']): TextRun {
   return new TextRun(opts)
 }
 
-function inlineToRuns(node: JSONContent): (TextRun | ImageRun)[] {
-  if (node.type === 'text') return [marksToRun(node.text ?? '', node.marks)]
+function inlineToRuns(node: JSONContent): (TextRun | ImageRun | ExternalHyperlink)[] {
+  if (node.type === 'text') {
+    const linkMark = node.marks?.find((m) => m.type === 'link')
+    const otherMarks = node.marks?.filter((m) => m.type !== 'link')
+    const run = marksToRun(node.text ?? '', otherMarks)
+    if (linkMark) {
+      return [new ExternalHyperlink({ children: [run], link: (linkMark.attrs?.href as string) ?? '' })]
+    }
+    return [run]
+  }
   if (node.type === 'hardBreak') return [new TextRun({ break: 1 })]
   if (node.type === 'pageNumber') return [new TextRun({ children: [PageNumber.CURRENT] })]
   if (node.type === 'image') {
@@ -593,6 +623,34 @@ function getImageDimensions(data: Buffer, type: string): { width: number; height
   return null
 }
 
+// Recursively processes listItem children, threading the same numbering ref at the correct depth.
+function processListItemContent(
+  item: JSONContent,
+  reg: NumberingDef[],
+  format: string,
+  ref: string,
+  level: number,
+  isBullet: boolean,
+): DocxChild[] {
+  return (item.content ?? []).flatMap((child) => {
+    if (child.type === 'bulletList' && isBullet) {
+      return (child.content ?? []).flatMap((sub) =>
+        processListItemContent(sub, reg, format, ref, level + 1, true)
+      )
+    }
+    if (child.type === 'orderedList' && !isBullet) {
+      return (child.content ?? []).flatMap((sub) =>
+        processListItemContent(sub, reg, format, ref, level + 1, false)
+      )
+    }
+    if (child.type === 'bulletList' || child.type === 'orderedList') {
+      // Mixed nesting (bullet inside ordered or vice versa) — new numbering def
+      return nodeToParagraphs(child, reg, format)
+    }
+    return nodeToParagraphs(child, reg, format, ref, level)
+  })
+}
+
 function nodeToParagraphs(
   node: JSONContent,
   reg: NumberingDef[],
@@ -615,11 +673,13 @@ function nodeToParagraphs(
         : role === 'citation'
           ? { left: 720, hanging: 720 }
           : undefined
+      const lh = node.attrs?.lineHeight as number | null | undefined
+      const spacingLine = lh ? Math.round(lh * 240) : 480
       return [
         new Paragraph({
           children: runs.length ? runs : [new TextRun('')],
           alignment: alignToDocx(align),
-          spacing: { line: 480, after: 0 },
+          spacing: { line: spacingLine, after: 0 },
           ...(indent ? { indent } : {}),
           ...(numRef !== undefined ? { numbering: { reference: numRef, level } } : {}),
           ...(pageBreakBefore ? { pageBreakBefore: true } : {}),
@@ -648,14 +708,19 @@ function nodeToParagraphs(
       const ref = `bullet-${randomUUID()}`
       reg.push({
         reference: ref,
-        levels: [
-          { level: 0, format: LevelFormat.BULLET, text: '•', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 720, hanging: 360 } } } },
-          { level: 1, format: LevelFormat.BULLET, text: '◦', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 1440, hanging: 360 } } } },
-          { level: 2, format: LevelFormat.BULLET, text: '▪', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 2160, hanging: 360 } } } },
-        ],
+        levels: Array.from({ length: 9 }, (_, i) => {
+          const c = i % 3
+          return {
+            level: i,
+            format: LevelFormat.BULLET,
+            text: c === 0 ? '•' : c === 1 ? '◦' : '▪',
+            alignment: AlignmentType.LEFT,
+            style: { paragraph: { indent: { left: 720 * (i + 1), hanging: 360 } } },
+          }
+        }),
       })
       return (node.content ?? []).flatMap((item) =>
-        (item.content ?? []).flatMap((child) => nodeToParagraphs(child, reg, format, ref, level))
+        processListItemContent(item, reg, format, ref, 0, true)
       )
     }
 
@@ -663,14 +728,19 @@ function nodeToParagraphs(
       const ref = `ordered-${randomUUID()}`
       reg.push({
         reference: ref,
-        levels: [
-          { level: 0, format: LevelFormat.DECIMAL, text: '%1.', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 720, hanging: 360 } } } },
-          { level: 1, format: LevelFormat.LOWER_LETTER, text: '%2.', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 1440, hanging: 360 } } } },
-          { level: 2, format: LevelFormat.LOWER_ROMAN, text: '%3.', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 2160, hanging: 360 } } } },
-        ],
+        levels: Array.from({ length: 9 }, (_, i) => {
+          const c = i % 3
+          return {
+            level: i,
+            format: c === 0 ? LevelFormat.DECIMAL : c === 1 ? LevelFormat.LOWER_LETTER : LevelFormat.LOWER_ROMAN,
+            text: `%${i + 1}.`,
+            alignment: AlignmentType.LEFT,
+            style: { paragraph: { indent: { left: 720 * (i + 1), hanging: 360 } } },
+          }
+        }),
       })
       return (node.content ?? []).flatMap((item) =>
-        (item.content ?? []).flatMap((child) => nodeToParagraphs(child, reg, format, ref, level))
+        processListItemContent(item, reg, format, ref, 0, false)
       )
     }
 
@@ -696,12 +766,22 @@ function nodeToParagraphs(
       if (!match) return []
       const imgType = (match[1] ?? 'png') as 'png' | 'jpg' | 'jpeg' | 'gif' | 'bmp' | 'svg' | 'webp'
       const imgData = Buffer.from(match[2]!, 'base64')
+      const attrW = node.attrs?.width as number | null | undefined
+      const attrH = node.attrs?.height as number | null | undefined
       const dims = getImageDimensions(imgData, imgType)
       const naturalW = dims?.width ?? MAX_IMG_WIDTH_PX
       const naturalH = dims?.height ?? Math.round(MAX_IMG_WIDTH_PX * 0.75)
-      const scale = naturalW > MAX_IMG_WIDTH_PX ? MAX_IMG_WIDTH_PX / naturalW : 1
-      const width = Math.round(naturalW * scale)
-      const height = Math.round(naturalH * scale)
+      let width: number, height: number
+      if (attrW && attrH) {
+        // User explicitly sized the image; clamp to content width
+        const clamp = attrW > MAX_IMG_WIDTH_PX ? MAX_IMG_WIDTH_PX / attrW : 1
+        width = Math.round(attrW * clamp)
+        height = Math.round(attrH * clamp)
+      } else {
+        const scale = naturalW > MAX_IMG_WIDTH_PX ? MAX_IMG_WIDTH_PX / naturalW : 1
+        width = Math.round(naturalW * scale)
+        height = Math.round(naturalH * scale)
+      }
       return [
         new Paragraph({
           children: [
@@ -715,25 +795,45 @@ function nodeToParagraphs(
     case 'table': {
       const firstRow = node.content?.[0]
       const colCount = firstRow?.content?.length ?? 1
-      const cellWidth = Math.floor(CONTENT_WIDTH_TWIPS / colCount)
-      const rows = (node.content ?? []).map((row) =>
-        new DocxTableRow({
-          children: (row.content ?? []).map(
-            (cell) =>
-              new DocxTableCell({
-                children: (cell.content ?? []).flatMap((n) => nodeToParagraphs(n, reg, format)) as Paragraph[],
-                width: { size: cellWidth, type: WidthType.DXA },
-                borders: {
-                  top: { style: BorderStyle.SINGLE, size: 1 },
-                  bottom: { style: BorderStyle.SINGLE, size: 1 },
-                  left: { style: BorderStyle.SINGLE, size: 1 },
-                  right: { style: BorderStyle.SINGLE, size: 1 },
-                },
-              })
-          ),
+      // Compute per-column widths from colwidth attrs, scaling down if they exceed content width
+      const firstRowCells = firstRow?.content ?? []
+      const rawWidthsPx = firstRowCells.map((c) => {
+        const cw = (c.attrs?.colwidth as number[] | null | undefined)?.[0]
+        return cw && cw > 0 ? cw : null
+      })
+      const allHaveWidths = rawWidthsPx.length > 0 && rawWidthsPx.every((w) => w !== null)
+      const totalPx = allHaveWidths ? rawWidthsPx.reduce((s, w) => s + (w ?? 0), 0) : 0
+      const colWidthsTwips: number[] = allHaveWidths && totalPx > 0
+        ? (() => {
+            const totalTwips = totalPx * 15
+            const scale = totalTwips > CONTENT_WIDTH_TWIPS ? CONTENT_WIDTH_TWIPS / totalTwips : 1
+            return rawWidthsPx.map((w) => Math.round(w! * 15 * scale))
+          })()
+        : Array.from({ length: colCount }, () => Math.floor(CONTENT_WIDTH_TWIPS / colCount))
+      const tableTotalWidth = colWidthsTwips.reduce((s, w) => s + w, 0)
+
+      const rows = (node.content ?? []).map((row) => {
+        const rowHeightPx = row.attrs?.height as number | null | undefined
+        return new DocxTableRow({
+          ...(rowHeightPx ? { height: { value: Math.round(rowHeightPx * 15), rule: 'atLeast' } } : {}),
+          children: (row.content ?? []).map((cell, cellIdx) => {
+            const ca = cell.attrs ?? {}
+            const bgColor = ca.backgroundColor as string | null | undefined
+            const bColor = ca.borderColor as string | null | undefined
+            const bWidth = ca.borderWidth as number | null | undefined
+            const borderSizeHalfPts = bWidth ? Math.max(2, Math.round(bWidth * 4)) : 8
+            const borderColorHex = bColor ? (bColor as string).replace('#', '') : '000000'
+            const borderSpec = { style: BorderStyle.SINGLE, size: borderSizeHalfPts, color: borderColorHex }
+            return new DocxTableCell({
+              children: (cell.content ?? []).flatMap((n) => nodeToParagraphs(n, reg, format)) as Paragraph[],
+              width: { size: colWidthsTwips[cellIdx] ?? Math.floor(CONTENT_WIDTH_TWIPS / colCount), type: WidthType.DXA },
+              ...(bgColor ? { shading: { type: ShadingType.CLEAR, color: 'auto', fill: (bgColor as string).replace('#', '') } } : {}),
+              borders: { top: borderSpec, bottom: borderSpec, left: borderSpec, right: borderSpec },
+            })
+          }),
         })
-      )
-      return [new DocxTable({ rows, width: { size: CONTENT_WIDTH_TWIPS, type: WidthType.DXA } })]
+      })
+      return [new DocxTable({ rows, width: { size: tableTotalWidth, type: WidthType.DXA } })]
     }
 
     case 'pageBreak':
@@ -778,11 +878,7 @@ function buildDocxHeader(runningHead: string | null, format: string): Header | u
 }
 
 interface ZoneDocxParsed {
-  leftText: string
-  rightText: string
-  hasPageNum: boolean
-  pageNumOnRight: boolean
-  hasRightTab: boolean
+  segments: Array<(TextRun | ExternalHyperlink)[]>
   textAlign: string
 }
 
@@ -793,57 +889,69 @@ function parseZoneForDocx(raw: string | null): ZoneDocxParsed | null {
     const firstPara = doc.content?.[0]
     if (!firstPara) return null
     const nodes = firstPara.content ?? []
-    const tabIdx = nodes.findIndex((n) => n.type === 'rightTab')
-    const leftNodes = tabIdx >= 0 ? nodes.slice(0, tabIdx) : nodes
-    const rightNodes = tabIdx >= 0 ? nodes.slice(tabIdx + 1) : []
-    const leftText = leftNodes.filter((n) => n.type !== 'pageNumber').map((n) => (n.type === 'text' ? (n.text ?? '') : '')).join('').trim()
-    const rightText = rightNodes.filter((n) => n.type !== 'pageNumber').map((n) => (n.type === 'text' ? (n.text ?? '') : '')).join('').trim()
-    const pageNumOnRight = rightNodes.some((n) => n.type === 'pageNumber')
-    const hasPageNum = leftNodes.some((n) => n.type === 'pageNumber') || pageNumOnRight
     const textAlign = (firstPara.attrs?.textAlign as string) ?? 'left'
-    return { leftText, rightText, hasPageNum, pageNumOnRight, hasRightTab: tabIdx >= 0, textAlign }
+
+    const nodeSegments: JSONContent[][] = []
+    let cur: JSONContent[] = []
+    for (const n of nodes) {
+      if (n.type === 'rightTab') { nodeSegments.push(cur); cur = [] }
+      else cur.push(n)
+    }
+    nodeSegments.push(cur)
+
+    const segments = nodeSegments.map((seg) =>
+      seg.flatMap((n): (TextRun | ExternalHyperlink)[] => {
+        if (n.type === 'pageNumber') return [new TextRun({ children: [PageNumber.CURRENT] })]
+        return inlineToRuns(n).filter((r): r is TextRun | ExternalHyperlink => !(r instanceof ImageRun))
+      })
+    )
+    return { segments, textAlign }
   } catch {
     return null
   }
 }
 
-// Build a single Paragraph from a parsed zone, respecting left/right tab structure.
+// Build a single Paragraph from a parsed zone, respecting tab structure.
 function buildDocxZoneParagraph(parsed: ZoneDocxParsed): Paragraph {
-  if (parsed.hasRightTab && parsed.leftText) {
-    // APA-style: "Running Head [tab] [pageNum]" — tab pushes page number to right margin
+  const { segments, textAlign } = parsed
+
+  if (segments.length === 1) {
+    const alignment =
+      textAlign === 'center' ? AlignmentType.CENTER :
+      textAlign === 'right' ? AlignmentType.RIGHT : AlignmentType.LEFT
+    return new Paragraph({ children: segments[0]!, alignment })
+  }
+
+  if (segments.length === 2) {
+    const [left, right] = segments
+    if (!left!.length) {
+      // MLA-style: tab at start, everything right-aligned
+      return new Paragraph({ children: right!, alignment: AlignmentType.RIGHT })
+    }
     return new Paragraph({
       tabStops: [{ type: TabStopType.RIGHT, position: CONTENT_WIDTH_TWIPS }],
-      children: [
-        new TextRun({ text: parsed.leftText }),
-        new TextRun({ text: '\t' }),
-        ...(parsed.rightText ? [new TextRun({ text: parsed.rightText })] : []),
-        ...(parsed.pageNumOnRight ? [new TextRun({ children: [PageNumber.CURRENT] })] : []),
-        ...(!parsed.pageNumOnRight && parsed.hasPageNum ? [new TextRun({ children: [PageNumber.CURRENT] })] : []),
-      ],
+      children: [...left!, new TextRun({ text: '\t' }), ...right!],
       alignment: AlignmentType.LEFT,
     })
   }
-  if (parsed.hasRightTab && !parsed.leftText) {
-    // MLA-style: everything right-aligned (rightTab at index 0, text+pageNum after it)
-    return new Paragraph({
-      children: [
-        ...(parsed.rightText ? [new TextRun({ text: parsed.rightText + ' ' })] : []),
-        ...(parsed.hasPageNum ? [new TextRun({ children: [PageNumber.CURRENT] })] : []),
-      ],
-      alignment: AlignmentType.RIGHT,
-    })
+
+  // 3+ segments: center + right tab stops
+  const tabStops = segments.length === 3
+    ? [
+        { type: TabStopType.CENTER, position: Math.round(CONTENT_WIDTH_TWIPS / 2) },
+        { type: TabStopType.RIGHT, position: CONTENT_WIDTH_TWIPS },
+      ]
+    : segments.slice(1).map((_, i) => ({
+        type: i === segments.length - 2 ? TabStopType.RIGHT : TabStopType.CENTER,
+        position: Math.round(CONTENT_WIDTH_TWIPS * (i + 1) / (segments.length - 1)),
+      }))
+
+  const children: (TextRun | ExternalHyperlink)[] = []
+  for (let i = 0; i < segments.length; i++) {
+    if (i > 0) children.push(new TextRun({ text: '\t' }))
+    children.push(...segments[i]!)
   }
-  // No rightTab: use paragraph's own text alignment
-  const alignment =
-    parsed.textAlign === 'center' ? AlignmentType.CENTER :
-    parsed.textAlign === 'right' ? AlignmentType.RIGHT : AlignmentType.LEFT
-  return new Paragraph({
-    children: [
-      ...(parsed.leftText ? [new TextRun({ text: parsed.leftText })] : []),
-      ...(parsed.hasPageNum ? [new TextRun({ children: [PageNumber.CURRENT] })] : []),
-    ],
-    alignment,
-  })
+  return new Paragraph({ tabStops, children, alignment: AlignmentType.LEFT })
 }
 
 export async function exportToDocx(id: string): Promise<void> {

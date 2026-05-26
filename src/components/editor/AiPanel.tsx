@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 import type { Issue } from '@/types'
 import type { AnalysisState, AnalysisControls } from '@/hooks/useAnalysis'
 import {
-  Send, Loader2, Sparkles, WandSparkles, MessageSquare, ScanText,
+  Send, Loader2, Sparkles, WandSparkles, MessageSquare, ScanText, X,
 } from 'lucide-react'
 
 // ── Suggestion chips ──────────────────────────────────────────────────────────
@@ -20,7 +20,7 @@ const CHIPS = [
   'Suggest transition',
   'Improve clarity',
   'Check argument',
-  'Reading level',
+  'Determine reading level',
 ] as const
 
 // ── Issue colors ──────────────────────────────────────────────────────────────
@@ -638,6 +638,7 @@ export function IssueTooltip({
 export default function AiPanel({ editor, analysis }: AiPanelProps): JSX.Element {
   const activeAiTab = useAppStore((s) => s.activeAiTab)
   const setActiveAiTab = useAppStore((s) => s.setActiveAiTab)
+  const setAiPanelOpen = useAppStore((s) => s.setAiPanelOpen)
   const issueCount = useAppStore((s) => s.issueCount)
   const assignmentContext = useAppStore((s) => s.assignmentContext)
   const setAssignmentContext = useAppStore((s) => s.setAssignmentContext)
@@ -645,7 +646,7 @@ export default function AiPanel({ editor, analysis }: AiPanelProps): JSX.Element
   return (
     <div className="flex h-full flex-col border-l border-border">
       {/* Header */}
-      <div className="flex h-10 shrink-0 items-center gap-2 px-3">
+      <div className="flex h-10 shrink-0 items-center gap-2 pl-3 pr-1.5">
         <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
         <span className="text-xs font-medium">AI assistant</span>
 
@@ -681,6 +682,13 @@ export default function AiPanel({ editor, analysis }: AiPanelProps): JSX.Element
             )}
           </button>
         </div>
+
+        <button
+          className="ml-0 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          onClick={() => setAiPanelOpen(false)}
+        >
+          <X className="h-4 w-4" />
+        </button>
       </div>
 
       <Separator />

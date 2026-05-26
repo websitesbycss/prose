@@ -17,6 +17,7 @@ export function initSettingsDb(): void {
   const dbPath = join(app.getPath('userData'), SETTINGS_DB_FILE)
   db = new Database(dbPath)
   db.pragma('journal_mode = WAL')
+  db.pragma('foreign_keys = ON')
   db.exec(SCHEMA)
 }
 

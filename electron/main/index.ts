@@ -39,7 +39,6 @@ function createWindow(): BrowserWindow {
 
   win.on('ready-to-show', () => {
     win.show()
-    // Deliver any file that was opened before the window was ready
     if (pendingFileOpen) {
       win.webContents.send('app:open-file', pendingFileOpen)
       pendingFileOpen = null
@@ -95,14 +94,10 @@ app.whenReady().then(async () => {
   registerFileAssociation()
 
   try {
-    // Initialize databases first
     initSettingsDb()
     initIndexDb()
-
-    // Ensure documents folder exists
     await ensureDocumentsFolderExists()
 
-    // Register all IPC handlers
     registerDocumentHandlers()
     registerSettingsHandlers()
     registerCategoryHandlers()
@@ -115,7 +110,6 @@ app.whenReady().then(async () => {
     registerMigrationHandlers()
     registerImportHandlers()
 
-    // Documents folder accessibility check IPC
     ipcMain.handle('documents:folderAccessible', () => isDocumentsFolderAccessible())
 
   } catch (err) {
@@ -131,7 +125,6 @@ app.whenReady().then(async () => {
     console.error('Migration check failed:', err)
   })
 
-  // Handle .prose file passed as command-line arg on first launch (Windows)
   const fileArg = process.argv.find((arg) => arg.endsWith('.prose') && arg !== process.execPath)
   if (fileArg) pendingFileOpen = fileArg
 

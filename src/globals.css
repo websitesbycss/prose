@@ -138,11 +138,36 @@ html.theme-transitioning *::after {
 }
 
 .prose-editor .ProseMirror ul {
-  @apply list-disc pl-6 my-2;
+  @apply pl-6 my-2;
+  list-style-type: disc;
 }
 
 .prose-editor .ProseMirror ol {
-  @apply list-decimal pl-6 my-2;
+  @apply pl-6 my-2;
+  list-style-type: decimal;
+}
+
+/* Nested ul: cycle disc → circle → square → repeat */
+.prose-editor .ProseMirror ul ul                   { list-style-type: circle; }
+.prose-editor .ProseMirror ul ul ul                { list-style-type: square; }
+.prose-editor .ProseMirror ul ul ul ul             { list-style-type: disc; }
+.prose-editor .ProseMirror ul ul ul ul ul          { list-style-type: circle; }
+.prose-editor .ProseMirror ul ul ul ul ul ul       { list-style-type: square; }
+.prose-editor .ProseMirror ul ul ul ul ul ul ul    { list-style-type: disc; }
+
+/* Nested ol: cycle decimal → lower-alpha → lower-roman → repeat */
+.prose-editor .ProseMirror ol ol                   { list-style-type: lower-alpha; }
+.prose-editor .ProseMirror ol ol ol                { list-style-type: lower-roman; }
+.prose-editor .ProseMirror ol ol ol ol             { list-style-type: decimal; }
+.prose-editor .ProseMirror ol ol ol ol ol          { list-style-type: lower-alpha; }
+.prose-editor .ProseMirror ol ol ol ol ol ol       { list-style-type: lower-roman; }
+.prose-editor .ProseMirror ol ol ol ol ol ol ol    { list-style-type: decimal; }
+
+/* Suppress extra top/bottom margin on nested lists */
+.prose-editor .ProseMirror li > ul,
+.prose-editor .ProseMirror li > ol {
+  margin-top: 0;
+  margin-bottom: 0;
 }
 
 .prose-editor .ProseMirror li > p {
@@ -414,7 +439,8 @@ html.theme-transitioning *::after {
   content: 'page break';
   position: absolute;
   left: 50%;
-  transform: translateX(-50%);
+  top: 50%;
+  transform: translate(-50%, -50%);
   font-size: 9px;
   line-height: 1;
   padding: 2px 6px;

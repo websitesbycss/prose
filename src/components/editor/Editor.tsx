@@ -427,6 +427,8 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                 onApplyFormat={setFormatModalTarget}
                 headingFontSizes={headingFontSizes}
                 isZoneEditor={zoneEditor !== null}
+                defaultFontFamily={editorFontFamily}
+                defaultFontSize={editorFontSize}
               />
             </motion.div>
           )}

@@ -109,6 +109,8 @@ interface ToolbarProps {
   onApplyFormat: (format: 'mla' | 'apa') => void
   headingFontSizes: HeadingFontSizes
   isZoneEditor?: boolean
+  defaultFontFamily?: string
+  defaultFontSize?: number
 }
 
 const FONT_FAMILIES = [
@@ -876,12 +878,16 @@ function ToolbarInner({
   onApplyFormat,
   headingFontSizes,
   isZoneEditor,
+  defaultFontFamily = 'Calibri',
+  defaultFontSize = 12,
 }: {
   editor: Editor
   document: Document | null
   onApplyFormat: (format: 'mla' | 'apa') => void
   headingFontSizes: HeadingFontSizes
   isZoneEditor: boolean
+  defaultFontFamily?: string
+  defaultFontSize?: number
 }): JSX.Element {
   const format = document?.format
   const setMusicPanelOpen = useAppStore((s) => s.setMusicPanelOpen)
@@ -913,9 +919,9 @@ function ToolbarInner({
         const clean = raw.replace(/^['"]|['"]$/g, '')
         if (clean) return clean
         if (format === 'mla' || format === 'apa') return 'Times New Roman'
-        return 'Calibri'
+        return defaultFontFamily
       })(),
-      fontSize: (ctx.editor.getAttributes('textStyle').fontSize as string | undefined) ?? '12pt',
+      fontSize: (ctx.editor.getAttributes('textStyle').fontSize as string | undefined) ?? `${defaultFontSize}pt`,
       paragraphStyle: ctx.editor.isActive('heading', { level: 1 })
         ? 'h1'
         : ctx.editor.isActive('heading', { level: 2 })
@@ -976,7 +982,7 @@ function ToolbarInner({
 
   return (
     <div
-      className="flex h-10 shrink-0 items-center gap-0.5 overflow-x-auto border-b border-border px-2"
+      className="flex h-10 shrink-0 items-center gap-0.5 overflow-x-auto border-b border-border px-2 bg-muted/30 dark:bg-muted/10"
       onMouseDown={(e) => e.preventDefault()}
     >
       {/* Font family */}
@@ -1212,7 +1218,7 @@ function ToolbarInner({
   )
 }
 
-export default function Toolbar({ editor, document, onApplyFormat, headingFontSizes, isZoneEditor = false }: ToolbarProps): JSX.Element {
+export default function Toolbar({ editor, document, onApplyFormat, headingFontSizes, isZoneEditor = false, defaultFontFamily, defaultFontSize }: ToolbarProps): JSX.Element {
   if (!editor) return <div className="h-10 shrink-0 border-b border-border" />
   return (
     <ToolbarInner
@@ -1221,6 +1227,8 @@ export default function Toolbar({ editor, document, onApplyFormat, headingFontSi
       onApplyFormat={onApplyFormat}
       headingFontSizes={headingFontSizes}
       isZoneEditor={isZoneEditor}
+      defaultFontFamily={defaultFontFamily}
+      defaultFontSize={defaultFontSize}
     />
   )
 }

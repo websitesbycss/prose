@@ -94,7 +94,7 @@ export default function MusicPanel({ music }: MusicPanelProps): JSX.Element {
       transition={{ duration: 0.18, ease: [0.25, 0.1, 0.25, 1] }}
     >
       {/* Header */}
-      <div className="flex h-9 shrink-0 items-center justify-between border-b border-border px-3">
+      <div className="flex h-9 shrink-0 items-center justify-between border-b border-border pl-3 pr-1.5">
         <span className="text-xs font-medium">Focus Music</span>
         <div className="flex items-center gap-1">
           <button
@@ -119,14 +119,12 @@ export default function MusicPanel({ music }: MusicPanelProps): JSX.Element {
           >
             Mixer
           </button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="ml-1 h-6 w-6"
+          <button
+            className="ml-0 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
             onClick={() => setMusicPanelOpen(false)}
           >
-            <X className="h-3 w-3" />
-          </Button>
+            <X className="h-4 w-4" />
+          </button>
         </div>
       </div>
 

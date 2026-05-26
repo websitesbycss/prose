@@ -39,8 +39,6 @@ function citationToOut(c: ProseFileCitation, documentId: string): CitationOut {
   }
 }
 
-// ── Network fetchers (unchanged from previous implementation) ─────────────────
-
 async function fetchDoiMetadata(doi: string): Promise<CitationFieldsOut | null> {
   const url = `https://api.crossref.org/works/${encodeURIComponent(doi)}`
   try {
@@ -206,7 +204,6 @@ export function registerCitationHandlers(): void {
     if (!d.fields || typeof d.fields !== 'object') throw new Error('fields is required')
     if (!d.formatted || typeof d.formatted !== 'object') throw new Error('formatted is required')
 
-    // Find which document has this citation — iterate index
     for (const row of getAllIndexRows()) {
       const resolved = await resolveDocument(row.id)
       if (!resolved) continue

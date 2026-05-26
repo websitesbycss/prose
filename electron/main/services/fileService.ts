@@ -102,7 +102,7 @@ export async function writeProseFile(filePath: string, doc: ProseFileDocument): 
   const dir = dirname(filePath)
   await mkdir(dir, { recursive: true })
   const tmpPath = `${filePath}.tmp`
-  await writeFile(tmpPath, JSON.stringify(doc, null, 2), 'utf8')
+  await writeFile(tmpPath, JSON.stringify(doc), 'utf8')
   await rename(tmpPath, filePath)
 }
 
@@ -127,7 +127,6 @@ export async function resolveDocument(id: string): Promise<{ doc: ProseFileDocum
   const found = await scanFolderForId(id)
   if (!found) return null
 
-  // Update index with recovered path
   upsertIndex({
     id: found.doc.id,
     title: found.doc.title,
@@ -339,7 +338,6 @@ export async function changeDocumentsFolder(newFolder: string, moveFiles: boolea
     try { entries = await readdir(oldFolder) } catch { /* no old folder */ }
 
     const moved: Array<{ oldPath: string; newPath: string }> = []
-    // First pass: copy all .prose files and verify
     for (const entry of entries) {
       if (!entry.endsWith('.prose')) continue
       const oldPath = join(oldFolder, entry)
@@ -349,12 +347,10 @@ export async function changeDocumentsFolder(newFolder: string, moveFiles: boolea
       moved.push({ oldPath, newPath })
     }
 
-    // Second pass: delete originals only after all copies succeed
     for (const { oldPath } of moved) {
       try { await unlink(oldPath) } catch { /* best-effort */ }
     }
 
-    // Update index paths
     for (const { newPath } of moved) {
       try {
         const doc = await readProseFile(newPath)
