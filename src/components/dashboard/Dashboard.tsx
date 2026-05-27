@@ -186,11 +186,14 @@ export default function Dashboard(): JSX.Element {
     catch { toast.error('Export failed') }
   }
 
+  async function handleSetCategory(docId: string, categoryId: string | null): Promise<void> {
+    await window.prose.documents.update(docId, { categoryId: categoryId ?? undefined })
+    setDocuments((prev) => prev.map((d) => d.id === docId ? { ...d, categoryId: categoryId ?? undefined } : d))
+  }
+
   async function handleCtxSetCategory(categoryId: string | null): Promise<void> {
     if (!ctxMenu) return
-    const id = ctxMenu.doc.id
-    await window.prose.documents.update(id, { categoryId: categoryId ?? undefined })
-    setDocuments((prev) => prev.map((d) => d.id === id ? { ...d, categoryId: categoryId ?? undefined } : d))
+    await handleSetCategory(ctxMenu.doc.id, categoryId)
   }
 
   // ── Derived state ──────────────────────────────────────────────────────────
@@ -245,7 +248,7 @@ export default function Dashboard(): JSX.Element {
         onPin={() => togglePin(doc.id)}
         onRename={(title) => handleRename(doc.id, title)}
         onDelete={() => setDeleteTarget(doc)}
-        onSetCategory={(categoryId) => handleCtxSetCategory(categoryId)}
+        onSetCategory={(categoryId) => handleSetCategory(doc.id, categoryId)}
         onCreateCategory={async (name, color) => {
           const cat = await window.prose.categories.create({ name, color } as Parameters<typeof window.prose.categories.create>[0])
           setCategories((prev) => [...prev, cat as Category])

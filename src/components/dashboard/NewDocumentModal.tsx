@@ -17,7 +17,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import type { Category, Document, DocumentFormat } from '@/types'
+import { ChevronRight, ChevronDown } from 'lucide-react'
+import type { Category, Document, DocumentFormat, PageMargins } from '@/types'
+import { DEFAULT_PAGE_MARGINS, PAGE_MARGIN_MIN_IN, PAGE_MARGIN_MAX_IN } from '@/constants'
 import { buildMlaContent, buildApaContent } from '@/lib/templates'
 import { buildMlaHeaderContent, buildApaHeaderContent } from '@/components/editor/HeaderFooterEditor'
 
@@ -53,6 +55,8 @@ export default function NewDocumentModal({
   const [institution, setInstitution] = useState('')
   const [essayTitle, setEssayTitle] = useState('')
   const [defaultWordCountGoal, setDefaultWordCountGoal] = useState<number | null>(null)
+  const [advancedOpen, setAdvancedOpen] = useState(false)
+  const [pageMargins, setPageMargins] = useState<PageMargins>(DEFAULT_PAGE_MARGINS)
   const [creating, setCreating] = useState(false)
 
   // Pre-fill format and word count goal from settings on each open
@@ -76,6 +80,8 @@ export default function NewDocumentModal({
     setCourseName('')
     setInstitution('')
     setEssayTitle('')
+    setAdvancedOpen(false)
+    setPageMargins(DEFAULT_PAGE_MARGINS)
   }
 
   function handleClose(): void {
@@ -126,6 +132,7 @@ export default function NewDocumentModal({
         categoryId: categoryId === 'none' ? null : categoryId,
         content: contentStr,
         wordCountGoal: defaultWordCountGoal,
+        pageMargins,
       } as Parameters<typeof window.prose.documents.create>[0])
 
       // documents:create doesn't accept headerContent — set it in a follow-up update
@@ -202,6 +209,47 @@ export default function NewDocumentModal({
               </Select>
             </div>
           </div>
+
+          <Separator />
+          <button
+            type="button"
+            onClick={() => setAdvancedOpen((o) => !o)}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {advancedOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+            Advanced
+          </button>
+
+          {advancedOpen && (
+            <div className="flex flex-col gap-2">
+              <p className="text-xs font-medium">Page margins</p>
+              <div className="grid grid-cols-2 gap-2">
+                {(['top', 'bottom', 'left', 'right'] as const).map((side) => (
+                  <div key={side} className="flex items-center gap-1.5">
+                    <label className="w-12 text-xs capitalize text-muted-foreground">{side}</label>
+                    <Input
+                      type="number"
+                      step={0.25}
+                      min={PAGE_MARGIN_MIN_IN}
+                      max={PAGE_MARGIN_MAX_IN}
+                      className="h-7 w-16 text-xs"
+                      value={pageMargins[side]}
+                      onChange={(e) => {
+                        const v = parseFloat(e.target.value)
+                        if (!isNaN(v)) {
+                          setPageMargins((m) => ({
+                            ...m,
+                            [side]: Math.min(PAGE_MARGIN_MAX_IN, Math.max(PAGE_MARGIN_MIN_IN, v)),
+                          }))
+                        }
+                      }}
+                    />
+                    <span className="text-xs text-muted-foreground">in</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {needsHeader && (
             <>

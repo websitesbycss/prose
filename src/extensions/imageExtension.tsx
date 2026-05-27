@@ -38,10 +38,12 @@ function CornerSlider({ value, onChange }: { value: number; onChange: (v: number
       function onMove(ev: MouseEvent): void { update(ev) }
       function onUp(): void {
         document.removeEventListener('mousemove', onMove)
-        document.removeEventListener('mouseup', onUp)
+        document.removeEventListener('mouseup', onUp, true)
       }
       document.addEventListener('mousemove', onMove)
-      document.addEventListener('mouseup', onUp)
+      // Capture phase so the floatingToolbar's bubble-phase stopPropagation
+      // on mouseup doesn't prevent this cleanup from running.
+      document.addEventListener('mouseup', onUp, true)
     }
 
     track.addEventListener('mousedown', onMouseDown)
@@ -106,12 +108,14 @@ function CornerRadiusIcon(): JSX.Element {
   )
 }
 
-function ImageNodeView({ node, updateAttributes, selected, editor }: NodeViewProps): JSX.Element {
+function ImageNodeView({ node, updateAttributes, selected, editor, getPos }: NodeViewProps): JSX.Element {
   const src = node.attrs.src as string
   const alt = node.attrs.alt as string | null
   const width = node.attrs.width as number | null
   const height = node.attrs.height as number | null
   const borderRadius = ((node.attrs.borderRadius as number) ?? 0)
+  const borderColor = node.attrs.borderColor as string | null
+  const borderWidth = node.attrs.borderWidth as number | null
 
   const containerRef = useRef<HTMLDivElement>(null)
   const imgRef = useRef<HTMLImageElement>(null)
@@ -151,9 +155,12 @@ function ImageNodeView({ node, updateAttributes, selected, editor }: NodeViewPro
   const getMaxWidth = useCallback((): number => {
     const page = containerRef.current?.closest('.editor-page') as HTMLElement | null
     if (page) {
-      const marginXStr = getComputedStyle(page).getPropertyValue('--page-margin-x').trim()
-      const marginX = marginXStr ? parseFloat(marginXStr) : 96
-      return Math.max(MIN_SIZE, page.getBoundingClientRect().width - marginX * 2)
+      const style = getComputedStyle(page)
+      const leftStr = style.getPropertyValue('--page-margin-left').trim() || style.getPropertyValue('--page-margin-x').trim()
+      const rightStr = style.getPropertyValue('--page-margin-right').trim() || style.getPropertyValue('--page-margin-x').trim()
+      const marginLeft = leftStr ? parseFloat(leftStr) : 96
+      const marginRight = rightStr ? parseFloat(rightStr) : 96
+      return Math.max(MIN_SIZE, page.getBoundingClientRect().width - marginLeft - marginRight)
     }
     return 624 // 816px page - 96px * 2 margins
   }, [])
@@ -232,15 +239,35 @@ function ImageNodeView({ node, updateAttributes, selected, editor }: NodeViewPro
   const imgStyle: React.CSSProperties = {
     display: 'block',
     maxWidth: '100%',
+    cursor: 'move',
     ...(borderRadius ? { borderRadius: `${borderRadius}px` } : {}),
+    ...(borderColor != null || borderWidth != null ? {
+      borderStyle: 'solid',
+      ...(borderColor ? { borderColor } : {}),
+      ...(borderWidth != null ? { borderWidth: `${borderWidth}px` } : { borderWidth: '1px' }),
+    } : {}),
     ...(currentW != null ? { width: `${currentW}px` } : {}),
-    ...(currentH != null ? { height: `${currentH}px` } : {}),
+    // Use aspect-ratio instead of explicit height so maxWidth: 100% scales both
+    // dimensions equally when the image is constrained by its container.
+    ...(currentW != null && currentH != null
+      ? { aspectRatio: `${currentW} / ${currentH}` }
+      : currentH != null
+        ? { height: `${currentH}px` }
+        : {}),
   }
 
   return (
     <NodeViewWrapper
       as="span"
       style={{ display: 'inline-block', position: 'relative', verticalAlign: 'bottom', lineHeight: 0 }}
+      onDragStart={(e: React.DragEvent<HTMLSpanElement>) => {
+        if (imgRef.current) {
+          const rect = imgRef.current.getBoundingClientRect()
+          // Use img element directly as ghost (excludes the floating toolbar that
+          // renders inside NodeViewWrapper when selected, which would offset the ghost).
+          e.dataTransfer.setDragImage(imgRef.current, e.clientX - rect.left, e.clientY - rect.top)
+        }
+      }}
     >
       {/* Floating toolbar — corner radius control */}
       {selected && (
@@ -256,7 +283,20 @@ function ImageNodeView({ node, updateAttributes, selected, editor }: NodeViewPro
           }}
         >
           <CornerRadiusIcon />
-          <CornerSlider value={borderRadius} onChange={(v) => updateAttributes({ borderRadius: v })} />
+          <CornerSlider
+            value={borderRadius}
+            onChange={(v) => {
+              const pos = typeof getPos === 'function' ? getPos() : undefined
+              if (pos === undefined) return
+              editor.chain()
+                .command(({ tr }) => {
+                  tr.setNodeMarkup(pos, undefined, { ...node.attrs, borderRadius: v })
+                  return true
+                })
+                .setNodeSelection(pos)
+                .run()
+            }}
+          />
           <span className="min-w-[28px] text-right font-sans text-[11px] text-muted-foreground">
             {borderRadius}px
           </span>
@@ -300,7 +340,15 @@ function ImageNodeView({ node, updateAttributes, selected, editor }: NodeViewPro
           src={src}
           alt={alt ?? ''}
           style={imgStyle}
-          draggable={false}
+        />
+
+        {/* Transparent drag handle overlay — TipTap wires data-drag-handle to
+            ProseMirror's built-in node drag (move semantics, no duplication).
+            z-[1] keeps it below resize handles (z-[2]) so handles still work. */}
+        <div
+          data-drag-handle
+          className="absolute inset-0 z-[1]"
+          style={{ cursor: 'move' }}
         />
 
         {/* Resize handles — 8 positions */}
@@ -336,6 +384,8 @@ export const CustomImage = Node.create({
       width:        { default: null },
       height:       { default: null },
       borderRadius: { default: 0 },
+      borderColor:  { default: null },
+      borderWidth:  { default: null },
     }
   },
 
@@ -350,6 +400,8 @@ export const CustomImage = Node.create({
           const styleH  = img.style.height       ? parseInt(img.style.height)       : null
           const attrH   = img.getAttribute('height') ? parseInt(img.getAttribute('height')!) : null
           const attrBr  = img.style.borderRadius  ? parseInt(img.style.borderRadius)  : 0
+          const attrBw  = img.style.borderWidth   ? parseFloat(img.style.borderWidth) : null
+          const attrBc  = img.style.borderColor   || null
           return {
             src:          img.getAttribute('src'),
             alt:          img.getAttribute('alt'),
@@ -357,6 +409,8 @@ export const CustomImage = Node.create({
             width:        styleW ?? attrW,
             height:       styleH ?? attrH,
             borderRadius: attrBr,
+            borderColor:  attrBc,
+            borderWidth:  attrBw,
           }
         },
       },
@@ -364,10 +418,12 @@ export const CustomImage = Node.create({
   },
 
   renderHTML({ HTMLAttributes }) {
-    const { width, height, borderRadius, src, alt, title } = HTMLAttributes as {
+    const { width, height, borderRadius, borderColor, borderWidth, src, alt, title } = HTMLAttributes as {
       width: number | null
       height: number | null
       borderRadius: number
+      borderColor: string | null
+      borderWidth: number | null
       src: string
       alt: string | null
       title: string | null
@@ -376,6 +432,11 @@ export const CustomImage = Node.create({
     if (width)        style.push(`width:${width}px`)
     if (height)       style.push(`height:${height}px`)
     if (borderRadius) style.push(`border-radius:${borderRadius}px`)
+    if (borderColor != null || borderWidth != null) {
+      style.push('border-style:solid')
+      if (borderWidth != null) style.push(`border-width:${borderWidth}px`)
+      if (borderColor)         style.push(`border-color:${borderColor}`)
+    }
     return ['img', mergeAttributes({ src, alt, title }, style.length ? { style: style.join(';') } : {})]
   },
 

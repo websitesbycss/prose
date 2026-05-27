@@ -185,7 +185,7 @@ export default function App(): JSX.Element {
       ) : (
         <Dashboard />
       )}
-      <Toaster theme={theme} richColors />
+      <Toaster theme={theme} richColors position="bottom-right" offset={32} />
     </>
   )
 }

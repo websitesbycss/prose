@@ -32,6 +32,7 @@ function docToOut(doc: ProseFileDocument, filePath?: string) {
     categoryId: doc.categoryId,
     headerContent: doc.headerContent != null ? JSON.stringify(doc.headerContent) : null,
     footerContent: doc.footerContent != null ? JSON.stringify(doc.footerContent) : null,
+    pageMargins: doc.pageMargins ?? null,
   }
 }
 
@@ -74,6 +75,7 @@ export function registerDocumentHandlers(): void {
     const categoryId = typeof d.categoryId === 'string' ? d.categoryId : null
     const headerContent = d.headerContent != null ? parseJsonField(d.headerContent) : null
     const footerContent = d.footerContent != null ? parseJsonField(d.footerContent) : null
+    const pageMargins = isValidMargins(d.pageMargins) ? (d.pageMargins as { top: number; right: number; bottom: number; left: number }) : null
 
     let content: unknown = { type: 'doc', content: [] }
     if (typeof d.content === 'string' && d.content !== '{}') {
@@ -86,6 +88,7 @@ export function registerDocumentHandlers(): void {
       content,
       headerContent,
       footerContent,
+      pageMargins,
       wordCountGoal,
       categoryId,
     })
@@ -113,6 +116,9 @@ export function registerDocumentHandlers(): void {
     }
     if ('footerContent' in d) {
       patch.footerContent = d.footerContent != null ? parseJsonField(d.footerContent) : null
+    }
+    if ('pageMargins' in d) {
+      patch.pageMargins = isValidMargins(d.pageMargins) ? (d.pageMargins as { top: number; right: number; bottom: number; left: number }) : null
     }
 
     let newContent: unknown | undefined
@@ -179,4 +185,10 @@ function parseJsonField(value: unknown): unknown {
   }
   if (typeof value === 'object') return value
   return null
+}
+
+function isValidMargins(v: unknown): boolean {
+  if (!v || typeof v !== 'object') return false
+  const m = v as Record<string, unknown>
+  return ['top', 'right', 'bottom', 'left'].every((k) => typeof m[k] === 'number' && (m[k] as number) >= 0)
 }

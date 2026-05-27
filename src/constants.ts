@@ -7,9 +7,11 @@ export const MUSIC_DEFAULT_VOLUME = 70 as const
 export const SIDEBAR_COLLAPSED_WIDTH = 42 as const
 export const SIDEBAR_EXPANDED_WIDTH = 220 as const
 export const AI_PANEL_WIDTH = 280 as const
-// Page margin in pixels (1 in at 96 dpi). Used by header, footer, and body content
-// so all three stay in sync. Will be driven by user settings once custom margins land.
+// Fallback page margin constants (1 in at 96 dpi). Real values come from per-document pageMargins.
 export const PAGE_MARGIN_X_PX = 96 as const
 export const PAGE_MARGIN_Y_PX = 96 as const
+export const PAGE_MARGIN_MIN_IN = 0.25 as const
+export const PAGE_MARGIN_MAX_IN = 3.0 as const
+export const DEFAULT_PAGE_MARGINS = { top: 1, right: 1, bottom: 1, left: 1 } as const
 export const MIN_WINDOW_WIDTH = 960 as const
 export const MIN_WINDOW_HEIGHT = 600 as const

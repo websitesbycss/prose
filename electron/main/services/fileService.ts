@@ -35,6 +35,7 @@ export interface ProseFileDocument {
   content: unknown  // Tiptap JSONContent object
   headerContent: unknown | null
   footerContent: unknown | null
+  pageMargins: { top: number; right: number; bottom: number; left: number } | null
   wordCountGoal: number | null
   categoryId: string | null
   createdAt: string
@@ -164,6 +165,7 @@ export async function createDocument(data: {
   content?: unknown
   headerContent?: unknown | null
   footerContent?: unknown | null
+  pageMargins?: { top: number; right: number; bottom: number; left: number } | null
   wordCountGoal?: number | null
   categoryId?: string | null
 }): Promise<ProseFileDocument> {
@@ -183,6 +185,7 @@ export async function createDocument(data: {
     content,
     headerContent: data.headerContent ?? null,
     footerContent: data.footerContent ?? null,
+    pageMargins: data.pageMargins ?? null,
     wordCountGoal: data.wordCountGoal ?? null,
     categoryId: data.categoryId ?? null,
     createdAt: now,
@@ -418,6 +421,7 @@ export async function importMarkdownFile(filePath: string): Promise<ProseFileDoc
     content,
     headerContent: null,
     footerContent: null,
+    pageMargins: null,
     wordCountGoal: null,
     categoryId: null,
     createdAt: now,

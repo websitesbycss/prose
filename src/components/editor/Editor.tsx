@@ -11,9 +11,9 @@ import { Color } from '@tiptap/extension-color'
 import Highlight from '@tiptap/extension-highlight'
 import { CustomImage } from '@/extensions/imageExtension'
 import { Link } from '@tiptap/extension-link'
-import { Table } from '@tiptap/extension-table'
 import { CellSelection } from '@tiptap/pm/tables'
 import {
+  CustomTable,
   CustomTableRow,
   CustomTableHeader,
   CustomTableCell,
@@ -64,9 +64,9 @@ import { SessionStatsPanel } from './SessionStatsPanel'
 import { HistoryPanel } from './HistoryPanel'
 import { EditorContextMenu } from './EditorContextMenu'
 import SettingsModal from '@/components/settings/SettingsModal'
-import type { AppSettings, Document } from '@/types'
+import type { AppSettings, Document, PageMargins } from '@/types'
 import { List, Timer, BarChart2, History, ChevronLeft, ChevronRight, Settings } from 'lucide-react'
-import { AI_PANEL_WIDTH, PAGE_MARGIN_X_PX, PAGE_MARGIN_Y_PX } from '@/constants'
+import { AI_PANEL_WIDTH, DEFAULT_PAGE_MARGINS } from '@/constants'
 
 type SidebarPanel = 'outline' | 'pomodoro' | 'stats' | 'history'
 
@@ -91,6 +91,8 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   const [typewriterMode, setTypewriterMode] = useState(false)
   const [aiPanelWidth, setAiPanelWidth] = useState(AI_PANEL_WIDTH)
   const dragStartRef = useRef<{ x: number; width: number } | null>(null)
+  const [sidebarWidth, setSidebarWidth] = useState(270)
+  const sidebarDragRef = useRef<{ x: number; width: number } | null>(null)
 
   // Tracks when header/footer content should be forcibly reset in the child editors
   const [headerContentKey, setHeaderContentKey] = useState(() => crypto.randomUUID())
@@ -124,6 +126,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   const [editorFontFamily, setEditorFontFamily] = useState('Calibri')
   const [editorFontSize, setEditorFontSize] = useState(11)
   const [headingFontSizes, setHeadingFontSizes] = useState({ h1: 36, h2: 24, h3: 18 })
+  const [pageMargins, setPageMargins] = useState<PageMargins>(DEFAULT_PAGE_MARGINS)
   const [formatModalTarget, setFormatModalTarget] = useState<'mla' | 'apa' | null>(null)
   const [activePanel, setActivePanel] = useState<SidebarPanel>('outline')
 
@@ -156,7 +159,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
       Highlight.configure({ multicolor: true }),
       CustomImage,
       Link.configure({ openOnClick: false, HTMLAttributes: { rel: 'noopener noreferrer' } }),
-      Table.configure({ resizable: true }),
+      CustomTable,
       CustomTableRow,
       CustomTableHeader,
       CustomTableCell,
@@ -209,6 +212,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
     analysis.clearIssues()
     editor.commands.clearAnalysisIssues()
     useAppStore.getState().setAssignmentContext('')
+    setPageMargins(document.pageMargins ?? DEFAULT_PAGE_MARGINS)
     try {
       const parsed = JSON.parse(document.content || '{}') as object
       editor.commands.setContent(parsed, false)
@@ -251,13 +255,20 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
 
   useEffect(() => {
     function onMouseMove(e: MouseEvent): void {
-      if (!dragStartRef.current) return
-      const delta = dragStartRef.current.x - e.clientX
-      const newWidth = Math.min(400, Math.max(180, dragStartRef.current.width + delta))
-      setAiPanelWidth(newWidth)
+      if (dragStartRef.current) {
+        const delta = dragStartRef.current.x - e.clientX
+        const newWidth = Math.min(400, Math.max(180, dragStartRef.current.width + delta))
+        setAiPanelWidth(newWidth)
+      }
+      if (sidebarDragRef.current) {
+        const delta = e.clientX - sidebarDragRef.current.x
+        const newWidth = Math.min(480, Math.max(180, sidebarDragRef.current.width + delta))
+        setSidebarWidth(newWidth)
+      }
     }
     function onMouseUp(): void {
       dragStartRef.current = null
+      sidebarDragRef.current = null
       document.body.style.cursor = ''
       document.body.style.userSelect = ''
     }
@@ -454,10 +465,8 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
           {/* Left sidebar — hidden in focus mode */}
           {!focusModeActive && (
             <aside
-              className={cn(
-                'flex shrink-0 flex-col border-r border-border transition-all duration-200',
-                sidebarOpen ? 'w-[220px]' : 'w-[42px]'
-              )}
+              className="relative flex shrink-0 flex-col border-r border-border"
+              style={{ width: sidebarOpen ? sidebarWidth : 42 }}
             >
               <div className="flex flex-col gap-0.5 p-1.5">
                 <SidebarIcon
@@ -538,6 +547,18 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                   {sidebarOpen && <span className="truncate text-xs">Collapse</span>}
                 </button>
               </div>
+
+              {/* Drag handle — only when expanded */}
+              {sidebarOpen && (
+                <div
+                  className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/30 transition-colors z-10"
+                  onMouseDown={(e) => {
+                    sidebarDragRef.current = { x: e.clientX, width: sidebarWidth }
+                    document.body.style.cursor = 'col-resize'
+                    document.body.style.userSelect = 'none'
+                  }}
+                />
+              )}
             </aside>
           )}
 
@@ -553,8 +574,10 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
               <div
                 className={cn('editor-page relative bg-white dark:bg-zinc-800', formatClass)}
                 style={{
-                  '--page-margin-x': `${PAGE_MARGIN_X_PX}px`,
-                  '--page-margin-y': `${PAGE_MARGIN_Y_PX}px`,
+                  '--page-margin-left': `${Math.round(pageMargins.left * 96)}px`,
+                  '--page-margin-right': `${Math.round(pageMargins.right * 96)}px`,
+                  '--page-margin-top': `${Math.round(pageMargins.top * 96)}px`,
+                  '--page-margin-bottom': `${Math.round(pageMargins.bottom * 96)}px`,
                 } as React.CSSProperties}
               >
                 {/* Header zone — only rendered once document is loaded to prevent blank init on HMR */}
@@ -571,12 +594,14 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                 )}
                 <div className="border-b border-border dark:border-zinc-600" />
 
-                {/* Body content — horizontal padding inherits --page-margin-x */}
+                {/* Body content — padding inherits --page-margin-* */}
                 <div
-                  className="min-h-[900px] py-16"
+                  className="min-h-[900px]"
                   style={{
-                    paddingLeft: 'var(--page-margin-x)',
-                    paddingRight: 'var(--page-margin-x)',
+                    paddingLeft: 'var(--page-margin-left)',
+                    paddingRight: 'var(--page-margin-right)',
+                    paddingTop: 'var(--page-margin-top)',
+                    paddingBottom: 'var(--page-margin-bottom)',
                     '--prose-editor-font-family': editorFontFamily,
                     '--prose-editor-font-size': `${editorFontSize}pt`,
                   } as React.CSSProperties}
@@ -672,7 +697,17 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
         onApplyApa={handleApplyApa}
       />
 
-      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        documentId={documentId}
+        pageMargins={pageMargins}
+        onPageMarginsChange={(m) => {
+          setPageMargins(m)
+          patchDocument({ pageMargins: m })
+          void window.prose.documents.update(documentId, { pageMargins: m })
+        }}
+      />
     </TooltipProvider>
   )
 }

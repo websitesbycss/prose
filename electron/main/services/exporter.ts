@@ -32,9 +32,16 @@ import { resolveDocument } from './fileService'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-async function fetchDocument(
-  id: string
-): Promise<{ content: string; title: string; format: string; header_content: string | null; footer_content: string | null } | null> {
+type FetchedDocument = {
+  content: string
+  title: string
+  format: string
+  header_content: string | null
+  footer_content: string | null
+  page_margins: { top: number; right: number; bottom: number; left: number } | null
+}
+
+async function fetchDocument(id: string): Promise<FetchedDocument | null> {
   const resolved = await resolveDocument(id)
   if (!resolved) return null
   const { doc } = resolved
@@ -44,7 +51,14 @@ async function fetchDocument(
     format: doc.format,
     header_content: doc.headerContent != null ? JSON.stringify(doc.headerContent) : null,
     footer_content: doc.footerContent != null ? JSON.stringify(doc.footerContent) : null,
+    page_margins: doc.pageMargins ?? null,
   }
+}
+
+const DEFAULT_MARGINS = { top: 1, right: 1, bottom: 1, left: 1 }
+
+function resolveMargins(m: FetchedDocument['page_margins']) {
+  return m ?? DEFAULT_MARGINS
 }
 
 function parseContent(raw: string): JSONContent {
@@ -374,7 +388,7 @@ function nodeToHtml(node: JSONContent, format = 'none'): string {
 
 // Build an Electron displayHeaderFooter template string from a header/footer zone JSON.
 // Replaces pageNumber nodes with Electron's <span class="pageNumber"></span>.
-function zoneToElectronTemplate(raw: string | null, fallbackAlign = 'left'): string {
+function zoneToElectronTemplate(raw: string | null, fallbackAlign = 'left', leftIn = 1, rightIn = 1): string {
   if (!raw) return '<span></span>'
   try {
     const doc = JSON.parse(raw) as JSONContent
@@ -406,8 +420,10 @@ function zoneToElectronTemplate(raw: string | null, fallbackAlign = 'left'): str
         }
         return inlineToHtml(n)
       }).join('')
-    // 96px = 1in at 96dpi; single quotes inside style attr avoid breaking the HTML attribute
-    const base = "font-size:16px;font-family:'Times New Roman',serif;width:100%;box-sizing:border-box;padding:0 96px;"
+    // single quotes inside style attr avoid breaking the HTML attribute
+    const lPx = Math.round(leftIn * 96)
+    const rPx = Math.round(rightIn * 96)
+    const base = `font-size:16px;font-family:'Times New Roman',serif;width:100%;box-sizing:border-box;padding-left:${lPx}px;padding-right:${rPx}px;`
 
     // Split content by rightTab nodes into segments
     const segments: JSONContent[][] = []
@@ -440,19 +456,29 @@ function zoneToElectronTemplate(raw: string | null, fallbackAlign = 'left'): str
 }
 
 // Build an Electron template for legacy MLA/APA running heads.
-function legacyRunningHeadTemplate(runningHead: string, format: string): string {
+function legacyRunningHeadTemplate(runningHead: string, format: string, leftIn = 1, rightIn = 1): string {
   const pn = '<span class="pageNumber"></span>'
-  const base = "font-size:16px;font-family:'Times New Roman',serif;width:100%;box-sizing:border-box;padding:0 96px;"
+  const lPx = Math.round(leftIn * 96)
+  const rPx = Math.round(rightIn * 96)
+  const base = `font-size:16px;font-family:'Times New Roman',serif;width:100%;box-sizing:border-box;padding-left:${lPx}px;padding-right:${rPx}px;`
   if (format === 'mla') {
     return `<div style="${base}text-align:right;">${escapeHtml(runningHead)} ${pn}</div>`
   }
   return `<div style="${base}display:flex;justify-content:space-between;"><span style="text-transform:uppercase">${escapeHtml(runningHead)}</span>${pn}</div>`
 }
 
-function buildHtmlPage(title: string, body: string, _format = 'none', hasHeaderFooter = false): string {
+function buildHtmlPage(
+  title: string,
+  body: string,
+  _format = 'none',
+  hasHeaderFooter = false,
+  margins = DEFAULT_MARGINS,
+): string {
   // When using displayHeaderFooter, Electron uses custom print margins for header/footer space.
   // The body CSS must only have horizontal margins so the print margins handle vertical spacing.
-  const bodyMargin = hasHeaderFooter ? '0 1in' : '1in'
+  const bodyMargin = hasHeaderFooter
+    ? `0 ${margins.right}in 0 ${margins.left}in`
+    : `${margins.top}in ${margins.right}in ${margins.bottom}in ${margins.left}in`
   return `<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>${escapeHtml(title)}</title>
 <style>
@@ -478,21 +504,23 @@ export async function exportToPdf(id: string): Promise<void> {
   // Fall back to auto-detected running head only for old docs without stored header_content
   const legacyRunningHead = row.header_content ? null : extractRunningHead(doc, row.format)
 
+  const margins = resolveMargins(row.page_margins)
+
   // Build Electron header/footer templates — these render in the print margin and
   // support real page numbers via <span class="pageNumber"></span>.
   let headerTemplate = '<span></span>'
   if (row.header_content) {
-    headerTemplate = zoneToElectronTemplate(row.header_content, 'right')
+    headerTemplate = zoneToElectronTemplate(row.header_content, 'right', margins.left, margins.right)
   } else if (legacyRunningHead) {
-    headerTemplate = legacyRunningHeadTemplate(legacyRunningHead, row.format)
+    headerTemplate = legacyRunningHeadTemplate(legacyRunningHead, row.format, margins.left, margins.right)
   }
   let footerTemplate = '<span></span>'
   if (row.footer_content) {
-    footerTemplate = zoneToElectronTemplate(row.footer_content, 'center')
+    footerTemplate = zoneToElectronTemplate(row.footer_content, 'center', margins.left, margins.right)
   }
   const hasHeaderFooter = headerTemplate !== '<span></span>' || footerTemplate !== '<span></span>'
 
-  const html = buildHtmlPage(row.title, nodeToHtml(doc, row.format), row.format, hasHeaderFooter)
+  const html = buildHtmlPage(row.title, nodeToHtml(doc, row.format), row.format, hasHeaderFooter, margins)
 
   const { filePath } = await dialog.showSaveDialog({
     title: 'Export as PDF',
@@ -511,7 +539,7 @@ export async function exportToPdf(id: string): Promise<void> {
     // With header/footer, use custom margins so Electron reserves space for them and
     // the body CSS only controls horizontal margins (avoids double-stacking vertical margins).
     margins: hasHeaderFooter
-      ? { marginType: 'custom', top: 1.25, bottom: 1.25, left: 0, right: 0 }
+      ? { marginType: 'custom', top: margins.top + 0.25, bottom: margins.bottom + 0.25, left: 0, right: 0 }
       : { marginType: 'none' },
     pageSize: 'Letter',
     printBackground: true,
@@ -596,11 +624,9 @@ function alignToDocx(align: string | undefined): typeof AlignmentType[keyof type
   return AlignmentType.LEFT
 }
 
-// Content width for a letter page with 1in margins on each side: 6.5in × 1440 twips/in
-const CONTENT_WIDTH_TWIPS = 9360
-
-// Max image width in pixels (6.5in × 96dpi). Height is derived to preserve aspect ratio.
-const MAX_IMG_WIDTH_PX = 624
+// Letter page is 8.5in wide. These are updated at the start of each DOCX export based on margins.
+let CONTENT_WIDTH_TWIPS = 9360  // default: (8.5 - 1 - 1) × 1440
+let MAX_IMG_WIDTH_PX = 624       // default: 6.5 × 96
 
 function getImageDimensions(data: Buffer, type: string): { width: number; height: number } | null {
   try {
@@ -976,7 +1002,18 @@ export async function exportToDocx(id: string): Promise<void> {
     if (parsed) docxFooter = new Footer({ children: [buildDocxZoneParagraph(parsed)] })
   }
 
-  const PAGE_MARGIN = { top: 1440, right: 1440, bottom: 1440, left: 1440 }
+  const docMargins = resolveMargins(row.page_margins)
+  const PAGE_MARGIN = {
+    top: Math.round(docMargins.top * 1440),
+    right: Math.round(docMargins.right * 1440),
+    bottom: Math.round(docMargins.bottom * 1440),
+    left: Math.round(docMargins.left * 1440),
+  }
+  // Update module-level content width for this export's margins (Node.js is single-threaded so this is safe)
+  const contentIn = Math.max(1, 8.5 - docMargins.left - docMargins.right)
+  CONTENT_WIDTH_TWIPS = Math.round(contentIn * 1440)
+  MAX_IMG_WIDTH_PX = Math.round(contentIn * 96)
+
   const numberingDefs: NumberingDef[] = []
 
   // For APA: split content into title page (vertically centered) + body sections

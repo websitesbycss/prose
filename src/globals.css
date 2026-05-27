@@ -10,7 +10,7 @@
     --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
-    --primary: 36 86% 55%;
+    --primary: 221 83% 53%;
     --primary-foreground: 0 0% 98%;
     --secondary: 240 4.8% 95.9%;
     --secondary-foreground: 240 5.9% 10%;
@@ -22,7 +22,7 @@
     --destructive-foreground: 0 0% 98%;
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
-    --ring: 36 86% 55%;
+    --ring: 221 83% 53%;
     --radius: 0.5rem;
   }
 
@@ -33,7 +33,7 @@
     --card-foreground: 0 0% 98%;
     --popover: 240 10% 3.9%;
     --popover-foreground: 0 0% 98%;
-    --primary: 36 86% 65%;
+    --primary: 213 94% 68%;
     --primary-foreground: 240 5.9% 10%;
     --secondary: 240 3.7% 15.9%;
     --secondary-foreground: 0 0% 98%;
@@ -45,7 +45,7 @@
     --destructive-foreground: 0 0% 98%;
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
-    --ring: 36 86% 65%;
+    --ring: 213 94% 68%;
   }
 }
 
@@ -178,13 +178,72 @@ html.theme-transitioning *::after {
   @apply text-primary underline underline-offset-2 cursor-pointer;
 }
 
-.prose-editor .ProseMirror .tableWrapper {
+/* ── Table outer wrapper (selection ring + resize handles) ──────── */
+.prose-editor .ProseMirror .table-outer-wrapper {
+  position: relative;
+  display: block;
+  @apply my-4;
+}
+
+.prose-editor .ProseMirror .table-outer-wrapper .tableWrapper {
+  overflow-x: hidden;
+  max-width: 100%;
+  width: 100%;
+}
+
+/* Top zone — move cursor to signal click-to-select */
+.prose-editor .ProseMirror .table-drag-zone {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 10px;
+  cursor: move;
+  z-index: 5;
+}
+
+/* Selection ring via box-shadow (doesn't affect layout) */
+.prose-editor .ProseMirror .table-outer-wrapper.table-selected {
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.3);
+  border-radius: 2px;
+}
+
+/* Resize handles */
+.prose-editor .ProseMirror .table-resize-handle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border: 2px solid hsl(var(--primary));
+  background: hsl(var(--background));
+  border-radius: 2px;
+  z-index: 20;
+}
+
+/* Width tooltip shown during resize drag */
+.prose-editor .ProseMirror .table-size-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+  white-space: nowrap;
+  z-index: 30;
+}
+
+/* Keep old .tableWrapper rule for any un-wrapped fallback */
+.prose-editor .ProseMirror > .tableWrapper {
   overflow-x: hidden;
   max-width: 100%;
 }
 
 .prose-editor .ProseMirror table {
-  @apply border-collapse my-4 w-full;
+  @apply border-collapse w-full;
   max-width: 100%;
   table-layout: fixed;
 }
@@ -278,6 +337,8 @@ html.theme-transitioning *::after {
 }
 
 /* Empty trailing paragraph after a table — invisible but still selectable */
+.prose-editor .ProseMirror .table-outer-wrapper + p:not(:focus-within):empty,
+.prose-editor .ProseMirror .table-outer-wrapper + p:not(:focus-within) > br:only-child,
 .prose-editor .ProseMirror table + p:not(:focus-within):empty,
 .prose-editor .ProseMirror table + p:not(:focus-within) > br:only-child {
   height: 0;
@@ -317,7 +378,16 @@ html.theme-transitioning *::after {
    can push trailing content (e.g. page numbers) to the right edge. */
 .header-footer-editor .ProseMirror p:has(.right-tab) {
   display: flex;
-  align-items: baseline;
+  align-items: center;
+}
+
+/* ProseMirror injects a trailing <br> after atom nodes (e.g. page number) to
+   allow cursor placement after them. In a flex row this <br> becomes a flex
+   item with full line-height, making the container twice as tall and dropping
+   the cursor visually below the text. Collapsing it to zero fixes positioning. */
+.header-footer-editor .ProseMirror p:has(.right-tab) > br {
+  font-size: 0;
+  line-height: 0;
 }
 
 /* The spacer itself — flex:1 fills all available horizontal space */
@@ -509,4 +579,13 @@ html.theme-transitioning *::after {
   font-weight: normal;
   margin: 0;
 }
+
+/* Toast notifications — fit-content width, right-anchored, max 356px */
+[data-sonner-toast][data-styled="true"] {
+  width: max-content;
+  max-width: 356px;
+  right: 0;
+  left: auto;
+}
+
 

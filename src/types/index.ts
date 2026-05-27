@@ -1,3 +1,10 @@
+export interface PageMargins {
+  top: number    // inches
+  right: number  // inches
+  bottom: number // inches
+  left: number   // inches
+}
+
 export interface Document {
   id: string
   title: string
@@ -9,6 +16,7 @@ export interface Document {
   categoryId: string | null
   headerContent: string | null
   footerContent: string | null
+  pageMargins: PageMargins | null
   // Present on dashboard listing (pre-computed from index)
   wordCount?: number
 }
@@ -64,6 +72,7 @@ export interface CreateDocumentInput {
   wordCountGoal?: number | null
   headerContent?: string | null
   footerContent?: string | null
+  pageMargins?: PageMargins | null
 }
 
 export interface UpdateDocumentInput {
@@ -74,6 +83,7 @@ export interface UpdateDocumentInput {
   categoryId?: string | null
   headerContent?: string | null
   footerContent?: string | null
+  pageMargins?: PageMargins | null
 }
 
 export interface CreateCategoryInput {

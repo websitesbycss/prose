@@ -17,12 +17,13 @@ import { useAppStore } from '@/store/appStore'
 import { cn } from '@/lib/utils'
 import { applyAccentColors, LIGHT_PRESETS, DARK_PRESETS, DEFAULT_LIGHT_ACCENT, DEFAULT_DARK_ACCENT } from '@/lib/accentColor'
 import { ChromeColorPicker } from '@/components/ui/ChromeColorPicker'
-import type { AppSettings, StorageInfo } from '@/types'
-import { Palette, PenLine, Sparkles, Timer, Info, ExternalLink, HardDrive } from 'lucide-react'
+import type { AppSettings, StorageInfo, PageMargins } from '@/types'
+import { PAGE_MARGIN_MIN_IN, PAGE_MARGIN_MAX_IN } from '@/constants'
+import { Palette, PenLine, Sparkles, Timer, Info, ExternalLink, HardDrive, FileText } from 'lucide-react'
 
-type Section = 'appearance' | 'writing' | 'ai' | 'pomodoro' | 'storage' | 'about'
+type Section = 'page' | 'appearance' | 'writing' | 'ai' | 'pomodoro' | 'storage' | 'about'
 
-const SECTIONS: { id: Section; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+const BASE_SECTIONS: { id: Section; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'writing', label: 'Writing', icon: PenLine },
   { id: 'ai', label: 'AI', icon: Sparkles },
@@ -30,6 +31,8 @@ const SECTIONS: { id: Section; label: string; icon: React.ComponentType<{ classN
   { id: 'storage', label: 'Storage', icon: HardDrive },
   { id: 'about', label: 'About', icon: Info },
 ]
+
+const PAGE_SECTION = { id: 'page' as Section, label: 'Page', icon: FileText }
 
 const FONT_FAMILIES = ['Calibri', 'Times New Roman', 'Georgia', 'Arial', 'Helvetica', 'Courier New']
 const FONT_SIZES = [10, 11, 12, 14, 16, 18, 24]
@@ -44,6 +47,9 @@ const FORMATS = [
 interface SettingsModalProps {
   open: boolean
   onClose(): void
+  documentId?: string
+  pageMargins?: PageMargins
+  onPageMarginsChange?: (margins: PageMargins) => void
 }
 
 function SettingRow({ label, description, children }: {
@@ -64,11 +70,16 @@ function SettingRow({ label, description, children }: {
   )
 }
 
-export default function SettingsModal({ open, onClose }: SettingsModalProps): JSX.Element {
+export default function SettingsModal({ open, onClose, documentId, pageMargins, onPageMarginsChange }: SettingsModalProps): JSX.Element {
   const theme = useAppStore((s) => s.theme)
   const setTheme = useAppStore((s) => s.setTheme)
 
-  const [section, setSection] = useState<Section>('appearance')
+  const sections = documentId ? [PAGE_SECTION, ...BASE_SECTIONS] : BASE_SECTIONS
+  const [section, setSection] = useState<Section>(() => documentId ? 'page' : 'appearance')
+
+  useEffect(() => {
+    if (open) setSection(documentId ? 'page' : 'appearance')
+  }, [open, documentId])
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [models, setModels] = useState<string[]>([])
   const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null)
@@ -130,7 +141,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps): JS
         <div className="flex flex-1 overflow-hidden">
           {/* Left nav */}
           <nav className="flex w-[160px] shrink-0 flex-col gap-0.5 border-r border-border p-2">
-            {SECTIONS.map(({ id, label, icon: Icon }) => (
+            {sections.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
                 onClick={() => setSection(id)}
@@ -150,6 +161,16 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps): JS
           {/* Content */}
           <ScrollArea className="flex-1">
             <div className="flex flex-col px-6 py-4">
+              {section === 'page' && pageMargins && onPageMarginsChange && (
+                <>
+                  <SectionTitle>Page</SectionTitle>
+                  <p className="mb-3 text-xs text-muted-foreground">
+                    Applies to this document only. Changes take effect immediately.
+                  </p>
+                  <PageMarginsEditor margins={pageMargins} onChange={onPageMarginsChange} />
+                </>
+              )}
+
               {section === 'appearance' && (
                 <>
                   <SectionTitle>Appearance</SectionTitle>
@@ -573,6 +594,60 @@ function SectionTitle({ children }: { children: React.ReactNode }): JSX.Element 
     <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
       {children}
     </h3>
+  )
+}
+
+function PageMarginsEditor({
+  margins,
+  onChange,
+}: {
+  margins: PageMargins
+  onChange: (m: PageMargins) => void
+}): JSX.Element {
+  function clamp(v: number): number {
+    return Math.min(PAGE_MARGIN_MAX_IN, Math.max(PAGE_MARGIN_MIN_IN, v))
+  }
+
+  function handleChange(side: keyof PageMargins, raw: string): void {
+    const v = parseFloat(raw)
+    if (isNaN(v)) return
+    onChange({ ...margins, [side]: clamp(v) })
+  }
+
+  const fields: { key: keyof PageMargins; label: string }[] = [
+    { key: 'top', label: 'Top' },
+    { key: 'bottom', label: 'Bottom' },
+    { key: 'left', label: 'Left' },
+    { key: 'right', label: 'Right' },
+  ]
+
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      {fields.map(({ key, label }) => (
+        <div key={key} className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-muted-foreground">{label}</label>
+          <div className="flex items-center gap-1.5">
+            <Input
+              type="number"
+              step={0.25}
+              min={PAGE_MARGIN_MIN_IN}
+              max={PAGE_MARGIN_MAX_IN}
+              className="h-8 w-20 text-xs"
+              value={margins[key]}
+              onChange={(e) => handleChange(key, e.target.value)}
+              onBlur={(e) => {
+                const v = parseFloat(e.target.value)
+                if (!isNaN(v)) onChange({ ...margins, [key]: clamp(v) })
+              }}
+            />
+            <span className="text-xs text-muted-foreground">in</span>
+          </div>
+        </div>
+      ))}
+      <p className="col-span-2 text-[10px] text-muted-foreground">
+        Min {PAGE_MARGIN_MIN_IN} in · Max {PAGE_MARGIN_MAX_IN} in
+      </p>
+    </div>
   )
 }
 

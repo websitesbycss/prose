@@ -1,9 +1,13 @@
 import { Extension, findParentNode } from '@tiptap/core'
+import { Table } from '@tiptap/extension-table'
 import { TableCell } from '@tiptap/extension-table-cell'
 import { TableHeader } from '@tiptap/extension-table-header'
 import { TableRow } from '@tiptap/extension-table-row'
 import type { Node as PmNode } from '@tiptap/pm/model'
 import { CellSelection } from '@tiptap/pm/tables'
+import { TableNodeView } from './tableNodeView'
+
+const CELL_MIN_WIDTH = 60
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -75,6 +79,36 @@ export const CustomTableRow = TableRow.extend({
         },
       },
     }
+  },
+})
+
+export const CustomTable = Table.configure({ resizable: true }).extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      tableWidth: {
+        default: null,
+        parseHTML: (el: HTMLElement) => {
+          const styleW = el.style.width ? parseInt(el.style.width) : null
+          const attrW = el.getAttribute('width') ? parseInt(el.getAttribute('width')!) : null
+          return styleW ?? attrW ?? null
+        },
+        renderHTML: (attrs: Record<string, unknown>) => {
+          const w = attrs.tableWidth
+          return w != null ? { style: `width: ${w as number}px` } : {}
+        },
+      },
+    }
+  },
+
+  addNodeView() {
+    return ({ node, view, getPos }) =>
+      new TableNodeView(
+        node,
+        view,
+        getPos as () => number | undefined,
+        CELL_MIN_WIDTH
+      )
   },
 })
 

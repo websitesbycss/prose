@@ -1,6 +1,7 @@
 import { useEffect, useRef, useLayoutEffect, useCallback, useState } from 'react'
 import type { Editor } from '@tiptap/react'
 import { NodeSelection } from '@tiptap/pm/state'
+import type { Node } from '@tiptap/pm/model'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store/appStore'
 import { toast } from 'sonner'
@@ -17,6 +18,7 @@ interface MenuCtx {
   isOnImage: boolean
   imageSrc: string | null
   imageBorderRadius: number
+  imagePos: number | null
   isOnPageBreak: boolean
   hasSelection: boolean
   selectedText: string
@@ -72,11 +74,19 @@ export function EditorContextMenu({ editor }: EditorContextMenuProps): JSX.Eleme
       e.stopPropagation()
 
       const target = e.target as HTMLElement
-      const isOnImage = target.tagName === 'IMG'
-      const imageSrc = isOnImage ? (target as HTMLImageElement).src : null
+      // The drag-handle overlay sits on top of the img, so check for it too
+      const imgEl: HTMLImageElement | null =
+        target.tagName === 'IMG'
+          ? (target as HTMLImageElement)
+          : 'dragHandle' in target.dataset
+            ? (target.parentElement?.querySelector('img') ?? null)
+            : null
+      const isOnImage = imgEl !== null
+      const imageSrc = imgEl?.src ?? null
 
       // Select the image node so updateAttributes works from the context menu
       let imageBorderRadius = 0
+      let imagePos: number | null = null
       let isOnPageBreak = false
       const posData = editor!.view.posAtCoords({ left: e.clientX, top: e.clientY })
       if (posData) {
@@ -87,6 +97,7 @@ export function EditorContextMenu({ editor }: EditorContextMenuProps): JSX.Eleme
             const sel = NodeSelection.create(doc, tryPos)
             if (isOnImage && sel.node.type.name === 'image') {
               editor!.view.dispatch(editor!.view.state.tr.setSelection(sel))
+              imagePos = sel.from
               break
             }
             if (sel.node.type.name === 'pageBreak') {
@@ -123,6 +134,7 @@ export function EditorContextMenu({ editor }: EditorContextMenuProps): JSX.Eleme
         isOnImage,
         imageSrc,
         imageBorderRadius,
+        imagePos,
         isOnPageBreak,
         hasSelection,
         selectedText,
@@ -361,7 +373,17 @@ export function EditorContextMenu({ editor }: EditorContextMenuProps): JSX.Eleme
                 onChange={(e) => {
                   const v = Number(e.target.value)
                   setLiveRadius(v)
-                  editor.chain().focus().updateAttributes('image', { borderRadius: v }).run()
+                  const pos = ctx.imagePos
+                  if (pos === null) return
+                  const imageNode = editor.state.doc.nodeAt(pos) as Node | null
+                  if (!imageNode) return
+                  editor.chain()
+                    .command(({ tr }) => {
+                      tr.setNodeMarkup(pos, undefined, { ...imageNode.attrs, borderRadius: v })
+                      return true
+                    })
+                    .setNodeSelection(pos)
+                    .run()
                 }}
               />
               <span className="min-w-[28px] text-right font-sans text-[11px] text-muted-foreground">

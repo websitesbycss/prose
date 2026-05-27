@@ -176,7 +176,7 @@ export function HeaderFooterEditor({
       {/* Persistent zone label — always visible, acts as a field caption */}
       <div
         className="pointer-events-none select-none pt-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/35"
-        style={{ paddingLeft: 'var(--page-margin-x)' }}
+        style={{ paddingLeft: 'var(--page-margin-left, var(--page-margin-x, 96px))' }}
       >
         {label}
       </div>
@@ -187,8 +187,8 @@ export function HeaderFooterEditor({
           !active && 'pointer-events-none'
         )}
         style={{
-          paddingLeft: 'var(--page-margin-x)',
-          paddingRight: 'var(--page-margin-x)',
+          paddingLeft: 'var(--page-margin-left, var(--page-margin-x, 96px))',
+          paddingRight: 'var(--page-margin-right, var(--page-margin-x, 96px))',
         }}
       />
       <HeaderFooterContextMenu editor={editor} containerRef={containerRef} />

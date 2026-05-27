@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'motion/react'
 import { ChromeColorPicker } from '@/components/ui/ChromeColorPicker'
 import { useEditorState } from '@tiptap/react'
 import type { Editor } from '@tiptap/react'
+import { NodeSelection } from '@tiptap/pm/state'
 import {
   Bold, Italic, Underline, Strikethrough,
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
@@ -26,10 +27,12 @@ import {
 function ColorPickerDropdown({
   trigger,
   tooltip,
+  onOpen,
   children,
 }: {
   trigger: React.ReactNode
   tooltip: string
+  onOpen?: () => void
   children: (close: () => void) => React.ReactNode
 }) {
   const [open, setOpen] = useState(false)
@@ -57,7 +60,9 @@ function ColorPickerDropdown({
     const r = btnRef.current.getBoundingClientRect()
     const left = Math.max(4, r.left + r.width / 2 - 110)
     setPos({ top: r.bottom + 4, left })
+    const opening = !open
     setOpen((o) => !o)
+    if (opening) onOpen?.()
   }
 
   return (
@@ -74,7 +79,10 @@ function ColorPickerDropdown({
             <div
               ref={pickerRef}
               style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 99999 }}
-              onMouseDown={(e) => e.stopPropagation()}
+              onMouseDown={(e) => {
+                e.stopPropagation()
+                if ((e.target as HTMLElement).tagName !== 'INPUT') e.preventDefault()
+              }}
             >
               <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: -4 }}
@@ -800,6 +808,162 @@ function CellBorderWeightPicker({
   )
 }
 
+// Applies attrs to the image node at pos and explicitly restores NodeSelection atomically.
+function applyImageAttrs(editor: Editor, pos: number, nodeAttrs: Record<string, unknown>, newAttrs: Record<string, unknown>): void {
+  editor.chain()
+    .command(({ tr }) => {
+      tr.setNodeMarkup(pos, undefined, { ...nodeAttrs, ...newAttrs })
+      return true
+    })
+    .setNodeSelection(pos)
+    .run()
+}
+
+function ImageBorderColorPicker({
+  editor,
+  currentColor,
+  theme,
+}: {
+  editor: Editor
+  currentColor: string | null
+  theme: 'dark' | 'light'
+}): JSX.Element {
+  const themedPalette = COLOR_PALETTE.map((c) =>
+    theme === 'dark' && c === '#000000' ? '#ffffff' : c
+  )
+  const capturedRef = useRef<{ pos: number; attrs: Record<string, unknown> } | null>(null)
+
+  function capture() {
+    const { selection } = editor.state
+    if (selection instanceof NodeSelection && selection.node.type.name === 'image') {
+      capturedRef.current = { pos: selection.from, attrs: { ...selection.node.attrs } }
+    }
+  }
+
+  function apply(newAttrs: Record<string, unknown>) {
+    // Prefer live selection; fall back to captured pos if focus moved away
+    const { selection } = editor.state
+    if (selection instanceof NodeSelection && selection.node.type.name === 'image') {
+      applyImageAttrs(editor, selection.from, { ...selection.node.attrs }, newAttrs)
+    } else if (capturedRef.current) {
+      const { pos } = capturedRef.current
+      const node = editor.state.doc.nodeAt(pos)
+      if (node && node.type.name === 'image') {
+        applyImageAttrs(editor, pos, { ...node.attrs }, newAttrs)
+      }
+    }
+  }
+
+  return (
+    <ColorPickerDropdown
+      tooltip="Image border color"
+      onOpen={capture}
+      trigger={
+        <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1">
+          <BorderColorIcon className="leading-none" />
+          <span className="mt-0.5 h-1 w-4 rounded-sm border border-border/40"
+            style={{ backgroundColor: currentColor ?? 'transparent' }} />
+        </Button>
+      }
+    >
+      {(close) => (
+        <ChromeColorPicker
+          color={currentColor || '#000000'}
+          current={currentColor ?? ''}
+          palette={themedPalette}
+          onChange={(c) => apply({ borderColor: c })}
+          onPaletteSelect={(c) => apply({ borderColor: c })}
+          onReset={() => { apply({ borderColor: null, borderWidth: null }); close() }}
+          resetLabel="Remove border"
+        />
+      )}
+    </ColorPickerDropdown>
+  )
+}
+
+function ImageBorderWeightPicker({
+  editor,
+  currentWidth,
+}: {
+  editor: Editor
+  currentWidth: number | null
+}): JSX.Element {
+  const [open, setOpen] = useState(false)
+  const capturedRef = useRef<{ pos: number; attrs: Record<string, unknown> } | null>(null)
+
+  function handleOpenChange(o: boolean) {
+    if (o) {
+      const { selection } = editor.state
+      if (selection instanceof NodeSelection && selection.node.type.name === 'image') {
+        capturedRef.current = { pos: selection.from, attrs: { ...selection.node.attrs } }
+      }
+    }
+    setOpen(o)
+  }
+
+  function apply(newAttrs: Record<string, unknown>) {
+    const { selection } = editor.state
+    if (selection instanceof NodeSelection && selection.node.type.name === 'image') {
+      applyImageAttrs(editor, selection.from, { ...selection.node.attrs }, newAttrs)
+    } else if (capturedRef.current) {
+      const { pos } = capturedRef.current
+      const node = editor.state.doc.nodeAt(pos)
+      if (node && node.type.name === 'image') {
+        applyImageAttrs(editor, pos, { ...node.attrs }, newAttrs)
+      }
+    }
+  }
+
+  return (
+    <Popover open={open} onOpenChange={handleOpenChange}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-7 w-7">
+              <BorderWeightIcon />
+            </Button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Image border weight</TooltipContent>
+      </Tooltip>
+      <PopoverContent
+        className="w-36 p-1"
+        side="bottom"
+        align="start"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onCloseAutoFocus={(e) => e.preventDefault()}
+      >
+        {BORDER_WEIGHTS.map((w) => (
+          <button
+            key={w}
+            className={cn(
+              'flex w-full items-center gap-2.5 rounded px-2.5 py-1.5 transition-colors focus:outline-none',
+              Math.abs((currentWidth ?? 1) - w) < 0.01
+                ? 'bg-primary/10 text-primary'
+                : 'text-foreground hover:bg-muted/50'
+            )}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => { apply({ borderWidth: w }); setOpen(false) }}
+          >
+            <div className="flex-1">
+              <div className="w-full rounded-full bg-current" style={{ height: `${w}px` }} />
+            </div>
+            <span className="text-xs tabular-nums">{w}px</span>
+          </button>
+        ))}
+        <div className="my-1 h-px bg-border" />
+        <button
+          className="w-full rounded px-2.5 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-muted/50 focus:outline-none"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => { apply({ borderWidth: null, borderColor: null }); setOpen(false) }}
+        >
+          Reset
+        </button>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 function LinkPopover({ editor, isLink }: { editor: Editor; isLink: boolean }): JSX.Element {
   const [url, setUrl] = useState('')
   const [open, setOpen] = useState(false)
@@ -954,6 +1118,24 @@ function ToolbarInner({
         (ctx.editor.getAttributes('tableCell').borderWidth as number | null) ??
         (ctx.editor.getAttributes('tableHeader').borderWidth as number | null) ??
         null,
+      isOnImage: (() => {
+        const { selection } = ctx.editor.state
+        return selection instanceof NodeSelection && selection.node.type.name === 'image'
+      })(),
+      imageBorderColor: (() => {
+        const { selection } = ctx.editor.state
+        if (selection instanceof NodeSelection && selection.node.type.name === 'image') {
+          return (selection.node.attrs.borderColor as string | null) ?? null
+        }
+        return null
+      })(),
+      imageBorderWidth: (() => {
+        const { selection } = ctx.editor.state
+        if (selection instanceof NodeSelection && selection.node.type.name === 'image') {
+          return (selection.node.attrs.borderWidth as number | null) ?? null
+        }
+        return null
+      })(),
     }),
   })
 
@@ -1150,6 +1332,15 @@ function ToolbarInner({
           title="Insert page break"
           onClick={() => editor.chain().focus().insertPageBreak().run()}
         />
+      )}
+
+      {/* Image border tools — only visible when an image is selected */}
+      {s.isOnImage && !isZoneEditor && (
+        <>
+          <Sep />
+          <ImageBorderColorPicker editor={editor} currentColor={s.imageBorderColor} theme={theme} />
+          <ImageBorderWeightPicker editor={editor} currentWidth={s.imageBorderWidth} />
+        </>
       )}
 
       {/* Table cell tools — only visible when cursor is inside a table */}

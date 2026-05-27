@@ -182,17 +182,22 @@ export function SessionStatsPanel({ stats }: Props): JSX.Element {
               <div className="text-[10px] text-muted-foreground">{streakMsg}</div>
             </div>
           </div>
-          {/* 7-day dot row */}
+          {/* 7-day dot row — filled dots = streak count, 7th pulses if streak ≥ 7 */}
           <div className="flex shrink-0 items-center gap-[3px] pt-0.5">
-            {last7.map((d) => (
-              <div
-                key={d}
-                className={cn(
-                  'h-2 w-2 rounded-full transition-colors',
-                  writingDays.includes(d) ? 'bg-primary' : 'bg-muted-foreground/25'
-                )}
-              />
-            ))}
+            {Array.from({ length: 7 }, (_, i) => {
+              const filled = i < streak
+              const pulse = i === 6 && streak >= 7
+              return (
+                <div
+                  key={i}
+                  className={cn(
+                    'h-2 w-2 rounded-full transition-colors',
+                    filled ? 'bg-primary' : 'bg-muted-foreground/25',
+                    pulse && 'animate-pulse'
+                  )}
+                />
+              )
+            })}
           </div>
         </div>
       </div>
