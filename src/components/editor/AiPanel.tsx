@@ -157,6 +157,18 @@ function ChatTab({
     }
   }, [pendingAiPrompt, setPendingAiPrompt])
 
+  // Sync textarea height whenever input changes from any source (including
+  // programmatic setInput calls like pendingAiPrompt fill-ins).
+  useEffect(() => {
+    const el = inputRef.current
+    if (!el) return
+    el.style.height = '0'
+    const full = el.scrollHeight
+    const max = 128
+    el.style.height = `${Math.min(full, max)}px`
+    el.style.overflowY = full > max ? 'auto' : 'hidden'
+  }, [input])
+
   const docText = editor ? editor.getText() : ''
   const unavailable = ollamaStatus === 'unavailable'
   const busy = streaming || ollamaStatus === 'loading'
@@ -393,7 +405,7 @@ function AnalysisTab({
   return (
     <div className="flex h-full flex-col">
       {/* Controls */}
-      <div className="shrink-0 px-3 py-3 space-y-2">
+      <div className="shrink-0 px-3 pt-2 pb-3 space-y-2">
         {/* Assignment context */}
         <div>
           <button

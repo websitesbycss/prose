@@ -6,7 +6,7 @@ export const POMODORO_DEFAULT_BREAK_MINUTES = 5 as const
 export const MUSIC_DEFAULT_VOLUME = 70 as const
 export const SIDEBAR_COLLAPSED_WIDTH = 42 as const
 export const SIDEBAR_EXPANDED_WIDTH = 220 as const
-export const AI_PANEL_WIDTH = 280 as const
+export const AI_PANEL_WIDTH = 320 as const
 // Fallback page margin constants (1 in at 96 dpi). Real values come from per-document pageMargins.
 export const PAGE_MARGIN_X_PX = 96 as const
 export const PAGE_MARGIN_Y_PX = 96 as const

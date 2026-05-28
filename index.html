@@ -3,21 +3,29 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Content Security Policy:
+        script-src 'self'      — no inline scripts, no remote scripts
+        style-src  'unsafe-inline' — required by KaTeX and Tailwind utility classes
+        connect-src 'self'     — renderer cannot make arbitrary network requests
+        object-src / frame-src 'none' — block plugin and iframe injection
+    -->
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self';
+      script-src 'self';
+      style-src 'self' 'unsafe-inline';
+      font-src 'self' data:;
+      img-src 'self' data: blob:;
+      connect-src 'self';
+      media-src 'none';
+      object-src 'none';
+      frame-src 'none';
+      base-uri 'self';
+      form-action 'none';
+    " />
     <title>Prose</title>
-    <script>
-      // Apply theme from storage before React hydrates to prevent flash.
-      // On first launch (no stored theme), dark is the default.
-      try {
-        const stored = localStorage.getItem('prose-theme')
-        if (stored === 'light') {
-          document.documentElement.classList.remove('dark')
-        } else {
-          document.documentElement.classList.add('dark')
-        }
-      } catch (_) {
-        document.documentElement.classList.add('dark')
-      }
-    </script>
+    <!-- Theme init runs before React to prevent dark/light flash; external file keeps script-src 'self' valid -->
+    <script src="/src/theme-init.js"></script>
   </head>
   <body>
     <div id="root"></div>

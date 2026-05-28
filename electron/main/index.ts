@@ -1,5 +1,5 @@
-import { app, BrowserWindow, shell, ipcMain, session } from 'electron'
-import { resolve, isAbsolute } from 'path'
+import { app, BrowserWindow, shell, ipcMain } from 'electron'
+import { isAbsolute } from 'path'
 import { autoUpdater } from 'electron-updater'
 import { join } from 'path'
 import { initSettingsDb, closeSettingsDb, getSettingJson, setSetting } from './services/settingsDb'
@@ -154,34 +154,6 @@ app.whenReady().then(async () => {
     app.quit()
     return
   }
-
-  // Content Security Policy — blocks inline script execution and restricts
-  // resource loading to known-safe origins. Ollama on localhost:11434 is the
-  // only permitted external connect target.
-  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    callback({
-      responseHeaders: {
-        ...details.responseHeaders,
-        'Content-Security-Policy': [
-          [
-            "default-src 'self'",
-            "script-src 'self'",
-            // KaTeX/styled-components require inline styles; fonts need data:
-            "style-src 'self' 'unsafe-inline'",
-            "font-src 'self' data:",
-            "img-src 'self' data: blob:",
-            // Ollama local API + same-origin only
-            "connect-src 'self' http://localhost:11434",
-            "media-src 'none'",
-            "object-src 'none'",
-            "frame-src 'none'",
-            "base-uri 'self'",
-            "form-action 'none'",
-          ].join('; '),
-        ],
-      },
-    })
-  })
 
   const win = createWindow()
 
