@@ -1,4 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkMath from 'remark-math'
+import rehypeKatex from 'rehype-katex'
 import type { Editor } from '@tiptap/react'
 import { motion, AnimatePresence } from 'motion/react'
 import { Button } from '@/components/ui/button'
@@ -11,6 +14,54 @@ import type { AnalysisState, AnalysisControls } from '@/hooks/useAnalysis'
 import {
   Send, Loader2, Sparkles, WandSparkles, MessageSquare, ScanText, X,
 } from 'lucide-react'
+
+// ── Markdown renderer for assistant messages ─────────────────────────────────
+
+// LLMs commonly emit \[...\] for display math and \(...\) for inline math.
+// remark-math expects $$...$$ and $...$ respectively, so normalise first.
+function normaliseMath(text: string): string {
+  return text
+    .replace(/\\\[([\s\S]*?)\\\]/g, (_, m: string) => `$$${m}$$`)
+    .replace(/\\\(([\s\S]*?)\\\)/g, (_, m: string) => `$${m}$`)
+}
+
+function AiMarkdown({ children }: { children: string }): JSX.Element {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkMath]}
+      rehypePlugins={[rehypeKatex]}
+      allowedElements={['p','strong','em','h1','h2','h3','ul','ol','li','code','pre','blockquote','span','div','math','semantics','mrow','mi','mo','mn','msup','msub','mfrac','msqrt','mtext','mspace','mover','munder','mtable','mtr','mtd','annotation']}
+      unwrapDisallowed
+      components={{
+        p:      ({ children }) => <p className="mb-1.5 last:mb-0">{children}</p>,
+        strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+        em:     ({ children }) => <em className="italic">{children}</em>,
+        h1:     ({ children }) => <p className="mb-1 font-semibold">{children}</p>,
+        h2:     ({ children }) => <p className="mb-1 font-semibold">{children}</p>,
+        h3:     ({ children }) => <p className="mb-0.5 font-medium">{children}</p>,
+        ul:     ({ children }) => <ul className="mb-1.5 ml-3 list-disc space-y-0.5">{children}</ul>,
+        ol:     ({ children }) => <ol className="mb-1.5 ml-3 list-decimal space-y-0.5">{children}</ol>,
+        li:     ({ children }) => <li>{children}</li>,
+        code:   ({ children, className }) =>
+          className ? (
+            <code className="block whitespace-pre-wrap rounded bg-background/60 px-2 py-1 font-mono text-[11px]">
+              {children}
+            </code>
+          ) : (
+            <code className="rounded bg-background/60 px-1 font-mono text-[11px]">{children}</code>
+          ),
+        pre:    ({ children }) => <pre className="mb-1.5 overflow-x-auto">{children}</pre>,
+        blockquote: ({ children }) => (
+          <blockquote className="mb-1.5 border-l-2 border-muted-foreground/40 pl-2 italic text-muted-foreground">
+            {children}
+          </blockquote>
+        ),
+      }}
+    >
+      {children}
+    </ReactMarkdown>
+  )
+}
 
 // ── Suggestion chips ──────────────────────────────────────────────────────────
 
@@ -92,7 +143,7 @@ function ChatTab({
   const [contextOpen, setContextOpen] = useState(false)
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -114,6 +165,10 @@ function ChatTab({
     const t = text.trim()
     if (!t || busy || unavailable) return
     setInput('')
+    if (inputRef.current) {
+      inputRef.current.style.height = ''
+      inputRef.current.style.overflowY = 'hidden'
+    }
     await sendMessage(t, docText, assignmentContext || undefined)
   }
 
@@ -193,7 +248,9 @@ function ChatTab({
                   : 'rounded-bl-sm bg-muted text-foreground'
               )}
             >
-              {msg.content || (
+              {msg.role === 'assistant' && msg.content ? (
+                <AiMarkdown>{normaliseMath(msg.content)}</AiMarkdown>
+              ) : msg.content || (
                 <span className="flex items-center gap-1 text-muted-foreground">
                   {reloading ? (
                     <>
@@ -242,13 +299,23 @@ function ChatTab({
       {/* Input */}
       <div className="shrink-0 p-2">
         <div className="flex gap-1.5 rounded-lg border border-input bg-background px-2 py-1.5 focus-within:ring-1 focus-within:ring-ring">
-          <input
+          <textarea
             ref={inputRef}
-            className="flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground/50"
+            rows={1}
+            className="flex-1 resize-none bg-transparent text-xs outline-none placeholder:text-muted-foreground/50"
+            style={{ lineHeight: '1.4', overflowY: 'hidden' }}
             placeholder={unavailable ? 'AI unavailable' : 'Ask anything…'}
             value={input}
             disabled={unavailable || busy}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              setInput(e.target.value)
+              const el = e.target
+              el.style.height = '0'
+              const full = el.scrollHeight
+              const max = 128 // 8rem at 16px
+              el.style.height = `${Math.min(full, max)}px`
+              el.style.overflowY = full > max ? 'auto' : 'hidden'
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault()

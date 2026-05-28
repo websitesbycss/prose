@@ -34,7 +34,7 @@ function InlineMathView({ node, selected }: NodeViewProps) {
   return (
     <NodeViewWrapper
       as="span"
-      style={{ display: 'inline-block', position: 'relative', verticalAlign: 'bottom', lineHeight: 'normal' }}
+      style={{ display: 'inline' }}
       onDragStart={(e: React.DragEvent<HTMLSpanElement>) => {
         if (containerRef.current) {
           const rect = containerRef.current.getBoundingClientRect()
@@ -42,10 +42,14 @@ function InlineMathView({ node, selected }: NodeViewProps) {
         }
       }}
     >
+      {/* inline-block + align-middle keeps the equation on the text baseline without
+          expanding the line box the way verticalAlign:bottom does. No px padding so
+          the selection ring hugs the actual rendered math with no empty left gap. */}
       <span
         ref={containerRef}
+        data-drag-handle
         className={cn(
-          'math-inline relative inline-block select-none rounded px-0.5',
+          'math-inline relative inline-block cursor-move select-none align-middle',
           selected && 'ring-2 ring-primary/30',
           hasError && 'bg-destructive/10 font-mono text-xs text-destructive',
         )}
@@ -53,7 +57,7 @@ function InlineMathView({ node, selected }: NodeViewProps) {
         {selected && (
           <span
             className="pointer-events-none absolute inset-0 z-[1]"
-            style={{ border: '2px solid hsl(var(--primary))', borderRadius: '3px' }}
+            style={{ border: '2px solid hsl(var(--primary))' }}
           />
         )}
 
@@ -62,14 +66,6 @@ function InlineMathView({ node, selected }: NodeViewProps) {
         ) : (
           <span dangerouslySetInnerHTML={{ __html: html }} />
         )}
-
-        {/* Transparent drag handle — TipTap wires data-drag-handle to ProseMirror's
-            built-in node drag so the equation moves (not copies) in the document. */}
-        <span
-          data-drag-handle
-          className="absolute inset-0 z-[1]"
-          style={{ cursor: 'move' }}
-        />
       </span>
     </NodeViewWrapper>
   )

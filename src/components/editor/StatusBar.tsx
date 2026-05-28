@@ -29,7 +29,7 @@ const FORMAT_LABELS: Record<string, string> = {
 const ZOOM_MIN = 25
 const ZOOM_MAX = 175
 const ZOOM_STEP = 10
-const ZOOM_PRESETS = [25, 50, 75, 90, 100, 125, 150, 175, 200]
+const ZOOM_PRESETS = [25, 50, 75, 90, 100, 110, 125, 150, 175, 200]
 
 function ZoomControls({ zoom, onZoomChange }: { zoom: number; onZoomChange(z: number): void }): JSX.Element {
   const [open, setOpen] = useState(false)

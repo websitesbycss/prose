@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 import {
   Undo2, Redo2, Scissors, Copy, Clipboard, RemoveFormatting,
   Link2, Eraser, Sparkles, ExternalLink, Link, Unlink2,
-  Trash2, Download, MousePointerClick,
+  Trash2, Download, MousePointerClick, Pencil,
   ArrowUp, ArrowDown, ArrowLeft, ArrowRight,
 } from 'lucide-react'
 
@@ -19,6 +19,10 @@ interface MenuCtx {
   imageSrc: string | null
   imageBorderRadius: number
   imagePos: number | null
+  isOnMath: boolean
+  mathLatex: string | null
+  mathDisplayMode: boolean
+  mathPos: number | null
   isOnPageBreak: boolean
   hasSelection: boolean
   selectedText: string
@@ -42,9 +46,10 @@ type MenuItem =
 
 interface EditorContextMenuProps {
   editor: Editor | null
+  onEditMath?: (pos: number, latex: string, displayMode: boolean) => void
 }
 
-export function EditorContextMenu({ editor }: EditorContextMenuProps): JSX.Element | null {
+export function EditorContextMenu({ editor, onEditMath }: EditorContextMenuProps): JSX.Element | null {
   const [ctx, setCtx] = useState<MenuCtx | null>(null)
   const [linkMode, setLinkMode] = useState(false)
   const [linkDraft, setLinkDraft] = useState('')
@@ -52,6 +57,7 @@ export function EditorContextMenu({ editor }: EditorContextMenuProps): JSX.Eleme
   const menuRef = useRef<HTMLDivElement>(null)
   const setAiPanelOpen = useAppStore((s) => s.setAiPanelOpen)
   const setPendingAiPrompt = useAppStore((s) => s.setPendingAiPrompt)
+  const setActiveAiTab = useAppStore((s) => s.setActiveAiTab)
 
   const dismiss = useCallback(() => {
     setCtx(null)
@@ -113,6 +119,31 @@ export function EditorContextMenu({ editor }: EditorContextMenuProps): JSX.Eleme
         imageBorderRadius = typeof attrs.borderRadius === 'number' ? attrs.borderRadius : 0
       }
 
+      // Detect math nodes — check closest .math-inline/.math-block ancestor first,
+      // then confirm via posAtCoords to get the node position
+      let isOnMath = false
+      let mathLatex: string | null = null
+      let mathDisplayMode = false
+      let mathPos: number | null = null
+      const mathEl = (target as HTMLElement).closest('.math-inline, .math-block')
+      if (mathEl && posData) {
+        const doc = editor!.view.state.doc
+        for (const tryPos of [posData.inside, posData.pos, posData.pos - 1]) {
+          if (tryPos < 0) continue
+          try {
+            const sel = NodeSelection.create(doc, tryPos)
+            if (sel.node.type.name === 'inlineMath' || sel.node.type.name === 'blockMath') {
+              editor!.view.dispatch(editor!.view.state.tr.setSelection(sel))
+              mathPos = sel.from
+              mathLatex = sel.node.attrs.latex as string
+              mathDisplayMode = sel.node.type.name === 'blockMath'
+              isOnMath = true
+              break
+            }
+          } catch { /* not a valid node selection at this pos */ }
+        }
+      }
+
       const { state } = editor!
       const { selection } = state
       const hasSelection = !selection.empty
@@ -135,6 +166,10 @@ export function EditorContextMenu({ editor }: EditorContextMenuProps): JSX.Eleme
         imageSrc,
         imageBorderRadius,
         imagePos,
+        isOnMath,
+        mathLatex,
+        mathDisplayMode,
+        mathPos,
         isOnPageBreak,
         hasSelection,
         selectedText,
@@ -270,7 +305,7 @@ export function EditorContextMenu({ editor }: EditorContextMenuProps): JSX.Eleme
   // Build menu items
   const items: MenuItem[] = []
 
-  if (!ctx.isOnImage) {
+  if (!ctx.isOnImage && !ctx.isOnMath) {
     items.push({ type: 'btn', label: 'Undo', icon: Undo2, disabled: !ctx.canUndo, onClick: () => run(() => editor.commands.undo()) })
     items.push({ type: 'btn', label: 'Redo', icon: Redo2, disabled: !ctx.canRedo, onClick: () => run(() => editor.commands.redo()) })
     items.push({ type: 'sep' })
@@ -351,7 +386,35 @@ export function EditorContextMenu({ editor }: EditorContextMenuProps): JSX.Eleme
       className="min-w-[200px] rounded-lg border border-border bg-background py-1 text-[13px] shadow-lg"
       onMouseDown={(e) => { if ((e.target as HTMLElement).tagName !== 'INPUT') e.preventDefault() }}
     >
-      {ctx.isOnImage && ctx.imageSrc ? (
+      {ctx.isOnMath && ctx.mathPos !== null ? (
+        <>
+          <MenuBtn
+            icon={Pencil}
+            label="Edit equation"
+            onClick={() => {
+              onEditMath?.(ctx.mathPos!, ctx.mathLatex ?? '', ctx.mathDisplayMode)
+              dismiss()
+            }}
+          />
+          <MenuBtn
+            icon={Sparkles}
+            label="AI: Solve this equation"
+            onClick={() => {
+              setPendingAiPrompt(`Solve the following and show every step:\n\n${ctx.mathLatex ?? ''}`)
+              setActiveAiTab('chat')
+              setAiPanelOpen(true)
+              dismiss()
+            }}
+          />
+          <MenuSep />
+          <MenuBtn
+            icon={Trash2}
+            label="Delete equation"
+            destructive
+            onClick={() => run(() => editor.commands.deleteSelection())}
+          />
+        </>
+      ) : ctx.isOnImage && ctx.imageSrc ? (
         <>
           <MenuBtn icon={Copy} label="Copy image" onClick={() => { void copyImage(ctx.imageSrc!) }} />
           <MenuBtn icon={Download} label="Save image as…" onClick={() => { void saveImage(ctx.imageSrc!) }} />

@@ -1,4 +1,5 @@
 import { ipcMain } from 'electron'
+import { isAbsolute } from 'path'
 import {
   createDocument,
   updateDocument,
@@ -71,7 +72,8 @@ export function registerDocumentHandlers(): void {
 
     if (typeof d.title !== 'string' || !d.title.trim()) throw new Error('title is required')
     const format = typeof d.format === 'string' && VALID_FORMATS.has(d.format) ? d.format : 'none'
-    const wordCountGoal = d.wordCountGoal != null ? Number(d.wordCountGoal) : null
+    const _wcg = d.wordCountGoal != null ? Number(d.wordCountGoal) : null
+    const wordCountGoal = _wcg != null && isFinite(_wcg) ? Math.max(0, Math.min(999_999, Math.round(_wcg))) : null
     const categoryId = typeof d.categoryId === 'string' ? d.categoryId : null
     const headerContent = d.headerContent != null ? parseJsonField(d.headerContent) : null
     const footerContent = d.footerContent != null ? parseJsonField(d.footerContent) : null
@@ -109,7 +111,10 @@ export function registerDocumentHandlers(): void {
 
     if (typeof d.title === 'string' && d.title.trim()) patch.title = d.title.trim()
     if (typeof d.format === 'string' && VALID_FORMATS.has(d.format)) patch.format = d.format
-    if ('wordCountGoal' in d) patch.wordCountGoal = d.wordCountGoal != null ? Number(d.wordCountGoal) : null
+    if ('wordCountGoal' in d) {
+      const _wcg2 = d.wordCountGoal != null ? Number(d.wordCountGoal) : null
+      patch.wordCountGoal = _wcg2 != null && isFinite(_wcg2) ? Math.max(0, Math.min(999_999, Math.round(_wcg2))) : null
+    }
     if ('categoryId' in d) patch.categoryId = typeof d.categoryId === 'string' ? d.categoryId : null
     if ('headerContent' in d) {
       patch.headerContent = d.headerContent != null ? parseJsonField(d.headerContent) : null
@@ -154,6 +159,9 @@ export function registerDocumentHandlers(): void {
 
   ipcMain.handle('documents:changeFolder', async (event, newPath: unknown, moveFiles: unknown) => {
     if (typeof newPath !== 'string' || !newPath) throw new Error('Invalid folder path')
+    if (!isAbsolute(newPath)) throw new Error('Folder path must be absolute')
+    // Reject paths containing traversal sequences
+    if (newPath.includes('..')) throw new Error('Path traversal not allowed')
     const shouldMove = moveFiles === true
     await changeDocumentsFolder(newPath, shouldMove)
   })

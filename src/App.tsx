@@ -36,6 +36,9 @@ export default function App(): JSX.Element {
         appSettings.lightAccentColor ?? DEFAULT_LIGHT_ACCENT,
         appSettings.darkAccentColor  ?? DEFAULT_DARK_ACCENT,
       )
+      const scale = appSettings.uiScale ?? 110
+      document.documentElement.style.fontSize = `${scale}%`
+      useAppStore.getState().setUiScale(scale)
     })
   }, [])
 

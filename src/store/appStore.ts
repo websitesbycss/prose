@@ -27,6 +27,7 @@ interface AppState {
   activeAiTab: 'chat' | 'analysis'
   assignmentContext: string
   typewriterMode: boolean
+  uiScale: number
 
   setCurrentDocumentId(id: string | null): void
   setTheme(theme: Theme): void
@@ -44,6 +45,7 @@ interface AppState {
   setActiveAiTab(tab: 'chat' | 'analysis'): void
   setAssignmentContext(ctx: string): void
   setTypewriterMode(v: boolean): void
+  setUiScale(v: number): void
 }
 
 const DEFAULT_POMODORO: PomodoroState = {
@@ -69,6 +71,7 @@ export const useAppStore = create<AppState>()((set) => ({
   activeAiTab: 'chat',
   assignmentContext: '',
   typewriterMode: false,
+  uiScale: 110,
 
   setCurrentDocumentId: (id) => set({ currentDocumentId: id }),
   setTheme: (theme) => {
@@ -83,7 +86,7 @@ export const useAppStore = create<AppState>()((set) => ({
     setTimeout(() => document.documentElement.classList.remove('theme-transitioning'), 250)
   },
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
-  // AI and citation panels are mutually exclusive — opening one closes the other
+  // AI and citation panels are mutually exclusive; opening one closes the other
   setAiPanelOpen: (open) =>
     set((s) => ({ aiPanelOpen: open, citationPanelOpen: open ? false : s.citationPanelOpen })),
   setCitationPanelOpen: (open) =>
@@ -100,4 +103,8 @@ export const useAppStore = create<AppState>()((set) => ({
   setActiveAiTab: (tab) => set({ activeAiTab: tab }),
   setAssignmentContext: (ctx) => set({ assignmentContext: ctx }),
   setTypewriterMode: (v) => set({ typewriterMode: v }),
+  setUiScale: (v) => {
+    document.documentElement.style.fontSize = `${v}%`
+    set({ uiScale: v })
+  },
 }))

@@ -1,7 +1,8 @@
-import { app, BrowserWindow, shell, ipcMain } from 'electron'
+import { app, BrowserWindow, shell, ipcMain, session } from 'electron'
+import { resolve, isAbsolute } from 'path'
 import { autoUpdater } from 'electron-updater'
 import { join } from 'path'
-import { initSettingsDb, closeSettingsDb } from './services/settingsDb'
+import { initSettingsDb, closeSettingsDb, getSettingJson, setSetting } from './services/settingsDb'
 import { initIndexDb, closeIndexDb } from './services/indexDb'
 import { ensureDocumentsFolderExists, isDocumentsFolderAccessible } from './services/fileService'
 import { ollamaManager } from './services/ollama'
@@ -21,10 +22,16 @@ import { registerFileAssociation } from './services/fileAssociation'
 // Pending file open from OS (before window is ready or while running)
 let pendingFileOpen: string | null = null
 
+interface SavedBounds { x: number; y: number; width: number; height: number; isMaximized: boolean }
+
 function createWindow(): BrowserWindow {
+  const saved = getSettingJson<SavedBounds | null>('windowBounds', null)
+  const bounds = saved ?? { width: 1280, height: 800 }
+
   const win = new BrowserWindow({
-    width: 1280,
-    height: 800,
+    ...(saved?.x != null ? { x: saved.x, y: saved.y } : {}),
+    width: bounds.width,
+    height: bounds.height,
     minWidth: 960,
     minHeight: 600,
     show: false,
@@ -37,6 +44,30 @@ function createWindow(): BrowserWindow {
     },
   })
 
+  if (saved?.isMaximized) win.maximize()
+
+  // Debounced save so rapid resize/move events don't hammer the DB
+  let boundsTimer: ReturnType<typeof setTimeout> | null = null
+  function scheduleSaveBounds(): void {
+    if (boundsTimer) clearTimeout(boundsTimer)
+    boundsTimer = setTimeout(() => {
+      if (win.isDestroyed()) return
+      const b = win.getBounds()
+      setSetting('windowBounds', JSON.stringify({ ...b, isMaximized: win.isMaximized() }))
+    }, 500)
+  }
+
+  win.on('resize', scheduleSaveBounds)
+  win.on('move', scheduleSaveBounds)
+  // Flush immediately on close so the final state is always written
+  win.on('close', () => {
+    if (boundsTimer) { clearTimeout(boundsTimer); boundsTimer = null }
+    if (!win.isDestroyed()) {
+      const b = win.getBounds()
+      setSetting('windowBounds', JSON.stringify({ ...b, isMaximized: win.isMaximized() }))
+    }
+  })
+
   win.on('ready-to-show', () => {
     win.show()
     if (pendingFileOpen) {
@@ -46,7 +77,13 @@ function createWindow(): BrowserWindow {
   })
 
   win.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url)
+    // Only open http/https URLs externally; block file:// javascript: etc.
+    try {
+      const parsed = new URL(url)
+      if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+        shell.openExternal(url).catch(() => {})
+      }
+    } catch { /* malformed URL — ignore */ }
     return { action: 'deny' }
   })
 
@@ -117,6 +154,34 @@ app.whenReady().then(async () => {
     app.quit()
     return
   }
+
+  // Content Security Policy — blocks inline script execution and restricts
+  // resource loading to known-safe origins. Ollama on localhost:11434 is the
+  // only permitted external connect target.
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [
+          [
+            "default-src 'self'",
+            "script-src 'self'",
+            // KaTeX/styled-components require inline styles; fonts need data:
+            "style-src 'self' 'unsafe-inline'",
+            "font-src 'self' data:",
+            "img-src 'self' data: blob:",
+            // Ollama local API + same-origin only
+            "connect-src 'self' http://localhost:11434",
+            "media-src 'none'",
+            "object-src 'none'",
+            "frame-src 'none'",
+            "base-uri 'self'",
+            "form-action 'none'",
+          ].join('; '),
+        ],
+      },
+    })
+  })
 
   const win = createWindow()
 

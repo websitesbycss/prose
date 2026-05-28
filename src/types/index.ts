@@ -58,6 +58,7 @@ export interface AppSettings {
   headingFontSizes: { h1: number; h2: number; h3: number }
   lightAccentColor?: string
   darkAccentColor?: string
+  uiScale?: number
 }
 
 export type OllamaStatus = 'ready' | 'loading' | 'unavailable'

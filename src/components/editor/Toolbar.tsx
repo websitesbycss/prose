@@ -13,7 +13,6 @@ import {
   Image, Link2, Table2, Music, BookOpen, Hash, SeparatorHorizontal,
   ChevronDown, Undo2, Redo2, Highlighter, PaintBucket,
 } from 'lucide-react'
-import MathModal from './MathModal'
 import type { DocumentFormat } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -120,6 +119,7 @@ interface ToolbarProps {
   isZoneEditor?: boolean
   defaultFontFamily?: string
   defaultFontSize?: number
+  onOpenMathModal?: () => void
 }
 
 const FONT_FAMILIES = [
@@ -1045,6 +1045,7 @@ function ToolbarInner({
   isZoneEditor,
   defaultFontFamily = 'Calibri',
   defaultFontSize = 12,
+  onOpenMathModal,
 }: {
   editor: Editor
   document: Document | null
@@ -1053,6 +1054,7 @@ function ToolbarInner({
   isZoneEditor: boolean
   defaultFontFamily?: string
   defaultFontSize?: number
+  onOpenMathModal?: () => void
 }): JSX.Element {
   const format = document?.format
   const setMusicPanelOpen = useAppStore((s) => s.setMusicPanelOpen)
@@ -1060,7 +1062,6 @@ function ToolbarInner({
   const citationPanelOpen = useAppStore((s) => s.citationPanelOpen)
   const musicPanelOpen = useAppStore((s) => s.musicPanelOpen)
   const theme = useAppStore((s) => s.theme)
-  const [mathModalOpen, setMathModalOpen] = useState(false)
 
   const s = useEditorState({
     editor,
@@ -1165,7 +1166,6 @@ function ToolbarInner({
   }
 
   return (
-    <>
     <div
       className="flex h-10 shrink-0 items-center gap-0.5 overflow-x-auto border-b border-border px-2 bg-muted/30 dark:bg-muted/10"
       onMouseDown={(e) => e.preventDefault()}
@@ -1306,7 +1306,7 @@ function ToolbarInner({
       <ToolbarBtn
         icon={Sigma}
         title="Insert equation (LaTeX)"
-        onClick={() => setMathModalOpen(true)}
+        onClick={() => onOpenMathModal?.()}
       />
 
       <Sep />
@@ -1414,23 +1414,10 @@ function ToolbarInner({
 
       <ChevronDown className="ml-auto h-3 w-3 shrink-0 text-muted-foreground/0" aria-hidden />
     </div>
-    <MathModal
-      open={mathModalOpen}
-      onClose={() => setMathModalOpen(false)}
-      onInsert={(latex, displayMode) => {
-        if (displayMode) {
-          editor.chain().focus().insertBlockMath(latex).run()
-        } else {
-          editor.chain().focus().insertInlineMath(latex).run()
-        }
-        setMathModalOpen(false)
-      }}
-    />
-    </>
   )
 }
 
-export default function Toolbar({ editor, document, onApplyFormat, headingFontSizes, isZoneEditor = false, defaultFontFamily, defaultFontSize }: ToolbarProps): JSX.Element {
+export default function Toolbar({ editor, document, onApplyFormat, headingFontSizes, isZoneEditor = false, defaultFontFamily, defaultFontSize, onOpenMathModal }: ToolbarProps): JSX.Element {
   if (!editor) return <div className="h-10 shrink-0 border-b border-border" />
   return (
     <ToolbarInner
@@ -1441,6 +1428,7 @@ export default function Toolbar({ editor, document, onApplyFormat, headingFontSi
       isZoneEditor={isZoneEditor}
       defaultFontFamily={defaultFontFamily}
       defaultFontSize={defaultFontSize}
+      onOpenMathModal={onOpenMathModal}
     />
   )
 }

@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useCallback } from 'react'
+import { useState, useRef, useMemo, useCallback, useEffect } from 'react'
 import katex from 'katex'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -11,6 +11,8 @@ interface MathModalProps {
   open: boolean
   onClose(): void
   onInsert(latex: string, displayMode: boolean): void
+  initialLatex?: string
+  initialDisplayMode?: boolean
 }
 
 const TEMPLATES: { label: string; latex: string; title: string }[] = [
@@ -32,10 +34,27 @@ const TEMPLATES: { label: string; latex: string; title: string }[] = [
   { label: '∞',          latex: '\\infty',   title: 'Infinity' },
 ]
 
-export default function MathModal({ open, onClose, onInsert }: MathModalProps): JSX.Element {
-  const [latex, setLatex] = useState('')
-  const [displayMode, setDisplayMode] = useState(false)
+function TextLine({ width }: { width: string }): JSX.Element {
+  return (
+    <div
+      className="shrink-0 rounded-full bg-muted-foreground/25"
+      style={{ width, height: '6px' }}
+    />
+  )
+}
+
+export default function MathModal({ open, onClose, onInsert, initialLatex = '', initialDisplayMode = false }: MathModalProps): JSX.Element {
+  const [latex, setLatex] = useState(initialLatex)
+  const [displayMode, setDisplayMode] = useState(initialDisplayMode)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  // Sync state whenever the modal opens (handles switching between insert/edit mode)
+  useEffect(() => {
+    if (open) {
+      setLatex(initialLatex)
+      setDisplayMode(initialDisplayMode)
+    }
+  }, [open, initialLatex, initialDisplayMode])
 
   const [previewHtml, previewError] = useMemo<[string, string | null]>(() => {
     const src = latex.trim()
@@ -82,7 +101,7 @@ export default function MathModal({ open, onClose, onInsert }: MathModalProps): 
     <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose() }}>
       <DialogContent className="flex w-[540px] max-w-[95vw] flex-col gap-0 p-0">
         <DialogHeader className="shrink-0 border-b border-border px-5 py-4">
-          <DialogTitle className="text-sm font-semibold">Insert equation</DialogTitle>
+          <DialogTitle className="text-sm font-semibold">{initialLatex ? 'Edit equation' : 'Insert equation'}</DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-col gap-4 px-5 py-4">
@@ -138,20 +157,29 @@ export default function MathModal({ open, onClose, onInsert }: MathModalProps): 
           {/* Preview */}
           <div className="flex flex-col gap-1.5">
             <span className="text-xs font-medium text-muted-foreground">Preview</span>
-            <div
-              className={cn(
-                'min-h-[48px] rounded-md border border-border bg-white px-4 py-3 dark:bg-zinc-900',
-                displayMode ? 'text-center' : 'text-left',
-              )}
-            >
+            <div className="rounded-md border border-border bg-white px-4 py-3 dark:bg-zinc-900">
               {previewError ? (
                 <span className="text-xs text-destructive">{previewError}</span>
-              ) : previewHtml ? (
-                <span dangerouslySetInnerHTML={{ __html: previewHtml }} />
+              ) : displayMode ? (
+                /* Display block: text line / equation / text line */
+                <div className="flex flex-col gap-1.5">
+                  <TextLine width="60%" />
+                  <div className="flex justify-center py-1">
+                    {previewHtml
+                      ? <span dangerouslySetInnerHTML={{ __html: previewHtml }} />
+                      : <TextLine width="40%" />}
+                  </div>
+                  <TextLine width="75%" />
+                </div>
               ) : (
-                <span className="text-xs text-muted-foreground/50">
-                  Preview will appear here as you type
-                </span>
+                /* Inline: dashes — equation — dashes on one line */
+                <div className="flex items-center gap-2">
+                  <TextLine width="4rem" />
+                  {previewHtml
+                    ? <span dangerouslySetInnerHTML={{ __html: previewHtml }} />
+                    : <TextLine width="3rem" />}
+                  <TextLine width="5rem" />
+                </div>
               )}
             </div>
           </div>
@@ -166,9 +194,9 @@ export default function MathModal({ open, onClose, onInsert }: MathModalProps): 
             className="text-xs"
             disabled={!canInsert}
             onClick={handleInsert}
-            title={canInsert ? 'Insert (Ctrl+Enter)' : undefined}
+            title={canInsert ? `${initialLatex ? 'Update' : 'Insert'} (Ctrl+Enter)` : undefined}
           >
-            Insert
+            {initialLatex ? 'Update' : 'Insert'}
           </Button>
         </DialogFooter>
       </DialogContent>

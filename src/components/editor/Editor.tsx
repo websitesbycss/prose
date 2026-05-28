@@ -1,4 +1,5 @@
 import { useEffect, useCallback, useState, useRef } from 'react'
+import { NodeSelection } from '@tiptap/pm/state'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
@@ -65,6 +66,7 @@ import MusicPanel from './MusicPanel'
 import { SessionStatsPanel } from './SessionStatsPanel'
 import { HistoryPanel } from './HistoryPanel'
 import { EditorContextMenu } from './EditorContextMenu'
+import MathModal from './MathModal'
 import SettingsModal from '@/components/settings/SettingsModal'
 import type { AppSettings, Document, PageMargins } from '@/types'
 import { List, Timer, BarChart2, History, ChevronLeft, ChevronRight, Settings } from 'lucide-react'
@@ -92,10 +94,18 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   const editorScrollRef = useRef<HTMLDivElement>(null)
   const typewriterMode = useAppStore((s) => s.typewriterMode)
   const setTypewriterMode = useAppStore((s) => s.setTypewriterMode)
-  const [aiPanelWidth, setAiPanelWidth] = useState(AI_PANEL_WIDTH)
+  const [aiPanelWidth, setAiPanelWidth] = useState(() => {
+    const v = localStorage.getItem('prose-ai-panel-width')
+    return v ? Math.max(240, parseInt(v)) : AI_PANEL_WIDTH
+  })
   const dragStartRef = useRef<{ x: number; width: number } | null>(null)
-  const [sidebarWidth, setSidebarWidth] = useState(270)
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const v = localStorage.getItem('prose-sidebar-width')
+    return v ? Math.max(180, parseInt(v)) : 270
+  })
   const sidebarDragRef = useRef<{ x: number; width: number } | null>(null)
+  const aiPanelWidthRef = useRef(aiPanelWidth)
+  const sidebarWidthRef = useRef(sidebarWidth)
 
   // Tracks when header/footer content should be forcibly reset in the child editors
   const [headerContentKey, setHeaderContentKey] = useState(() => crypto.randomUUID())
@@ -132,6 +142,12 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   const [pageMargins, setPageMargins] = useState<PageMargins>(DEFAULT_PAGE_MARGINS)
   const [editorZoom, setEditorZoom] = useState(100)
   const [findOpen, setFindOpen] = useState(false)
+  const [mathModal, setMathModal] = useState<{
+    open: boolean
+    editPos: number | null
+    initialLatex: string
+    initialDisplayMode: boolean
+  }>({ open: false, editPos: null, initialLatex: '', initialDisplayMode: false })
   const findInputRef = useRef<HTMLInputElement>(null)
   const [formatModalTarget, setFormatModalTarget] = useState<'mla' | 'apa' | null>(null)
   const [activePanel, setActivePanel] = useState<SidebarPanel>('outline')
@@ -287,14 +303,18 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
         const delta = dragStartRef.current.x - e.clientX
         const newWidth = Math.min(400, Math.max(180, dragStartRef.current.width + delta))
         setAiPanelWidth(newWidth)
+        aiPanelWidthRef.current = newWidth
       }
       if (sidebarDragRef.current) {
         const delta = e.clientX - sidebarDragRef.current.x
         const newWidth = Math.min(480, Math.max(180, sidebarDragRef.current.width + delta))
         setSidebarWidth(newWidth)
+        sidebarWidthRef.current = newWidth
       }
     }
     function onMouseUp(): void {
+      if (dragStartRef.current) localStorage.setItem('prose-ai-panel-width', String(aiPanelWidthRef.current))
+      if (sidebarDragRef.current) localStorage.setItem('prose-sidebar-width', String(sidebarWidthRef.current))
       dragStartRef.current = null
       sidebarDragRef.current = null
       document.body.style.cursor = ''
@@ -424,6 +444,52 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
     [editor, saveNow]
   )
 
+  const openMathModal = useCallback((opts?: { editPos: number; latex: string; displayMode: boolean }): void => {
+    if (opts) {
+      setMathModal({ open: true, editPos: opts.editPos, initialLatex: opts.latex, initialDisplayMode: opts.displayMode })
+      return
+    }
+    // Check if current selection is on a math node (toolbar Sigma click while equation selected)
+    const ed = zoneEditor ?? editor
+    if (ed) {
+      const { selection } = ed.state
+      if (selection instanceof NodeSelection) {
+        const node = selection.node
+        if (node.type.name === 'inlineMath' || node.type.name === 'blockMath') {
+          setMathModal({
+            open: true,
+            editPos: selection.from,
+            initialLatex: node.attrs.latex as string,
+            initialDisplayMode: node.type.name === 'blockMath',
+          })
+          return
+        }
+      }
+    }
+    setMathModal({ open: true, editPos: null, initialLatex: '', initialDisplayMode: false })
+  }, [editor, zoneEditor])
+
+  const handleMathInsert = useCallback((latex: string, displayMode: boolean): void => {
+    const ed = zoneEditor ?? editor
+    if (!ed) return
+    if (mathModal.editPos !== null) {
+      const pos = mathModal.editPos
+      ed.chain()
+        .focus()
+        .setNodeSelection(pos)
+        .deleteSelection()
+        [displayMode ? 'insertBlockMath' : 'insertInlineMath'](latex)
+        .run()
+    } else {
+      if (displayMode) {
+        ed.chain().focus().insertBlockMath(latex).run()
+      } else {
+        ed.chain().focus().insertInlineMath(latex).run()
+      }
+    }
+    setMathModal((s) => ({ ...s, open: false }))
+  }, [editor, zoneEditor, mathModal.editPos])
+
   const handleFindNavigate = useCallback((): void => {
     requestAnimationFrame(() => {
       const scrollEl = editorScrollRef.current
@@ -487,6 +553,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                 isZoneEditor={zoneEditor !== null}
                 defaultFontFamily={editorFontFamily}
                 defaultFontSize={editorFontSize}
+                onOpenMathModal={() => openMathModal()}
               />
             </motion.div>
           )}
@@ -657,7 +724,10 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                     editor={editor}
                     className="prose-editor min-h-full outline-none"
                   />
-                  <EditorContextMenu editor={editor} />
+                  <EditorContextMenu
+                    editor={editor}
+                    onEditMath={(pos, latex, displayMode) => openMathModal({ editPos: pos, latex, displayMode })}
+                  />
                   <IssueTooltip editor={editor} issues={analysis.issues} />
                 </div>
 
@@ -735,6 +805,14 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
       <AnimatePresence>
         {musicPanelOpen && <MusicPanel music={music} />}
       </AnimatePresence>
+
+      <MathModal
+        open={mathModal.open}
+        initialLatex={mathModal.initialLatex}
+        initialDisplayMode={mathModal.initialDisplayMode}
+        onClose={() => setMathModal((s) => ({ ...s, open: false }))}
+        onInsert={handleMathInsert}
+      />
 
       <FormatModal
         open={formatModalTarget !== null}

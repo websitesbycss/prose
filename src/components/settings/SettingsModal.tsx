@@ -244,6 +244,27 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
                       </SelectContent>
                     </Select>
                   </SettingRow>
+                  <Separator />
+                  <SettingRow label="Interface scale" description="Scales the app UI. Does not affect document content">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="range"
+                        min={75}
+                        max={125}
+                        step={5}
+                        value={settings.uiScale ?? 110}
+                        onChange={(e) => {
+                          const v = parseInt(e.target.value)
+                          useAppStore.getState().setUiScale(v)
+                          void save({ uiScale: v })
+                        }}
+                        className="w-28 cursor-pointer accent-primary"
+                      />
+                      <span className="w-9 text-right text-xs tabular-nums text-muted-foreground">
+                        {settings.uiScale ?? 110}%
+                      </span>
+                    </div>
+                  </SettingRow>
                 </>
               )}
 

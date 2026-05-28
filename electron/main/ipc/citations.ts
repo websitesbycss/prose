@@ -78,7 +78,34 @@ async function fetchDoiMetadata(doi: string): Promise<CitationFieldsOut | null> 
   } catch { return null }
 }
 
+// Blocks SSRF: only allows public HTTP(S) URLs; rejects private/loopback/link-local addresses.
+function assertSafePublicUrl(raw: string): void {
+  let parsed: URL
+  try { parsed = new URL(raw) } catch { throw new Error('Malformed URL') }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error('Only HTTP and HTTPS URLs are allowed')
+  }
+  const h = parsed.hostname.toLowerCase()
+  // Block loopback, private ranges, link-local, and metadata endpoints
+  if (
+    h === 'localhost' ||
+    h === '0.0.0.0' ||
+    /^127\./.test(h) ||
+    /^10\./.test(h) ||
+    /^172\.(1[6-9]|2[0-9]|3[01])\./.test(h) ||
+    /^192\.168\./.test(h) ||
+    /^169\.254\./.test(h) ||   // link-local / AWS metadata
+    /^::1$/.test(h) ||
+    /^fc00:/i.test(h) ||
+    /^fd[0-9a-f]{2}:/i.test(h) ||
+    h === '0x7f000001'          // hex loopback
+  ) {
+    throw new Error('Private and loopback addresses are not allowed')
+  }
+}
+
 async function fetchUrlMetadata(url: string): Promise<CitationFieldsOut | null> {
+  assertSafePublicUrl(url)
   try {
     const res = await fetch(url, { headers: { 'User-Agent': 'Prose/1.0' }, signal: AbortSignal.timeout(8000) })
     if (!res.ok) return null
@@ -240,7 +267,7 @@ export function registerCitationHandlers(): void {
 
   ipcMain.handle('citations:fetchByUrl', (_, url: unknown) => {
     if (typeof url !== 'string' || !url) throw new Error('Invalid URL')
-    try { new URL(url) } catch { throw new Error('Malformed URL') }
+    assertSafePublicUrl(url)  // validates protocol + blocks private IPs
     return fetchUrlMetadata(url)
   })
 
