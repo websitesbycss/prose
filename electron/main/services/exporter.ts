@@ -28,6 +28,7 @@ import {
   VerticalAlignSection,
 } from 'docx'
 import type { JSONContent } from '@tiptap/core'
+import katex from 'katex'
 import { resolveDocument } from './fileService'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -602,6 +603,14 @@ function inlineToRuns(node: JSONContent): (TextRun | ImageRun | ExternalHyperlin
   }
   if (node.type === 'hardBreak') return [new TextRun({ break: 1 })]
   if (node.type === 'pageNumber') return [new TextRun({ children: [PageNumber.CURRENT] })]
+  if (node.type === 'inlineMath') {
+    const latex = (node.attrs?.latex as string) ?? ''
+    const svg = mathToSvgBuffer(latex, false)
+    if (svg) {
+      return [new ImageRun({ data: svg.data, transformation: { width: svg.width, height: svg.height }, type: 'svg' })]
+    }
+    return [new TextRun({ text: latex, font: 'Courier New' })]
+  }
   if (node.type === 'image') {
     const src = (node.attrs?.src as string) ?? ''
     const match = src.match(/^data:image\/(\w+);base64,(.+)$/)
@@ -647,6 +656,31 @@ function getImageDimensions(data: Buffer, type: string): { width: number; height
     }
   } catch { /* ignore */ }
   return null
+}
+
+// Render a LaTeX string to an SVG Buffer suitable for ImageRun.
+// KaTeX's HTML output embeds the formula as nested spans with CSS — it does not
+// produce a standalone SVG. We wrap it in a minimal SVG so Word can embed it
+// as a vector image. The SVG uses a foreignObject to host the KaTeX HTML.
+// Word 2016+ supports SVG images in DOCX.
+function mathToSvgBuffer(latex: string, displayMode: boolean): { data: Buffer; width: number; height: number } | null {
+  try {
+    const html = katex.renderToString(latex, { throwOnError: false, displayMode, output: 'html' })
+    // Rough size estimate: display formulas are taller; inline ones are line-height.
+    const width = displayMode ? 320 : 200
+    const height = displayMode ? 56 : 24
+    const svg = [
+      `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xhtml="http://www.w3.org/1999/xhtml"`,
+      ` width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`,
+      `<foreignObject width="100%" height="100%">`,
+      `<div xmlns="http://www.w3.org/1999/xhtml" style="font-size:14px;display:flex;align-items:center;justify-content:${displayMode ? 'center' : 'flex-start'};height:${height}px;">`,
+      html,
+      `</div></foreignObject></svg>`,
+    ].join('')
+    return { data: Buffer.from(svg, 'utf-8'), width, height }
+  } catch {
+    return null
+  }
 }
 
 // Recursively processes listItem children, threading the same numbering ref at the correct depth.
@@ -860,6 +894,27 @@ function nodeToParagraphs(
         })
       })
       return [new DocxTable({ rows, width: { size: tableTotalWidth, type: WidthType.DXA } })]
+    }
+
+    case 'blockMath': {
+      const latex = (node.attrs?.latex as string) ?? ''
+      const svg = mathToSvgBuffer(latex, true)
+      if (svg) {
+        return [
+          new Paragraph({
+            children: [new ImageRun({ data: svg.data, transformation: { width: svg.width, height: svg.height }, type: 'svg' })],
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 120, after: 120 },
+          }),
+        ]
+      }
+      return [
+        new Paragraph({
+          children: [new TextRun({ text: latex, font: 'Courier New' })],
+          alignment: AlignmentType.CENTER,
+          spacing: { before: 120, after: 120 },
+        }),
+      ]
     }
 
     case 'pageBreak':

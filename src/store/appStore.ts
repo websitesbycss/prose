@@ -26,6 +26,7 @@ interface AppState {
   analyzeOnSave: boolean
   activeAiTab: 'chat' | 'analysis'
   assignmentContext: string
+  typewriterMode: boolean
 
   setCurrentDocumentId(id: string | null): void
   setTheme(theme: Theme): void
@@ -42,6 +43,7 @@ interface AppState {
   setAnalyzeOnSave(v: boolean): void
   setActiveAiTab(tab: 'chat' | 'analysis'): void
   setAssignmentContext(ctx: string): void
+  setTypewriterMode(v: boolean): void
 }
 
 const DEFAULT_POMODORO: PomodoroState = {
@@ -66,6 +68,7 @@ export const useAppStore = create<AppState>()((set) => ({
   analyzeOnSave: false,
   activeAiTab: 'chat',
   assignmentContext: '',
+  typewriterMode: false,
 
   setCurrentDocumentId: (id) => set({ currentDocumentId: id }),
   setTheme: (theme) => {
@@ -96,4 +99,5 @@ export const useAppStore = create<AppState>()((set) => ({
   setAnalyzeOnSave: (v) => set({ analyzeOnSave: v }),
   setActiveAiTab: (tab) => set({ activeAiTab: tab }),
   setAssignmentContext: (ctx) => set({ assignmentContext: ctx }),
+  setTypewriterMode: (v) => set({ typewriterMode: v }),
 }))

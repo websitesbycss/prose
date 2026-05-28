@@ -102,7 +102,7 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
     }
   }, [])
 
-  // Apply accent colors whenever either value changes — uses fresh state, no stale closures
+  // Apply accent colors whenever either value changes; uses fresh state, no stale closures
   useEffect(() => {
     if (!settings) return
     applyAccentColors(
@@ -289,7 +289,10 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
                   <SettingRow label="Typewriter mode" description="Cursor stays vertically centered while typing">
                     <Switch
                       checked={settings.typewriterMode}
-                      onCheckedChange={(v) => void save({ typewriterMode: v })}
+                      onCheckedChange={(v) => {
+                        useAppStore.getState().setTypewriterMode(v)
+                        void save({ typewriterMode: v })
+                      }}
                     />
                   </SettingRow>
                   <Separator />
@@ -447,7 +450,7 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
                       <span className="text-xs text-muted-foreground">Version 0.1.0</span>
                     </div>
                     <p className="text-xs text-muted-foreground leading-relaxed">
-                      A focused, fully offline essay writing app for Windows with a built-in AI assistant.
+                      A focused, fully (ish) offline document editor for Windows with a local AI assistant.
                       No account, no subscription, no data leaves your machine.
                     </p>
                     <div className="flex flex-col gap-2">

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { toast } from 'sonner'
-import { ArrowLeft, Sun, Moon, Maximize2, Sparkles, Download } from 'lucide-react'
+import { ArrowLeft, Sun, Moon, Maximize2, Sparkles, Download, Search, X, ChevronUp, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 import type { Document } from '@/types'
 import type { Editor } from '@tiptap/react'
 import type { SaveStatus } from '@/hooks/useDocument'
+import { getFindState } from '@/extensions/findExtension'
 
 interface TitleBarProps {
   document: Document | null
@@ -19,6 +20,10 @@ interface TitleBarProps {
   onBack: () => void
   onSaveNow: () => Promise<void>
   onTitleChange: (title: string) => Promise<void>
+  findOpen: boolean
+  onFindOpenChange: (open: boolean) => void
+  findInputRef: React.RefObject<HTMLInputElement>
+  onFindNavigate?: () => void
 }
 
 const EXPORT_FORMATS = [
@@ -37,10 +42,15 @@ const FORMAT_LABELS: Record<string, string> = {
 
 export default function TitleBar({
   document,
+  editor,
   saveStatus,
   onBack,
   onSaveNow,
   onTitleChange,
+  findOpen,
+  onFindOpenChange,
+  findInputRef,
+  onFindNavigate,
 }: TitleBarProps): JSX.Element {
   const theme = useAppStore((s) => s.theme)
   const setTheme = useAppStore((s) => s.setTheme)
@@ -54,7 +64,43 @@ export default function TitleBar({
   const [draftTitle, setDraftTitle] = useState('')
   const [exportOpen, setExportOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const [findQuery, setFindQuery] = useState('')
+  const [findMatchInfo, setFindMatchInfo] = useState({ count: 0, index: 0 })
+  const titleInputRef = useRef<HTMLInputElement>(null)
+
+  // Re-read find plugin state after every transaction so the counter stays live
+  useEffect(() => {
+    if (!editor) return
+    const update = (): void => {
+      const s = getFindState(editor)
+      setFindMatchInfo({ count: s.results.length, index: s.currentIndex })
+    }
+    editor.on('transaction', update)
+    return () => { editor.off('transaction', update) }
+  }, [editor])
+
+  // Focus find input when findOpen becomes true
+  useEffect(() => {
+    if (findOpen) {
+      setTimeout(() => findInputRef.current?.focus(), 0)
+    } else {
+      setFindQuery('')
+      editor?.commands.clearFind()
+    }
+  }, [findOpen]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Run search whenever query changes
+  useEffect(() => {
+    if (!editor) return
+    if (findQuery) {
+      editor.commands.setFind(findQuery)
+    } else {
+      editor.commands.clearFind()
+    }
+  }, [findQuery, editor])
+
+  const matchCount = findOpen ? findMatchInfo.count : 0
+  const matchIndex = matchCount > 0 ? findMatchInfo.index + 1 : 0
 
   async function handleExport(fmt: typeof EXPORT_FORMATS[number]): Promise<void> {
     if (!document) return
@@ -72,7 +118,7 @@ export default function TitleBar({
   }
 
   useEffect(() => {
-    if (editing) inputRef.current?.select()
+    if (editing) titleInputRef.current?.select()
   }, [editing])
 
   function startEdit(): void {
@@ -87,6 +133,19 @@ export default function TitleBar({
     }
   }
 
+  function handleFindKeyDown(e: React.KeyboardEvent<HTMLInputElement>): void {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      if (e.shiftKey) editor?.commands.findPrev()
+      else editor?.commands.findNext()
+      onFindNavigate?.()
+    }
+    if (e.key === 'Escape') {
+      onFindOpenChange(false)
+      editor?.view.focus()
+    }
+  }
+
   const formatLabel = document ? FORMAT_LABELS[document.format] : undefined
 
   const saveIndicator =
@@ -98,24 +157,25 @@ export default function TitleBar({
 
   return (
     <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-3">
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7 shrink-0"
-        onClick={async () => {
-          await onSaveNow()
-          onBack()
-        }}
-        title="Back to dashboard"
-      >
-        <ArrowLeft className="h-4 w-4" />
-      </Button>
+      {/* Left: back + title */}
+      <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 shrink-0"
+          onClick={async () => {
+            await onSaveNow()
+            onBack()
+          }}
+          title="Back to dashboard"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
 
-      <div className="flex flex-1 items-center gap-2 overflow-hidden">
         {editing ? (
           <input
-            ref={inputRef}
-            className="flex-1 bg-transparent text-sm font-medium outline-none focus:underline focus:underline-offset-2"
+            ref={titleInputRef}
+            className="min-w-0 flex-1 bg-transparent text-sm font-medium outline-none focus:underline focus:underline-offset-2"
             value={draftTitle}
             onChange={(e) => setDraftTitle(e.target.value)}
             onBlur={() => void commitEdit()}
@@ -145,7 +205,67 @@ export default function TitleBar({
         )}
       </div>
 
+      {/* Center: find bar (only shown when open) */}
+      {findOpen && (
+        <div className="flex shrink-0 items-center">
+          <div className="flex items-center gap-1 rounded-md border border-border bg-background px-1.5 py-0.5">
+            <Search className="h-3 w-3 shrink-0 text-muted-foreground" />
+            <input
+              ref={findInputRef}
+              className="w-40 bg-transparent text-xs outline-none placeholder:text-muted-foreground/50"
+              placeholder="Find…"
+              value={findQuery}
+              onChange={(e) => setFindQuery(e.target.value)}
+              onKeyDown={handleFindKeyDown}
+            />
+            {findQuery.length > 0 && (
+              <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">
+                {matchCount === 0 ? 'No results' : `${matchIndex} / ${matchCount}`}
+              </span>
+            )}
+            <button
+              className="ml-0.5 text-muted-foreground transition-colors hover:text-foreground"
+              onClick={() => { editor?.commands.findPrev(); onFindNavigate?.(); findInputRef.current?.focus() }}
+              title="Previous match (Shift+Enter)"
+              tabIndex={-1}
+            >
+              <ChevronUp className="h-3 w-3" />
+            </button>
+            <button
+              className="text-muted-foreground transition-colors hover:text-foreground"
+              onClick={() => { editor?.commands.findNext(); onFindNavigate?.(); findInputRef.current?.focus() }}
+              title="Next match (Enter)"
+              tabIndex={-1}
+            >
+              <ChevronDown className="h-3 w-3" />
+            </button>
+            <button
+              className="ml-0.5 text-muted-foreground transition-colors hover:text-foreground"
+              onClick={() => { onFindOpenChange(false); editor?.view.focus() }}
+              title="Close (Escape)"
+              tabIndex={-1}
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Right: actions */}
       <div className="flex shrink-0 items-center gap-0.5">
+        {/* Search icon lives here when bar is closed — same gap as other icons */}
+        {!findOpen && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => onFindOpenChange(true)}
+            title="Find (Ctrl+F)"
+          >
+            <Search className="h-3.5 w-3.5" />
+          </Button>
+        )}
+
         <Popover open={exportOpen} onOpenChange={setExportOpen}>
           <PopoverTrigger asChild>
             <Button

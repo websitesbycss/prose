@@ -288,6 +288,60 @@ html.theme-transitioning *::after {
   cursor: col-resize;
 }
 
+/* Find highlights */
+.find-match {
+  background-color: hsl(45 100% 60% / 0.45);
+  border-radius: 2px;
+}
+.dark .find-match {
+  background-color: hsl(200 100% 50% / 0.55);
+  border-radius: 2px;
+}
+.find-match-current {
+  background-color: hsl(30 100% 55% / 0.65);
+  border-radius: 2px;
+  outline: 1.5px solid hsl(30 100% 45% / 0.7);
+}
+.dark .find-match-current {
+  background-color: hsl(35 100% 55% / 0.8);
+  outline: 1.5px solid hsl(35 100% 65% / 0.9);
+}
+
+/* Zoom range slider — small thumb */
+.zoom-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+.zoom-slider::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 9999px;
+  background-color: hsl(var(--border));
+}
+.zoom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: hsl(var(--primary));
+  margin-top: -3.5px;
+  cursor: pointer;
+}
+.zoom-slider::-moz-range-track {
+  height: 3px;
+  border-radius: 9999px;
+  background-color: hsl(var(--border));
+}
+.zoom-slider::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: none;
+  background-color: hsl(var(--primary));
+  cursor: pointer;
+}
+
 .prose-editor .ProseMirror img {
   @apply max-w-full rounded;
   cursor: pointer;

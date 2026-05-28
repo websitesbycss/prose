@@ -32,6 +32,8 @@ import { IssueHighlight } from '@/extensions/issueHighlight'
 import { LineHeight } from '@/extensions/lineHeight'
 import { ExitMarkOnArrowRight } from '@/extensions/exitMarkOnArrowRight'
 import { ParagraphRole } from '@/extensions/paragraphRole'
+import { FindExtension } from '@/extensions/findExtension'
+import { InlineMath, BlockMath } from '@/extensions/mathExtension'
 import { useDocument } from '@/hooks/useDocument'
 import { useAnalysis } from '@/hooks/useAnalysis'
 import { useWordCount } from '@/hooks/useWordCount'
@@ -88,7 +90,8 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   const setSettingsOpen = useAppStore((s) => s.setSettingsOpen)
 
   const editorScrollRef = useRef<HTMLDivElement>(null)
-  const [typewriterMode, setTypewriterMode] = useState(false)
+  const typewriterMode = useAppStore((s) => s.typewriterMode)
+  const setTypewriterMode = useAppStore((s) => s.setTypewriterMode)
   const [aiPanelWidth, setAiPanelWidth] = useState(AI_PANEL_WIDTH)
   const dragStartRef = useRef<{ x: number; width: number } | null>(null)
   const [sidebarWidth, setSidebarWidth] = useState(270)
@@ -127,6 +130,9 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   const [editorFontSize, setEditorFontSize] = useState(11)
   const [headingFontSizes, setHeadingFontSizes] = useState({ h1: 36, h2: 24, h3: 18 })
   const [pageMargins, setPageMargins] = useState<PageMargins>(DEFAULT_PAGE_MARGINS)
+  const [editorZoom, setEditorZoom] = useState(100)
+  const [findOpen, setFindOpen] = useState(false)
+  const findInputRef = useRef<HTMLInputElement>(null)
   const [formatModalTarget, setFormatModalTarget] = useState<'mla' | 'apa' | null>(null)
   const [activePanel, setActivePanel] = useState<SidebarPanel>('outline')
 
@@ -171,6 +177,9 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
       LineHeight,
       ExitMarkOnArrowRight,
       ParagraphRole,
+      FindExtension,
+      InlineMath,
+      BlockMath,
       Placeholder.configure({ placeholder: 'Start writing…' }),
     ],
     content: '',
@@ -247,6 +256,25 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
       }
       if (e.key === 'Escape' && useAppStore.getState().focusModeActive) {
         setFocusModeActive(false)
+      }
+      // Find
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault()
+        setFindOpen(true)
+        setTimeout(() => findInputRef.current?.focus(), 0)
+      }
+      // Zoom: Ctrl+- and Ctrl+= (unshifted +)
+      if ((e.ctrlKey || e.metaKey) && (e.key === '-' || e.key === '_')) {
+        e.preventDefault()
+        setEditorZoom((z) => Math.max(25, z - 10))
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === '=' || e.key === '+')) {
+        e.preventDefault()
+        setEditorZoom((z) => Math.min(200, z + 10))
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === '0') {
+        e.preventDefault()
+        setEditorZoom(100)
       }
     }
     window.addEventListener('keydown', handler)
@@ -396,6 +424,21 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
     [editor, saveNow]
   )
 
+  const handleFindNavigate = useCallback((): void => {
+    requestAnimationFrame(() => {
+      const scrollEl = editorScrollRef.current
+      if (!editor || !scrollEl) return
+      const { from } = editor.state.selection
+      try {
+        const coords = editor.view.coordsAtPos(from)
+        const box = scrollEl.getBoundingClientRect()
+        const matchMid = (coords.top + coords.bottom) / 2
+        const boxMid = (box.top + box.bottom) / 2
+        scrollEl.scrollTop += matchMid - boxMid
+      } catch {}
+    })
+  }, [editor])
+
   function handleSidebarIconClick(panel: SidebarPanel): void {
     if (sidebarOpen && activePanel === panel) {
       setSidebarOpen(false)
@@ -431,6 +474,10 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                 onBack={handleBack}
                 onSaveNow={handleSaveNow}
                 onTitleChange={updateTitle}
+                findOpen={findOpen}
+                onFindOpenChange={setFindOpen}
+                findInputRef={findInputRef}
+                onFindNavigate={handleFindNavigate}
               />
               <Toolbar
                 editor={zoneEditor ?? editor}
@@ -567,10 +614,10 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
             ref={editorScrollRef}
             className="flex flex-1 overflow-auto bg-zinc-100 dark:bg-zinc-900"
           >
-            <div className={cn('mx-auto my-8 w-[816px] self-start', focusModeActive && 'my-16')}>
-              {/* Page — header zone + rule + body + rule + footer zone.
-                  --page-margin-x drives the horizontal inset for header, body, and footer
-                  so all three stay aligned. Future custom margins: change this one variable. */}
+            <div
+              className={cn('mx-auto my-8 w-[816px] self-start', focusModeActive && 'my-16')}
+              style={{ zoom: editorZoom / 100 }}
+            >
               <div
                 className={cn('editor-page relative bg-white dark:bg-zinc-800', formatClass)}
                 style={{
@@ -670,6 +717,8 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
             wordCount={wordCount}
             selectionWordCount={selectionWordCount}
             saveStatus={saveStatus}
+            zoom={editorZoom}
+            onZoomChange={(z) => setEditorZoom(Math.min(200, Math.max(25, z)))}
             nowPlaying={music.nowPlayingTitle}
             ambientPlaying={(() => {
               const active = AMBIENT_LAYERS.filter((l) => music.ambientEnabled[l.id])
