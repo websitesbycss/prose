@@ -4,21 +4,25 @@ A focused, fully offline essay writing app for Windows with a built-in AI assist
 
 Works on a plane. No account. No subscription. No data leaves your machine.
 
-> **Internet note:** Prose is mostly offline. The following features require an internet connection: the one-time Ollama binary download on first launch, the initial AI model download, DOI lookup for citations, and website metadata auto-fill for citations. Everything else — writing, AI feedback, export, and all formatting — works fully offline.
+> **Note on internet use:** Prose is mostly offline. The features that require a connection are: the one-time Ollama binary download on first launch, the initial AI model download, DOI lookup for citations, and website metadata auto-fill for citations. Everything else (writing, AI feedback, export, formatting) works fully offline.
 
 ---
 
 ## Features
 
-- **Rich text editor** — headings, lists, tables, inline formatting, undo/redo
-- **MLA & APA formatting** — running headers, double-spacing, first-line indents, auto-generated citations and Works Cited page
-- **Citations manager** — add and format sources, insert in-text citations with one click
-- **AI writing assistant** — powered by a local Ollama model; gives feedback on your draft without sending anything to the cloud
-- **Focus mode** — hides all chrome so you can write without distraction (F11 to toggle)
-- **Typewriter mode** — keeps the cursor centred on screen as you type
-- **Pomodoro timer** — configurable work/break intervals with ambient sound
-- **Export** — save as DOCX, PDF, Markdown, or plain text
-- **Auto-updater** — silent background updates via GitHub Releases
+- Rich text editor with headings, lists, tables, inline formatting, images, and undo/redo
+- MLA and APA formatting with running headers, double-spacing, first-line indents, auto-generated citations, and Works Cited pages
+- Custom page margins per document, configurable at creation or any time in settings
+- Citations manager with in-text citation insertion and a source library
+- AI writing assistant powered by a local Ollama model
+- Focus mode to hide all chrome while writing (F11 to toggle)
+- Typewriter mode that keeps the cursor vertically centered as you type
+- Pomodoro timer with configurable work/break intervals
+- Built-in music player with lofi, piano, jazz, and layerable ambient sounds
+- Session stats with a daily word count goal, writing streak, and average WPM
+- Document history with snapshots and one-click restore
+- Export to DOCX, PDF, Markdown, or plain text
+- Auto-updater via GitHub Releases
 
 ## Download
 
@@ -30,7 +34,9 @@ The first time you open Prose it will offer to download and install [Ollama](htt
 ollama pull llama3.2
 ```
 
-## Self-hosting / Development
+The default model is `llama3.2:3b`. You can switch models in Settings > AI.
+
+## Development
 
 ```bash
 git clone https://github.com/websitesbycss/prose.git
@@ -39,7 +45,7 @@ npm install
 npm run dev
 ```
 
-To package a distributable installer:
+To build a distributable installer:
 
 ```bash
 npm run package

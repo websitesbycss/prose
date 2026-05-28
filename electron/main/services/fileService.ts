@@ -465,6 +465,7 @@ export async function importDocxFile(filePath: string): Promise<ProseFileDocumen
     content,
     headerContent: null,
     footerContent: null,
+    pageMargins: null,
     wordCountGoal: null,
     categoryId: null,
     createdAt: now,
