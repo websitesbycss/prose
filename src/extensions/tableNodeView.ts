@@ -222,15 +222,45 @@ export class TableNodeView {
 
       const newW = calcWidth(ev)
       const nodePos = typeof this.getPos === 'function' ? this.getPos() : undefined
-      if (nodePos !== undefined) {
-        const node = this.view.state.doc.nodeAt(nodePos)
-        if (node) {
-          const { tr } = this.view.state
-          tr.setNodeMarkup(nodePos, undefined, { ...node.attrs, tableWidth: newW })
-          tr.setSelection(NodeSelection.create(tr.doc, nodePos))
-          this.view.dispatch(tr)
-        }
+      if (nodePos === undefined) return
+
+      const node = this.view.state.doc.nodeAt(nodePos)
+      if (!node) return
+
+      const { tr } = this.view.state
+
+      // Compute total explicit column width from first row's colwidth attrs.
+      // Cell colwidths are stored as px values; their sum is the table's true width.
+      // When the outer handle resizes to newW, scale every cell proportionally so
+      // the table actually renders at newW instead of staying stuck at the old total.
+      let totalW = 0
+      const firstRow = node.content.firstChild
+      if (firstRow) {
+        firstRow.forEach((cell) => {
+          const cw = (cell.attrs.colwidth as number[] | null) ?? []
+          for (const w of cw) totalW += w ?? 0
+        })
       }
+
+      if (totalW > 0 && newW !== totalW) {
+        const scale = newW / totalW
+        // Walk every cell; position of each cell =
+        //   nodePos + 1 (enter table) + rowOffset + 1 (enter row) + cellOffset
+        node.forEach((row, rowOffset) => {
+          row.forEach((cell, cellOffset) => {
+            const cw = (cell.attrs.colwidth as number[] | null) ?? []
+            if (cw.length > 0) {
+              const scaled = cw.map((w) => Math.max(25, Math.round((w ?? 0) * scale)))
+              const cellPos = nodePos + 1 + rowOffset + 1 + cellOffset
+              tr.setNodeMarkup(cellPos, undefined, { ...cell.attrs, colwidth: scaled })
+            }
+          })
+        })
+      }
+
+      tr.setNodeMarkup(nodePos, undefined, { ...node.attrs, tableWidth: newW })
+      tr.setSelection(NodeSelection.create(tr.doc, nodePos))
+      this.view.dispatch(tr)
     }
 
     document.addEventListener('mousemove', onMove)

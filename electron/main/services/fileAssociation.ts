@@ -19,7 +19,11 @@ export function registerFileAssociation(): void {
     reg('add', 'HKCU\\Software\\Classes\\.prose', '/ve', '/d', 'ProseDocument', '/f')
     reg('add', 'HKCU\\Software\\Classes\\ProseDocument', '/ve', '/d', 'Prose Document', '/f')
     reg('add', 'HKCU\\Software\\Classes\\ProseDocument\\DefaultIcon', '/ve', '/d', `"${exePath}",0`, '/f')
-    reg('add', 'HKCU\\Software\\Classes\\ProseDocument\\shell\\open\\command', '/ve', '/d', `"${exePath}" "%1"`, '/f')
+    // Wrap in cmd to clear ELECTRON_RUN_AS_NODE before launching — without this,
+    // users who have that env var set globally will get ERR_UNKNOWN_FILE_EXTENSION
+    // because Electron enters Node mode and tries to execute the .prose file.
+    const openCmd = `cmd /d /c "set ELECTRON_RUN_AS_NODE=&&"${exePath}" "%1""`
+    reg('add', 'HKCU\\Software\\Classes\\ProseDocument\\shell\\open\\command', '/ve', '/d', openCmd, '/f')
   } catch (err) {
     console.error('Failed to register file association:', err)
   }

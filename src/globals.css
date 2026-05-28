@@ -186,7 +186,7 @@ html.theme-transitioning *::after {
 }
 
 .prose-editor .ProseMirror .table-outer-wrapper .tableWrapper {
-  overflow-x: hidden;
+  overflow-x: visible;
   max-width: 100%;
   width: 100%;
 }
@@ -238,7 +238,7 @@ html.theme-transitioning *::after {
 
 /* Keep old .tableWrapper rule for any un-wrapped fallback */
 .prose-editor .ProseMirror > .tableWrapper {
-  overflow-x: hidden;
+  overflow-x: visible;
   max-width: 100%;
 }
 
