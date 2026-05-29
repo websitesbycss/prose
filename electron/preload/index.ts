@@ -114,4 +114,11 @@ contextBridge.exposeInMainWorld('prose', {
       return () => ipcRenderer.removeListener('app:open-file', listener)
     },
   },
+
+  spell: {
+    check: (word: string): Promise<{ correct: boolean; suggestions: string[] }> =>
+      ipcRenderer.invoke('spell:check', word),
+    addWord: (word: string): Promise<void> =>
+      ipcRenderer.invoke('spell:addWord', word),
+  },
 })

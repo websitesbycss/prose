@@ -120,7 +120,7 @@ export class OllamaManager {
   async *streamChat(
     model: string,
     systemPrompt: string,
-    userMessage: string
+    messages: Array<{ role: 'user' | 'assistant'; content: string }>
   ): AsyncGenerator<string> {
     const res = await fetch(`${OLLAMA_HOST}/api/chat`, {
       method: 'POST',
@@ -129,10 +129,13 @@ export class OllamaManager {
         model,
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMessage },
+          ...messages,
         ],
         stream: true,
         keep_alive: '10m',
+        options: {
+          num_predict: -1,  // let the model finish naturally; -1 = no token cap
+        },
       }),
     })
     if (!res.ok) throw new Error(`Ollama chat failed: ${res.status}`)

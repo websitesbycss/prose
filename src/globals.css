@@ -99,10 +99,12 @@ html.theme-transitioning *::after {
 
 /* Subtle shadow on the white page to make it feel like a real sheet */
 .editor-page {
+  border-radius: 4px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
 }
 
 .dark .editor-page {
+  border-radius: 4px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
@@ -555,7 +557,7 @@ html.theme-transitioning *::after {
   height: 28px;
   display: flex;
   align-items: center;
-  cursor: pointer;
+  cursor: move;
   user-select: none;
   margin: 0.4em 0;
 }
@@ -588,9 +590,9 @@ html.theme-transitioning *::after {
 .dark .page-break-node::after {
   background: #27272a; /* zinc-800 — matches dark mode editor page bg */
 }
-/* Selection: amber ring with enough offset to keep the dashed line visible */
+/* Selection: accent ring with enough offset to keep the dashed line visible */
 .ProseMirror-selectednode.page-break-node {
-  outline: 2px solid rgb(245 158 11);
+  outline: 2px solid hsl(var(--primary));
   outline-offset: 5px;
   border-radius: 1px;
 }

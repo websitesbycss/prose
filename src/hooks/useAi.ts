@@ -28,17 +28,24 @@ export function useAi(): AiChatState & AiChatControls {
   const firstChunkRef = useRef(false)
   const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const assistantIdRef = useRef('')
+  // Ref keeps a fresh copy of messages so sendMessage can read history without
+  // needing messages in its dependency array (which would recreate it every chunk).
+  const messagesRef = useRef<ChatMessage[]>([])
 
   const sendMessage = useCallback(
     async (request: string, documentContent: string, assignmentContext?: string): Promise<void> => {
       if (ollamaStatus !== 'ready') return
+
+      // Capture history before adding the new turn
+      const history = messagesRef.current.map(({ role, content }) => ({ role, content }))
 
       const userMsg: ChatMessage = { id: crypto.randomUUID(), role: 'user', content: request }
       const assistantId = crypto.randomUUID()
       assistantIdRef.current = assistantId
       const assistantMsg: ChatMessage = { id: assistantId, role: 'assistant', content: '' }
 
-      setMessages((prev) => [...prev, userMsg, assistantMsg])
+      messagesRef.current = [...messagesRef.current, userMsg, assistantMsg]
+      setMessages(messagesRef.current)
       setStreaming(true)
       setReloading(false)
       setError(null)
@@ -50,7 +57,7 @@ export function useAi(): AiChatState & AiChatControls {
 
       try {
         await window.prose.ai.streamPrompt(
-          { documentContent, assignmentContext, request },
+          { documentContent, assignmentContext, request, history },
           (chunk) => {
             if (!firstChunkRef.current) {
               firstChunkRef.current = true
@@ -60,17 +67,23 @@ export function useAi(): AiChatState & AiChatControls {
                 reloadTimerRef.current = null
               }
             }
-            setMessages((prev) =>
-              prev.map((m) =>
+            setMessages((prev) => {
+              const next = prev.map((m) =>
                 m.id === assistantIdRef.current ? { ...m, content: m.content + chunk } : m
               )
-            )
+              messagesRef.current = next
+              return next
+            })
           }
         )
       } catch (err) {
         setError('AI request failed. Is Ollama running?')
         console.error('useAi error:', err)
-        setMessages((prev) => prev.filter((m) => m.id !== assistantIdRef.current))
+        setMessages((prev) => {
+          const next = prev.filter((m) => m.id !== assistantIdRef.current)
+          messagesRef.current = next
+          return next
+        })
       } finally {
         if (reloadTimerRef.current) {
           clearTimeout(reloadTimerRef.current)
@@ -84,6 +97,7 @@ export function useAi(): AiChatState & AiChatControls {
   )
 
   const clearMessages = useCallback((): void => {
+    messagesRef.current = []
     setMessages([])
     setError(null)
   }, [])

@@ -59,10 +59,14 @@ export function EditorContextMenu({ editor, onEditMath }: EditorContextMenuProps
   const setPendingAiPrompt = useAppStore((s) => s.setPendingAiPrompt)
   const setActiveAiTab = useAppStore((s) => s.setActiveAiTab)
 
+  // Spell suggestions for the word under the cursor when right-clicking
+  const [spellWord, setSpellWord] = useState<{ word: string; from: number; to: number; suggestions: string[] } | null>(null)
+
   const dismiss = useCallback(() => {
     setCtx(null)
     setLinkMode(false)
     setLinkDraft('')
+    setSpellWord(null)
   }, [])
 
   // Live corner radius value for the context-menu slider (separate from ctx snapshot)
@@ -159,6 +163,7 @@ export function EditorContextMenu({ editor, onEditMath }: EditorContextMenuProps
 
       setLinkMode(false)
       setLinkDraft('')
+      setSpellWord(null)
       setCtx({
         x: e.clientX,
         y: e.clientY,
@@ -179,6 +184,25 @@ export function EditorContextMenu({ editor, onEditMath }: EditorContextMenuProps
         canUndo,
         canRedo,
       })
+
+      // Async spell check for the word under cursor (only for plain text, not image/math/pageBreak)
+      if (!isOnImage && !isOnMath && !isOnPageBreak && posData) {
+        const clickPos = posData.pos
+        const $p = editor!.state.doc.resolve(clickPos)
+        const text = $p.parent.textContent
+        const off = $p.parentOffset
+        let s = off; while (s > 0 && /[\w']/.test(text[s - 1]!)) s--
+        let en = off; while (en < text.length && /[\w']/.test(text[en]!)) en++
+        const word = text.slice(s, en).replace(/^'+|'+$/g, '')
+        if (word.length >= 2) {
+          const blockStart = $p.start()
+          void window.prose.spell.check(word).then((res) => {
+            if (!res.correct && res.suggestions.length > 0) {
+              setSpellWord({ word, from: blockStart + s, to: blockStart + en, suggestions: res.suggestions })
+            }
+          })
+        }
+      }
     }
 
     const dom = editor.view.dom as HTMLElement
@@ -490,19 +514,51 @@ export function EditorContextMenu({ editor, onEditMath }: EditorContextMenuProps
           </div>
         </div>
       ) : (
-        cleaned.map((item, i) => {
-          if (item.type === 'sep') return <MenuSep key={i} />
-          return (
-            <MenuBtn
-              key={i}
-              icon={item.icon}
-              label={item.label}
-              disabled={item.disabled}
-              destructive={item.destructive}
-              onClick={item.disabled ? undefined : item.onClick}
-            />
-          )
-        })
+        <>
+          {/* Spell suggestions — rendered reactively as the async check resolves */}
+          {spellWord && spellWord.suggestions.length > 0 && (
+            <>
+              <div className="px-3 pb-0.5 pt-1.5">
+                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Spelling suggestions
+                </span>
+              </div>
+              {spellWord.suggestions.map((s) => (
+                <MenuBtn
+                  key={s}
+                  label={s}
+                  onClick={() => {
+                    const { tr } = editor.state
+                    tr.replaceWith(spellWord.from, spellWord.to, editor.state.schema.text(s))
+                    editor.view.dispatch(tr)
+                    dismiss()
+                  }}
+                />
+              ))}
+              <MenuBtn
+                label="Ignore"
+                onClick={() => {
+                  void window.prose.spell.addWord(spellWord.word)
+                  dismiss()
+                }}
+              />
+              <MenuSep />
+            </>
+          )}
+          {cleaned.map((item, i) => {
+            if (item.type === 'sep') return <MenuSep key={i} />
+            return (
+              <MenuBtn
+                key={i}
+                icon={item.icon}
+                label={item.label}
+                disabled={item.disabled}
+                destructive={item.destructive}
+                onClick={item.disabled ? undefined : item.onClick}
+              />
+            )
+          })}
+        </>
       )}
     </div>
   )

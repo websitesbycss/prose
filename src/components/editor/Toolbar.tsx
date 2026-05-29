@@ -346,10 +346,10 @@ function FontSizeInput({
         className="w-16 p-1"
         side="bottom"
         align="start"
-        onOpenAutoFocus={(e) => e.preventDefault()}
-        onCloseAutoFocus={(e) => e.preventDefault()}
+        onCloseAutoFocus={(e) => { e.preventDefault(); editor.view.focus() }}
       >
         <Input
+          autoFocus
           className="mb-1 h-7 w-full text-center text-xs focus-visible:ring-1 focus-visible:ring-offset-0"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
@@ -610,24 +610,48 @@ function LineHeightPicker({
             Custom
           </button>
         ) : (
-          <div className="flex items-center gap-1.5 px-2 pb-1 pt-0.5">
-            <Input
-              type="number"
-              min={0.5}
-              max={4.0}
-              step={0.05}
-              className="h-7 w-20 text-center text-xs focus-visible:ring-1 focus-visible:ring-offset-0"
-              value={customDraft}
-              autoFocus
-              onChange={(e) => setCustomDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') applyCustom()
-                if (e.key === 'Escape') setShowCustom(false)
-              }}
-            />
+          <div className="flex flex-col gap-1 px-2 pb-1 pt-0.5">
+            <div className="flex items-center gap-1">
+              <button
+                className="flex h-7 w-7 items-center justify-center rounded border border-input text-xs hover:bg-accent"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  const v = Math.max(0.5, Math.round((parseFloat(customDraft || '1') - 0.05) * 100) / 100)
+                  setCustomDraft(String(v))
+                }}
+              >−</button>
+              <Input
+                autoFocus
+                className="h-7 w-16 text-center text-xs focus-visible:ring-1 focus-visible:ring-offset-0"
+                value={customDraft}
+                onChange={(e) => setCustomDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') applyCustom()
+                  if (e.key === 'Escape') setShowCustom(false)
+                  if (e.key === 'ArrowUp') {
+                    e.preventDefault()
+                    const v = Math.min(4.0, Math.round((parseFloat(customDraft || '1') + 0.05) * 100) / 100)
+                    setCustomDraft(String(v))
+                  }
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault()
+                    const v = Math.max(0.5, Math.round((parseFloat(customDraft || '1') - 0.05) * 100) / 100)
+                    setCustomDraft(String(v))
+                  }
+                }}
+              />
+              <button
+                className="flex h-7 w-7 items-center justify-center rounded border border-input text-xs hover:bg-accent"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  const v = Math.min(4.0, Math.round((parseFloat(customDraft || '1') + 0.05) * 100) / 100)
+                  setCustomDraft(String(v))
+                }}
+              >+</button>
+            </div>
             <Button
               size="sm"
-              className="h-7 px-2 text-xs"
+              className="h-7 w-full px-2 text-xs"
               onClick={applyCustom}
             >
               Apply

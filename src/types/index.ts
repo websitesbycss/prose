@@ -257,6 +257,10 @@ export interface ProseAPI {
   app: {
     onOpenFile(callback: (filePath: string) => void): () => void
   }
+  spell: {
+    check(word: string): Promise<{ correct: boolean; suggestions: string[] }>
+    addWord(word: string): Promise<void>
+  }
 }
 
 declare global {

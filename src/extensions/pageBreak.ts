@@ -28,7 +28,7 @@ export const PageBreakNode = Node.create({
       const div = document.createElement('div')
       div.setAttribute('data-page-break', '')
       div.className = 'page-break-node'
-      div.title = 'Page break — click to select, Delete to remove'
+      div.title = 'Page break: click to select, Delete to remove'
       return { dom: div }
     }
   },

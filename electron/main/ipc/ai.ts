@@ -104,7 +104,9 @@ function sanitizeForPrompt(raw: string, maxLen: number): string {
     .slice(0, maxLen)
 }
 
-function buildChatUserMessage(documentContent: string, request: string, assignmentContext?: string): string {
+interface HistoryMessage { role: 'user' | 'assistant'; content: string }
+
+function buildFirstUserMessage(documentContent: string, request: string, assignmentContext?: string): string {
   const safeDoc = sanitizeForPrompt(documentContent, 6000)
   const safeRequest = sanitizeForPrompt(request, 2000)
   const parts: string[] = [
@@ -117,6 +119,42 @@ function buildChatUserMessage(documentContent: string, request: string, assignme
   parts.push(`[USER REQUEST]\n${safeRequest}\n[END USER REQUEST]`)
   parts.push(MATH_FORMAT_REMINDER)
   return parts.join('\n\n')
+}
+
+// Builds the full message array for a conversation turn.
+// Document context is injected only into the first user message so it isn't
+// repeated on every follow-up while still being in the model's context window.
+function buildConversationMessages(
+  documentContent: string,
+  request: string,
+  assignmentContext: string | undefined,
+  history: HistoryMessage[],
+): HistoryMessage[] {
+  const result: HistoryMessage[] = []
+
+  for (let i = 0; i < history.length; i++) {
+    const msg = history[i]
+    if (i === 0 && msg.role === 'user') {
+      // Inject document context into the very first user message
+      result.push({ role: 'user', content: buildFirstUserMessage(documentContent, msg.content, assignmentContext) })
+    } else if (msg.role === 'user') {
+      result.push({ role: 'user', content: sanitizeForPrompt(msg.content, 2000) })
+    } else {
+      // Assistant messages: cap length but otherwise pass through unchanged
+      result.push({ role: 'assistant', content: msg.content.slice(0, 8000) })
+    }
+  }
+
+  // Append the current turn
+  if (result.length === 0) {
+    // First ever message — include doc context
+    result.push({ role: 'user', content: buildFirstUserMessage(documentContent, request, assignmentContext) })
+  } else {
+    // Follow-up — just the user's request; model already has document context
+    result.push({ role: 'user', content: sanitizeForPrompt(request, 2000) })
+  }
+
+  return result
 }
 
 function buildAnalysisUserMessage(documentContent: string, assignmentContext?: string): string {
@@ -205,15 +243,16 @@ export function registerAiHandlers(manager: OllamaManager): void {
   ipcMain.handle('ai:prompt', async (_, payload: unknown): Promise<string> => {
     if (!checkRateLimit('ai:prompt', 20)) return ''
     if (!payload || typeof payload !== 'object') return ''
-    const p = payload as { documentContent?: string; request?: string; assignmentContext?: string }
+    const p = payload as { documentContent?: string; request?: string; assignmentContext?: string; history?: unknown }
     if (typeof p.documentContent !== 'string' || typeof p.request !== 'string') return ''
     if (!p.request.trim()) return ''
+    const history = Array.isArray(p.history) ? (p.history as HistoryMessage[]) : []
     const model = getModel()
     let result = ''
     try {
-      for await (const chunk of manager.streamChat(model, CHAT_SYSTEM_PROMPT, buildChatUserMessage(p.documentContent, p.request, p.assignmentContext))) {
+      for await (const chunk of manager.streamChat(model, CHAT_SYSTEM_PROMPT, buildConversationMessages(p.documentContent, p.request, p.assignmentContext, history))) {
         result += chunk
-        if (result.length > 50_000) break  // cap runaway responses
+        if (result.length > 50_000) break
       }
     } catch (err) {
       console.error('ai:prompt error:', err)
@@ -224,17 +263,18 @@ export function registerAiHandlers(manager: OllamaManager): void {
   ipcMain.handle('ai:streamPrompt', async (event, payload: unknown): Promise<void> => {
     if (!checkRateLimit('ai:streamPrompt', 20)) return
     if (!payload || typeof payload !== 'object') return
-    const p = payload as { documentContent?: string; request?: string; assignmentContext?: string }
+    const p = payload as { documentContent?: string; request?: string; assignmentContext?: string; history?: unknown }
     if (typeof p.documentContent !== 'string' || typeof p.request !== 'string') return
     if (!p.request.trim()) return
+    const history = Array.isArray(p.history) ? (p.history as HistoryMessage[]) : []
     const sender: WebContents = event.sender
     const model = getModel()
     let totalLen = 0
     try {
-      for await (const chunk of manager.streamChat(model, CHAT_SYSTEM_PROMPT, buildChatUserMessage(p.documentContent, p.request, p.assignmentContext))) {
+      for await (const chunk of manager.streamChat(model, CHAT_SYSTEM_PROMPT, buildConversationMessages(p.documentContent, p.request, p.assignmentContext, history))) {
         if (sender.isDestroyed()) break
         totalLen += chunk.length
-        if (totalLen > 50_000) break  // cap runaway responses
+        if (totalLen > 50_000) break
         sender.send('ai:stream-chunk', chunk)
       }
     } catch (err) {

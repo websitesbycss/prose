@@ -34,10 +34,10 @@ const TEMPLATES: { label: string; latex: string; title: string }[] = [
   { label: '∞',          latex: '\\infty',   title: 'Infinity' },
 ]
 
-function TextLine({ width }: { width: string }): JSX.Element {
+function TextLine({ width, accent = false }: { width: string; accent?: boolean }): JSX.Element {
   return (
     <div
-      className="shrink-0 rounded-full bg-muted-foreground/25"
+      className={accent ? 'shrink-0 rounded-full bg-primary/50' : 'shrink-0 rounded-full bg-muted-foreground/25'}
       style={{ width, height: '6px' }}
     />
   )
@@ -161,24 +161,32 @@ export default function MathModal({ open, onClose, onInsert, initialLatex = '', 
               {previewError ? (
                 <span className="text-xs text-destructive">{previewError}</span>
               ) : displayMode ? (
-                /* Display block: text line / equation / text line */
+                /* Display block: paragraph above, centred equation, paragraph below */
                 <div className="flex flex-col gap-1.5">
+                  <TextLine width="100%" />
+                  <TextLine width="85%" />
                   <TextLine width="60%" />
-                  <div className="flex justify-center py-1">
+                  <div className="flex justify-center py-1.5">
                     {previewHtml
                       ? <span dangerouslySetInnerHTML={{ __html: previewHtml }} />
-                      : <TextLine width="40%" />}
+                      : <TextLine width="40%" accent />}
                   </div>
-                  <TextLine width="75%" />
+                  <TextLine width="100%" />
+                  <TextLine width="90%" />
+                  <TextLine width="45%" />
                 </div>
               ) : (
-                /* Inline: dashes — equation — dashes on one line */
-                <div className="flex items-center gap-2">
-                  <TextLine width="4rem" />
-                  {previewHtml
-                    ? <span dangerouslySetInnerHTML={{ __html: previewHtml }} />
-                    : <TextLine width="3rem" />}
-                  <TextLine width="5rem" />
+                /* Inline: two full lines, equation sits in the middle of line 2 */
+                <div className="flex flex-col gap-1.5">
+                  <TextLine width="100%" />
+                  <div className="flex items-center gap-1.5">
+                    <TextLine width="3rem" />
+                    {previewHtml
+                      ? <span dangerouslySetInnerHTML={{ __html: previewHtml }} />
+                      : <TextLine width="3rem" accent />}
+                    <div className="min-w-0 flex-1"><TextLine width="100%" /></div>
+                  </div>
+                  <TextLine width="55%" />
                 </div>
               )}
             </div>

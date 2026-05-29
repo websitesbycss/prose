@@ -66,6 +66,7 @@ import MusicPanel from './MusicPanel'
 import { SessionStatsPanel } from './SessionStatsPanel'
 import { HistoryPanel } from './HistoryPanel'
 import { EditorContextMenu } from './EditorContextMenu'
+import { SpellTooltip } from './SpellTooltip'
 import MathModal from './MathModal'
 import SettingsModal from '@/components/settings/SettingsModal'
 import type { AppSettings, Document, PageMargins } from '@/types'
@@ -140,7 +141,10 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   const [editorFontSize, setEditorFontSize] = useState(11)
   const [headingFontSizes, setHeadingFontSizes] = useState({ h1: 36, h2: 24, h3: 18 })
   const [pageMargins, setPageMargins] = useState<PageMargins>(DEFAULT_PAGE_MARGINS)
-  const [editorZoom, setEditorZoom] = useState(100)
+  const [editorZoom, setEditorZoom] = useState(() => {
+    const v = localStorage.getItem('prose-editor-zoom')
+    return v ? Math.min(200, Math.max(25, parseInt(v))) : 100
+  })
   const [findOpen, setFindOpen] = useState(false)
   const [mathModal, setMathModal] = useState<{
     open: boolean
@@ -282,14 +286,15 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
       // Zoom: Ctrl+- and Ctrl+= (unshifted +)
       if ((e.ctrlKey || e.metaKey) && (e.key === '-' || e.key === '_')) {
         e.preventDefault()
-        setEditorZoom((z) => Math.max(25, z - 10))
+        setEditorZoom((z) => { const v = Math.max(25, z - 10); localStorage.setItem('prose-editor-zoom', String(v)); return v })
       }
       if ((e.ctrlKey || e.metaKey) && (e.key === '=' || e.key === '+')) {
         e.preventDefault()
-        setEditorZoom((z) => Math.min(200, z + 10))
+        setEditorZoom((z) => { const v = Math.min(200, z + 10); localStorage.setItem('prose-editor-zoom', String(v)); return v })
       }
       if ((e.ctrlKey || e.metaKey) && e.key === '0') {
         e.preventDefault()
+        localStorage.setItem('prose-editor-zoom', '100')
         setEditorZoom(100)
       }
     }
@@ -728,6 +733,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                     editor={editor}
                     onEditMath={(pos, latex, displayMode) => openMathModal({ editPos: pos, latex, displayMode })}
                   />
+                  <SpellTooltip editor={editor} />
                   <IssueTooltip editor={editor} issues={analysis.issues} />
                 </div>
 
@@ -788,7 +794,11 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
             selectionWordCount={selectionWordCount}
             saveStatus={saveStatus}
             zoom={editorZoom}
-            onZoomChange={(z) => setEditorZoom(Math.min(200, Math.max(25, z)))}
+            onZoomChange={(z) => {
+              const clamped = Math.min(200, Math.max(25, z))
+              setEditorZoom(clamped)
+              localStorage.setItem('prose-editor-zoom', String(clamped))
+            }}
             nowPlaying={music.nowPlayingTitle}
             ambientPlaying={(() => {
               const active = AMBIENT_LAYERS.filter((l) => music.ambientEnabled[l.id])

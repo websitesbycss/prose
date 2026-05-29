@@ -17,6 +17,7 @@ import { registerDialogHandlers } from './ipc/dialog'
 import { registerSnapshotHandlers } from './ipc/snapshots'
 import { registerMigrationHandlers, checkAndRunMigration } from './ipc/migration'
 import { registerImportHandlers } from './ipc/import'
+import { registerSpellHandlers } from './ipc/spell'
 import { registerFileAssociation } from './services/fileAssociation'
 
 // Pending file open from OS (before window is ready or while running)
@@ -146,6 +147,7 @@ app.whenReady().then(async () => {
     registerSnapshotHandlers()
     registerMigrationHandlers()
     registerImportHandlers()
+    registerSpellHandlers()
 
     ipcMain.handle('documents:folderAccessible', () => isDocumentsFolderAccessible())
 
