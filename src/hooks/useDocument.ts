@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { toast } from 'sonner'
 import type { Editor } from '@tiptap/react'
 import type { Document } from '@/types'
 import { AUTO_SAVE_DEBOUNCE_MS } from '@/constants'
@@ -73,7 +74,11 @@ export function useDocument(id: string): UseDocumentReturn {
         const updated = await window.prose.documents.update(id, { title: title.trim() })
         setDocument(updated as Document)
       } catch (err) {
-        console.error('Title save error:', err)
+        if ((err as Error).message?.includes('DUPLICATE_TITLE')) {
+          toast.error('A document with that name already exists')
+        } else {
+          console.error('Title save error:', err)
+        }
       }
     },
     [id]

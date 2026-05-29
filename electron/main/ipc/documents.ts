@@ -15,7 +15,7 @@ import {
   setDocumentsFolder,
   type ProseFileDocument,
 } from '../services/fileService'
-import { upsertIndex } from '../services/indexDb'
+import { upsertIndex, getAllIndexRows } from '../services/indexDb'
 import { shell, dialog, BrowserWindow } from 'electron'
 import { extname } from 'path'
 
@@ -109,7 +109,14 @@ export function registerDocumentHandlers(): void {
 
     const patch: Partial<ProseFileDocument> = {}
 
-    if (typeof d.title === 'string' && d.title.trim()) patch.title = d.title.trim()
+    if (typeof d.title === 'string' && d.title.trim()) {
+      const newTitle = d.title.trim()
+      const duplicate = getAllIndexRows().find(
+        (r) => r.id !== id && r.title.toLowerCase() === newTitle.toLowerCase()
+      )
+      if (duplicate) throw new Error('DUPLICATE_TITLE')
+      patch.title = newTitle
+    }
     if (typeof d.format === 'string' && VALID_FORMATS.has(d.format)) patch.format = d.format
     if ('wordCountGoal' in d) {
       const _wcg2 = d.wordCountGoal != null ? Number(d.wordCountGoal) : null

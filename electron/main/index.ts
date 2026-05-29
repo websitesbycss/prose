@@ -4,7 +4,7 @@ import { autoUpdater } from 'electron-updater'
 import { join } from 'path'
 import { initSettingsDb, closeSettingsDb, getSettingJson, setSetting } from './services/settingsDb'
 import { initIndexDb, closeIndexDb } from './services/indexDb'
-import { ensureDocumentsFolderExists, isDocumentsFolderAccessible } from './services/fileService'
+import { ensureDocumentsFolderExists, isDocumentsFolderAccessible, rebuildIndexFromFolder, renameUuidSuffixedFiles } from './services/fileService'
 import { ollamaManager } from './services/ollama'
 import { registerDocumentHandlers } from './ipc/documents'
 import { registerSettingsHandlers } from './ipc/settings'
@@ -135,6 +135,10 @@ app.whenReady().then(async () => {
     initSettingsDb()
     initIndexDb()
     await ensureDocumentsFolderExists()
+
+    // Rename legacy UUID-suffixed files and rebuild word counts in the
+    // background. Runs async so it doesn't block window creation.
+    void renameUuidSuffixedFiles().then(() => rebuildIndexFromFolder())
 
     registerDocumentHandlers()
     registerSettingsHandlers()

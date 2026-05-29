@@ -19,7 +19,7 @@ import { applyAccentColors, LIGHT_PRESETS, DARK_PRESETS, DEFAULT_LIGHT_ACCENT, D
 import { ChromeColorPicker } from '@/components/ui/ChromeColorPicker'
 import type { AppSettings, StorageInfo, PageMargins } from '@/types'
 import { PAGE_MARGIN_MIN_IN, PAGE_MARGIN_MAX_IN } from '@/constants'
-import { Palette, PenLine, Sparkles, Timer, Info, ExternalLink, HardDrive, FileText } from 'lucide-react'
+import { Palette, PenLine, Sparkles, Timer, Info, ExternalLink, HardDrive, FileText, X, Plus } from 'lucide-react'
 
 type Section = 'page' | 'appearance' | 'writing' | 'ai' | 'pomodoro' | 'storage' | 'about'
 
@@ -50,6 +50,7 @@ interface SettingsModalProps {
   documentId?: string
   pageMargins?: PageMargins
   onPageMarginsChange?: (margins: PageMargins) => void
+  onWordListChange?: (words: string[]) => void
 }
 
 function SettingRow({ label, description, children }: {
@@ -70,7 +71,7 @@ function SettingRow({ label, description, children }: {
   )
 }
 
-export default function SettingsModal({ open, onClose, documentId, pageMargins, onPageMarginsChange }: SettingsModalProps): JSX.Element {
+export default function SettingsModal({ open, onClose, documentId, pageMargins, onPageMarginsChange, onWordListChange }: SettingsModalProps): JSX.Element {
   const theme = useAppStore((s) => s.theme)
   const setTheme = useAppStore((s) => s.setTheme)
 
@@ -86,12 +87,19 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
   const [changeFolderDialog, setChangeFolderDialog] = useState<{ newPath: string } | null>(null)
   const pickerLayerRef = useRef<HTMLDivElement>(null)
 
+  // Per-document custom word list
+  const [spellWords, setSpellWords] = useState<string[]>([])
+  const [newWord, setNewWord] = useState('')
+
   useEffect(() => {
     if (!open) return
     void window.prose.settings.get().then((s) => setSettings(s as AppSettings))
     void window.prose.ollama.listModels().then(setModels)
     void window.prose.documents.getStorageInfo().then((info) => setStorageInfo(info as StorageInfo))
-  }, [open])
+    if (documentId) {
+      void window.prose.spell.getWords(documentId).then(setSpellWords)
+    }
+  }, [open, documentId])
 
   const setPomodoroState = useAppStore((s) => s.setPomodoroState)
 
@@ -141,7 +149,7 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
   return (
     <>
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="flex h-[540px] max-h-[90vh] w-[680px] max-w-[95vw] flex-col gap-0 p-0">
+      <DialogContent className="flex h-[640px] max-h-[90vh] w-[760px] max-w-[95vw] flex-col gap-0 p-0">
         <DialogHeader className="shrink-0 border-b border-border px-5 py-4">
           <DialogTitle className="text-sm font-semibold">Settings</DialogTitle>
         </DialogHeader>
@@ -360,6 +368,70 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
                       <span className="text-xs text-muted-foreground">pt</span>
                     </div>
                   </SettingRow>
+                  {documentId && (
+                    <>
+                      <Separator />
+                      <div className="pt-3">
+                      <SectionTitle>Spellcheck</SectionTitle>
+                      <p className="mb-3 text-xs text-muted-foreground">
+                        Words added here are treated as correctly spelled in this document.
+                      </p>
+                      {spellWords.length > 0 && (
+                        <div className="mb-3 flex flex-wrap gap-1.5">
+                          {spellWords.map((w) => (
+                            <span
+                              key={w}
+                              className="flex items-center gap-1 rounded-md border border-border bg-muted px-2 py-0.5 text-xs text-foreground"
+                            >
+                              {w}
+                              <button
+                                className="ml-0.5 rounded text-muted-foreground hover:text-foreground transition-colors"
+                                onClick={() => {
+                                  void window.prose.spell.removeWord(documentId, w).then((updated) => {
+                                    setSpellWords(updated)
+                                    onWordListChange?.(updated)
+                                  })
+                                }}
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {spellWords.length === 0 && (
+                        <p className="mb-3 text-xs text-muted-foreground italic">No custom words yet.</p>
+                      )}
+                      <div className="flex gap-2">
+                        <Input
+                          className="h-8 flex-1 text-xs"
+                          placeholder="Add a word…"
+                          value={newWord}
+                          onChange={(e) => setNewWord(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') e.currentTarget.form?.requestSubmit()
+                          }}
+                        />
+                        <button
+                          className="flex h-8 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted/50 disabled:opacity-40"
+                          disabled={!newWord.trim()}
+                          onClick={() => {
+                            const word = newWord.trim()
+                            if (!word) return
+                            void window.prose.spell.addWord(documentId, word).then((updated) => {
+                              setSpellWords(updated)
+                              onWordListChange?.(updated)
+                              setNewWord('')
+                            })
+                          }}
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          Add
+                        </button>
+                      </div>
+                      </div>
+                    </>
+                  )}
                 </>
               )}
 

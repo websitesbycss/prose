@@ -1,4 +1,5 @@
 import { useEffect, useRef, useLayoutEffect, useCallback, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { Editor } from '@tiptap/core'
 import { toast } from 'sonner'
 import {
@@ -134,7 +135,7 @@ export function HeaderFooterContextMenu({ editor, containerRef }: Props): JSX.El
     dismiss()
   }
 
-  return (
+  return createPortal(
     <div
       ref={menuRef}
       style={{ position: 'fixed', top: ctx.y, left: ctx.x, zIndex: 9999 }}
@@ -215,6 +216,7 @@ export function HeaderFooterContextMenu({ editor, containerRef }: Props): JSX.El
           />
         </>
       )}
-    </div>
+    </div>,
+    document.body
   )
 }

@@ -11,7 +11,7 @@ import { FontFamily } from '@tiptap/extension-font-family'
 import { Color } from '@tiptap/extension-color'
 import Highlight from '@tiptap/extension-highlight'
 import { CustomImage } from '@/extensions/imageExtension'
-import { SpellcheckExtension } from '@/extensions/spellcheckExtension'
+import { SpellcheckExtension, spellKey } from '@/extensions/spellcheckExtension'
 import { Link } from '@tiptap/extension-link'
 import { CellSelection } from '@tiptap/pm/tables'
 import {
@@ -251,6 +251,12 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
     } catch {
       editor.commands.setContent('')
     }
+    // Load per-document custom word list and seed the spellcheck extension
+    void window.prose.spell.getWords(documentId).then((words) => {
+      if (!editor.isDestroyed) {
+        editor.view.dispatch(editor.state.tr.setMeta(spellKey, { setIgnored: words }))
+      }
+    })
   }, [document?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Show/hide issue decorations based on panel visibility and analysis results
@@ -734,9 +740,10 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                   />
                   <EditorContextMenu
                     editor={editor}
+                    documentId={documentId}
                     onEditMath={(pos, latex, displayMode) => openMathModal({ editPos: pos, latex, displayMode })}
                   />
-                  <SpellTooltip editor={editor} />
+                  <SpellTooltip editor={editor} documentId={documentId} />
                   <IssueTooltip editor={editor} issues={analysis.issues} />
                 </div>
 
@@ -846,6 +853,11 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
           setPageMargins(m)
           patchDocument({ pageMargins: m })
           void window.prose.documents.update(documentId, { pageMargins: m })
+        }}
+        onWordListChange={(words) => {
+          if (editor && !editor.isDestroyed) {
+            editor.view.dispatch(editor.state.tr.setMeta(spellKey, { setIgnored: words }))
+          }
         }}
       />
     </TooltipProvider>

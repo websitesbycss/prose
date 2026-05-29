@@ -1,7 +1,7 @@
-import { ipcMain } from 'electron'
+import { ipcMain, app } from 'electron'
+import { promises as fs } from 'fs'
+import * as path from 'path'
 
-// nspell and dictionary-en-us use CommonJS; load them dynamically so the
-// main process doesn't block startup while the dictionary file is parsed.
 type NspellInstance = {
   correct(word: string): boolean
   suggest(word: string): string[]
@@ -10,6 +10,28 @@ type NspellInstance = {
 
 let checker: NspellInstance | null = null
 let loadPromise: Promise<void> | null = null
+
+// Per-document custom word lists — persisted to userData/spell-words.json
+type WordStore = Record<string, string[]>
+let wordStore: WordStore = {}
+const STORE_PATH = path.join(app.getPath('userData'), 'spell-words.json')
+
+async function loadStore(): Promise<void> {
+  try {
+    const raw = await fs.readFile(STORE_PATH, 'utf-8')
+    wordStore = JSON.parse(raw) as WordStore
+  } catch {
+    wordStore = {}
+  }
+}
+
+async function saveStore(): Promise<void> {
+  try {
+    await fs.writeFile(STORE_PATH, JSON.stringify(wordStore), 'utf-8')
+  } catch (e) {
+    console.error('[spell] Failed to save word store:', e)
+  }
+}
 
 function load(): Promise<void> {
   if (loadPromise) return loadPromise
@@ -31,34 +53,45 @@ function load(): Promise<void> {
   return loadPromise
 }
 
-// Normalise a word for checking: strip punctuation, lowercase.
-// Preserves internal apostrophes (don't → don't).
-function normalise(word: string): string {
-  return word.replace(/^[^a-zA-Z']+|[^a-zA-Z']+$/g, '').toLowerCase()
+// Strip leading/trailing punctuation, preserve internal apostrophes.
+function stripPunct(word: string): string {
+  return word.replace(/^[^a-zA-Z']+|[^a-zA-Z']+$/g, '')
+}
+
+// Check if a word is correct — tries the original case first (handles proper nouns
+// like "Instagram"), then lowercased as a fallback for sentence-start capitalisation.
+function isCorrect(raw: string): boolean {
+  if (!checker) return true
+  const original = stripPunct(raw)
+  if (!original || original.length < 2) return true
+  if (checker.correct(original)) return true
+  const lower = original.toLowerCase()
+  return lower !== original && checker.correct(lower)
+}
+
+function getSuggestions(raw: string): string[] {
+  if (!checker) return []
+  const original = stripPunct(raw)
+  if (!original) return []
+  // Get suggestions from lowercased form (nspell suggests based on lowercase)
+  const sugs = checker.suggest(original.toLowerCase()).slice(0, 5)
+  // Filter out suggestions that are merely a case variant of the original word
+  return sugs.filter(s => s.toLowerCase() !== original.toLowerCase())
 }
 
 export function registerSpellHandlers(): void {
-  // Kick off dictionary load at registration time so it's ready when first needed.
   void load()
+  void loadStore()
 
   ipcMain.handle('spell:check', async (_, word: unknown) => {
     if (typeof word !== 'string') return { correct: true, suggestions: [] }
-    const clean = normalise(word)
+    const clean = stripPunct(word)
     if (!clean || clean.length < 2) return { correct: true, suggestions: [] }
     await load()
-    if (!checker) return { correct: true, suggestions: [] }
-    const correct = checker.correct(clean)
-    const suggestions = correct ? [] : checker.suggest(clean).slice(0, 5)
-    return { correct, suggestions }
+    const correct = isCorrect(word)
+    return { correct, suggestions: correct ? [] : getSuggestions(word) }
   })
 
-  // Add a word to the in-memory user dictionary (survives the session, not persisted).
-  ipcMain.handle('spell:addWord', (_, word: unknown) => {
-    if (typeof word !== 'string' || !word.trim()) return
-    checker?.add(normalise(word))
-  })
-
-  // Check multiple words in one IPC round-trip for the decoration-based spellcheck extension.
   ipcMain.handle('spell:checkBatch', async (_, words: unknown) => {
     if (!Array.isArray(words)) return {}
     await load()
@@ -66,11 +99,40 @@ export function registerSpellHandlers(): void {
     const result: Record<string, { correct: boolean; suggestions: string[] }> = {}
     for (const word of words) {
       if (typeof word !== 'string') continue
-      const clean = normalise(word)
+      const clean = stripPunct(word)
       if (!clean || clean.length < 2) continue
-      const correct = checker.correct(clean)
-      result[word] = { correct, suggestions: correct ? [] : checker.suggest(clean).slice(0, 5) }
+      const correct = isCorrect(word)
+      result[word] = { correct, suggestions: correct ? [] : getSuggestions(word) }
     }
     return result
+  })
+
+  // Get all custom words for a document
+  ipcMain.handle('spell:getWords', (_, documentId: unknown): string[] => {
+    if (typeof documentId !== 'string') return []
+    return wordStore[documentId] ?? []
+  })
+
+  // Add a word to a document's custom list and persist it
+  ipcMain.handle('spell:addWord', async (_, documentId: unknown, word: unknown): Promise<string[]> => {
+    if (typeof documentId !== 'string' || typeof word !== 'string' || !word.trim()) return []
+    const clean = stripPunct(word)
+    if (!clean) return wordStore[documentId] ?? []
+    if (!wordStore[documentId]) wordStore[documentId] = []
+    if (!wordStore[documentId].includes(clean)) {
+      wordStore[documentId].push(clean)
+      await saveStore()
+    }
+    return wordStore[documentId]
+  })
+
+  // Remove a word from a document's custom list and persist it
+  ipcMain.handle('spell:removeWord', async (_, documentId: unknown, word: unknown): Promise<string[]> => {
+    if (typeof documentId !== 'string' || typeof word !== 'string') return []
+    const list = wordStore[documentId]
+    if (!list) return []
+    wordStore[documentId] = list.filter(w => w !== word)
+    await saveStore()
+    return wordStore[documentId]
   })
 }

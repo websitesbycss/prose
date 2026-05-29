@@ -80,16 +80,27 @@ export function sanitizeFilename(title: string): string {
     .slice(0, 200) || 'Untitled'
 }
 
-async function generateFilePath(title: string, folder: string): Promise<string> {
+async function generateUniqueFilePath(title: string, folder: string): Promise<{ filePath: string; resolvedTitle: string }> {
   const base = sanitizeFilename(title)
   const candidate = join(folder, `${base}.prose`)
   try {
     await access(candidate)
-    // File exists — append a short ID suffix
-    return join(folder, `${base} (${randomUUID().slice(0, 8)}).prose`)
   } catch {
-    return candidate
+    return { filePath: candidate, resolvedTitle: title }
   }
+  // File exists — find next available sequential number
+  for (let n = 2; n <= 999; n++) {
+    const numberedTitle = `${title} (${n})`
+    const numbered = join(folder, `${sanitizeFilename(numberedTitle)}.prose`)
+    try {
+      await access(numbered)
+    } catch {
+      return { filePath: numbered, resolvedTitle: numberedTitle }
+    }
+  }
+  // Extreme fallback (should never be reached in practice)
+  const fb = `${title} (${randomUUID().slice(0, 8)})`
+  return { filePath: join(folder, `${sanitizeFilename(fb)}.prose`), resolvedTitle: fb }
 }
 
 // ── Core file I/O ─────────────────────────────────────────────────────────────
@@ -118,6 +129,11 @@ export async function resolveDocument(id: string): Promise<{ doc: ProseFileDocum
   if (row) {
     try {
       const doc = await readProseFile(row.file_path)
+      // Recount in case the stored word_count is stale (e.g. from a past import bug)
+      const freshCount = countWordsFromContent(doc.content)
+      if (freshCount !== row.word_count) {
+        upsertIndex({ ...row, word_count: freshCount })
+      }
       return { doc, filePath: row.file_path }
     } catch {
       // File not at indexed path — fall through to scan
@@ -194,7 +210,7 @@ export async function createDocument(data: {
     snapshots: [],
   }
 
-  const filePath = await generateFilePath(data.title, folder)
+  const { filePath } = await generateUniqueFilePath(data.title, folder)
   await writeProseFile(filePath, doc)
 
   upsertIndex({
@@ -307,6 +323,46 @@ export async function rebuildIndexFromFolder(): Promise<void> {
   }
 }
 
+// Rename any legacy UUID-suffixed files (e.g. "My Doc (a1b2c3d4).prose") to
+// clean sequential names ("My Doc.prose" or "My Doc (2).prose").
+export async function renameUuidSuffixedFiles(): Promise<void> {
+  const folder = getDocumentsFolder()
+  let entries: string[]
+  try { entries = await readdir(folder) } catch { return }
+
+  const uuidPattern = /^(.+)\s\([0-9a-f]{8}\)\.prose$/i
+
+  for (const entry of entries) {
+    const match = uuidPattern.exec(entry)
+    if (!match) continue
+
+    const baseTitle = match[1]!
+    const oldPath = join(folder, entry)
+
+    let doc: ProseFileDocument
+    try { doc = await readProseFile(oldPath) } catch { continue }
+
+    try {
+      const { filePath: newPath, resolvedTitle } = await generateUniqueFilePath(baseTitle, folder)
+      await rename(oldPath, newPath)
+      const titleChanged = resolvedTitle !== doc.title
+      if (titleChanged) await writeProseFile(newPath, { ...doc, title: resolvedTitle })
+      upsertIndex({
+        id: doc.id,
+        title: titleChanged ? resolvedTitle : doc.title,
+        file_path: newPath,
+        format: doc.format,
+        word_count: getIndexRow(doc.id)?.word_count ?? countWordsFromContent(doc.content),
+        category_id: doc.categoryId,
+        created_at: doc.createdAt,
+        updated_at: doc.updatedAt,
+      })
+    } catch (err) {
+      console.error('[migration] Failed to rename', entry, err)
+    }
+  }
+}
+
 // ── Folder disk usage ─────────────────────────────────────────────────────────
 
 export async function getFolderStats(): Promise<{ folder: string; totalBytes: number; documentCount: number; accessible: boolean }> {
@@ -378,7 +434,7 @@ export async function importProseFile(filePath: string): Promise<ProseFileDocume
   // Assign a new ID to avoid conflicts, preserving content
   const id = randomUUID()
   const now = new Date().toISOString()
-  const newDoc: ProseFileDocument = {
+  let newDoc: ProseFileDocument = {
     ...doc,
     id,
     version: PROSE_FILE_VERSION,
@@ -388,7 +444,8 @@ export async function importProseFile(filePath: string): Promise<ProseFileDocume
     snapshots: [],
   }
 
-  const destPath = await generateFilePath(newDoc.title, folder)
+  const { filePath: destPath, resolvedTitle } = await generateUniqueFilePath(newDoc.title, folder)
+  if (resolvedTitle !== newDoc.title) newDoc = { ...newDoc, title: resolvedTitle }
   await writeProseFile(destPath, newDoc)
   upsertIndex({
     id,
@@ -413,7 +470,7 @@ export async function importMarkdownFile(filePath: string): Promise<ProseFileDoc
   const folder = getDocumentsFolder()
   await mkdir(folder, { recursive: true })
 
-  const doc: ProseFileDocument = {
+  let doc: ProseFileDocument = {
     version: PROSE_FILE_VERSION,
     id,
     title: titleFromFilename,
@@ -430,7 +487,8 @@ export async function importMarkdownFile(filePath: string): Promise<ProseFileDoc
     snapshots: [],
   }
 
-  const destPath = await generateFilePath(doc.title, folder)
+  const { filePath: destPath, resolvedTitle } = await generateUniqueFilePath(doc.title, folder)
+  if (resolvedTitle !== doc.title) doc = { ...doc, title: resolvedTitle }
   await writeProseFile(destPath, doc)
   upsertIndex({
     id,
@@ -457,7 +515,7 @@ export async function importDocxFile(filePath: string): Promise<ProseFileDocumen
   const folder = getDocumentsFolder()
   await mkdir(folder, { recursive: true })
 
-  const doc: ProseFileDocument = {
+  let doc: ProseFileDocument = {
     version: PROSE_FILE_VERSION,
     id,
     title: titleFromFilename,
@@ -474,7 +532,8 @@ export async function importDocxFile(filePath: string): Promise<ProseFileDocumen
     snapshots: [],
   }
 
-  const destPath = await generateFilePath(doc.title, folder)
+  const { filePath: destPath, resolvedTitle } = await generateUniqueFilePath(doc.title, folder)
+  if (resolvedTitle !== doc.title) doc = { ...doc, title: resolvedTitle }
   await writeProseFile(destPath, doc)
   upsertIndex({
     id,
@@ -495,7 +554,14 @@ function extractText(node: unknown): string {
   if (!node || typeof node !== 'object') return ''
   const n = node as Record<string, unknown>
   if (n.type === 'text' && typeof n.text === 'string') return n.text
-  if (Array.isArray(n.content)) return (n.content as unknown[]).map(extractText).join(' ')
+  if (Array.isArray(n.content)) {
+    const children = n.content as unknown[]
+    // If every direct child is a text node, join with '' so that
+    // character-level text nodes (from old markdown imports) concatenate
+    // into "hello world" instead of "h e l l o   w o r l d".
+    const allInline = children.every((c) => (c as { type?: string }).type === 'text')
+    return children.map(extractText).join(allInline ? '' : ' ')
+  }
   return ''
 }
 
@@ -571,14 +637,17 @@ function markdownToTiptap(md: string): unknown {
 function inlineMarkdownToTiptap(text: string): unknown[] {
   if (!text) return []
   const nodes: unknown[] = []
-  // Process bold, italic, inline code
-  const re = /(\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`|(.+?))/g
+  // Match bold, italic, inline code, then greedily consume plain text runs.
+  // The plain-text alternative [^*`]+ is greedy so "hello world" becomes one
+  // node instead of one node per character (which would inflate word counts).
+  // A stray * or ` that didn't open a pattern is also captured as plain text.
+  const re = /\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`|([^*`]+|[*`])/g
   let match: RegExpExecArray | null
   while ((match = re.exec(text)) !== null) {
-    if (match[2]) nodes.push({ type: 'text', text: match[2], marks: [{ type: 'bold' }] })
-    else if (match[3]) nodes.push({ type: 'text', text: match[3], marks: [{ type: 'italic' }] })
-    else if (match[4]) nodes.push({ type: 'text', text: match[4], marks: [{ type: 'code' }] })
-    else if (match[5]) nodes.push({ type: 'text', text: match[5] })
+    if (match[1]) nodes.push({ type: 'text', text: match[1], marks: [{ type: 'bold' }] })
+    else if (match[2]) nodes.push({ type: 'text', text: match[2], marks: [{ type: 'italic' }] })
+    else if (match[3]) nodes.push({ type: 'text', text: match[3], marks: [{ type: 'code' }] })
+    else if (match[4]) nodes.push({ type: 'text', text: match[4] })
     if (!match[0]) break
   }
   return nodes

@@ -76,7 +76,7 @@ export function useMusic(): MusicHook {
 
   // Refs mirror state so callbacks always see the latest values
   const playingRef = useRef(false)
-  const volumeRef = useRef(70)
+  const volumeRef = useRef(45)
   const trackIndexRef = useRef(0)
   const ambientEnabledRef = useRef<Record<string, boolean>>({})
   const ambientVolumesRef = useRef<Record<string, number>>({ ...DEFAULT_AMBIENT_VOLUMES })
@@ -85,7 +85,7 @@ export function useMusic(): MusicHook {
   const [playing, setPlayingUI] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
-  const [volume, setVolumeUI] = useState(70)
+  const [volume, setVolumeUI] = useState(45)
   const [ambientEnabled, setAmbientEnabledUI] = useState<Record<string, boolean>>({})
   const [ambientVolumes, setAmbientVolumesUI] = useState<Record<string, number>>({
     ...DEFAULT_AMBIENT_VOLUMES,

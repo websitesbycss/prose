@@ -259,8 +259,10 @@ export interface ProseAPI {
   }
   spell: {
     check(word: string): Promise<{ correct: boolean; suggestions: string[] }>
-    addWord(word: string): Promise<void>
     checkBatch(words: string[]): Promise<Record<string, { correct: boolean; suggestions: string[] }>>
+    getWords(documentId: string): Promise<string[]>
+    addWord(documentId: string, word: string): Promise<string[]>
+    removeWord(documentId: string, word: string): Promise<string[]>
   }
 }
 

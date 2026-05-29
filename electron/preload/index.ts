@@ -122,9 +122,13 @@ contextBridge.exposeInMainWorld('prose', {
   spell: {
     check: (word: string): Promise<{ correct: boolean; suggestions: string[] }> =>
       ipcRenderer.invoke('spell:check', word),
-    addWord: (word: string): Promise<void> =>
-      ipcRenderer.invoke('spell:addWord', word),
     checkBatch: (words: string[]): Promise<Record<string, { correct: boolean; suggestions: string[] }>> =>
       ipcRenderer.invoke('spell:checkBatch', words),
+    getWords: (documentId: string): Promise<string[]> =>
+      ipcRenderer.invoke('spell:getWords', documentId),
+    addWord: (documentId: string, word: string): Promise<string[]> =>
+      ipcRenderer.invoke('spell:addWord', documentId, word),
+    removeWord: (documentId: string, word: string): Promise<string[]> =>
+      ipcRenderer.invoke('spell:removeWord', documentId, word),
   },
 })

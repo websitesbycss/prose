@@ -31,6 +31,10 @@ export function extractWordCount(tiptapJson: string): number {
 }
 
 function extractText(nodes: unknown[]): string {
+  // Join inline siblings (all text nodes) with '' so character-level text nodes
+  // from old markdown imports concatenate into real words rather than
+  // "h e l l o" (which would count as 5 words instead of 1).
+  const allInline = nodes.every((n) => (n as { type?: string }).type === 'text')
   return nodes
     .map((node) => {
       const n = node as { type?: string; text?: string; content?: unknown[] }
@@ -38,5 +42,5 @@ function extractText(nodes: unknown[]): string {
       if (n.content) return extractText(n.content)
       return ''
     })
-    .join(' ')
+    .join(allInline ? '' : ' ')
 }

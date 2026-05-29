@@ -169,8 +169,16 @@ export default function Dashboard(): JSX.Element {
   }
 
   async function handleRename(id: string, title: string): Promise<void> {
-    await window.prose.documents.update(id, { title })
-    setDocuments((prev) => prev.map((d) => d.id === id ? { ...d, title } : d))
+    try {
+      await window.prose.documents.update(id, { title })
+      setDocuments((prev) => prev.map((d) => d.id === id ? { ...d, title } : d))
+    } catch (err) {
+      if ((err as Error).message?.includes('DUPLICATE_TITLE')) {
+        toast.error('A document with that name already exists')
+      } else {
+        toast.error('Failed to rename document')
+      }
+    }
   }
 
   async function handleCtxExport(format: string): Promise<void> {

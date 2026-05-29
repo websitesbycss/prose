@@ -36,6 +36,8 @@ export const SpellcheckExtension = Extension.create({
   addProseMirrorPlugins() {
     const ignored = new Set<string>()
     let debounceTimer: ReturnType<typeof setTimeout> | null = null
+    // Set by apply() when the ignored set is replaced; consumed by view.update()
+    let recheckPending = false
 
     const plugin = new Plugin<DecorationSet>({
       key: spellKey,
@@ -43,7 +45,16 @@ export const SpellcheckExtension = Extension.create({
       state: {
         init: () => DecorationSet.empty,
         apply(tr, decorations, _old, newState) {
-          const meta = tr.getMeta(spellKey) as { decorations?: DecorationSet; ignore?: string } | undefined
+          const meta = tr.getMeta(spellKey) as
+            | { decorations?: DecorationSet; ignore?: string; setIgnored?: string[] }
+            | undefined
+
+          if (meta?.setIgnored !== undefined) {
+            ignored.clear()
+            for (const w of meta.setIgnored) ignored.add(w.toLowerCase())
+            recheckPending = true
+            return DecorationSet.empty
+          }
           if (meta?.decorations !== undefined) return meta.decorations
           if (meta?.ignore) {
             const w = meta.ignore.toLowerCase()
@@ -110,7 +121,10 @@ export const SpellcheckExtension = Extension.create({
 
         return {
           update(view, prevState) {
-            if (view.state.doc !== prevState.doc) schedule()
+            if (view.state.doc !== prevState.doc || recheckPending) {
+              recheckPending = false
+              schedule()
+            }
           },
           destroy() {
             if (debounceTimer) clearTimeout(debounceTimer)

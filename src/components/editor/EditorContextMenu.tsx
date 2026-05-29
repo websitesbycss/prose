@@ -1,4 +1,5 @@
 import { useEffect, useRef, useLayoutEffect, useCallback, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { Editor } from '@tiptap/react'
 import { NodeSelection } from '@tiptap/pm/state'
 import type { Node } from '@tiptap/pm/model'
@@ -10,7 +11,7 @@ import {
   Undo2, Redo2, Scissors, Copy, Clipboard, RemoveFormatting,
   Link2, Eraser, Sparkles, ExternalLink, Link, Unlink2,
   Trash2, Download, MousePointerClick, Pencil,
-  ArrowUp, ArrowDown, ArrowLeft, ArrowRight,
+  ArrowUp, ArrowDown, ArrowLeft, ArrowRight, X,
 } from 'lucide-react'
 
 interface MenuCtx {
@@ -47,10 +48,11 @@ type MenuItem =
 
 interface EditorContextMenuProps {
   editor: Editor | null
+  documentId: string
   onEditMath?: (pos: number, latex: string, displayMode: boolean) => void
 }
 
-export function EditorContextMenu({ editor, onEditMath }: EditorContextMenuProps): JSX.Element | null {
+export function EditorContextMenu({ editor, documentId, onEditMath }: EditorContextMenuProps): JSX.Element | null {
   const [ctx, setCtx] = useState<MenuCtx | null>(null)
   const [linkMode, setLinkMode] = useState(false)
   const [linkDraft, setLinkDraft] = useState('')
@@ -202,9 +204,7 @@ export function EditorContextMenu({ editor, onEditMath }: EditorContextMenuProps
             if (candidates.length > 0) {
               const deco = candidates[0]
               const spec = deco.spec as { word: string; suggestions: string[] }
-              if (spec.suggestions?.length) {
-                setSpellWord({ word, from: deco.from, to: deco.to, suggestions: spec.suggestions })
-              }
+              setSpellWord({ word, from: deco.from, to: deco.to, suggestions: spec.suggestions ?? [] })
             }
           }
         }
@@ -240,18 +240,16 @@ export function EditorContextMenu({ editor, onEditMath }: EditorContextMenuProps
     }
   }, [ctx, dismiss])
 
-  // Fine-tune position after render — corrects cases where the pre-computed
-  // estimate was wrong (e.g. menu grew taller due to spell suggestions loading).
+  // Flip left/up if menu would overflow viewport. spellWord in deps so the check
+  // re-runs after async suggestions load and the menu grows taller.
   useLayoutEffect(() => {
     if (!ctx || !menuRef.current) return
     const el = menuRef.current
     const rect = el.getBoundingClientRect()
     const vw = window.innerWidth
     const vh = window.innerHeight
-    if (rect.right > vw - 4) el.style.left = `${Math.max(4, ctx.x - rect.width)}px`
-    if (rect.bottom > vh - 4) el.style.top = `${Math.max(4, ctx.y - rect.height)}px`
-    if (rect.left < 4) el.style.left = '4px'
-    if (rect.top < 4) el.style.top = '4px'
+    if (rect.right > vw) el.style.left = `${ctx.x - rect.width}px`
+    if (rect.bottom > vh) el.style.top = `${ctx.y - rect.height}px`
   }, [ctx, linkMode, spellWord])
 
   // Focus link input when link mode opens
@@ -412,19 +410,10 @@ export function EditorContextMenu({ editor, onEditMath }: EditorContextMenuProps
   }
   if (cleaned[cleaned.length - 1]?.type === 'sep') cleaned.pop()
 
-  // Pre-position using generous size estimates so the correct corner is attached
-  // to the cursor from the first paint — useLayoutEffect fine-tunes afterward.
-  const EST_W = 220
-  const EST_H = 380
-  const vw = window.innerWidth
-  const vh = window.innerHeight
-  const menuLeft = ctx.x + EST_W > vw - 4 ? Math.max(4, ctx.x - EST_W) : ctx.x
-  const menuTop  = ctx.y + EST_H > vh - 4 ? Math.max(4, ctx.y - EST_H) : ctx.y
-
-  return (
+  return createPortal(
     <div
       ref={menuRef}
-      style={{ position: 'fixed', top: menuTop, left: menuLeft, zIndex: 9999 }}
+      style={{ position: 'fixed', top: ctx.y, left: ctx.x, zIndex: 9999 }}
       className="min-w-[200px] rounded-lg border border-border bg-background py-1 text-[13px] shadow-lg"
       onMouseDown={(e) => { if ((e.target as HTMLElement).tagName !== 'INPUT') e.preventDefault() }}
     >
@@ -533,34 +522,47 @@ export function EditorContextMenu({ editor, onEditMath }: EditorContextMenuProps
         </div>
       ) : (
         <>
-          {/* Spell suggestions — rendered reactively as the async check resolves */}
-          {spellWord && spellWord.suggestions.length > 0 && (
+          {/* Spell section — shown whenever right-clicking a squiggled word */}
+          {spellWord && (
             <>
               <div className="px-3 pb-0.5 pt-1.5">
                 <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Spelling suggestions
+                  Spelling
                 </span>
               </div>
-              {spellWord.suggestions.map((s) => (
-                <MenuBtn
+              {spellWord.suggestions.length === 0 && (
+                <div className="px-3 py-1.5 text-[13px] text-muted-foreground">No suggestions</div>
+              )}
+              {spellWord.suggestions.map((s, i) => (
+                <button
                   key={s}
-                  label={s}
+                  className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[13px] text-foreground transition-colors hover:bg-muted/50"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
                     const { tr } = editor.state
                     tr.replaceWith(spellWord.from, spellWord.to, editor.state.schema.text(s))
                     editor.view.dispatch(tr)
                     dismiss()
                   }}
-                />
+                >
+                  <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm bg-muted text-[9px] font-semibold leading-none text-muted-foreground">
+                    {i + 1}
+                  </span>
+                  {s}
+                </button>
               ))}
-              <MenuBtn
-                label="Ignore"
+              <button
+                className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[13px] text-muted-foreground transition-colors hover:bg-muted/50"
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => {
-                  void window.prose.spell.addWord(spellWord.word)
+                  void window.prose.spell.addWord(documentId, spellWord.word)
                   editor.view.dispatch(editor.state.tr.setMeta(spellKey, { ignore: spellWord.word }))
                   dismiss()
                 }}
-              />
+              >
+                <X className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                Ignore
+              </button>
               <MenuSep />
             </>
           )}
@@ -579,7 +581,8 @@ export function EditorContextMenu({ editor, onEditMath }: EditorContextMenuProps
           })}
         </>
       )}
-    </div>
+    </div>,
+    document.body
   )
 }
 
