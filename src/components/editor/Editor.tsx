@@ -11,6 +11,7 @@ import { FontFamily } from '@tiptap/extension-font-family'
 import { Color } from '@tiptap/extension-color'
 import Highlight from '@tiptap/extension-highlight'
 import { CustomImage } from '@/extensions/imageExtension'
+import { SpellcheckExtension } from '@/extensions/spellcheckExtension'
 import { Link } from '@tiptap/extension-link'
 import { CellSelection } from '@tiptap/pm/tables'
 import {
@@ -200,11 +201,13 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
       FindExtension,
       InlineMath,
       BlockMath,
+      SpellcheckExtension,
       Placeholder.configure({ placeholder: 'Start writing…' }),
     ],
     content: '',
     onUpdate: ({ editor: e }) => onEditorUpdate(e),
     editorProps: {
+      attributes: { spellcheck: 'false' },
       handleScrollToSelection: (view) => {
         const scrollEl = editorScrollRef.current
         if (!scrollEl) return false
@@ -306,7 +309,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
     function onMouseMove(e: MouseEvent): void {
       if (dragStartRef.current) {
         const delta = dragStartRef.current.x - e.clientX
-        const newWidth = Math.min(400, Math.max(180, dragStartRef.current.width + delta))
+        const newWidth = Math.min(600, Math.max(180, dragStartRef.current.width + delta))
         setAiPanelWidth(newWidth)
         aiPanelWidthRef.current = newWidth
       }

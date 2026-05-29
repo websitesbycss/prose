@@ -93,14 +93,22 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
     void window.prose.documents.getStorageInfo().then((info) => setStorageInfo(info as StorageInfo))
   }, [open])
 
+  const setPomodoroState = useAppStore((s) => s.setPomodoroState)
+
   const save = useCallback(async (patch: Partial<AppSettings>): Promise<void> => {
     setSettings((prev) => prev ? { ...prev, ...patch } : prev)
+    if ('pomodoroWorkMinutes' in patch) {
+      const { phase } = useAppStore.getState().pomodoroState
+      if (phase === 'idle') {
+        setPomodoroState({ timeRemaining: (patch.pomodoroWorkMinutes as number) * 60 })
+      }
+    }
     try {
       await window.prose.settings.set(patch as Record<string, unknown>)
     } catch (err) {
       console.error('Settings save error:', err)
     }
-  }, [])
+  }, [setPomodoroState])
 
   // Apply accent colors whenever either value changes; uses fresh state, no stale closures
   useEffect(() => {

@@ -134,8 +134,9 @@ export class OllamaManager {
         stream: true,
         keep_alive: '10m',
         options: {
-          num_predict: -1,  // no cap on output tokens
-          num_ctx: 8192,    // context window — default 2048 is too small for doc+history+response
+          num_predict: -1,
+          num_ctx: 8192,
+          temperature: 0.4,  // lower than default 0.8 — reduces mid-expression drift on math
         },
       }),
     })

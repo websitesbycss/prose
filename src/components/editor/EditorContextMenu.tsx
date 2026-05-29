@@ -5,6 +5,7 @@ import type { Node } from '@tiptap/pm/model'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store/appStore'
 import { toast } from 'sonner'
+import { spellKey } from '@/extensions/spellcheckExtension'
 import {
   Undo2, Redo2, Scissors, Copy, Clipboard, RemoveFormatting,
   Link2, Eraser, Sparkles, ExternalLink, Link, Unlink2,
@@ -185,22 +186,27 @@ export function EditorContextMenu({ editor, onEditMath }: EditorContextMenuProps
         canRedo,
       })
 
-      // Async spell check for the word under cursor (only for plain text, not image/math/pageBreak)
-      if (!isOnImage && !isOnMath && !isOnPageBreak && posData) {
-        const clickPos = posData.pos
-        const $p = editor!.state.doc.resolve(clickPos)
-        const text = $p.parent.textContent
-        const off = $p.parentOffset
-        let s = off; while (s > 0 && /[\w']/.test(text[s - 1]!)) s--
-        let en = off; while (en < text.length && /[\w']/.test(text[en]!)) en++
-        const word = text.slice(s, en).replace(/^'+|'+$/g, '')
-        if (word.length >= 2) {
-          const blockStart = $p.start()
-          void window.prose.spell.check(word).then((res) => {
-            if (!res.correct && res.suggestions.length > 0) {
-              setSpellWord({ word, from: blockStart + s, to: blockStart + en, suggestions: res.suggestions })
+      // Spell suggestions — read directly from the decoration set so the context
+      // menu is consistent with the hover tooltip (same source of truth, no async).
+      if (!isOnImage && !isOnMath && !isOnPageBreak) {
+        const spellEl = (e.target as HTMLElement).closest('.spell-error') as HTMLElement | null
+        if (spellEl) {
+          const word = spellEl.getAttribute('data-word')
+          const decoSet = spellKey.getState(editor!.state)
+          if (word && decoSet) {
+            let fromPos = 0
+            try { fromPos = editor!.view.posAtDOM(spellEl, 0) } catch { /* ignore */ }
+            const candidates = decoSet
+              .find(Math.max(0, fromPos - 1), fromPos + word.length + 1)
+              .filter((d) => (d.spec as { word?: string }).word === word.toLowerCase())
+            if (candidates.length > 0) {
+              const deco = candidates[0]
+              const spec = deco.spec as { word: string; suggestions: string[] }
+              if (spec.suggestions?.length) {
+                setSpellWord({ word, from: deco.from, to: deco.to, suggestions: spec.suggestions })
+              }
             }
-          })
+          }
         }
       }
     }
@@ -234,16 +240,19 @@ export function EditorContextMenu({ editor, onEditMath }: EditorContextMenuProps
     }
   }, [ctx, dismiss])
 
-  // Overflow correction: flip left/up if menu would overflow viewport
+  // Fine-tune position after render — corrects cases where the pre-computed
+  // estimate was wrong (e.g. menu grew taller due to spell suggestions loading).
   useLayoutEffect(() => {
     if (!ctx || !menuRef.current) return
     const el = menuRef.current
     const rect = el.getBoundingClientRect()
     const vw = window.innerWidth
     const vh = window.innerHeight
-    if (rect.right > vw) el.style.left = `${ctx.x - rect.width}px`
-    if (rect.bottom > vh) el.style.top = `${ctx.y - rect.height}px`
-  }, [ctx, linkMode])
+    if (rect.right > vw - 4) el.style.left = `${Math.max(4, ctx.x - rect.width)}px`
+    if (rect.bottom > vh - 4) el.style.top = `${Math.max(4, ctx.y - rect.height)}px`
+    if (rect.left < 4) el.style.left = '4px'
+    if (rect.top < 4) el.style.top = '4px'
+  }, [ctx, linkMode, spellWord])
 
   // Focus link input when link mode opens
   useEffect(() => {
@@ -403,10 +412,19 @@ export function EditorContextMenu({ editor, onEditMath }: EditorContextMenuProps
   }
   if (cleaned[cleaned.length - 1]?.type === 'sep') cleaned.pop()
 
+  // Pre-position using generous size estimates so the correct corner is attached
+  // to the cursor from the first paint — useLayoutEffect fine-tunes afterward.
+  const EST_W = 220
+  const EST_H = 380
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const menuLeft = ctx.x + EST_W > vw - 4 ? Math.max(4, ctx.x - EST_W) : ctx.x
+  const menuTop  = ctx.y + EST_H > vh - 4 ? Math.max(4, ctx.y - EST_H) : ctx.y
+
   return (
     <div
       ref={menuRef}
-      style={{ position: 'fixed', top: ctx.y, left: ctx.x, zIndex: 9999 }}
+      style={{ position: 'fixed', top: menuTop, left: menuLeft, zIndex: 9999 }}
       className="min-w-[200px] rounded-lg border border-border bg-background py-1 text-[13px] shadow-lg"
       onMouseDown={(e) => { if ((e.target as HTMLElement).tagName !== 'INPUT') e.preventDefault() }}
     >
@@ -539,6 +557,7 @@ export function EditorContextMenu({ editor, onEditMath }: EditorContextMenuProps
                 label="Ignore"
                 onClick={() => {
                   void window.prose.spell.addWord(spellWord.word)
+                  editor.view.dispatch(editor.state.tr.setMeta(spellKey, { ignore: spellWord.word }))
                   dismiss()
                 }}
               />

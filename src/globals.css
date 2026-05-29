@@ -403,6 +403,20 @@ html.theme-transitioning *::after {
   padding: 0;
 }
 
+/* ── Custom spellcheck squiggles ──────────────────────────────── */
+
+/* Browser-native spellcheck is disabled on the editor (spellcheck="false")
+   and replaced with nspell decorations so we control the full lifecycle. */
+.spell-error {
+  text-decoration: underline wavy #ef4444;
+  text-underline-offset: 3px;
+  cursor: text;
+}
+
+.dark .spell-error {
+  text-decoration-color: #f87171;
+}
+
 /* ── Analysis issue highlights ────────────────────────────────── */
 
 .issue-highlight {
@@ -526,6 +540,7 @@ html.theme-transitioning *::after {
 .ai-chat-bubble .katex-display .katex {
   margin-right: 0.75rem;
 }
+
 
 /* KaTeX's .katex-html is inline-block, which creates a block formatting context
    that inherits and applies text-indent — resetting here prevents the 0.5in gap

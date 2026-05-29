@@ -24,6 +24,15 @@ export function usePomodoro(): PomodoroControls {
     })
   }, [])
 
+  // Keep refs in sync whenever the idle display is updated by a settings change
+  // so Start picks up the correct duration without needing a full remount.
+  const idleTimeRemaining = useAppStore((s) =>
+    s.pomodoroState.phase === 'idle' ? s.pomodoroState.timeRemaining : null
+  )
+  useEffect(() => {
+    if (idleTimeRemaining !== null) workSecondsRef.current = idleTimeRemaining
+  }, [idleTimeRemaining])
+
   useEffect(() => {
     if (Notification.permission === 'default') {
       void Notification.requestPermission()

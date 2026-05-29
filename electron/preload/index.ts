@@ -124,5 +124,7 @@ contextBridge.exposeInMainWorld('prose', {
       ipcRenderer.invoke('spell:check', word),
     addWord: (word: string): Promise<void> =>
       ipcRenderer.invoke('spell:addWord', word),
+    checkBatch: (words: string[]): Promise<Record<string, { correct: boolean; suggestions: string[] }>> =>
+      ipcRenderer.invoke('spell:checkBatch', words),
   },
 })

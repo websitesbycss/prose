@@ -21,6 +21,20 @@ import {
 // remark-math expects $$...$$ and $...$ respectively, so normalise first.
 const LATEX_CMD = /\\(?:frac|int|sum|prod|sqrt|lim|infty|partial|alpha|beta|gamma|delta|theta|lambda|sigma|pi|mu|cdot|times|div|leq|geq|neq|approx|pm|binom|vec|hat|bar|dot|left|right)\b/
 
+// Truncates a LaTeX expression so all { } braces are balanced, preventing
+// KaTeX parse errors when the model stops mid-expression.
+function balanceLatexBraces(inner: string): string {
+  let depth = 0
+  let lastBalancedPos = 0
+  for (let i = 0; i < inner.length; i++) {
+    if (inner[i] === '\\') { i++; continue }
+    if (inner[i] === '{') depth++
+    else if (inner[i] === '}' && depth > 0) depth--
+    if (depth === 0) lastBalancedPos = i + 1
+  }
+  return depth > 0 ? inner.slice(0, lastBalancedPos) : inner
+}
+
 function normaliseMath(text: string): string {
   let t = text
 
@@ -37,14 +51,30 @@ function normaliseMath(text: string): string {
   // so they don't insert block elements that break numbered list continuity.
   t = t.replace(/\\\[([\s\S]*?)\\\]/g, (_, m: string) => `$\\displaystyle ${m.trim()}$`)
   t = t.replace(/\$\$([\s\S]*?)\$\$/g, (_, m: string) => `$\\displaystyle ${m.trim()}$`)
+  // Handle unclosed $$: model opened display math but forgot the closing $$.
+  // After the pass above, any remaining $$ was never closed.
+  t = t.replace(/\$\$([\s\S]*?)(?=\n\n|$)/g, (_, m: string) =>
+    `$\\displaystyle ${balanceLatexBraces(m.trim())}$`
+  )
 
   // \(...\) → $...$
   t = t.replace(/\\\(([\s\S]*?)\\\)/g, (_, m: string) => `$${m}$`)
 
-  // Fix a lone opening $ with no closing $ on the same line that contains LaTeX
-  t = t.replace(/\$([^$\n]*?\\[a-zA-Z]+[^$\n]*)(?=\n|$)/g, (match, inner) => {
-    if (LATEX_CMD.test(inner)) return `$${inner}$`
+  // Fix a lone opening $ with no closing $ on the same line that contains LaTeX.
+  // (?<!\$) prevents matching the second $ of a $$ pair.
+  t = t.replace(/(?<!\$)\$(?!\$)([^$\n]*?\\[a-zA-Z]+[^$\n]*)(?=\n|$)/g, (match, inner: string) => {
+    if (LATEX_CMD.test(inner)) return `$${balanceLatexBraces(inner)}$`
     return match
+  })
+
+  // Brace bare subscripts/superscripts inside $...$ so markdown's _ italic
+  // parser doesn't swallow them before remark-math can process the delimiter.
+  // e.g. $\int_1^9$ → $\int_{1}^{9}$
+  // Only matches simple alphanumeric args to avoid swallowing operators: x^2+x stays x^{2}+x.
+  t = t.replace(/\$([^$\n]+)\$/g, (match, inner: string) => {
+    const braced = inner.replace(/([_^])([a-zA-Z0-9]+)/g, (_, op: string, arg: string) => `${op}{${arg}}`)
+    const balanced = balanceLatexBraces(braced)
+    return balanced ? `$${balanced}$` : ''
   })
 
   return t
@@ -54,7 +84,7 @@ function AiMarkdown({ children }: { children: string }): JSX.Element {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkMath]}
-      rehypePlugins={[rehypeKatex]}
+      rehypePlugins={[[rehypeKatex, { throwOnError: false, errorColor: 'currentColor' }]]}
       allowedElements={['p','strong','em','h1','h2','h3','ul','ol','li','code','pre','blockquote','span','div','math','semantics','mrow','mi','mo','mn','msup','msub','mfrac','msqrt','mtext','mspace','mover','munder','mtable','mtr','mtd','annotation']}
       unwrapDisallowed
       components={{

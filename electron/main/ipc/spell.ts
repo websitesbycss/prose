@@ -57,4 +57,20 @@ export function registerSpellHandlers(): void {
     if (typeof word !== 'string' || !word.trim()) return
     checker?.add(normalise(word))
   })
+
+  // Check multiple words in one IPC round-trip for the decoration-based spellcheck extension.
+  ipcMain.handle('spell:checkBatch', async (_, words: unknown) => {
+    if (!Array.isArray(words)) return {}
+    await load()
+    if (!checker) return {}
+    const result: Record<string, { correct: boolean; suggestions: string[] }> = {}
+    for (const word of words) {
+      if (typeof word !== 'string') continue
+      const clean = normalise(word)
+      if (!clean || clean.length < 2) continue
+      const correct = checker.correct(clean)
+      result[word] = { correct, suggestions: correct ? [] : checker.suggest(clean).slice(0, 5) }
+    }
+    return result
+  })
 }

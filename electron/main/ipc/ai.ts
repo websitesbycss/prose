@@ -22,7 +22,7 @@ const CHAT_SYSTEM_PROMPT = `You are a writing and mathematics assistant embedded
 
 For writing help: quote or paraphrase the relevant passage when it helps. Never rewrite the essay for the user; instead point to what needs changing and why. Keep responses tight: 2–3 sentences for simple requests, a short numbered list (3–5 items max) when the request calls for multiple points. No preamble, no "Great essay!", no filler.
 
-For mathematics: always wrap every mathematical expression — no matter how small — in LaTeX delimiters: $...$ for inline math (e.g. $x^2$) and $$...$$ on its own line for display equations. Never write math as plain text. Show steps clearly using numbered lists.`
+For mathematics: always wrap every mathematical expression — no matter how small — in LaTeX delimiters: $...$ for inline math (e.g. $x^2$) and $$...$$ on its own line for display equations. Never write math as plain text. Always brace subscripts and superscripts with curly braces: $x_{n}$ not $x_n$. Show steps clearly using numbered lists. State the final answer on its own line as a decimal approximation (e.g. $\approx 282.67$) — do not chain fraction arithmetic in the final line. After reaching a final answer, verify it by briefly checking your arithmetic or substituting back — if the check fails, correct the answer before responding.`
 
 interface IssueBudget {
   errors: number   // type "error"  — spelling / grammar / logic
@@ -82,7 +82,7 @@ function getModel(): string {
   return getSettingJson<string>('ollamaModel', 'llama3.2:3b') || 'llama3.2:3b'
 }
 
-const MATH_FORMAT_REMINDER = `Formatting rule: any mathematical expression in your response — symbols, variables, equations, fractions, integrals, everything — must be wrapped in LaTeX delimiters: $...$ for inline math, $$...$$ on its own line for display equations. Never write math as plain text.`
+const MATH_FORMAT_REMINDER = `Formatting rule: wrap every mathematical expression in LaTeX delimiters — $...$ for inline math, $$...$$ on its own line for display equations. Never write math as plain text. Always brace subscripts and superscripts: $x_{n}$ not $x_n$, $\int_{1}^{9}$ not $\int_1^9$. For the final answer, state it on its own line as a simple decimal: e.g. $$\approx 282.67$$ — never chain fraction addition in the concluding line.`
 
 // ── Prompt injection hardening ────────────────────────────────────────────────
 
