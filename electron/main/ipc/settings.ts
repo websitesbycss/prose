@@ -17,6 +17,7 @@ interface AppSettingsOut {
   headingFontSizes: { h1: number; h2: number; h3: number }
   lightAccentColor: string | null
   darkAccentColor: string | null
+  uiScale: number
 }
 
 const DEFAULTS: AppSettingsOut = {
@@ -27,7 +28,7 @@ const DEFAULTS: AppSettingsOut = {
   ollamaModel: 'llama3.2:3b',
   pomodoroWorkMinutes: 25,
   pomodoroBreakMinutes: 5,
-  musicVolume: 70,
+  musicVolume: 45,
   ambientVolumes: {},
   typewriterMode: false,
   editorFontFamily: 'Calibri',
@@ -35,6 +36,7 @@ const DEFAULTS: AppSettingsOut = {
   headingFontSizes: { h1: 36, h2: 24, h3: 18 },
   lightAccentColor: '#2563eb',
   darkAccentColor: '#60a5fa',
+  uiScale: 110,
 }
 
 const VALID_FORMATS = new Set(['none', 'mla', 'apa', 'chicago', 'ieee'])
@@ -72,6 +74,7 @@ function loadSettings(): AppSettingsOut {
     })(),
     lightAccentColor: get('lightAccentColor', DEFAULTS.lightAccentColor),
     darkAccentColor:  get('darkAccentColor',  DEFAULTS.darkAccentColor),
+    uiScale: Math.min(125, Math.max(75, get('uiScale', DEFAULTS.uiScale))),
   }
 }
 

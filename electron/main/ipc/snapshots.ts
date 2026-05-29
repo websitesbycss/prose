@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
-import { resolveDocument, writeProseFile, updateDocument, countWordsFromContent } from '../services/fileService'
-import { upsertIndex, getIndexRow } from '../services/indexDb'
+import { resolveDocument, writeProseFile, countWordsFromContent } from '../services/fileService'
+import { upsertIndex, getIndexRow, getAllIndexRows } from '../services/indexDb'
 
 interface SnapshotOut {
   id: string

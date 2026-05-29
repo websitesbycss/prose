@@ -154,6 +154,8 @@ async function runMigration(): Promise<void> {
         snapshots: snapshots.map((s) => ({
           id: s.id,
           content: parseJson(s.content, { type: 'doc', content: [] }),
+          headerContent: null,
+          footerContent: null,
           wordCount: s.word_count,
           createdAt: s.created_at,
           label: s.label,
