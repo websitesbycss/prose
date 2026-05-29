@@ -212,7 +212,7 @@ export interface ProseAPI {
   ai: {
     prompt(payload: AiPromptPayload): Promise<string>
     getStatus(): Promise<OllamaStatus>
-    streamPrompt(payload: AiPromptPayload, onChunk: (chunk: string) => void): Promise<void>
+    streamPrompt(payload: AiPromptPayload, onChunk: (chunk: string) => void, onError: (msg: string) => void): Promise<void>
     analyze(payload: { documentContent: string; assignmentContext?: string }): Promise<AnalysisResult>
   }
   export: {

@@ -1,35 +1,36 @@
 import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'motion/react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { CheckCircle2, AlertCircle, Download } from 'lucide-react'
 import type { DownloadProgress } from '@/types'
 import { cn } from '@/lib/utils'
 
-interface RamOption {
+interface SuggestedModel {
   label: string
   description: string
   model: string
   size: string
 }
 
-const RAM_OPTIONS: RamOption[] = [
+const SUGGESTED_MODELS: SuggestedModel[] = [
   {
-    label: '4 GB or less',
-    description: 'Basic AI feedback, fast responses',
+    label: '4 GB RAM or less',
+    description: 'Fast, lightweight',
     model: 'llama3.2:3b',
-    size: '~2 GB download',
+    size: '~2 GB',
   },
   {
-    label: '8 GB',
-    description: 'Best quality for writing tasks',
+    label: '8 GB RAM',
+    description: 'Balanced quality and speed',
     model: 'mistral:7b',
-    size: '~4 GB download',
+    size: '~4 GB',
   },
   {
-    label: '16 GB or more',
-    description: 'Best quality, runs comfortably',
-    model: 'mistral:7b',
-    size: '~4 GB download',
+    label: '16 GB RAM or more',
+    description: 'Best writing quality',
+    model: 'mistral:latest',
+    size: '~4 GB',
   },
 ]
 
@@ -40,20 +41,40 @@ interface ModelDownloadProps {
 }
 
 export default function ModelDownload({ onComplete }: ModelDownloadProps): JSX.Element {
-  const [selected, setSelected] = useState(0)
+  const [installedModels, setInstalledModels] = useState<string[]>([])
+  const [selectedInstalled, setSelectedInstalled] = useState<string | null>(null)
+  const [selectedSuggested, setSelectedSuggested] = useState(0)
+  const [customModel, setCustomModel] = useState('')
   const [phase, setPhase] = useState<Phase>('pick')
   const [progress, setProgress] = useState(0)
   const [statusLabel, setStatusLabel] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
 
-  const option = RAM_OPTIONS[selected]
+  useEffect(() => {
+    void window.prose.ollama.listModels().then((models) => {
+      setInstalledModels(models)
+      if (models.length > 0) setSelectedInstalled(models[0]!)
+    })
+  }, [])
+
+  // The model that will actually be used/downloaded
+  const activeModel: string = selectedInstalled
+    ? selectedInstalled
+    : customModel.trim()
+      ? customModel.trim()
+      : (SUGGESTED_MODELS[selectedSuggested]?.model ?? 'llama3.2:3b')
+
+  const useInstalled = useCallback(async (): Promise<void> => {
+    if (!selectedInstalled) return
+    await window.prose.settings.set({ ollamaModel: selectedInstalled })
+    onComplete()
+  }, [selectedInstalled, onComplete])
 
   const startDownload = useCallback(async (): Promise<void> => {
     setPhase('downloading')
     setProgress(0)
-
     try {
-      await window.prose.settings.set({ ollamaModel: option.model })
+      await window.prose.settings.set({ ollamaModel: activeModel })
     } catch (err) {
       console.error('Failed to save model setting:', err)
     }
@@ -82,13 +103,7 @@ export default function ModelDownload({ onComplete }: ModelDownloadProps): JSX.E
       setErrorMsg(err instanceof Error ? err.message : 'Unknown error')
       setPhase('error')
     }
-  }, [option.model, onComplete])
-
-  useEffect(() => {
-    return () => {
-      // cleanup handled inside startDownload via the returned unsubscribe fn
-    }
-  }, [])
+  }, [activeModel, onComplete])
 
   return (
     <div className="flex h-screen items-center justify-center bg-background text-foreground">
@@ -103,40 +118,108 @@ export default function ModelDownload({ onComplete }: ModelDownloadProps): JSX.E
             <div className="flex flex-col gap-1">
               <h2 className="text-xl font-semibold">Choose your AI model</h2>
               <p className="text-sm text-muted-foreground">
-                Select based on how much RAM your computer has. This is a one-time download.
+                {installedModels.length > 0
+                  ? 'Use a model you already have, or download a new one.'
+                  : 'Select based on how much RAM your computer has. This is a one-time download.'}
               </p>
             </div>
 
+            {/* Already-installed models */}
+            {installedModels.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Installed on this machine
+                </p>
+                {installedModels.map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => { setSelectedInstalled(m); setCustomModel('') }}
+                    className={cn(
+                      'flex items-center gap-3 rounded-lg border p-3 text-left transition-colors',
+                      selectedInstalled === m
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-border/80 hover:bg-accent/40'
+                    )}
+                  >
+                    <div className={cn(
+                      'h-4 w-4 shrink-0 rounded-full border-2',
+                      selectedInstalled === m ? 'border-primary bg-primary' : 'border-muted-foreground/40'
+                    )} />
+                    <span className="text-sm font-medium font-mono">{m}</span>
+                  </button>
+                ))}
+                <Button
+                  className="w-full"
+                  onClick={() => void useInstalled()}
+                  disabled={!selectedInstalled}
+                >
+                  Use {selectedInstalled ?? 'selected model'}
+                </Button>
+                <div className="relative my-1 flex items-center gap-3">
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="text-xs text-muted-foreground">or download a different model</span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
+              </div>
+            )}
+
+            {/* Suggested models to download */}
             <div className="flex flex-col gap-2">
-              {RAM_OPTIONS.map((opt, i) => (
+              {installedModels.length === 0 && (
+                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Recommended
+                </p>
+              )}
+              {SUGGESTED_MODELS.map((opt, i) => (
                 <button
                   key={opt.label}
-                  onClick={() => setSelected(i)}
+                  onClick={() => { setSelectedSuggested(i); setSelectedInstalled(null); setCustomModel('') }}
                   className={cn(
                     'flex items-start gap-3 rounded-lg border p-4 text-left transition-colors',
-                    selected === i
+                    !selectedInstalled && !customModel.trim() && selectedSuggested === i
                       ? 'border-primary bg-primary/5'
                       : 'border-border hover:border-border/80 hover:bg-accent/40'
                   )}
                 >
-                  <div
-                    className={cn(
-                      'mt-0.5 h-4 w-4 shrink-0 rounded-full border-2',
-                      selected === i ? 'border-primary bg-primary' : 'border-muted-foreground/40'
-                    )}
-                  />
+                  <div className={cn(
+                    'mt-0.5 h-4 w-4 shrink-0 rounded-full border-2',
+                    !selectedInstalled && !customModel.trim() && selectedSuggested === i
+                      ? 'border-primary bg-primary'
+                      : 'border-muted-foreground/40'
+                  )} />
                   <div className="flex flex-col gap-0.5">
                     <span className="text-sm font-medium">{opt.label}</span>
                     <span className="text-xs text-muted-foreground">{opt.description}</span>
-                    <span className="text-xs text-muted-foreground/60">
+                    <span className="text-xs text-muted-foreground/60 font-mono">
                       {opt.model} · {opt.size}
                     </span>
                   </div>
                 </button>
               ))}
+
+              {/* Custom model name */}
+              <div className="flex flex-col gap-1.5">
+                <p className="text-xs text-muted-foreground">
+                  Or enter any model name from{' '}
+                  <span className="font-mono">ollama.com/library</span>
+                </p>
+                <Input
+                  className="h-9 font-mono text-sm"
+                  placeholder="e.g. llama3.3, gemma3:12b, phi4…"
+                  value={customModel}
+                  onChange={(e) => {
+                    setCustomModel(e.target.value)
+                    if (e.target.value.trim()) setSelectedInstalled(null)
+                  }}
+                />
+              </div>
             </div>
 
-            <Button className="w-full" onClick={() => setPhase('confirm')}>
+            <Button
+              className="w-full"
+              onClick={() => setPhase('confirm')}
+              disabled={!activeModel || (!!selectedInstalled)}
+            >
               Continue
             </Button>
           </>
@@ -147,11 +230,10 @@ export default function ModelDownload({ onComplete }: ModelDownloadProps): JSX.E
             <div className="flex flex-col gap-1">
               <h2 className="text-xl font-semibold">Ready to download</h2>
               <p className="text-sm text-muted-foreground">
-                This downloads <strong>{option.model}</strong> ({option.size}). It only happens
-                once — the model is stored locally and never leaves your machine.
+                This will download <strong className="font-mono">{activeModel}</strong>. It only
+                happens once — the model is stored locally and never leaves your machine.
               </p>
             </div>
-
             <div className="flex gap-2">
               <Button variant="ghost" className="flex-1" onClick={() => setPhase('pick')}>
                 Back
@@ -167,12 +249,11 @@ export default function ModelDownload({ onComplete }: ModelDownloadProps): JSX.E
         {phase === 'downloading' && (
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1">
-              <h2 className="text-xl font-semibold">Downloading {option.model}…</h2>
+              <h2 className="text-xl font-semibold">Downloading {activeModel}…</h2>
               <p className="text-sm text-muted-foreground capitalize">
                 {statusLabel || 'Connecting…'}
               </p>
             </div>
-
             <div className="h-2 overflow-hidden rounded-full bg-secondary">
               <motion.div
                 className="h-full rounded-full bg-primary"
@@ -180,7 +261,6 @@ export default function ModelDownload({ onComplete }: ModelDownloadProps): JSX.E
                 transition={{ duration: 0.3, ease: 'easeOut' }}
               />
             </div>
-
             <p className="text-right text-xs text-muted-foreground">{progress}%</p>
           </div>
         )}

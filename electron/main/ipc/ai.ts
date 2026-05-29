@@ -270,8 +270,16 @@ export function registerAiHandlers(manager: OllamaManager): void {
     const sender: WebContents = event.sender
     const model = getModel()
     let totalLen = 0
+    let firstChunk = false
+    // 30-second timeout waiting for the first token
+    const firstChunkTimeout = setTimeout(() => {
+      if (!firstChunk && !sender.isDestroyed()) {
+        sender.send('ai:stream-error', 'The model took too long to respond. Is Ollama running and the model loaded?')
+      }
+    }, 30_000)
     try {
       for await (const chunk of manager.streamChat(model, CHAT_SYSTEM_PROMPT, buildConversationMessages(p.documentContent, p.request, p.assignmentContext, history))) {
+        if (!firstChunk) { firstChunk = true; clearTimeout(firstChunkTimeout) }
         if (sender.isDestroyed()) break
         totalLen += chunk.length
         if (totalLen > 50_000) break
@@ -279,6 +287,19 @@ export function registerAiHandlers(manager: OllamaManager): void {
       }
     } catch (err) {
       console.error('ai:streamPrompt error:', err)
+      clearTimeout(firstChunkTimeout)
+      if (!sender.isDestroyed()) {
+        const raw = err instanceof Error ? err.message : 'unknown error'
+        let friendly = `The model failed to respond. Check the AI tab in Settings.\n\n_${raw}_`
+        if (/more system memory|not enough memory|out of memory/i.test(raw)) {
+          friendly = `**Not enough RAM to run this model.**\n\nYour system doesn't have enough free memory. Switch to a smaller model in Settings → AI, or run:\n\n\`ollama pull llama3.2:3b\`\n\nthen select it in Settings.`
+        } else if (/model.*not found|no such file/i.test(raw)) {
+          friendly = `**Model not found.** The selected model isn't downloaded. Go to Settings → AI and choose a model that appears in the list, or run \`ollama pull <model>\` in a terminal.`
+        }
+        sender.send('ai:stream-error', friendly)
+      }
+    } finally {
+      clearTimeout(firstChunkTimeout)
     }
   })
 
@@ -299,7 +320,11 @@ export function registerAiHandlers(manager: OllamaManager): void {
     const model = getModel()
     let raw = ''
     try {
-      for await (const chunk of manager.streamChat(model, buildAnalysisSystemPrompt(budget), buildAnalysisUserMessage(documentContent, assignmentContext))) {
+      for await (const chunk of manager.streamChat(
+        model,
+        buildAnalysisSystemPrompt(budget),
+        [{ role: 'user', content: buildAnalysisUserMessage(documentContent, assignmentContext) }],
+      )) {
         raw += chunk
       }
     } catch (err) {

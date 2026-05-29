@@ -134,11 +134,21 @@ export class OllamaManager {
         stream: true,
         keep_alive: '10m',
         options: {
-          num_predict: -1,  // let the model finish naturally; -1 = no token cap
+          num_predict: -1,  // no cap on output tokens
+          num_ctx: 8192,    // context window — default 2048 is too small for doc+history+response
         },
       }),
     })
-    if (!res.ok) throw new Error(`Ollama chat failed: ${res.status}`)
+    if (!res.ok) {
+      // Read the body to surface Ollama's own error message (e.g. model file not found)
+      let detail = ''
+      try {
+        const body = await res.text()
+        const parsed = JSON.parse(body) as { error?: string }
+        detail = parsed.error ? `: ${parsed.error}` : ` — ${body.slice(0, 200)}`
+      } catch { /* ignore parse errors */ }
+      throw new Error(`Ollama chat failed (${res.status})${detail}`)
+    }
     if (!res.body) throw new Error('No response body from Ollama chat')
 
     const reader = res.body.getReader()

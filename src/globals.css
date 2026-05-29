@@ -516,6 +516,17 @@ html.theme-transitioning *::after {
   text-indent: 0;
 }
 
+/* Display equations in AI chat scroll independently so surrounding text isn't
+   affected. margin-right on the inner .katex ensures right-edge breathing room —
+   margin on a child element IS included in scroll width, unlike container padding. */
+.ai-chat-bubble .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.ai-chat-bubble .katex-display .katex {
+  margin-right: 0.75rem;
+}
+
 /* KaTeX's .katex-html is inline-block, which creates a block formatting context
    that inherits and applies text-indent — resetting here prevents the 0.5in gap
    appearing as empty space inside the equation's selection bounding box */

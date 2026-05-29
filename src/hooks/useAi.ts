@@ -74,6 +74,17 @@ export function useAi(): AiChatState & AiChatControls {
               messagesRef.current = next
               return next
             })
+          },
+          (errMsg) => {
+            // Error signal from main process — show it as the assistant message content
+            setReloading(false)
+            setMessages((prev) => {
+              const next = prev.map((m) =>
+                m.id === assistantIdRef.current ? { ...m, content: errMsg } : m
+              )
+              messagesRef.current = next
+              return next
+            })
           }
         )
       } catch (err) {
@@ -89,6 +100,16 @@ export function useAi(): AiChatState & AiChatControls {
           clearTimeout(reloadTimerRef.current)
           reloadTimerRef.current = null
         }
+        // If the assistant message is still empty after streaming ended, show a fallback
+        setMessages((prev) => {
+          const next = prev.map((m) =>
+            m.id === assistantIdRef.current && m.content === ''
+              ? { ...m, content: 'No response received. Check that Ollama is running and the model is loaded.' }
+              : m
+          )
+          messagesRef.current = next
+          return next
+        })
         setStreaming(false)
         setReloading(false)
       }

@@ -32,12 +32,16 @@ contextBridge.exposeInMainWorld('prose', {
     getStatus: () => ipcRenderer.invoke('ai:getStatus'),
     streamPrompt: (
       payload: Record<string, unknown>,
-      onChunk: (chunk: string) => void
+      onChunk: (chunk: string) => void,
+      onError: (msg: string) => void
     ): Promise<void> => {
-      const listener = (_: Electron.IpcRendererEvent, chunk: string): void => onChunk(chunk)
-      ipcRenderer.on('ai:stream-chunk', listener)
+      const chunkListener = (_: Electron.IpcRendererEvent, chunk: string): void => onChunk(chunk)
+      const errorListener = (_: Electron.IpcRendererEvent, msg: string): void => onError(msg)
+      ipcRenderer.on('ai:stream-chunk', chunkListener)
+      ipcRenderer.on('ai:stream-error', errorListener)
       return ipcRenderer.invoke('ai:streamPrompt', payload).finally(() => {
-        ipcRenderer.removeListener('ai:stream-chunk', listener)
+        ipcRenderer.removeListener('ai:stream-chunk', chunkListener)
+        ipcRenderer.removeListener('ai:stream-error', errorListener)
       })
     },
     analyze: (payload: { documentContent: string; assignmentContext?: string }) =>

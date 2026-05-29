@@ -1,7 +1,7 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import type { OllamaManager } from '../services/ollama'
 import { isOllamaInstalled, downloadAndInstallOllama } from '../services/ollamaInstaller'
-import { getSettingJson } from '../services/settingsDb'
+import { getSettingJson, setSetting } from '../services/settingsDb'
 
 function getModel(): string {
   return getSettingJson<string>('ollamaModel', 'llama3.2:3b') || 'llama3.2:3b'
@@ -31,7 +31,19 @@ export function registerOllamaHandlers(manager: OllamaManager): void {
   ipcMain.handle('ollama:getDownloadStatus', async () => {
     const model = getModel()
     const downloaded = await manager.isModelDownloaded(model)
-    return { downloaded, model }
+    if (downloaded) return { downloaded: true, model }
+
+    // The configured model isn't available — check if any model is installed.
+    // This handles users who already have a model (e.g. llama3.3) that differs
+    // from the default or previously saved setting.
+    const allModels = await manager.listModels()
+    if (allModels.length > 0) {
+      const found = allModels[0]!
+      setSetting('ollamaModel', JSON.stringify(found))
+      return { downloaded: true, model: found }
+    }
+
+    return { downloaded: false, model }
   })
 
   ipcMain.handle('ollama:startDownload', async (): Promise<void> => {

@@ -64,6 +64,19 @@ export default function App(): JSX.Element {
     })
   }, [])
 
+  // When Ollama transitions to ready, re-check whether a model is now available.
+  // On first launch the download-status check races against Ollama starting up,
+  // so a user who already has a model installed might see the download screen
+  // briefly until Ollama is ready and we can detect their installed models.
+  const ollamaStatus = useAppStore((s) => s.ollamaStatus)
+  useEffect(() => {
+    if (ollamaStatus === 'ready' && downloadStatus !== null && !downloadStatus.downloaded) {
+      void window.prose.ollama.getDownloadStatus().then((s) => {
+        setDownloadStatus(s as import('@/types').DownloadStatus)
+      })
+    }
+  }, [ollamaStatus, downloadStatus])
+
   // Poll Ollama status until ready
   useEffect(() => {
     let cancelled = false

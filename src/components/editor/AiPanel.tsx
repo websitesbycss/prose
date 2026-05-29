@@ -19,10 +19,35 @@ import {
 
 // LLMs commonly emit \[...\] for display math and \(...\) for inline math.
 // remark-math expects $$...$$ and $...$ respectively, so normalise first.
+const LATEX_CMD = /\\(?:frac|int|sum|prod|sqrt|lim|infty|partial|alpha|beta|gamma|delta|theta|lambda|sigma|pi|mu|cdot|times|div|leq|geq|neq|approx|pm|binom|vec|hat|bar|dot|left|right)\b/
+
 function normaliseMath(text: string): string {
-  return text
-    .replace(/\\\[([\s\S]*?)\\\]/g, (_, m: string) => `$$${m}$$`)
-    .replace(/\\\(([\s\S]*?)\\\)/g, (_, m: string) => `$${m}$`)
+  let t = text
+
+  // Convert LaTeX list environments to markdown so they render correctly
+  t = t.replace(/\\begin\{itemize\}([\s\S]*?)\\end\{itemize\}/g, (_, body: string) =>
+    body.replace(/\\item\s*/g, '- ').trim()
+  )
+  t = t.replace(/\\begin\{enumerate\}([\s\S]*?)\\end\{enumerate\}/g, (_, body: string) => {
+    let n = 0
+    return body.replace(/\\item\s*/g, () => `${++n}. `).trim()
+  })
+
+  // Convert display math (\[...\] and $$...$$) to inline $\displaystyle ...$
+  // so they don't insert block elements that break numbered list continuity.
+  t = t.replace(/\\\[([\s\S]*?)\\\]/g, (_, m: string) => `$\\displaystyle ${m.trim()}$`)
+  t = t.replace(/\$\$([\s\S]*?)\$\$/g, (_, m: string) => `$\\displaystyle ${m.trim()}$`)
+
+  // \(...\) → $...$
+  t = t.replace(/\\\(([\s\S]*?)\\\)/g, (_, m: string) => `$${m}$`)
+
+  // Fix a lone opening $ with no closing $ on the same line that contains LaTeX
+  t = t.replace(/\$([^$\n]*?\\[a-zA-Z]+[^$\n]*)(?=\n|$)/g, (match, inner) => {
+    if (LATEX_CMD.test(inner)) return `$${inner}$`
+    return match
+  })
+
+  return t
 }
 
 function AiMarkdown({ children }: { children: string }): JSX.Element {
@@ -50,7 +75,7 @@ function AiMarkdown({ children }: { children: string }): JSX.Element {
           ) : (
             <code className="rounded bg-background/60 px-1 font-mono text-[11px]">{children}</code>
           ),
-        pre:    ({ children }) => <pre className="mb-1.5 overflow-x-auto">{children}</pre>,
+        pre:    ({ children }) => <pre className="mb-1.5 max-w-full overflow-x-auto">{children}</pre>,
         blockquote: ({ children }) => (
           <blockquote className="mb-1.5 border-l-2 border-muted-foreground/40 pl-2 italic text-muted-foreground">
             {children}
@@ -254,7 +279,7 @@ function ChatTab({
           >
             <div
               className={cn(
-                'max-w-[85%] rounded-2xl px-3 py-2 text-xs leading-relaxed',
+                'ai-chat-bubble min-w-0 max-w-[85%] rounded-2xl px-3 py-2 text-xs leading-relaxed',
                 msg.role === 'user'
                   ? 'rounded-br-sm bg-primary text-primary-foreground'
                   : 'rounded-bl-sm bg-muted text-foreground'
