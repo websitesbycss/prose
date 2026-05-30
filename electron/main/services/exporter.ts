@@ -31,6 +31,24 @@ import type { JSONContent } from '@tiptap/core'
 import katex from 'katex'
 import { resolveDocument } from './fileService'
 
+// ── ExportOptions ─────────────────────────────────────────────────────────────
+
+export interface ExportOptions {
+  format: 'pdf' | 'docx' | 'markdown' | 'plaintext'
+  fileName: string
+  pageSize: 'Letter' | 'A4' | 'Legal'
+  orientation: 'portrait' | 'landscape'
+  margins: { top: number; right: number; bottom: number; left: number }
+  colorMode: 'light' | 'dark'
+  includeHeader: boolean
+  includeFooter: boolean
+  openAfterExport: boolean
+}
+
+// Page widths in inches per size (portrait; swap for landscape)
+const PAGE_WIDTH_IN: Record<string, number> = { Letter: 8.5, A4: 8.27, Legal: 8.5 }
+const PAGE_HEIGHT_IN: Record<string, number> = { Letter: 11, A4: 11.69, Legal: 14 }
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 type FetchedDocument = {
@@ -131,17 +149,49 @@ function nodeToPlainText(node: JSONContent, indent = 0): string {
   }
 }
 
-export async function exportToPlainText(id: string): Promise<void> {
+export async function getPreviewHtml(id: string, opts: ExportOptions): Promise<string | null> {
+  const row = await fetchDocument(id)
+  if (!row) return null
+  const doc = parseContent(row.content)
+  const margins = opts.margins
+  const effectiveHeaderRaw = opts.includeHeader ? row.header_content : null
+  const effectiveFooterRaw = opts.includeFooter ? row.footer_content : null
+  const legacyRunningHead = effectiveHeaderRaw ? null : (opts.includeHeader ? extractRunningHead(doc, row.format) : null)
+
+  let headerHtml = ''
+  if (effectiveHeaderRaw) {
+    headerHtml = zoneToPreviewHtml(effectiveHeaderRaw, 'right', margins.left, margins.right)
+  } else if (legacyRunningHead) {
+    headerHtml = zoneToPreviewHtml(null, 'right', margins.left, margins.right)
+    // Build legacy running head string directly
+    if (row.format === 'mla') {
+      headerHtml = `<div style="width:100%;text-align:right;font-family:'Times New Roman',serif;font-size:10pt">${escapeHtml(legacyRunningHead)} 1</div>`
+    } else {
+      headerHtml = `<div style="width:100%;display:flex;justify-content:space-between;font-family:'Times New Roman',serif;font-size:10pt"><span style="text-transform:uppercase">${escapeHtml(legacyRunningHead)}</span><span>1</span></div>`
+    }
+  }
+
+  let footerHtml = ''
+  if (effectiveFooterRaw) {
+    footerHtml = zoneToPreviewHtml(effectiveFooterRaw, 'center', margins.left, margins.right)
+  }
+
+  const bodyHtml = nodeToHtml(doc, row.format)
+  return buildPreviewPage(row.title, bodyHtml, opts.colorMode, margins, opts.pageSize, opts.orientation, headerHtml, footerHtml)
+}
+
+export async function exportToPlainText(id: string, opts: ExportOptions): Promise<string | null> {
   const row = await fetchDocument(id)
   if (!row) throw new Error('Document not found')
   const doc = parseContent(row.content)
   const text = nodeToPlainText(doc)
   const { filePath } = await dialog.showSaveDialog({
     title: 'Export as Plain Text',
-    defaultPath: `${row.title}.txt`,
+    defaultPath: opts.fileName,
     filters: [{ name: 'Text Files', extensions: ['txt'] }],
   })
-  if (filePath) await writeFile(filePath, text, 'utf8')
+  if (filePath) { await writeFile(filePath, text, 'utf8'); return filePath }
+  return null
 }
 
 // ── Markdown ──────────────────────────────────────────────────────────────────
@@ -217,17 +267,18 @@ function nodeToMarkdown(node: JSONContent, listIndex = 0): string {
   }
 }
 
-export async function exportToMarkdown(id: string): Promise<void> {
+export async function exportToMarkdown(id: string, opts: ExportOptions): Promise<string | null> {
   const row = await fetchDocument(id)
   if (!row) throw new Error('Document not found')
   const doc = parseContent(row.content)
   const md = nodeToMarkdown(doc)
   const { filePath } = await dialog.showSaveDialog({
     title: 'Export as Markdown',
-    defaultPath: `${row.title}.md`,
+    defaultPath: opts.fileName,
     filters: [{ name: 'Markdown Files', extensions: ['md'] }],
   })
-  if (filePath) await writeFile(filePath, md, 'utf8')
+  if (filePath) { await writeFile(filePath, md, 'utf8'); return filePath }
+  return null
 }
 
 // ── PDF via hidden BrowserWindow ──────────────────────────────────────────────
@@ -474,75 +525,161 @@ function buildHtmlPage(
   _format = 'none',
   hasHeaderFooter = false,
   margins = DEFAULT_MARGINS,
+  colorMode: 'light' | 'dark' = 'light',
 ): string {
-  // When using displayHeaderFooter, Electron uses custom print margins for header/footer space.
-  // The body CSS must only have horizontal margins so the print margins handle vertical spacing.
+  const isDark = colorMode === 'dark'
+  const fg = isDark ? '#e5e5e5' : '#000'
+  const bg = isDark ? '#1e1e1e' : '#fff'
+  const preBg = isDark ? '#2d2d2d' : '#f5f5f5'
+  const borderColor = isDark ? '#555' : '#000'
   const bodyMargin = hasHeaderFooter
     ? `0 ${margins.right}in 0 ${margins.left}in`
     : `${margins.top}in ${margins.right}in ${margins.bottom}in ${margins.left}in`
   return `<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>${escapeHtml(title)}</title>
 <style>
-  body { font-family: 'Times New Roman', serif; font-size: 12pt; margin: ${bodyMargin}; line-height: 2; color: #000; }
+  body { font-family: 'Times New Roman', serif; font-size: 12pt; margin: ${bodyMargin}; line-height: 2; color: ${fg}; background: ${bg}; }
   .right-tab { flex: 1; display: inline-block; }
   h1 { font-size: 14pt; } h2 { font-size: 13pt; } h3 { font-size: 12pt; }
   p { margin: 0; } ul, ol { margin: 0.5em 0; padding-left: 2em; }
-  blockquote { margin: 0.5em 2em; } pre { background: #f5f5f5; padding: 0.5em; }
+  blockquote { margin: 0.5em 2em; } pre { background: ${preBg}; padding: 0.5em; }
   table { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 0.5em 0; }
-  th, td { border: 1px solid #000; padding: 4px 8px; }
+  th, td { border: 1px solid ${borderColor}; padding: 4px 8px; }
   img { max-width: 100%; }
-  /* APA title page: fixed height = one page, flex-centered. height (not min-height) prevents
-     flex space-distribution from spilling across a page boundary and creating a blank page. */
   .apa-title-block { height: 9in; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; page-break-after: always; break-after: page; }
 </style>
 </head><body>${body}</body></html>`
 }
 
-export async function exportToPdf(id: string): Promise<void> {
+// Reuse zoneToElectronTemplate output for preview by replacing pageNumber spans with "1"
+function zoneToPreviewHtml(raw: string | null, fallbackAlign = 'left', leftIn = 1, rightIn = 1): string {
+  return zoneToElectronTemplate(raw, fallbackAlign, leftIn, rightIn)
+    .replace(/<span class="pageNumber"><\/span>/g, '<span>1</span>')
+}
+
+// Build a self-contained HTML page for the in-app preview iframe
+function buildPreviewPage(
+  title: string,
+  bodyHtml: string,
+  colorMode: 'light' | 'dark',
+  margins: typeof DEFAULT_MARGINS,
+  pageSize: string,
+  orientation: 'portrait' | 'landscape',
+  headerHtml: string,
+  footerHtml: string,
+): string {
+  const isDark = colorMode === 'dark'
+  const pageBg = isDark ? '#1e1e1e' : '#ffffff'
+  const pageColor = isDark ? '#e5e5e5' : '#000000'
+  const preBg = isDark ? '#2d2d2d' : '#f5f5f5'
+  const borderColor = isDark ? '#555' : '#000'
+  const dividerColor = isDark ? '#3a3a3a' : '#e8e8e8'
+
+  // Page pixel dimensions at 96 dpi
+  const pw = PAGE_WIDTH_IN[pageSize] ?? PAGE_WIDTH_IN.Letter
+  const ph = PAGE_HEIGHT_IN[pageSize] ?? PAGE_HEIGHT_IN.Letter
+  const wPx = Math.round((orientation === 'landscape' ? ph : pw) * 96)
+  const hPx = Math.round((orientation === 'landscape' ? pw : ph) * 96)
+
+  const mT = Math.round(margins.top * 96)
+  const mR = Math.round(margins.right * 96)
+  const mB = Math.round(margins.bottom * 96)
+  const mL = Math.round(margins.left * 96)
+
+  const hasHeader = headerHtml.length > 0
+  const hasFooter = footerHtml.length > 0
+  // Reserve a portion of the margin for header/footer strips
+  const hStrip = hasHeader ? Math.round(mT * 0.8) : 0
+  const fStrip = hasFooter ? Math.round(mB * 0.8) : 0
+  const bodyPT = hasHeader ? Math.round(mT * 0.2) : mT
+  const bodyPB = hasFooter ? Math.round(mB * 0.2) : mB
+
+  return `<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>${escapeHtml(title)} — Preview</title>
+<style>
+  html,body{margin:0;padding:20px 0 32px;background:#c8c8c8;box-sizing:border-box}
+  .wrap{display:flex;justify-content:center}
+  .page{
+    width:${wPx}px;min-height:${hPx}px;background:${pageBg};color:${pageColor};
+    box-shadow:0 4px 20px rgba(0,0,0,0.25);box-sizing:border-box;
+    font-family:'Times New Roman',serif;font-size:12pt;line-height:2;
+  }
+  .ph{padding:${Math.round(hStrip * 0.12)}px ${mR}px ${Math.round(hStrip * 0.08)}px ${mL}px;min-height:${hStrip}px;font-size:10pt;line-height:1.4;border-bottom:1px solid ${dividerColor};display:flex;align-items:center}
+  .pb{padding:${bodyPT}px ${mR}px ${bodyPB}px ${mL}px}
+  .pf{padding:${Math.round(fStrip * 0.08)}px ${mR}px ${Math.round(fStrip * 0.12)}px ${mL}px;min-height:${fStrip}px;font-size:10pt;line-height:1.4;border-top:1px solid ${dividerColor};display:flex;align-items:center}
+  p{margin:0}ul,ol{margin:.5em 0;padding-left:2em}blockquote{margin:.5em 2em}
+  pre{background:${preBg};padding:.5em;font-size:.9em;overflow:auto}
+  code{background:${preBg};padding:.1em .3em;border-radius:2px;font-size:.9em}
+  table{width:100%;border-collapse:collapse;table-layout:fixed}
+  th,td{border:1px solid ${borderColor};padding:4px 8px;word-wrap:break-word}
+  img{max-width:100%}
+  h1{font-size:14pt}h2{font-size:13pt}h3{font-size:12pt}
+  .apa-title-block{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:5in}
+  .right-tab{flex:1;display:inline-block}
+  a{color:inherit}
+</style>
+<script>
+  function fit(){
+    var page=document.querySelector('.page');
+    if(!page)return;
+    var vw=document.documentElement.clientWidth;
+    var z=Math.min(1,(vw-16)/${wPx});
+    page.style.zoom=String(z);
+  }
+  document.addEventListener('DOMContentLoaded',fit);
+  window.addEventListener('resize',fit);
+</script>
+</head><body>
+<div class="wrap"><div class="page">
+  ${hasHeader ? `<div class="ph">${headerHtml}</div>` : ''}
+  <div class="pb">${bodyHtml}</div>
+  ${hasFooter ? `<div class="pf">${footerHtml}</div>` : ''}
+</div></div>
+</body></html>`
+}
+
+export async function exportToPdf(id: string, opts: ExportOptions): Promise<string | null> {
   const row = await fetchDocument(id)
   if (!row) throw new Error('Document not found')
   const doc = parseContent(row.content)
-  // Fall back to auto-detected running head only for old docs without stored header_content
-  const legacyRunningHead = row.header_content ? null : extractRunningHead(doc, row.format)
+  const margins = opts.margins
 
-  const margins = resolveMargins(row.page_margins)
+  const effectiveHeaderRaw = opts.includeHeader ? row.header_content : null
+  const effectiveFooterRaw = opts.includeFooter ? row.footer_content : null
+  const legacyRunningHead = effectiveHeaderRaw ? null : (opts.includeHeader ? extractRunningHead(doc, row.format) : null)
 
-  // Build Electron header/footer templates — these render in the print margin and
-  // support real page numbers via <span class="pageNumber"></span>.
   let headerTemplate = '<span></span>'
-  if (row.header_content) {
-    headerTemplate = zoneToElectronTemplate(row.header_content, 'right', margins.left, margins.right)
+  if (effectiveHeaderRaw) {
+    headerTemplate = zoneToElectronTemplate(effectiveHeaderRaw, 'right', margins.left, margins.right)
   } else if (legacyRunningHead) {
     headerTemplate = legacyRunningHeadTemplate(legacyRunningHead, row.format, margins.left, margins.right)
   }
   let footerTemplate = '<span></span>'
-  if (row.footer_content) {
-    footerTemplate = zoneToElectronTemplate(row.footer_content, 'center', margins.left, margins.right)
+  if (effectiveFooterRaw) {
+    footerTemplate = zoneToElectronTemplate(effectiveFooterRaw, 'center', margins.left, margins.right)
   }
   const hasHeaderFooter = headerTemplate !== '<span></span>' || footerTemplate !== '<span></span>'
 
-  const html = buildHtmlPage(row.title, nodeToHtml(doc, row.format), row.format, hasHeaderFooter, margins)
+  const html = buildHtmlPage(row.title, nodeToHtml(doc, row.format), row.format, hasHeaderFooter, margins, opts.colorMode)
 
   const { filePath } = await dialog.showSaveDialog({
     title: 'Export as PDF',
-    defaultPath: `${row.title}.pdf`,
+    defaultPath: opts.fileName,
     filters: [{ name: 'PDF Files', extensions: ['pdf'] }],
   })
-  if (!filePath) return
+  if (!filePath) return null
 
-  // Write HTML to temp file, load it in a hidden window, print to PDF
   const tmpHtml = join(tmpdir(), `prose-export-${randomUUID()}.html`)
   await writeFile(tmpHtml, html, 'utf8')
 
   const win = new BrowserWindow({ show: false, webPreferences: { sandbox: true } })
   await win.loadFile(tmpHtml)
   const pdfBuffer = await win.webContents.printToPDF({
-    // With header/footer, use custom margins so Electron reserves space for them and
-    // the body CSS only controls horizontal margins (avoids double-stacking vertical margins).
     margins: hasHeaderFooter
       ? { marginType: 'custom', top: margins.top + 0.25, bottom: margins.bottom + 0.25, left: 0, right: 0 }
       : { marginType: 'none' },
-    pageSize: 'Letter',
+    pageSize: opts.pageSize,
+    landscape: opts.orientation === 'landscape',
     printBackground: true,
     displayHeaderFooter: hasHeaderFooter,
     headerTemplate: hasHeaderFooter ? headerTemplate : '<span></span>',
@@ -551,8 +688,8 @@ export async function exportToPdf(id: string): Promise<void> {
   win.destroy()
 
   await writeFile(filePath, pdfBuffer)
-  // Clean up temp file (best-effort)
   import('fs').then(({ unlinkSync }) => { try { unlinkSync(tmpHtml) } catch { /* ignore */ } })
+  return filePath
 }
 
 // ── DOCX ──────────────────────────────────────────────────────────────────────
@@ -1035,37 +1172,52 @@ function buildDocxZoneParagraph(parsed: ZoneDocxParsed): Paragraph {
   return new Paragraph({ tabStops, children, alignment: AlignmentType.LEFT })
 }
 
-export async function exportToDocx(id: string): Promise<void> {
+// Page sizes in twips (1 in = 1440 twips). Width × Height in portrait orientation.
+const DOCX_PAGE_SIZE: Record<string, { w: number; h: number }> = {
+  Letter: { w: 12240, h: 15840 },
+  A4:     { w: 11906, h: 16838 },
+  Legal:  { w: 12240, h: 20160 },
+}
+
+export async function exportToDocx(id: string, opts: ExportOptions): Promise<string | null> {
   const row = await fetchDocument(id)
   if (!row) throw new Error('Document not found')
   const doc = parseContent(row.content)
 
+  const effectiveHeaderRaw = opts.includeHeader ? row.header_content : null
+  const effectiveFooterRaw = opts.includeFooter ? row.footer_content : null
+
   // Build DOCX header
   let docxHeader: Header | undefined
-  if (row.header_content) {
-    const parsed = parseZoneForDocx(row.header_content)
+  if (effectiveHeaderRaw) {
+    const parsed = parseZoneForDocx(effectiveHeaderRaw)
     if (parsed) docxHeader = new Header({ children: [buildDocxZoneParagraph(parsed)] })
-  } else {
+  } else if (opts.includeHeader) {
     const runningHead = extractRunningHead(doc, row.format)
     docxHeader = buildDocxHeader(runningHead, row.format)
   }
 
   // Build DOCX footer
   let docxFooter: Footer | undefined
-  if (row.footer_content) {
-    const parsed = parseZoneForDocx(row.footer_content)
+  if (effectiveFooterRaw) {
+    const parsed = parseZoneForDocx(effectiveFooterRaw)
     if (parsed) docxFooter = new Footer({ children: [buildDocxZoneParagraph(parsed)] })
   }
 
-  const docMargins = resolveMargins(row.page_margins)
+  const docMargins = opts.margins
   const PAGE_MARGIN = {
     top: Math.round(docMargins.top * 1440),
     right: Math.round(docMargins.right * 1440),
     bottom: Math.round(docMargins.bottom * 1440),
     left: Math.round(docMargins.left * 1440),
   }
-  // Update module-level content width for this export's margins (Node.js is single-threaded so this is safe)
-  const contentIn = Math.max(1, 8.5 - docMargins.left - docMargins.right)
+
+  // Page size: use landscape dimensions when requested
+  const baseSize = DOCX_PAGE_SIZE[opts.pageSize] ?? DOCX_PAGE_SIZE.Letter
+  const pageW = opts.orientation === 'landscape' ? baseSize.h : baseSize.w
+  const pageH = opts.orientation === 'landscape' ? baseSize.w : baseSize.h
+  const pageWidthIn = pageW / 1440
+  const contentIn = Math.max(1, pageWidthIn - docMargins.left - docMargins.right)
   CONTENT_WIDTH_TWIPS = Math.round(contentIn * 1440)
   MAX_IMG_WIDTH_PX = Math.round(contentIn * 96)
 
@@ -1084,15 +1236,15 @@ export async function exportToDocx(id: string): Promise<void> {
     const bodyDoc: JSONContent = { type: 'doc', content: docNodes.slice(splitIdx) }
     const titleChildren = nodeToParagraphs(titleDoc, numberingDefs, row.format) as (Paragraph | DocxTable)[]
     const bodyChildren = nodeToParagraphs(bodyDoc, numberingDefs, row.format) as (Paragraph | DocxTable)[]
+    const pageProps = { margin: PAGE_MARGIN, size: { width: pageW, height: pageH } }
     sections = [
       {
-        // Title page: vertically centered, header only (no footer on title page is standard APA)
-        properties: { page: { margin: PAGE_MARGIN }, verticalAlign: VerticalAlignSection.CENTER },
+        properties: { page: pageProps, verticalAlign: VerticalAlignSection.CENTER },
         ...(docxHeader ? { headers: { default: docxHeader } } : {}),
         children: titleChildren.length ? titleChildren : [new Paragraph({ children: [] })],
       },
       {
-        properties: { page: { margin: PAGE_MARGIN } },
+        properties: { page: pageProps },
         ...(docxHeader ? { headers: { default: docxHeader } } : {}),
         ...(docxFooter ? { footers: { default: docxFooter } } : {}),
         children: bodyChildren,
@@ -1102,7 +1254,7 @@ export async function exportToDocx(id: string): Promise<void> {
     const children = nodeToParagraphs(doc, numberingDefs, row.format)
     sections = [
       {
-        properties: { page: { margin: PAGE_MARGIN } },
+        properties: { page: { margin: PAGE_MARGIN, size: { width: pageW, height: pageH } } },
         ...(docxHeader ? { headers: { default: docxHeader } } : {}),
         ...(docxFooter ? { footers: { default: docxFooter } } : {}),
         children: children as (Paragraph | DocxTable)[],
@@ -1125,8 +1277,9 @@ export async function exportToDocx(id: string): Promise<void> {
 
   const { filePath } = await dialog.showSaveDialog({
     title: 'Export as DOCX',
-    defaultPath: `${row.title}.docx`,
+    defaultPath: opts.fileName,
     filters: [{ name: 'Word Document', extensions: ['docx'] }],
   })
-  if (filePath) await writeFile(filePath, buffer)
+  if (filePath) { await writeFile(filePath, buffer); return filePath }
+  return null
 }

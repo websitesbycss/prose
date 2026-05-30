@@ -100,6 +100,7 @@ export const SpellcheckExtension = Extension.create({
             if (ignored.has(word.toLowerCase())) continue
             const res = results[word]
             if (!res || res.correct) continue
+            if (res.suggestions.length === 0) continue
             const spec: SpellSpec = { word: word.toLowerCase(), suggestions: res.suggestions }
             for (const { from, to } of positions) {
               decos.push(Decoration.inline(from, to, { class: 'spell-error', 'data-word': word }, spec))

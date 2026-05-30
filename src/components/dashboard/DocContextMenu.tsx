@@ -10,12 +10,6 @@ const CATEGORY_COLORS = [
   '#60A5FA', '#F87171', '#A78BFA', '#2DD4BF',
 ]
 
-const EXPORT_FORMATS = [
-  { label: 'Word (.docx)', format: 'docx' },
-  { label: 'PDF (.pdf)',   format: 'pdf' },
-  { label: 'Markdown',    format: 'markdown' },
-  { label: 'Plain text',  format: 'plaintext' },
-] as const
 
 export interface DocContextMenuProps {
   doc: Document | null
@@ -26,7 +20,7 @@ export interface DocContextMenuProps {
   onPin: () => void
   onRename: () => void
   onDelete: () => void
-  onExport: (format: string) => Promise<void>
+  onExport: () => void
   onSetCategory: (categoryId: string | null) => Promise<void>
   onCreateCategory: (name: string, color: string) => Promise<void>
 }
@@ -36,14 +30,11 @@ export function DocContextMenu({
   onDismiss, onPin, onRename, onDelete, onExport, onSetCategory, onCreateCategory,
 }: DocContextMenuProps): JSX.Element | null {
   const menuRef        = useRef<HTMLDivElement>(null)
-  const exportTrigger  = useRef<HTMLButtonElement>(null)
   const catTrigger     = useRef<HTMLButtonElement>(null)
-  const exportMenuRef  = useRef<HTMLDivElement>(null)
   const catMenuRef     = useRef<HTMLDivElement>(null)
   const closeTimer     = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const [activeSubmenu, setActiveSubmenu] = useState<'export' | 'category' | null>(null)
-  const [exportPos, setExportPos]         = useState<{ x: number; y: number } | null>(null)
+  const [activeSubmenu, setActiveSubmenu] = useState<'category' | null>(null)
   const [catPos, setCatPos]               = useState<{ x: number; y: number } | null>(null)
   const [addingCat, setAddingCat]         = useState(false)
   const [newCatName, setNewCatName]       = useState('')
@@ -65,7 +56,6 @@ export function DocContextMenu({
     function onDown(e: MouseEvent) {
       const t = e.target as Node
       if (menuRef.current?.contains(t)) return
-      if (exportMenuRef.current?.contains(t)) return
       if (catMenuRef.current?.contains(t)) return
       dismiss()
     }
@@ -96,18 +86,6 @@ export function DocContextMenu({
     el.style.top  = `${y}px`
   }, [position])
 
-  // Overflow-correct export submenu after it mounts
-  useLayoutEffect(() => {
-    if (activeSubmenu !== 'export' || !exportMenuRef.current || !exportPos) return
-    const el = exportMenuRef.current
-    const r  = el.getBoundingClientRect()
-    let { x, y } = exportPos
-    if (x + r.width  > window.innerWidth  - 8) x = (exportTrigger.current?.getBoundingClientRect().left ?? x) - r.width - 4
-    if (y + r.height > window.innerHeight - 8) y = window.innerHeight - r.height - 8
-    el.style.left = `${x}px`
-    el.style.top  = `${y}px`
-  }, [activeSubmenu, exportPos])
-
   // Overflow-correct category submenu after it mounts
   useLayoutEffect(() => {
     if (activeSubmenu !== 'category' || !catMenuRef.current || !catPos) return
@@ -120,14 +98,12 @@ export function DocContextMenu({
     el.style.top  = `${y}px`
   }, [activeSubmenu, catPos, addingCat]) // re-run when form toggles (height changes)
 
-  function openSubmenu(name: 'export' | 'category') {
+  function openSubmenu(name: 'category') {
     if (closeTimer.current) clearTimeout(closeTimer.current)
-    const trigger = name === 'export' ? exportTrigger.current : catTrigger.current
+    const trigger = catTrigger.current
     if (!trigger) return
     const r = trigger.getBoundingClientRect()
-    const pos = { x: r.right + 4, y: r.top }
-    if (name === 'export') setExportPos(pos)
-    else setCatPos(pos)
+    setCatPos({ x: r.right + 4, y: r.top })
     setActiveSubmenu(name)
   }
 
@@ -152,27 +128,7 @@ export function DocContextMenu({
 
   // ── Submenus ────────────────────────────────────────────────────────────────
 
-  const exportMenu = activeSubmenu === 'export' && exportPos ? (
-    <div
-      ref={exportMenuRef}
-      style={{ position: 'fixed', top: exportPos.y, left: exportPos.x, zIndex: 10000 }}
-      className="min-w-[170px] rounded-lg border border-border bg-background py-1 text-[13px] shadow-lg"
-      onMouseEnter={cancelClose}
-      onMouseLeave={scheduleClose}
-      onMouseDown={(e) => e.preventDefault()}
-    >
-      {EXPORT_FORMATS.map(({ label, format }) => (
-        <button
-          key={format}
-          className="flex w-full items-center px-3 py-1.5 text-left text-[13px] text-foreground transition-colors hover:bg-muted/50"
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => { void onExport(format); dismiss() }}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  ) : null
+  const exportMenu = null
 
   const catMenu = activeSubmenu === 'category' && catPos ? (
     <div
@@ -274,21 +230,12 @@ export function DocContextMenu({
         />
         <MenuSep />
 
-        {/* Export as… */}
-        <button
-          ref={exportTrigger}
-          className={cn(
-            'flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[13px] text-foreground transition-colors hover:bg-muted/50',
-            activeSubmenu === 'export' && 'bg-muted/50'
-          )}
-          onMouseEnter={() => openSubmenu('export')}
-          onMouseLeave={scheduleClose}
-          onMouseDown={(e) => e.preventDefault()}
-        >
-          <Download className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          Export as…
-          <ChevronRight className="ml-auto h-3.5 w-3.5 text-muted-foreground" />
-        </button>
+        {/* Export… */}
+        <MenuBtn
+          icon={Download}
+          label="Export…"
+          onClick={() => { onExport(); dismiss() }}
+        />
 
         {/* Add to category… */}
         <button

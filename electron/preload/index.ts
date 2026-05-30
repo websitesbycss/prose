@@ -49,10 +49,10 @@ contextBridge.exposeInMainWorld('prose', {
   },
 
   export: {
-    toDocx: (id: string) => ipcRenderer.invoke('export:toDocx', id),
-    toPdf: (id: string) => ipcRenderer.invoke('export:toPdf', id),
-    toMarkdown: (id: string) => ipcRenderer.invoke('export:toMarkdown', id),
-    toPlainText: (id: string) => ipcRenderer.invoke('export:toPlainText', id),
+    getPreviewHtml: (id: string, opts: Record<string, unknown>) =>
+      ipcRenderer.invoke('export:getPreviewHtml', id, opts),
+    run: (id: string, opts: Record<string, unknown>) =>
+      ipcRenderer.invoke('export:run', id, opts),
     saveImage: (src: string) => ipcRenderer.invoke('export:saveImage', src),
   },
 

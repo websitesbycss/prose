@@ -1,26 +1,36 @@
-import { ipcMain, dialog, BrowserWindow } from 'electron'
+import { ipcMain, dialog, BrowserWindow, shell } from 'electron'
 import { writeFile } from 'fs/promises'
-import { exportToDocx, exportToPdf, exportToMarkdown, exportToPlainText } from '../services/exporter'
+import {
+  exportToDocx,
+  exportToPdf,
+  exportToMarkdown,
+  exportToPlainText,
+  getPreviewHtml,
+  type ExportOptions,
+} from '../services/exporter'
 
 export function registerExportHandlers(): void {
-  ipcMain.handle('export:toDocx', async (_event, id: unknown) => {
+  ipcMain.handle('export:getPreviewHtml', async (_event, id: unknown, opts: unknown): Promise<string | null> => {
     if (typeof id !== 'string' || !id) throw new Error('Invalid document id')
-    await exportToDocx(id)
+    return getPreviewHtml(id, opts as ExportOptions)
   })
 
-  ipcMain.handle('export:toPdf', async (_event, id: unknown) => {
+  ipcMain.handle('export:run', async (_event, id: unknown, opts: unknown): Promise<void> => {
     if (typeof id !== 'string' || !id) throw new Error('Invalid document id')
-    await exportToPdf(id)
-  })
+    const o = opts as ExportOptions
+    let filePath: string | null = null
 
-  ipcMain.handle('export:toMarkdown', async (_event, id: unknown) => {
-    if (typeof id !== 'string' || !id) throw new Error('Invalid document id')
-    await exportToMarkdown(id)
-  })
+    switch (o.format) {
+      case 'pdf':       filePath = await exportToPdf(id, o);       break
+      case 'docx':      filePath = await exportToDocx(id, o);      break
+      case 'markdown':  filePath = await exportToMarkdown(id, o);  break
+      case 'plaintext': filePath = await exportToPlainText(id, o); break
+      default: throw new Error(`Unknown format: ${o.format as string}`)
+    }
 
-  ipcMain.handle('export:toPlainText', async (_event, id: unknown) => {
-    if (typeof id !== 'string' || !id) throw new Error('Invalid document id')
-    await exportToPlainText(id)
+    if (filePath && o.openAfterExport) {
+      await shell.openPath(filePath)
+    }
   })
 
   ipcMain.handle('export:saveImage', async (event, src: unknown): Promise<void> => {

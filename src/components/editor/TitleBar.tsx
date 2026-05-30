@@ -1,17 +1,15 @@
 import { useState, useRef, useEffect } from 'react'
-import { toast } from 'sonner'
 import { ArrowLeft, Sun, Moon, Maximize2, Sparkles, Download, Search, X, ChevronUp, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import {
-  Popover, PopoverContent, PopoverTrigger,
-} from '@/components/ui/popover'
 import { useAppStore } from '@/store/appStore'
+
 import { cn } from '@/lib/utils'
 import type { Document } from '@/types'
 import type { Editor } from '@tiptap/react'
 import type { SaveStatus } from '@/hooks/useDocument'
 import { getFindState } from '@/extensions/findExtension'
+import ExportModal from '@/components/editor/ExportModal'
 
 interface TitleBarProps {
   document: Document | null
@@ -25,13 +23,6 @@ interface TitleBarProps {
   findInputRef: React.RefObject<HTMLInputElement>
   onFindNavigate?: () => void
 }
-
-const EXPORT_FORMATS = [
-  { label: 'Word Document (.docx)', fn: 'toDocx',      typeName: 'a Word Document' },
-  { label: 'PDF (.pdf)',            fn: 'toPdf',       typeName: 'a PDF' },
-  { label: 'Markdown (.md)',        fn: 'toMarkdown',  typeName: 'a Markdown File' },
-  { label: 'Plain Text (.txt)',     fn: 'toPlainText', typeName: 'a Plain Text File' },
-] as const
 
 const FORMAT_LABELS: Record<string, string> = {
   mla: 'MLA',
@@ -62,8 +53,7 @@ export default function TitleBar({
 
   const [editing, setEditing] = useState(false)
   const [draftTitle, setDraftTitle] = useState('')
-  const [exportOpen, setExportOpen] = useState(false)
-  const [exporting, setExporting] = useState(false)
+  const [exportModalOpen, setExportModalOpen] = useState(false)
   const [findQuery, setFindQuery] = useState('')
   const [findMatchInfo, setFindMatchInfo] = useState({ count: 0, index: 0 })
   const titleInputRef = useRef<HTMLInputElement>(null)
@@ -101,21 +91,6 @@ export default function TitleBar({
 
   const matchCount = findOpen ? findMatchInfo.count : 0
   const matchIndex = matchCount > 0 ? findMatchInfo.index + 1 : 0
-
-  async function handleExport(fmt: typeof EXPORT_FORMATS[number]): Promise<void> {
-    if (!document) return
-    setExporting(true)
-    setExportOpen(false)
-    try {
-      await window.prose.export[fmt.fn](document.id)
-      toast.success(`${document.title} successfully exported as ${fmt.typeName}`)
-    } catch (err) {
-      console.error('Export error:', err)
-      toast.error('Export failed')
-    } finally {
-      setExporting(false)
-    }
-  }
 
   useEffect(() => {
     if (editing) titleInputRef.current?.select()
@@ -266,32 +241,26 @@ export default function TitleBar({
           </Button>
         )}
 
-        <Popover open={exportOpen} onOpenChange={setExportOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              disabled={!document || exporting}
-              title="Export document"
-            >
-              <Download className="h-3.5 w-3.5" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-48 p-1" side="bottom" align="end">
-            <div className="flex flex-col gap-0.5">
-              {EXPORT_FORMATS.map((fmt) => (
-                <button
-                  key={fmt.fn}
-                  className="flex w-full items-center rounded-md px-2.5 py-1.5 text-left text-xs hover:bg-accent hover:text-accent-foreground transition-colors"
-                  onClick={() => void handleExport(fmt)}
-                >
-                  {fmt.label}
-                </button>
-              ))}
-            </div>
-          </PopoverContent>
-        </Popover>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          disabled={!document}
+          title="Export document"
+          onClick={() => setExportModalOpen(true)}
+        >
+          <Download className="h-3.5 w-3.5" />
+        </Button>
+
+        {document && (
+          <ExportModal
+            open={exportModalOpen}
+            onClose={() => setExportModalOpen(false)}
+            documentId={document.id}
+            documentTitle={document.title}
+            documentMargins={document.pageMargins}
+          />
+        )}
 
         <Button
           variant="ghost"

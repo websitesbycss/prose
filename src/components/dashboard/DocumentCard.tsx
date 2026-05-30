@@ -1,16 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion } from 'motion/react'
 import { Pencil, Download, Trash2 } from 'lucide-react'
-import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
 import { formatRelativeTime, extractWordCount } from '@/lib/utils'
 import type { Document, Category } from '@/types'
+import ExportModal from '@/components/editor/ExportModal'
 
 interface DocumentCardProps {
   document: Document
@@ -118,7 +113,7 @@ export default function DocumentCard({
         >
           <Pencil className="h-3.5 w-3.5" />
         </Button>
-        <ExportMenu documentId={document.id} documentTitle={document.title} />
+        <ExportButton document={document} />
         <Button
           variant="ghost"
           size="icon"
@@ -133,48 +128,20 @@ export default function DocumentCard({
   )
 }
 
-function ExportMenu({ documentId, documentTitle }: { documentId: string; documentTitle: string }): JSX.Element {
+function ExportButton({ document }: { document: Document }): JSX.Element {
   const [open, setOpen] = useState(false)
-  const [busy, setBusy] = useState(false)
-
-  async function run(fn: () => Promise<void>, typeName: string): Promise<void> {
-    setBusy(true)
-    setOpen(false)
-    try {
-      await fn()
-      toast.success(`${documentTitle} successfully exported as ${typeName}`)
-    } catch {
-      toast.error('Export failed')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const formats: Array<{ name: string; typeName: string; fn: () => Promise<void> }> = [
-    { name: 'Word (.docx)', typeName: 'a Word Document', fn: () => window.prose.export.toDocx(documentId) },
-    { name: 'PDF (.pdf)',   typeName: 'a PDF',            fn: () => window.prose.export.toPdf(documentId) },
-    { name: 'Markdown',     typeName: 'a Markdown File',  fn: () => window.prose.export.toMarkdown(documentId) },
-    { name: 'Plain text',   typeName: 'a Plain Text File',fn: () => window.prose.export.toPlainText(documentId) },
-  ]
-
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-7 w-7" title="Export" disabled={busy}>
-          <Download className="h-3.5 w-3.5" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-40 p-1" side="bottom" align="end">
-        {formats.map(({ name, typeName, fn }) => (
-          <button
-            key={name}
-            className="w-full rounded px-3 py-1.5 text-left text-xs transition-colors hover:bg-accent"
-            onClick={() => void run(fn, typeName)}
-          >
-            {name}
-          </button>
-        ))}
-      </PopoverContent>
-    </Popover>
+    <>
+      <Button variant="ghost" size="icon" className="h-7 w-7" title="Export" onClick={() => setOpen(true)}>
+        <Download className="h-3.5 w-3.5" />
+      </Button>
+      <ExportModal
+        open={open}
+        onClose={() => setOpen(false)}
+        documentId={document.id}
+        documentTitle={document.title}
+        documentMargins={document.pageMargins}
+      />
+    </>
   )
 }

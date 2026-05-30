@@ -15,6 +15,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import NewDocumentModal from './NewDocumentModal'
 import SettingsModal from '@/components/settings/SettingsModal'
+import ExportModal from '@/components/editor/ExportModal'
 import { DocContextMenu } from './DocContextMenu'
 import type { Document, Category, ImportResult } from '@/types'
 import { useAppStore } from '@/store/appStore'
@@ -82,6 +83,7 @@ export default function Dashboard(): JSX.Element {
   const [dragOver, setDragOver] = useState(false)
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(loadPinnedIds)
   const [ctxMenu, setCtxMenu] = useState<{ doc: Document; x: number; y: number } | null>(null)
+  const [ctxExportTarget, setCtxExportTarget] = useState<Document | null>(null)
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const catInputRef = useRef<HTMLInputElement>(null)
 
@@ -181,17 +183,10 @@ export default function Dashboard(): JSX.Element {
     }
   }
 
-  async function handleCtxExport(format: string): Promise<void> {
+  function handleCtxExport(): void {
     if (!ctxMenu) return
-    const id = ctxMenu.doc.id
-    const fns: Record<string, () => Promise<unknown>> = {
-      docx:      () => window.prose.export.toDocx(id),
-      pdf:       () => window.prose.export.toPdf(id),
-      markdown:  () => window.prose.export.toMarkdown(id),
-      plaintext: () => window.prose.export.toPlainText(id),
-    }
-    try { await fns[format]?.(); toast.success('Exported') }
-    catch { toast.error('Export failed') }
+    setCtxExportTarget(ctxMenu.doc)
+    setCtxMenu(null)
   }
 
   async function handleSetCategory(docId: string, categoryId: string | null): Promise<void> {
@@ -528,7 +523,7 @@ export default function Dashboard(): JSX.Element {
         onPin={() => ctxMenu && togglePin(ctxMenu.doc.id)}
         onRename={() => ctxMenu && setRenamingId(ctxMenu.doc.id)}
         onDelete={() => ctxMenu && setDeleteTarget(ctxMenu.doc)}
-        onExport={(format) => handleCtxExport(format)}
+        onExport={() => handleCtxExport()}
         onSetCategory={(categoryId) => handleCtxSetCategory(categoryId)}
         onCreateCategory={async (name, color) => {
           const cat = await window.prose.categories.create({ name, color } as Parameters<typeof window.prose.categories.create>[0])
@@ -548,6 +543,15 @@ export default function Dashboard(): JSX.Element {
         }}
       />
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      {ctxExportTarget && (
+        <ExportModal
+          open={!!ctxExportTarget}
+          onClose={() => setCtxExportTarget(null)}
+          documentId={ctxExportTarget.id}
+          documentTitle={ctxExportTarget.title}
+          documentMargins={ctxExportTarget.pageMargins}
+        />
+      )}
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -743,7 +747,7 @@ function DocRow({ doc, categories, pinned, startEditing, onEditStarted, onOpen, 
           <ActionBtn title="Rename" onClick={() => setEditing(true)}>
             <Pencil className="h-3.5 w-3.5" />
           </ActionBtn>
-          <ExportMenu documentId={doc.id} documentTitle={doc.title} />
+          <ListExportButton doc={doc} />
           <CategoryMenu
             doc={doc}
             categories={categories}
@@ -786,47 +790,25 @@ function ActionBtn({
   )
 }
 
-function ExportMenu({ documentId, documentTitle }: { documentId: string; documentTitle: string }): JSX.Element {
+function ListExportButton({ doc }: { doc: Document }): JSX.Element {
   const [open, setOpen] = useState(false)
-  const [busy, setBusy] = useState(false)
-
-  async function run(fn: () => Promise<void>, typeName: string): Promise<void> {
-    setBusy(true); setOpen(false)
-    try { await fn(); toast.success(`Exported as ${typeName}`) }
-    catch { toast.error('Export failed') }
-    finally { setBusy(false) }
-  }
-
-  const formats = [
-    { name: 'Word (.docx)', typeName: 'Word',       fn: () => window.prose.export.toDocx(documentId) },
-    { name: 'PDF (.pdf)',   typeName: 'PDF',         fn: () => window.prose.export.toPdf(documentId) },
-    { name: 'Markdown',     typeName: 'Markdown',    fn: () => window.prose.export.toMarkdown(documentId) },
-    { name: 'Plain text',   typeName: 'plain text',  fn: () => window.prose.export.toPlainText(documentId) },
-  ]
-
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          title="Export"
-          disabled={busy}
-          className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <Download className="h-3.5 w-3.5" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-40 p-1" side="bottom" align="end">
-        {formats.map(({ name, typeName, fn }) => (
-          <button
-            key={name}
-            className="w-full rounded px-3 py-1.5 text-left text-xs transition-colors hover:bg-accent"
-            onClick={() => void run(fn, typeName)}
-          >
-            {name}
-          </button>
-        ))}
-      </PopoverContent>
-    </Popover>
+    <>
+      <button
+        title="Export"
+        className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:text-foreground transition-colors"
+        onClick={() => setOpen(true)}
+      >
+        <Download className="h-3.5 w-3.5" />
+      </button>
+      <ExportModal
+        open={open}
+        onClose={() => setOpen(false)}
+        documentId={doc.id}
+        documentTitle={doc.title}
+        documentMargins={doc.pageMargins}
+      />
+    </>
   )
 }
 

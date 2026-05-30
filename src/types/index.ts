@@ -184,6 +184,18 @@ export interface ImportResult {
   errors: string[]
 }
 
+export interface ExportOptions {
+  format: 'pdf' | 'docx' | 'markdown' | 'plaintext'
+  fileName: string
+  pageSize: 'Letter' | 'A4' | 'Legal'
+  orientation: 'portrait' | 'landscape'
+  margins: PageMargins
+  colorMode: 'light' | 'dark'
+  includeHeader: boolean
+  includeFooter: boolean
+  openAfterExport: boolean
+}
+
 export interface ProseAPI {
   dialog: {
     openImage(): Promise<string | null>
@@ -216,10 +228,8 @@ export interface ProseAPI {
     analyze(payload: { documentContent: string; assignmentContext?: string }): Promise<AnalysisResult>
   }
   export: {
-    toDocx(id: string): Promise<void>
-    toPdf(id: string): Promise<void>
-    toMarkdown(id: string): Promise<void>
-    toPlainText(id: string): Promise<void>
+    getPreviewHtml(id: string, opts: ExportOptions): Promise<string | null>
+    run(id: string, opts: ExportOptions): Promise<void>
     saveImage(src: string): Promise<void>
   }
   citations: {
