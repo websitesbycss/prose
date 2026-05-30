@@ -149,10 +149,52 @@ function nodeToPlainText(node: JSONContent, indent = 0): string {
   }
 }
 
+// Build a simple scrollable HTML page for non-paginated formats (markdown, plaintext).
+function buildScrollablePreviewPage(
+  title: string,
+  bodyHtml: string,
+  colorMode: 'light' | 'dark',
+): string {
+  const isDark = colorMode === 'dark'
+  const pageBg    = isDark ? '#1e1e1e' : '#ffffff'
+  const pageColor = isDark ? '#e5e5e5' : '#000000'
+  const preBg     = isDark ? '#2d2d2d' : '#f5f5f5'
+  return `<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>${escapeHtml(title)} — Preview</title>
+<style>
+  html,body{margin:0;padding:2rem 2.5rem;background:${pageBg};color:${pageColor};font-family:'Times New Roman',serif;font-size:12pt;line-height:1.6;word-break:break-word;overflow-y:auto;}
+  pre{margin:0;white-space:pre-wrap;font-family:'Courier New',monospace;font-size:11pt;background:${preBg};padding:1.5rem;}
+  p{margin:0 0 1em}ul,ol{margin:.5em 0;padding-left:2em}
+  blockquote{margin:.5em 2em;border-left:3px solid #ccc;padding-left:1em;color:#888}
+  code{background:${preBg};padding:.1em .3em;border-radius:2px;font-size:.9em}
+  h1,h2,h3{margin:.8em 0 .4em}table{width:100%;border-collapse:collapse;margin:1em 0}
+  th,td{border:1px solid #ccc;padding:6px 10px}img{max-width:100%}a{color:inherit}
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:rgba(120,120,120,0.55);border-radius:4px}
+  ::-webkit-scrollbar-thumb:hover{background:rgba(120,120,120,0.85)}
+</style>
+</head><body>${bodyHtml}</body></html>`
+}
+
 export async function getPreviewHtml(id: string, opts: ExportOptions): Promise<string | null> {
   const row = await fetchDocument(id)
   if (!row) return null
   const doc = parseContent(row.content)
+
+  // Markdown — show the raw markdown text so the user sees what they'll get
+  if (opts.format === 'markdown') {
+    const md = nodeToMarkdown(doc)
+    return buildScrollablePreviewPage(row.title, `<pre>${escapeHtml(md)}</pre>`, opts.colorMode)
+  }
+
+  // Plain text — monospace, pre-formatted
+  if (opts.format === 'plaintext') {
+    const txt = nodeToPlainText(doc)
+    return buildScrollablePreviewPage(row.title, `<pre>${escapeHtml(txt)}</pre>`, opts.colorMode)
+  }
+
+  // PDF / DOCX — paginated preview
   const margins = opts.margins
   const effectiveHeaderRaw = opts.includeHeader ? row.header_content : null
   const effectiveFooterRaw = opts.includeFooter ? row.footer_content : null
@@ -160,10 +202,10 @@ export async function getPreviewHtml(id: string, opts: ExportOptions): Promise<s
 
   let headerHtml = ''
   if (effectiveHeaderRaw) {
-    headerHtml = zoneToPreviewHtml(effectiveHeaderRaw, 'right', margins.left, margins.right)
+    // Pass 0,0 for left/right margins — the .ph container already applies margin
+    // padding via its CSS, so we avoid double-indenting the header content.
+    headerHtml = zoneToPreviewHtml(effectiveHeaderRaw, 'left', 0, 0)
   } else if (legacyRunningHead) {
-    headerHtml = zoneToPreviewHtml(null, 'right', margins.left, margins.right)
-    // Build legacy running head string directly
     if (row.format === 'mla') {
       headerHtml = `<div style="width:100%;text-align:right;font-family:'Times New Roman',serif;font-size:10pt">${escapeHtml(legacyRunningHead)} 1</div>`
     } else {
@@ -173,7 +215,9 @@ export async function getPreviewHtml(id: string, opts: ExportOptions): Promise<s
 
   let footerHtml = ''
   if (effectiveFooterRaw) {
-    footerHtml = zoneToPreviewHtml(effectiveFooterRaw, 'center', margins.left, margins.right)
+    // Same 0,0 margin fix; fallback to 'left' (the zone editor's default when no
+    // explicit textAlign is stored matches the browser's left-align default).
+    footerHtml = zoneToPreviewHtml(effectiveFooterRaw, 'left', 0, 0)
   }
 
   const bodyHtml = nodeToHtml(doc, row.format)
@@ -557,7 +601,8 @@ function zoneToPreviewHtml(raw: string | null, fallbackAlign = 'left', leftIn = 
     .replace(/<span class="pageNumber"><\/span>/g, '<span>1</span>')
 }
 
-// Build a self-contained HTML page for the in-app preview iframe
+// Build a self-contained HTML page for the in-app preview iframe.
+// The iframe viewport == one page; JS uses postMessage to handle navigation.
 function buildPreviewPage(
   title: string,
   bodyHtml: string,
@@ -573,9 +618,7 @@ function buildPreviewPage(
   const pageColor = isDark ? '#e5e5e5' : '#000000'
   const preBg = isDark ? '#2d2d2d' : '#f5f5f5'
   const borderColor = isDark ? '#555' : '#000'
-  const dividerColor = isDark ? '#3a3a3a' : '#e8e8e8'
 
-  // Page pixel dimensions at 96 dpi
   const pw = PAGE_WIDTH_IN[pageSize] ?? PAGE_WIDTH_IN.Letter
   const ph = PAGE_HEIGHT_IN[pageSize] ?? PAGE_HEIGHT_IN.Letter
   const wPx = Math.round((orientation === 'landscape' ? ph : pw) * 96)
@@ -588,27 +631,26 @@ function buildPreviewPage(
 
   const hasHeader = headerHtml.length > 0
   const hasFooter = footerHtml.length > 0
-  // Reserve a portion of the margin for header/footer strips
   const hStrip = hasHeader ? Math.round(mT * 0.8) : 0
   const fStrip = hasFooter ? Math.round(mB * 0.8) : 0
   const bodyPT = hasHeader ? Math.round(mT * 0.2) : mT
   const bodyPB = hasFooter ? Math.round(mB * 0.2) : mB
 
+  // The body IS the page — no outer gray wrapper. The React container provides the gray surround.
+  // #content is in normal flow so scrollHeight reflects true content height for page counting.
+  // translateY on #content handles page navigation; the iframe viewport clips to one page.
+  // applyPageBreaks() runs after layout: finds elements with page-break-before:always and
+  // inserts spacers so content snaps to page boundaries, mirroring actual PDF output.
   return `<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>${escapeHtml(title)} — Preview</title>
 <style>
-  html,body{margin:0;padding:20px 0 32px;background:#c8c8c8;box-sizing:border-box}
-  .wrap{display:flex;justify-content:center}
-  .page{
-    width:${wPx}px;min-height:${hPx}px;background:${pageBg};color:${pageColor};
-    box-shadow:0 4px 20px rgba(0,0,0,0.25);box-sizing:border-box;
-    font-family:'Times New Roman',serif;font-size:12pt;line-height:2;
-  }
-  .ph{padding:${Math.round(hStrip * 0.12)}px ${mR}px ${Math.round(hStrip * 0.08)}px ${mL}px;min-height:${hStrip}px;font-size:10pt;line-height:1.4;border-bottom:1px solid ${dividerColor};display:flex;align-items:center}
+  html,body{margin:0;padding:0;width:${wPx}px;overflow:hidden;background:${pageBg};color:${pageColor};font-family:'Times New Roman',serif;font-size:12pt;line-height:2}
+  #content{width:${wPx}px;will-change:transform}
+  .ph{padding:${Math.round(hStrip*0.12)}px ${mR}px ${Math.round(hStrip*0.08)}px ${mL}px;min-height:${hStrip}px;font-size:10pt;line-height:1.4;display:flex;align-items:center}
   .pb{padding:${bodyPT}px ${mR}px ${bodyPB}px ${mL}px}
-  .pf{padding:${Math.round(fStrip * 0.08)}px ${mR}px ${Math.round(fStrip * 0.12)}px ${mL}px;min-height:${fStrip}px;font-size:10pt;line-height:1.4;border-top:1px solid ${dividerColor};display:flex;align-items:center}
+  .pf{padding:${Math.round(fStrip*0.08)}px ${mR}px ${Math.round(fStrip*0.12)}px ${mL}px;min-height:${fStrip}px;font-size:10pt;line-height:1.4;display:flex;align-items:center}
   p{margin:0}ul,ol{margin:.5em 0;padding-left:2em}blockquote{margin:.5em 2em}
-  pre{background:${preBg};padding:.5em;font-size:.9em;overflow:auto}
+  pre{background:${preBg};padding:.5em;font-size:.9em}
   code{background:${preBg};padding:.1em .3em;border-radius:2px;font-size:.9em}
   table{width:100%;border-collapse:collapse;table-layout:fixed}
   th,td{border:1px solid ${borderColor};padding:4px 8px;word-wrap:break-word}
@@ -619,22 +661,53 @@ function buildPreviewPage(
   a{color:inherit}
 </style>
 <script>
-  function fit(){
-    var page=document.querySelector('.page');
-    if(!page)return;
-    var vw=document.documentElement.clientWidth;
-    var z=Math.min(1,(vw-16)/${wPx});
-    page.style.zoom=String(z);
+  var PAGE_H=${hPx};
+  function applyPageBreaks(){
+    try{
+      var content=document.getElementById('content');
+      if(!content)return;
+      // Find every element that requests a CSS page break and insert a height-filling
+      // spacer before it so the content jumps to the next page boundary.
+      var els=content.querySelectorAll('[style*="page-break-before:always"],[style*="break-before:page"]');
+      for(var i=0;i<els.length;i++){
+        var el=els[i];
+        var mod=el.offsetTop%PAGE_H;
+        if(mod>0){
+          var sp=document.createElement('div');
+          sp.style.height=(PAGE_H-mod)+'px';
+          el.parentNode.insertBefore(sp,el);
+        }
+        el.style.removeProperty('page-break-before');
+        el.style.removeProperty('break-before');
+      }
+    }catch(e){}
   }
-  document.addEventListener('DOMContentLoaded',fit);
-  window.addEventListener('resize',fit);
+  function totalPages(){
+    var c=document.getElementById('content');
+    return c?Math.max(1,Math.ceil(c.scrollHeight/PAGE_H)):1;
+  }
+  function report(){window.parent.postMessage({type:'page-info',totalPages:totalPages()},'*');}
+  function gotoPage(n){
+    var c=document.getElementById('content');
+    if(c)c.style.transform='translateY(-'+Math.max(0,(n-1)*PAGE_H)+'px)';
+    report();
+  }
+  window.addEventListener('message',function(e){
+    if(!e.data)return;
+    if(e.data.type==='goto-page')gotoPage(e.data.page);
+    if(e.data.type==='request-page-info')setTimeout(report,0);
+  });
+  // setTimeout(0) after DOMContentLoaded lets the browser finish layout (reflow)
+  // before measuring scrollHeight, which is critical after applyPageBreaks inserts spacers.
+  function init(){applyPageBreaks();setTimeout(report,0);}
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',init);}else{init();}
 </script>
 </head><body>
-<div class="wrap"><div class="page">
+<div id="content">
   ${hasHeader ? `<div class="ph">${headerHtml}</div>` : ''}
   <div class="pb">${bodyHtml}</div>
   ${hasFooter ? `<div class="pf">${footerHtml}</div>` : ''}
-</div></div>
+</div>
 </body></html>`
 }
 
