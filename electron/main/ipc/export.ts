@@ -6,6 +6,7 @@ import {
   exportToMarkdown,
   exportToPlainText,
   getPreviewHtml,
+  getPreviewPdf,
   type ExportOptions,
 } from '../services/exporter'
 
@@ -13,6 +14,13 @@ export function registerExportHandlers(): void {
   ipcMain.handle('export:getPreviewHtml', async (_event, id: unknown, opts: unknown): Promise<string | null> => {
     if (typeof id !== 'string' || !id) throw new Error('Invalid document id')
     return getPreviewHtml(id, opts as ExportOptions)
+  })
+
+  // Returns the PDF as a base64 string so it can be converted to a blob URL in the renderer.
+  ipcMain.handle('export:getPreviewPdf', async (_event, id: unknown, opts: unknown): Promise<string | null> => {
+    if (typeof id !== 'string' || !id) throw new Error('Invalid document id')
+    const buffer = await getPreviewPdf(id, opts as ExportOptions)
+    return buffer ? buffer.toString('base64') : null
   })
 
   ipcMain.handle('export:run', async (_event, id: unknown, opts: unknown): Promise<void> => {

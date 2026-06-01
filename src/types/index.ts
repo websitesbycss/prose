@@ -229,6 +229,7 @@ export interface ProseAPI {
   }
   export: {
     getPreviewHtml(id: string, opts: ExportOptions): Promise<string | null>
+    getPreviewPdf(id: string, opts: ExportOptions): Promise<string | null>
     run(id: string, opts: ExportOptions): Promise<void>
     saveImage(src: string): Promise<void>
   }

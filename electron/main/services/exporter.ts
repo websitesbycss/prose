@@ -177,6 +177,56 @@ function buildScrollablePreviewPage(
 </head><body>${bodyHtml}</body></html>`
 }
 
+// Generate a real PDF for the preview pane — same as exportToPdf but returns the buffer
+// directly without showing a save dialog. Used for accurate paginated preview.
+export async function getPreviewPdf(id: string, opts: ExportOptions): Promise<Buffer | null> {
+  const row = await fetchDocument(id)
+  if (!row) return null
+  const doc = parseContent(row.content)
+  const margins = opts.margins
+
+  const effectiveHeaderRaw = opts.includeHeader ? row.header_content : null
+  const effectiveFooterRaw = opts.includeFooter ? row.footer_content : null
+  const legacyRunningHead = effectiveHeaderRaw ? null : (opts.includeHeader ? extractRunningHead(doc, row.format) : null)
+
+  let headerTemplate = '<span></span>'
+  if (effectiveHeaderRaw) {
+    headerTemplate = zoneToElectronTemplate(effectiveHeaderRaw, 'right', margins.left, margins.right, opts.colorMode)
+  } else if (legacyRunningHead) {
+    headerTemplate = legacyRunningHeadTemplate(legacyRunningHead, row.format, margins.left, margins.right, opts.colorMode)
+  }
+  let footerTemplate = '<span></span>'
+  if (effectiveFooterRaw) {
+    footerTemplate = zoneToElectronTemplate(effectiveFooterRaw, 'center', margins.left, margins.right, opts.colorMode)
+  }
+  const hasHeaderFooter = headerTemplate !== '<span></span>' || footerTemplate !== '<span></span>'
+
+  const html = buildHtmlPage(row.title, nodeToHtml(doc, row.format), row.format, hasHeaderFooter, margins, opts.colorMode)
+
+  const tmpHtml = join(tmpdir(), `prose-preview-${randomUUID()}.html`)
+  await writeFile(tmpHtml, html, 'utf8')
+
+  const win = new BrowserWindow({ show: false, webPreferences: { sandbox: true } })
+  try {
+    await win.loadFile(tmpHtml)
+    const pdfBuffer = await win.webContents.printToPDF({
+      margins: hasHeaderFooter
+        ? { marginType: 'custom', top: margins.top + 0.25, bottom: margins.bottom + 0.25, left: 0, right: 0 }
+        : { marginType: 'none' },
+      pageSize: opts.pageSize,
+      landscape: opts.orientation === 'landscape',
+      printBackground: true,
+      displayHeaderFooter: hasHeaderFooter,
+      headerTemplate: hasHeaderFooter ? headerTemplate : '<span></span>',
+      footerTemplate: hasHeaderFooter ? footerTemplate : '<span></span>',
+    })
+    return pdfBuffer
+  } finally {
+    win.destroy()
+    import('fs').then(({ unlinkSync }) => { try { unlinkSync(tmpHtml) } catch { /* ignore */ } })
+  }
+}
+
 export async function getPreviewHtml(id: string, opts: ExportOptions): Promise<string | null> {
   const row = await fetchDocument(id)
   if (!row) return null
@@ -484,7 +534,7 @@ function nodeToHtml(node: JSONContent, format = 'none'): string {
 
 // Build an Electron displayHeaderFooter template string from a header/footer zone JSON.
 // Replaces pageNumber nodes with Electron's <span class="pageNumber"></span>.
-function zoneToElectronTemplate(raw: string | null, fallbackAlign = 'left', leftIn = 1, rightIn = 1): string {
+function zoneToElectronTemplate(raw: string | null, fallbackAlign = 'left', leftIn = 1, rightIn = 1, colorMode: 'light' | 'dark' = 'light'): string {
   if (!raw) return '<span></span>'
   try {
     const doc = JSON.parse(raw) as JSONContent
@@ -516,10 +566,11 @@ function zoneToElectronTemplate(raw: string | null, fallbackAlign = 'left', left
         }
         return inlineToHtml(n)
       }).join('')
-    // single quotes inside style attr avoid breaking the HTML attribute
     const lPx = Math.round(leftIn * 96)
     const rPx = Math.round(rightIn * 96)
-    const base = `font-size:16px;font-family:'Times New Roman',serif;width:100%;box-sizing:border-box;padding-left:${lPx}px;padding-right:${rPx}px;`
+    const fg = colorMode === 'dark' ? '#e5e5e5' : '#000000'
+    const bg = colorMode === 'dark' ? '#1e1e1e' : '#ffffff'
+    const base = `font-size:16px;font-family:'Times New Roman',serif;width:100%;box-sizing:border-box;padding-left:${lPx}px;padding-right:${rPx}px;color:${fg};background-color:${bg};`
 
     // Split content by rightTab nodes into segments
     const segments: JSONContent[][] = []
@@ -552,11 +603,13 @@ function zoneToElectronTemplate(raw: string | null, fallbackAlign = 'left', left
 }
 
 // Build an Electron template for legacy MLA/APA running heads.
-function legacyRunningHeadTemplate(runningHead: string, format: string, leftIn = 1, rightIn = 1): string {
+function legacyRunningHeadTemplate(runningHead: string, format: string, leftIn = 1, rightIn = 1, colorMode: 'light' | 'dark' = 'light'): string {
   const pn = '<span class="pageNumber"></span>'
   const lPx = Math.round(leftIn * 96)
   const rPx = Math.round(rightIn * 96)
-  const base = `font-size:16px;font-family:'Times New Roman',serif;width:100%;box-sizing:border-box;padding-left:${lPx}px;padding-right:${rPx}px;`
+  const fg = colorMode === 'dark' ? '#e5e5e5' : '#000000'
+  const bg = colorMode === 'dark' ? '#1e1e1e' : '#ffffff'
+  const base = `font-size:16px;font-family:'Times New Roman',serif;width:100%;box-sizing:border-box;padding-left:${lPx}px;padding-right:${rPx}px;color:${fg};background-color:${bg};`
   if (format === 'mla') {
     return `<div style="${base}text-align:right;">${escapeHtml(runningHead)} ${pn}</div>`
   }
@@ -644,7 +697,8 @@ function buildPreviewPage(
   return `<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>${escapeHtml(title)} — Preview</title>
 <style>
-  html,body{margin:0;padding:0;width:${wPx}px;overflow:hidden;background:${pageBg};color:${pageColor};font-family:'Times New Roman',serif;font-size:12pt;line-height:2}
+  html{margin:0;padding:0;width:${wPx}px;overflow:hidden;}
+  body{margin:0;padding:0;width:${wPx}px;background:${pageBg};color:${pageColor};font-family:'Times New Roman',serif;font-size:12pt;line-height:2}
   #content{width:${wPx}px;will-change:transform}
   .ph{padding:${Math.round(hStrip*0.12)}px ${mR}px ${Math.round(hStrip*0.08)}px ${mL}px;min-height:${hStrip}px;font-size:10pt;line-height:1.4;display:flex;align-items:center}
   .pb{padding:${bodyPT}px ${mR}px ${bodyPB}px ${mL}px}
@@ -723,13 +777,13 @@ export async function exportToPdf(id: string, opts: ExportOptions): Promise<stri
 
   let headerTemplate = '<span></span>'
   if (effectiveHeaderRaw) {
-    headerTemplate = zoneToElectronTemplate(effectiveHeaderRaw, 'right', margins.left, margins.right)
+    headerTemplate = zoneToElectronTemplate(effectiveHeaderRaw, 'right', margins.left, margins.right, opts.colorMode)
   } else if (legacyRunningHead) {
-    headerTemplate = legacyRunningHeadTemplate(legacyRunningHead, row.format, margins.left, margins.right)
+    headerTemplate = legacyRunningHeadTemplate(legacyRunningHead, row.format, margins.left, margins.right, opts.colorMode)
   }
   let footerTemplate = '<span></span>'
   if (effectiveFooterRaw) {
-    footerTemplate = zoneToElectronTemplate(effectiveFooterRaw, 'center', margins.left, margins.right)
+    footerTemplate = zoneToElectronTemplate(effectiveFooterRaw, 'center', margins.left, margins.right, opts.colorMode)
   }
   const hasHeaderFooter = headerTemplate !== '<span></span>' || footerTemplate !== '<span></span>'
 

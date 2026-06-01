@@ -51,6 +51,8 @@ contextBridge.exposeInMainWorld('prose', {
   export: {
     getPreviewHtml: (id: string, opts: Record<string, unknown>) =>
       ipcRenderer.invoke('export:getPreviewHtml', id, opts),
+    getPreviewPdf: (id: string, opts: Record<string, unknown>) =>
+      ipcRenderer.invoke('export:getPreviewPdf', id, opts),
     run: (id: string, opts: Record<string, unknown>) =>
       ipcRenderer.invoke('export:run', id, opts),
     saveImage: (src: string) => ipcRenderer.invoke('export:saveImage', src),

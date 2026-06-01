@@ -331,8 +331,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
       if (sidebarDragRef.current) localStorage.setItem('prose-sidebar-width', String(sidebarWidthRef.current))
       dragStartRef.current = null
       sidebarDragRef.current = null
-      document.body.style.cursor = ''
-      document.body.style.userSelect = ''
+      if (document.body) { document.body.style.cursor = ''; document.body.style.userSelect = '' }
     }
     window.addEventListener('mousemove', onMouseMove)
     window.addEventListener('mouseup', onMouseUp)
