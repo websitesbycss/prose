@@ -43,7 +43,7 @@ These requirements apply to every single file in the project without exception. 
 | Local database | better-sqlite3 | Latest stable |
 | Local LLM | Ollama (bundled binary) | Latest stable |
 | Export — DOCX | docx | Latest stable |
-| Export — PDF | electron-pdf or puppeteer | Latest stable |
+| Export — PDF | Electron `printToPDF` (generation) + pdfjs-dist (preview) | Latest stable |
 | Citation metadata | crossref REST API (online) / local fallback | — |
 | Packaging | electron-builder | Latest stable |
 | Code quality | ESLint + Prettier | Latest stable |
@@ -201,6 +201,9 @@ interface Document {
   createdAt: string;               // ISO 8601
   updatedAt: string;               // ISO 8601
   categoryId: string | null;
+  headerContent: string | null;    // Tiptap JSON for page header zone
+  footerContent: string | null;    // Tiptap JSON for page footer zone
+  pageMargins: PageMargins | null; // Per-document margin overrides (inches)
 }
 ```
 
@@ -263,7 +266,10 @@ CREATE TABLE documents (
   word_count_goal INTEGER,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  category_id TEXT REFERENCES categories(id) ON DELETE SET NULL
+  category_id TEXT REFERENCES categories(id) ON DELETE SET NULL,
+  header_content TEXT,             -- Tiptap JSON for page header zone
+  footer_content TEXT,             -- Tiptap JSON for page footer zone
+  page_margins TEXT                -- JSON: {top, right, bottom, left} in inches
 );
 
 CREATE TABLE categories (
@@ -324,10 +330,32 @@ window.prose.ai.streamPrompt(payload: AiPromptPayload, onChunk: (chunk: string) 
 ### Export
 
 ```typescript
-window.prose.export.toDocx(id: string): Promise<void>
-window.prose.export.toPdf(id: string): Promise<void>
-window.prose.export.toMarkdown(id: string): Promise<void>
-window.prose.export.toPlainText(id: string): Promise<void>
+// Render a scrollable HTML preview for markdown/plaintext formats
+window.prose.export.getPreviewHtml(id: string, opts: ExportOptions): Promise<string | null>
+
+// Render the document to a real PDF and return it as a base64 string for preview
+window.prose.export.getPreviewPdf(id: string, opts: ExportOptions): Promise<string | null>
+
+// Run the actual export (shows save dialog for pdf/docx/markdown/plaintext)
+window.prose.export.run(id: string, opts: ExportOptions): Promise<void>
+
+// Save an inline editor image (base64 data URL) to a user-chosen location
+window.prose.export.saveImage(src: string): Promise<void>
+```
+
+`ExportOptions`:
+```typescript
+interface ExportOptions {
+  format: 'pdf' | 'docx' | 'markdown' | 'plaintext';
+  fileName: string;
+  pageSize: 'Letter' | 'A4' | 'Legal';
+  orientation: 'portrait' | 'landscape';
+  margins: PageMargins;
+  colorMode: 'light' | 'dark';
+  includeHeader: boolean;
+  includeFooter: boolean;
+  openAfterExport: boolean;
+}
 ```
 
 ### Citations
@@ -582,25 +610,48 @@ The active model is determined by the RAM picker during onboarding and stored in
 
 ## Export behavior
 
-**DOCX export:**
-- Reconstructs document formatting using the `docx` library
-- MLA/APA formatting applied correctly including header, page numbers, double spacing
-- Images embedded
-- Saves to user-chosen location via system save dialog
+All exports are triggered from the Export Modal (`ExportModal.tsx`), which opens as a dialog with a live preview pane on the left and settings on the right.
+
+**Export modal:**
+- Format selector: PDF, DOCX, Markdown, Plain Text
+- File name input with extension suffix shown as a read-only badge
+- Page settings (PDF/DOCX only): size (Letter/A4/Legal), orientation, margins (inches, per-side)
+- Appearance (PDF only): light/dark color mode
+- Content toggles (PDF/DOCX only): include header, include footer
+- Behavior: open after export toggle
+- Live preview pane refreshes (400ms debounce) whenever any setting changes
+- Export button triggers the actual save-dialog export
 
 **PDF export:**
-- Renders the editor canvas via Puppeteer/Chromium to PDF
-- Preserves exact visual appearance including fonts and formatting
+- Uses Electron's built-in `BrowserWindow.webContents.printToPDF()` — no Puppeteer dependency
+- `buildHtmlPage` generates print-ready HTML with correct fonts, margins, double-spacing, and color mode
+- Header/footer rendered via Electron's `displayHeaderFooter` with custom HTML templates (`zoneToElectronTemplate`, `legacyRunningHeadTemplate`); both text color and background color reflect the chosen color mode
+- Page size and orientation passed directly to `printToPDF`
+- Saves to user-chosen location via system save dialog
+
+**PDF preview:**
+- Calls `getPreviewPdf` — identical pipeline to the real export but returns a `Buffer` instead of saving
+- Buffer transferred to renderer as base64, decoded to `Uint8Array`, rendered page-by-page via `pdfjs-dist`
+- Each page rendered to an offscreen canvas at 2× scale (retina-sharp) then displayed as a stacked `<img>` list
+- Zoom slider (25–200%) in the bottom bar scales page image widths; resets to 100% on each modal open
+- `pdfjs-dist` v4 used (v6 requires `Promise.try` which is unavailable in Electron 31 / Chromium 126)
+
+**DOCX export:**
+- Reconstructs document formatting using the `docx` library
+- MLA/APA formatting applied correctly including running head, page numbers, double spacing
 - Saves to user-chosen location via system save dialog
 
 **Markdown export:**
 - Converts Tiptap JSON to clean Markdown
-- MLA/APA header exported as plain text block at top
 - Saves to user-chosen location via system save dialog
 
 **Plain text export:**
 - Strips all formatting
 - Saves to user-chosen location via system save dialog
+
+**Markdown/plain text preview:**
+- `buildScrollablePreviewPage` generates a scrollable HTML page with matching color mode
+- Rendered in a sandboxed `<iframe>` with `srcdoc`
 
 ---
 
@@ -753,11 +804,14 @@ Build in this exact order. Do not skip ahead. Each phase should be fully working
 - Insert Works Cited / References section into document
 
 ### Phase 10 — Export ✅ COMPLETED
+- Export modal with live preview pane (left) and settings panel (right)
+- PDF export via Electron `printToPDF` (no Puppeteer)
+- PDF preview via `pdfjs-dist` — renders actual PDF pages as canvas images; zoom slider 25–200%
 - DOCX export via `docx` library
-- PDF export via Puppeteer
-- Markdown export
-- Plain text export
-- System save dialog for all exports
+- Markdown and plain text export with scrollable HTML preview in sandboxed iframe
+- Header/footer inclusion toggles; color mode (light/dark) for PDF
+- Page size, orientation, and per-side margin controls
+- System save dialog for all formats; optional open-after-export
 
 ### Phase 11 — Focus mode and typewriter mode ✅ COMPLETED
 - Focus mode: hide all chrome, center canvas, Escape to exit

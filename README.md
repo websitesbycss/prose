@@ -21,7 +21,7 @@ Works on a plane. No account. No subscription. No data leaves your machine.
 - Built-in music player with lofi, piano, jazz, and layerable ambient sounds
 - Session stats with a daily word count goal, writing streak, and average WPM
 - Document history with snapshots and one-click restore
-- Export to DOCX, PDF, Markdown, or plain text
+- Export to DOCX, PDF, Markdown, or plain text — with a live paginated preview
 - Auto-updater via GitHub Releases
 
 ## Download
@@ -66,6 +66,7 @@ Output lands in `release/`.
 | Animations | Motion (Framer Motion) |
 | AI runtime | Ollama (local) |
 | DOCX export | docx |
+| PDF preview | pdfjs-dist |
 | Packaging | electron-builder |
 
 ## License
