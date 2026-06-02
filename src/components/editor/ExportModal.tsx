@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 import type { ExportOptions, PageMargins } from '@/types'
+import { useAppStore } from '@/store/appStore'
 import * as pdfjsLib from 'pdfjs-dist'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -114,6 +115,7 @@ export default function ExportModal({
   const iframeRef        = useRef<HTMLIFrameElement>(null)
   const baseNameInputRef = useRef<HTMLInputElement>(null)
 
+  const appTheme     = useAppStore(s => s.theme)
   const isPageFormat = format === 'pdf' || format === 'docx'
   const ext          = EXT[format]
 
@@ -177,8 +179,8 @@ export default function ExportModal({
             setPdfPages(images)
           }
         } else {
-          // Markdown / plain text — simple scrollable HTML
-          const html = await window.prose.export.getPreviewHtml(documentId, opts)
+          // Markdown / plain text — use app theme so preview matches current UI
+          const html = await window.prose.export.getPreviewHtml(documentId, { ...opts, colorMode: appTheme })
           if (html && iframeRef.current) {
             iframeRef.current.srcdoc = html
           }
@@ -190,7 +192,7 @@ export default function ExportModal({
       }
     }, 400)
     return () => clearTimeout(timer)
-  }, [open, format, pageSize, orientation, margins, colorMode, includeHeader, includeFooter]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, format, pageSize, orientation, margins, colorMode, includeHeader, includeFooter, appTheme]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Export ────────────────────────────────────────────────────────────────
 

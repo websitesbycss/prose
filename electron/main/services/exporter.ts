@@ -156,25 +156,32 @@ function buildScrollablePreviewPage(
   colorMode: 'light' | 'dark',
 ): string {
   const isDark = colorMode === 'dark'
-  const pageBg    = isDark ? '#1e1e1e' : '#ffffff'
-  const pageColor = isDark ? '#e5e5e5' : '#000000'
-  const preBg     = isDark ? '#2d2d2d' : '#f5f5f5'
+  const bg          = isDark ? '#2a2a2a' : '#ffffff'
+  const fg          = isDark ? '#e5e5e5' : '#000000'
+  const preBg       = isDark ? '#1e1e1e' : '#f0f0f0'
+  const borderColor = isDark ? '#444444' : '#cccccc'
+  const mutedColor  = isDark ? '#999999' : '#666666'
   return `<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>${escapeHtml(title)} — Preview</title>
 <style>
-  html,body{margin:0;padding:2rem 2.5rem;background:${pageBg};color:${pageColor};font-family:'Times New Roman',serif;font-size:12pt;line-height:1.6;word-break:break-word;overflow-y:auto;}
-  pre{margin:0;white-space:pre-wrap;font-family:'Courier New',monospace;font-size:11pt;background:${preBg};padding:1.5rem;}
+  html,body{margin:0;padding:1.5rem;background:${bg};font-family:'Times New Roman',serif;font-size:12pt;line-height:1.6;overflow-y:auto;}
+  .page{background:${bg};color:${fg};max-width:680px;margin:0 auto;padding:2rem 2.5rem;word-break:break-word;min-height:calc(100vh - 3rem);}
+  pre{margin:0;white-space:pre-wrap;font-family:'Courier New',monospace;font-size:11pt;background:${preBg};padding:1.5rem;border-radius:4px;}
   p{margin:0 0 1em}ul,ol{margin:.5em 0;padding-left:2em}
-  blockquote{margin:.5em 2em;border-left:3px solid #ccc;padding-left:1em;color:#888}
-  code{background:${preBg};padding:.1em .3em;border-radius:2px;font-size:.9em}
-  h1,h2,h3{margin:.8em 0 .4em}table{width:100%;border-collapse:collapse;margin:1em 0}
-  th,td{border:1px solid #ccc;padding:6px 10px}img{max-width:100%}a{color:inherit}
+  blockquote{margin:.5em 2em;border-left:3px solid ${borderColor};padding-left:1em;color:${mutedColor}}
+  code{background:${preBg};padding:.1em .3em;border-radius:2px;font-size:.9em;font-family:'Courier New',monospace}
+  h1,h2,h3{margin:.8em 0 .4em}
+  hr{border:none;border-top:1px solid ${borderColor};margin:1.5em 0}
+  table{width:100%;border-collapse:collapse;margin:1em 0}
+  th,td{border:1px solid ${borderColor};padding:6px 10px}
+  th{background:${preBg}}
+  img{max-width:100%}a{color:inherit}
   ::-webkit-scrollbar{width:8px;height:8px}
   ::-webkit-scrollbar-track{background:transparent}
   ::-webkit-scrollbar-thumb{background:rgba(120,120,120,0.55);border-radius:4px}
   ::-webkit-scrollbar-thumb:hover{background:rgba(120,120,120,0.85)}
 </style>
-</head><body>${bodyHtml}</body></html>`
+</head><body><div class="page">${bodyHtml}</div></body></html>`
 }
 
 // Generate a real PDF for the preview pane — same as exportToPdf but returns the buffer
