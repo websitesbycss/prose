@@ -143,7 +143,15 @@ export function registerDocumentHandlers(): void {
 
     if (newContent !== undefined) {
       try {
-        const withSnapshot = tryAddSnapshot(updatedDoc, updatedDoc.content)
+        const forceSnapshot = d.forceSnapshot === true
+        const snapshotLabel =
+          typeof d.snapshotLabel === 'string' ? d.snapshotLabel :
+          d.snapshotLabel === null ? null :
+          undefined
+        const withSnapshot = tryAddSnapshot(updatedDoc, updatedDoc.content, {
+          force: forceSnapshot,
+          label: snapshotLabel,
+        })
         if (withSnapshot.snapshots.length !== updatedDoc.snapshots.length) {
           await writeProseFile(filePath, withSnapshot)
         }

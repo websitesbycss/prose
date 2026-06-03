@@ -131,7 +131,7 @@ export default function TitleBar({
       : ''
 
   return (
-    <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-3">
+    <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-3 text-foreground">
       {/* Left: back + title */}
       <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
         <Button
@@ -150,7 +150,7 @@ export default function TitleBar({
         {editing ? (
           <input
             ref={titleInputRef}
-            className="min-w-0 flex-1 bg-transparent text-sm font-medium outline-none focus:underline focus:underline-offset-2"
+            className="min-w-0 flex-1 bg-transparent text-sm font-medium text-foreground outline-none focus:underline focus:underline-offset-2"
             value={draftTitle}
             onChange={(e) => setDraftTitle(e.target.value)}
             onBlur={() => void commitEdit()}
@@ -161,7 +161,7 @@ export default function TitleBar({
           />
         ) : (
           <button
-            className="truncate text-sm font-medium hover:underline hover:underline-offset-2"
+            className="truncate text-sm font-medium text-foreground hover:underline hover:underline-offset-2"
             onClick={startEdit}
             title="Click to rename"
           >
@@ -246,7 +246,7 @@ export default function TitleBar({
           size="icon"
           className="h-7 w-7"
           disabled={!document}
-          title="Export document"
+          title="Preview and export"
           onClick={() => setExportModalOpen(true)}
         >
           <Download className="h-3.5 w-3.5" />

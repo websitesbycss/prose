@@ -24,6 +24,10 @@
     --input: 240 5.9% 90%;
     --ring: 221 83% 53%;
     --radius: 0.5rem;
+    --editor-canvas: 240 4.8% 95.9%;
+    --editor-page: 0 0% 100%;
+    --preview-surround: 0 0% 84%;
+    --editor-page-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
   }
 
   .dark {
@@ -46,6 +50,10 @@
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
     --ring: 213 94% 68%;
+    --editor-canvas: 240 5.9% 10%;
+    --editor-page: 240 3.7% 15.9%;
+    --preview-surround: 0 0% 32%;
+    --editor-page-shadow: 0 1px 4px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.04);
   }
 }
 
@@ -58,13 +66,18 @@
   }
 }
 
-/* Smooth color transitions only during theme switch — not on every hover/active change */
-html.theme-transitioning *,
-html.theme-transitioning *::before,
-html.theme-transitioning *::after {
-  transition-property: color, background-color, border-color !important;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
-  transition-duration: 200ms !important;
+/* Theme switch — crossfade the whole UI so icons, text, and surfaces stay in sync */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 280ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
 }
 
 /* ── Scrollbars ────────────────────────────────────────────────── */
@@ -87,25 +100,12 @@ html.theme-transitioning *::after {
   background-color: hsl(var(--muted-foreground) / 0.5);
 }
 
-.dark ::-webkit-scrollbar-thumb {
-  background-color: hsl(240 3.7% 25%);
-}
-
-.dark ::-webkit-scrollbar-thumb:hover {
-  background-color: hsl(240 5% 45%);
-}
-
 /* ── Page visual ───────────────────────────────────────────────── */
 
 /* Subtle shadow on the white page to make it feel like a real sheet */
 .editor-page {
   border-radius: 4px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
-}
-
-.dark .editor-page {
-  border-radius: 4px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  box-shadow: var(--editor-page-shadow);
 }
 
 /* Tiptap editor content styles */

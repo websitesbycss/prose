@@ -132,7 +132,7 @@ function ExportButton({ document }: { document: Document }): JSX.Element {
   const [open, setOpen] = useState(false)
   return (
     <>
-      <Button variant="ghost" size="icon" className="h-7 w-7" title="Export" onClick={() => setOpen(true)}>
+      <Button variant="ghost" size="icon" className="h-7 w-7" title="Preview and export" onClick={() => setOpen(true)}>
         <Download className="h-3.5 w-3.5" />
       </Button>
       <ExportModal

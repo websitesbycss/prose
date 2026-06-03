@@ -83,6 +83,8 @@ export function HeaderFooterEditor({
         bulletList: false,
         orderedList: false,
         listItem: false,
+        link: false,
+        underline: false,
       }),
       Underline,
       Subscript,

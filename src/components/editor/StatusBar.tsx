@@ -14,12 +14,12 @@ interface StatusBarProps {
   nowPlaying?: string | null
   ambientPlaying?: string | null
   onMusicClick?(): void
+  onAmbientClick?(): void
   zoom: number
   onZoomChange(zoom: number): void
 }
 
 const FORMAT_LABELS: Record<string, string> = {
-  none: 'No format',
   mla: 'MLA',
   apa: 'APA',
   chicago: 'Chicago',
@@ -66,31 +66,32 @@ function ZoomControls({ zoom, onZoomChange }: { zoom: number; onZoomChange(z: nu
         title={`Zoom: ${zoom}%`}
       />
 
-      <button
-        className="text-muted-foreground transition-colors hover:text-foreground"
-        onClick={() => onZoomChange(clamp(zoom + ZOOM_STEP))}
-        title="Zoom in (Ctrl+=)"
-      >
-        <ZoomIn className="h-3 w-3" />
-      </button>
+      <div className="flex items-center gap-0.5">
+        <button
+          className="text-muted-foreground transition-colors hover:text-foreground"
+          onClick={() => onZoomChange(clamp(zoom + ZOOM_STEP))}
+          title="Zoom in (Ctrl+=)"
+        >
+          <ZoomIn className="h-3 w-3" />
+        </button>
 
-      <Popover
-        open={open}
-        onOpenChange={(o) => {
-          setOpen(o)
-          if (o) setDraft(String(zoom))
-        }}
-      >
-        <PopoverTrigger asChild>
-          <button
-            className="flex items-center gap-0.5 tabular-nums text-muted-foreground transition-colors hover:text-foreground"
-            title="Set zoom level"
-          >
-            <span className="w-8 text-right">{zoom}%</span>
-            <ChevronDown className="h-2.5 w-2.5" />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent
+        <Popover
+          open={open}
+          onOpenChange={(o) => {
+            setOpen(o)
+            if (o) setDraft(String(zoom))
+          }}
+        >
+          <PopoverTrigger asChild>
+            <button
+              className="flex items-center gap-0.5 tabular-nums text-muted-foreground transition-colors hover:text-foreground"
+              title="Set zoom level"
+            >
+              <span className="w-8 text-right">{zoom}%</span>
+              <ChevronDown className="h-2.5 w-2.5" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
           className="w-20 p-1"
           side="top"
           align="end"
@@ -123,8 +124,9 @@ function ZoomControls({ zoom, onZoomChange }: { zoom: number; onZoomChange(z: nu
               </button>
             ))}
           </div>
-        </PopoverContent>
-      </Popover>
+          </PopoverContent>
+        </Popover>
+      </div>
     </div>
   )
 }
@@ -137,17 +139,19 @@ export default function StatusBar({
   nowPlaying,
   ambientPlaying,
   onMusicClick,
+  onAmbientClick,
   zoom,
   onZoomChange,
 }: StatusBarProps): JSX.Element {
   const goal = document?.wordCountGoal ?? null
-  const formatLabel = document ? (FORMAT_LABELS[document.format] ?? 'No format') : ''
+  const formatLabel =
+    document && document.format !== 'none' ? (FORMAT_LABELS[document.format] ?? '') : ''
   const saveLabel = saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved' : ''
 
   return (
     <div className="flex h-7 shrink-0 items-center border-t border-border px-4 text-[11px] text-muted-foreground">
-      {/* Left: word count + zoom */}
-      <div className="flex flex-1 items-center gap-3">
+      {/* Left: word count */}
+      <div className="flex min-w-0 flex-1 items-center">
         <span>
           {selectionWordCount > 0 ? (
             <>
@@ -164,19 +168,20 @@ export default function StatusBar({
             </>
           )}
         </span>
+      </div>
 
+      {/* Center: format */}
+      <div className="flex shrink-0 items-center justify-center px-4">
+        {formatLabel && <span>{formatLabel}</span>}
+      </div>
+
+      {/* Right: zoom, then music / ambient / save status */}
+      <div className="flex min-w-0 flex-1 items-center justify-end gap-3">
         <ZoomControls zoom={zoom} onZoomChange={onZoomChange} />
-      </div>
-
-      <div className="flex items-center">
-        <span>{formatLabel}</span>
-      </div>
-
-      <div className="flex flex-1 items-center justify-end gap-3">
         {nowPlaying && (
           <button
             onClick={onMusicClick}
-            className="flex items-center gap-1 hover:text-foreground transition-colors"
+            className="flex items-center gap-1 transition-colors hover:text-foreground"
             title="Open music panel"
           >
             <Music className="h-2.5 w-2.5" />
@@ -185,9 +190,9 @@ export default function StatusBar({
         )}
         {ambientPlaying && (
           <button
-            onClick={onMusicClick}
-            className="flex items-center gap-1 hover:text-foreground transition-colors"
-            title="Open music panel"
+            onClick={onAmbientClick ?? onMusicClick}
+            className="flex items-center gap-1 transition-colors hover:text-foreground"
+            title="Open ambient mixer"
           >
             <SlidersVertical className="h-2.5 w-2.5" />
             {ambientPlaying}

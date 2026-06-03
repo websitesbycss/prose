@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -21,16 +21,16 @@ function formatTime(seconds: number): string {
 
 function Equalizer(): JSX.Element {
   return (
-    <div className="flex items-end gap-px" style={{ height: 12, width: 12 }}>
+    <div className="grid h-3.5 w-[15px] grid-cols-3 items-end" aria-hidden>
       {[0, 1, 2].map((i) => (
         <motion.div
           key={i}
-          className="w-1 rounded-full bg-primary"
-          animate={{ height: ['3px', '10px', '5px', '12px', '3px'] }}
+          className="mx-auto w-[3px] rounded-sm bg-primary"
+          animate={{ height: ['4px', '12px', '6px', '14px', '4px'] }}
           transition={{
-            duration: 1.2,
+            duration: 0.85,
             repeat: Infinity,
-            delay: i * 0.18,
+            delay: i * 0.14,
             ease: 'easeInOut',
           }}
         />
@@ -76,7 +76,18 @@ interface MusicPanelProps {
 
 export default function MusicPanel({ music }: MusicPanelProps): JSX.Element {
   const setMusicPanelOpen = useAppStore((s) => s.setMusicPanelOpen)
-  const [tab, setTab] = useState<Tab>('tracks')
+  const setMusicPanelTab = useAppStore((s) => s.setMusicPanelTab)
+  const musicPanelTab = useAppStore((s) => s.musicPanelTab)
+  const [tab, setTab] = useState<Tab>(musicPanelTab)
+
+  useEffect(() => {
+    setTab(musicPanelTab)
+  }, [musicPanelTab])
+
+  function selectTab(next: Tab): void {
+    setTab(next)
+    setMusicPanelTab(next)
+  }
 
   const {
     trackIndex, playing, currentTime, duration, volume,
@@ -104,7 +115,7 @@ export default function MusicPanel({ music }: MusicPanelProps): JSX.Element {
                 ? 'bg-accent text-accent-foreground'
                 : 'text-muted-foreground hover:text-foreground'
             )}
-            onClick={() => setTab('tracks')}
+            onClick={() => selectTab('tracks')}
           >
             Tracks
           </button>
@@ -115,7 +126,7 @@ export default function MusicPanel({ music }: MusicPanelProps): JSX.Element {
                 ? 'bg-accent text-accent-foreground'
                 : 'text-muted-foreground hover:text-foreground'
             )}
-            onClick={() => setTab('mixer')}
+            onClick={() => selectTab('mixer')}
           >
             Mixer
           </button>

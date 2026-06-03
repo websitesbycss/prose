@@ -371,7 +371,7 @@ export default function ExportModal({
                     <Row label="Orientation">
                       <SegmentedControl
                         value={orientation}
-                        onChange={setOrientation}
+                        onChange={(v) => setOrientation(v as 'portrait' | 'landscape')}
                         options={[
                           { value: 'portrait',  label: 'Portrait' },
                           { value: 'landscape', label: 'Landscape' },

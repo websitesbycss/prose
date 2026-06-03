@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 
 const KEY_GOAL = 'prose-word-count-goal'
 const KEY_WRITING_DAYS = 'prose-writing-days'
+const KEY_DAILY_WORDS = 'prose-daily-word-counts'
 const WRITING_DAYS_LIMIT = 400
 
 export interface SessionStats {
@@ -33,11 +34,23 @@ function loadWritingDays(): string[] {
   } catch { return [] }
 }
 
+function loadDailyWordCounts(): Record<string, number> {
+  try {
+    const v = localStorage.getItem(KEY_DAILY_WORDS)
+    return v ? (JSON.parse(v) as Record<string, number>) : {}
+  } catch { return {} }
+}
+
+function saveDailyWordCounts(counts: Record<string, number>): void {
+  try {
+    localStorage.setItem(KEY_DAILY_WORDS, JSON.stringify(counts))
+  } catch { /* noop */ }
+}
+
 function calculateStreak(writingDays: string[]): number {
   const daySet = new Set(writingDays)
   const today = todayStr()
   const cursor = new Date()
-  // If today not yet written, try from yesterday so existing streak stays visible
   if (!daySet.has(today)) cursor.setDate(cursor.getDate() - 1)
   let streak = 0
   while (daySet.has(cursor.toISOString().slice(0, 10))) {
@@ -50,52 +63,63 @@ function calculateStreak(writingDays: string[]): number {
 export function useSessionStats(wordCount: number): SessionStats {
   const [sessionStart, setSessionStart] = useState(() => Date.now())
   const [sessionMinutes, setSessionMinutes] = useState(0)
+  const [avgWPM, setAvgWPM] = useState(0)
   const [goal, setGoalState] = useState<number | null>(loadGoal)
   const [writingDays, setWritingDays] = useState<string[]>(loadWritingDays)
+  const [wordsToday, setWordsToday] = useState(() => loadDailyWordCounts()[todayStr()] ?? 0)
 
-  // Capture word count baseline after editor settles (300ms after first render)
   const wordCountRef = useRef(wordCount)
   wordCountRef.current = wordCount
-  const startWordCountRef = useRef<number | null>(null)
-  const hasUpdatedStreakRef = useRef(false)
+  const sessionStartWordCountRef = useRef<number | null>(null)
+  const sessionWordsPersistedRef = useRef(0)
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (startWordCountRef.current === null) {
-        startWordCountRef.current = wordCountRef.current
+      if (sessionStartWordCountRef.current === null) {
+        sessionStartWordCountRef.current = wordCountRef.current
       }
     }, 300)
     return () => clearTimeout(timer)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Update session time every 30 seconds
   useEffect(() => {
-    const interval = setInterval(() => {
-      setSessionMinutes(Math.floor((Date.now() - sessionStart) / 60000))
-    }, 30000)
+    const tick = (): void => {
+      const elapsedMinutes = Math.max((Date.now() - sessionStart) / 60000, 0)
+      setSessionMinutes(Math.floor(elapsedMinutes))
+      const sessionWords =
+        sessionStartWordCountRef.current !== null
+          ? Math.max(0, wordCountRef.current - sessionStartWordCountRef.current)
+          : 0
+      setAvgWPM(elapsedMinutes > 0 ? Math.round(sessionWords / elapsedMinutes) : 0)
+    }
+    tick()
+    const interval = setInterval(tick, 1000)
     return () => clearInterval(interval)
-  }, [sessionStart])
+  }, [sessionStart, wordCount])
 
-  const wordsToday =
-    startWordCountRef.current !== null
-      ? Math.max(0, wordCount - startWordCountRef.current)
-      : 0
-
-  // Update streak and writing days once words are written today
+  // Persist new words to today's daily total
   useEffect(() => {
-    if (wordsToday === 0 || hasUpdatedStreakRef.current) return
-    hasUpdatedStreakRef.current = true
+    if (sessionStartWordCountRef.current === null) return
+
+    const sessionDelta = Math.max(0, wordCount - sessionStartWordCountRef.current)
+    const newWords = sessionDelta - sessionWordsPersistedRef.current
+    if (newWords <= 0) return
 
     const today = todayStr()
+    const counts = loadDailyWordCounts()
+    const updatedTotal = (counts[today] ?? 0) + newWords
+    counts[today] = updatedTotal
+    saveDailyWordCounts(counts)
+    sessionWordsPersistedRef.current = sessionDelta
+    setWordsToday(updatedTotal)
 
-    // Writing days
     const days = loadWritingDays()
     if (!days.includes(today)) {
-      const updated = [...days, today].slice(-WRITING_DAYS_LIMIT)
-      localStorage.setItem(KEY_WRITING_DAYS, JSON.stringify(updated))
-      setWritingDays(updated)
+      const updatedDays = [...days, today].slice(-WRITING_DAYS_LIMIT)
+      localStorage.setItem(KEY_WRITING_DAYS, JSON.stringify(updatedDays))
+      setWritingDays(updatedDays)
     }
-  }, [wordsToday])
+  }, [wordCount])
 
   const setGoal = useCallback((g: number | null) => {
     try {
@@ -106,14 +130,14 @@ export function useSessionStats(wordCount: number): SessionStats {
   }, [])
 
   const resetSession = useCallback(() => {
-    startWordCountRef.current = wordCountRef.current
-    hasUpdatedStreakRef.current = false
+    sessionStartWordCountRef.current = wordCountRef.current
+    sessionWordsPersistedRef.current = 0
     setSessionStart(Date.now())
     setSessionMinutes(0)
+    setAvgWPM(0)
   }, [])
 
   const streak = calculateStreak(writingDays)
-  const avgWPM = sessionMinutes > 0 ? Math.round(wordsToday / sessionMinutes) : 0
 
   return {
     wordsToday,

@@ -43,6 +43,7 @@ export function SessionStatsPanel({ stats }: Props): JSX.Element {
   const dashOffset = CIRC * (1 - progress)
 
   // Last 7 days for streak dots — oldest on left, today on right
+  const todayKey = new Date().toISOString().slice(0, 10)
   const last7 = Array.from({ length: 7 }, (_, i) => {
     const d = new Date()
     d.setDate(d.getDate() - (6 - i))
@@ -182,18 +183,19 @@ export function SessionStatsPanel({ stats }: Props): JSX.Element {
               <div className="text-[10px] text-muted-foreground">{streakMsg}</div>
             </div>
           </div>
-          {/* 7-day dot row — filled dots = streak count, 7th pulses if streak ≥ 7 */}
+          {/* 7-day dot row — filled when user wrote on that day */}
           <div className="flex shrink-0 items-center gap-[3px] pt-0.5">
-            {Array.from({ length: 7 }, (_, i) => {
-              const filled = i < streak
-              const pulse = i === 6 && streak >= 7
+            {last7.map((date) => {
+              const wrote = writingDays.includes(date)
+              const isToday = date === todayKey
               return (
                 <div
-                  key={i}
+                  key={date}
+                  title={date}
                   className={cn(
                     'h-2 w-2 rounded-full transition-colors',
-                    filled ? 'bg-primary' : 'bg-muted-foreground/25',
-                    pulse && 'animate-pulse'
+                    wrote ? 'bg-primary' : 'bg-muted-foreground/25',
+                    isToday && wrote && streak >= 7 && 'animate-pulse',
                   )}
                 />
               )

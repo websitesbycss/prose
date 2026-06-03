@@ -34,8 +34,19 @@ export const AMBIENT_LAYERS: AmbientLayer[] = [
   { id: 'brownnoise', label: 'Brown Noise', src: '/sounds/brownnoise.mp3' },
 ]
 
+const DEFAULT_AMBIENT_VOLUME = 30
+/** Rain and café source files run quiet — higher default slider + playback gain. */
+const LOUD_AMBIENT_DEFAULT = 55
+const AMBIENT_PLAYBACK_GAIN: Record<string, number> = {
+  rain: 1.35,
+  cafe: 1.35,
+}
+
 const DEFAULT_AMBIENT_VOLUMES: Record<string, number> = Object.fromEntries(
-  AMBIENT_LAYERS.map((l) => [l.id, 30])
+  AMBIENT_LAYERS.map((l) => [
+    l.id,
+    l.id === 'rain' || l.id === 'cafe' ? LOUD_AMBIENT_DEFAULT : DEFAULT_AMBIENT_VOLUME,
+  ]),
 )
 
 export interface MusicState {
@@ -68,6 +79,12 @@ function formatTrackSrc(src: string): string {
   return src
 }
 
+function ambientVolumeFraction(id: string, volumes: Record<string, number>): number {
+  const v = volumes[id] ?? DEFAULT_AMBIENT_VOLUMES[id] ?? DEFAULT_AMBIENT_VOLUME
+  const gain = AMBIENT_PLAYBACK_GAIN[id] ?? 1
+  return Math.min(1, Math.max(0, (v / 100) * gain))
+}
+
 export function useMusic(): MusicHook {
   const trackRef = useRef<HTMLAudioElement | null>(null)
   const ambientRef = useRef<Map<string, HTMLAudioElement>>(new Map())
@@ -91,6 +108,33 @@ export function useMusic(): MusicHook {
     ...DEFAULT_AMBIENT_VOLUMES,
   })
 
+  const syncAmbientElementVolumes = useCallback((): void => {
+    ambientRef.current.forEach((el, id) => {
+      el.volume = ambientVolumeFraction(id, ambientVolumesRef.current)
+    })
+  }, [])
+
+  const playAmbientLayer = useCallback((id: string): void => {
+    const el = ambientRef.current.get(id)
+    if (!el) return
+    const applyVolume = (): void => {
+      el.volume = ambientVolumeFraction(id, ambientVolumesRef.current)
+    }
+    applyVolume()
+    const tryPlay = (): void => {
+      applyVolume()
+      void el.play().catch(() => {})
+    }
+    if (el.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+      tryPlay()
+      return
+    }
+    el.addEventListener('canplay', tryPlay, { once: true })
+    if (el.readyState === HTMLMediaElement.HAVE_NOTHING) {
+      el.load()
+    }
+  }, [])
+
   // Load persisted settings once on mount
   useEffect(() => {
     void window.prose.settings.get().then((s) => {
@@ -100,18 +144,21 @@ export function useMusic(): MusicHook {
       volumeRef.current = vol
       setVolumeUI(vol)
       ambientVolumesRef.current = { ...DEFAULT_AMBIENT_VOLUMES, ...av }
-      setAmbientVolumesUI(ambientVolumesRef.current)
+      setAmbientVolumesUI({ ...ambientVolumesRef.current })
       if (trackRef.current) trackRef.current.volume = vol / 100
+      syncAmbientElementVolumes()
     })
-  }, [])
+  }, [syncAmbientElementVolumes])
 
   // Create ambient audio elements on mount
   useEffect(() => {
     for (const layer of AMBIENT_LAYERS) {
       const el = new Audio(formatTrackSrc(layer.src))
       el.loop = true
-      el.volume = (ambientVolumesRef.current[layer.id] ?? 30) / 100
+      el.preload = 'auto'
+      el.volume = ambientVolumeFraction(layer.id, ambientVolumesRef.current)
       ambientRef.current.set(layer.id, el)
+      el.load()
     }
     return () => {
       ambientRef.current.forEach((el) => el.pause())
@@ -249,15 +296,19 @@ export function useMusic(): MusicHook {
     setAmbientEnabledUI({ ...ambientEnabledRef.current })
     const el = ambientRef.current.get(id)
     if (!el) return
-    if (on) void el.play().catch(() => {})
-    else el.pause()
-  }, [])
+    if (on) {
+      playAmbientLayer(id)
+    } else {
+      el.pause()
+    }
+  }, [playAmbientLayer])
 
   const setAmbientVolume = useCallback((id: string, v: number): void => {
-    ambientVolumesRef.current = { ...ambientVolumesRef.current, [id]: v }
+    const clamped = Math.min(100, Math.max(0, v))
+    ambientVolumesRef.current = { ...ambientVolumesRef.current, [id]: clamped }
     setAmbientVolumesUI({ ...ambientVolumesRef.current })
     const el = ambientRef.current.get(id)
-    if (el) el.volume = v / 100
+    if (el) el.volume = clamped / 100
     persistSettings(volumeRef.current, ambientVolumesRef.current)
   }, [])
 

@@ -44,6 +44,9 @@ export default {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
+        'editor-canvas': 'hsl(var(--editor-canvas))',
+        'editor-page': 'hsl(var(--editor-page))',
+        'preview-surround': 'hsl(var(--preview-surround))',
       },
       borderRadius: {
         lg: 'var(--radius)',

@@ -157,7 +157,7 @@ export default function MathModal({ open, onClose, onInsert, initialLatex = '', 
           {/* Preview */}
           <div className="flex flex-col gap-1.5">
             <span className="text-xs font-medium text-muted-foreground">Preview</span>
-            <div className="rounded-md border border-border bg-white px-4 py-3 dark:bg-zinc-900">
+            <div className="rounded-md border border-border bg-editor-page px-4 py-3">
               {previewError ? (
                 <span className="text-xs text-destructive">{previewError}</span>
               ) : displayMode ? (

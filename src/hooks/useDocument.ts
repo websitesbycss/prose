@@ -34,13 +34,19 @@ export function useDocument(id: string): UseDocumentReturn {
   }, [id])
 
   const persistContent = useCallback(
-    async (content: string): Promise<void> => {
+    async (content: string, options?: { forceSnapshot?: boolean; snapshotLabel?: string | null }): Promise<void> => {
       setSaveStatus('saving')
       try {
-        await window.prose.documents.update(id, { content })
+        await window.prose.documents.update(id, {
+          content,
+          ...(options?.forceSnapshot ? { forceSnapshot: true, snapshotLabel: options.snapshotLabel ?? 'manual' } : {}),
+        })
         setSaveStatus('saved')
         if (savedTimer.current) clearTimeout(savedTimer.current)
         savedTimer.current = setTimeout(() => setSaveStatus('idle'), 2000)
+        if (options?.forceSnapshot) {
+          window.dispatchEvent(new CustomEvent('prose-snapshot-created'))
+        }
       } catch (err) {
         console.error('Auto-save error:', err)
         setSaveStatus('idle')
@@ -52,7 +58,7 @@ export function useDocument(id: string): UseDocumentReturn {
   const saveNow = useCallback(
     async (editor: Editor): Promise<void> => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current)
-      await persistContent(JSON.stringify(editor.getJSON()))
+      await persistContent(JSON.stringify(editor.getJSON()), { forceSnapshot: true, snapshotLabel: 'manual' })
     },
     [persistContent]
   )

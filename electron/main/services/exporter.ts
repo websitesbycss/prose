@@ -75,6 +75,38 @@ async function fetchDocument(id: string): Promise<FetchedDocument | null> {
 }
 
 const DEFAULT_MARGINS = { top: 1, right: 1, bottom: 1, left: 1 }
+const PAGE_MARGIN_MIN_IN = 0.25
+/** Top/bottom margin above this before header/footer inset grows further. */
+const HEADER_FOOTER_OFFSET_THRESHOLD_IN = 0.75
+const EXPORT_DPI = 96
+
+/** Header/footer inset from the page edge at the minimum margin (legacy strip formula). */
+function minMarginZoneBasePadPx(): number {
+  return Math.round(PAGE_MARGIN_MIN_IN * EXPORT_DPI * 0.8 * 0.12)
+}
+
+/** Distance from page top/bottom to header/footer; grows 1:1 with margin above the threshold. */
+function headerFooterEdgeOffsetPx(marginIn: number): number {
+  const deltaPx = Math.max(0, (marginIn - HEADER_FOOTER_OFFSET_THRESHOLD_IN) * EXPORT_DPI)
+  return Math.round(minMarginZoneBasePadPx() + deltaPx)
+}
+
+function minMarginZoneInnerPadPx(): number {
+  return Math.round(PAGE_MARGIN_MIN_IN * EXPORT_DPI * 0.8 * 0.08)
+}
+
+function minMarginZoneContentBandPx(): number {
+  const strip = Math.round(PAGE_MARGIN_MIN_IN * EXPORT_DPI * 0.8)
+  return strip - minMarginZoneBasePadPx() - minMarginZoneInnerPadPx()
+}
+
+function headerZoneHeightPx(marginTopIn: number): number {
+  return headerFooterEdgeOffsetPx(marginTopIn) + minMarginZoneContentBandPx() + minMarginZoneInnerPadPx()
+}
+
+function footerZoneHeightPx(marginBottomIn: number): number {
+  return minMarginZoneInnerPadPx() + minMarginZoneContentBandPx() + headerFooterEdgeOffsetPx(marginBottomIn)
+}
 
 function resolveMargins(m: FetchedDocument['page_margins']) {
   return m ?? DEFAULT_MARGINS
@@ -196,17 +228,13 @@ export async function getPreviewPdf(id: string, opts: ExportOptions): Promise<Bu
   const effectiveFooterRaw = opts.includeFooter ? row.footer_content : null
   const legacyRunningHead = effectiveHeaderRaw ? null : (opts.includeHeader ? extractRunningHead(doc, row.format) : null)
 
-  let headerTemplate = '<span></span>'
-  if (effectiveHeaderRaw) {
-    headerTemplate = zoneToElectronTemplate(effectiveHeaderRaw, 'right', margins.left, margins.right)
-  } else if (legacyRunningHead) {
-    headerTemplate = legacyRunningHeadTemplate(legacyRunningHead, row.format, margins.left, margins.right)
-  }
-  let footerTemplate = '<span></span>'
-  if (effectiveFooterRaw) {
-    footerTemplate = zoneToElectronTemplate(effectiveFooterRaw, 'left', margins.left, margins.right)
-  }
-  const hasHeaderOrFooter = !!(effectiveHeaderRaw || legacyRunningHead || effectiveFooterRaw)
+  const { headerTemplate, footerTemplate, hasHeaderOrFooter } = buildPrintHeaderFooterTemplates(
+    effectiveHeaderRaw,
+    effectiveFooterRaw,
+    legacyRunningHead,
+    row.format,
+    margins,
+  )
 
   const html = buildHtmlPage(row.title, nodeToHtml(doc, row.format), row.format)
 
@@ -542,9 +570,59 @@ function nodeToHtml(node: JSONContent, format = 'none'): string {
   }
 }
 
+function buildPrintHeaderFooterTemplates(
+  effectiveHeaderRaw: string | null,
+  effectiveFooterRaw: string | null,
+  legacyRunningHead: string | null,
+  format: string,
+  margins: typeof DEFAULT_MARGINS,
+): { headerTemplate: string; footerTemplate: string; hasHeaderOrFooter: boolean } {
+  let headerTemplate = '<span></span>'
+  if (effectiveHeaderRaw) {
+    headerTemplate = zoneToElectronTemplate(
+      effectiveHeaderRaw,
+      'right',
+      margins.left,
+      margins.right,
+      headerFooterEdgeOffsetPx(margins.top),
+      'top',
+    )
+  } else if (legacyRunningHead) {
+    headerTemplate = legacyRunningHeadTemplate(
+      legacyRunningHead,
+      format,
+      margins.left,
+      margins.right,
+      headerFooterEdgeOffsetPx(margins.top),
+    )
+  }
+
+  let footerTemplate = '<span></span>'
+  if (effectiveFooterRaw) {
+    footerTemplate = zoneToElectronTemplate(
+      effectiveFooterRaw,
+      'left',
+      margins.left,
+      margins.right,
+      headerFooterEdgeOffsetPx(margins.bottom),
+      'bottom',
+    )
+  }
+
+  const hasHeaderOrFooter = !!(effectiveHeaderRaw || legacyRunningHead || effectiveFooterRaw)
+  return { headerTemplate, footerTemplate, hasHeaderOrFooter }
+}
+
 // Build an Electron displayHeaderFooter template string from a header/footer zone JSON.
 // Replaces pageNumber nodes with Electron's <span class="pageNumber"></span>.
-function zoneToElectronTemplate(raw: string | null, fallbackAlign = 'left', leftIn = 1, rightIn = 1): string {
+function zoneToElectronTemplate(
+  raw: string | null,
+  fallbackAlign = 'left',
+  leftIn = 1,
+  rightIn = 1,
+  verticalPadPx = 0,
+  verticalPadEdge: 'top' | 'bottom' = 'top',
+): string {
   if (!raw) return '<span></span>'
   try {
     const doc = JSON.parse(raw) as JSONContent
@@ -578,7 +656,11 @@ function zoneToElectronTemplate(raw: string | null, fallbackAlign = 'left', left
       }).join('')
     const lPx = Math.round(leftIn * 96)
     const rPx = Math.round(rightIn * 96)
-    const base = `font-size:16px;font-family:'Times New Roman',serif;width:100%;box-sizing:border-box;padding-left:${lPx}px;padding-right:${rPx}px;color:#000;`
+    const verticalPadStyle =
+      verticalPadEdge === 'top'
+        ? `padding-top:${verticalPadPx}px;`
+        : `padding-bottom:${verticalPadPx}px;`
+    const base = `font-size:16px;font-family:'Times New Roman',serif;width:100%;box-sizing:border-box;padding-left:${lPx}px;padding-right:${rPx}px;${verticalPadStyle}color:#000;`
 
     // Split content by rightTab nodes into segments
     const segments: JSONContent[][] = []
@@ -611,11 +693,17 @@ function zoneToElectronTemplate(raw: string | null, fallbackAlign = 'left', left
 }
 
 // Build an Electron template for legacy MLA/APA running heads.
-function legacyRunningHeadTemplate(runningHead: string, format: string, leftIn = 1, rightIn = 1): string {
+function legacyRunningHeadTemplate(
+  runningHead: string,
+  format: string,
+  leftIn = 1,
+  rightIn = 1,
+  topPadPx = 0,
+): string {
   const pn = '<span class="pageNumber"></span>'
   const lPx = Math.round(leftIn * 96)
   const rPx = Math.round(rightIn * 96)
-  const base = `font-size:16px;font-family:'Times New Roman',serif;width:100%;box-sizing:border-box;padding-left:${lPx}px;padding-right:${rPx}px;color:#000;`
+  const base = `font-size:16px;font-family:'Times New Roman',serif;width:100%;box-sizing:border-box;padding-left:${lPx}px;padding-right:${rPx}px;padding-top:${topPadPx}px;color:#000;`
   if (format === 'mla') {
     return `<div style="${base}text-align:right;">${escapeHtml(runningHead)} ${pn}</div>`
   }
@@ -676,10 +764,14 @@ function buildPreviewPage(
 
   const hasHeader = headerHtml.length > 0
   const hasFooter = footerHtml.length > 0
-  const hStrip = hasHeader ? Math.round(mT * 0.8) : 0
-  const fStrip = hasFooter ? Math.round(mB * 0.8) : 0
-  const bodyPT = hasHeader ? Math.round(mT * 0.2) : mT
-  const bodyPB = hasFooter ? Math.round(mB * 0.2) : mB
+  const hStrip = hasHeader ? headerZoneHeightPx(margins.top) : 0
+  const fStrip = hasFooter ? footerZoneHeightPx(margins.bottom) : 0
+  const bodyPT = hasHeader ? Math.max(0, mT - hStrip) : mT
+  const bodyPB = hasFooter ? Math.max(0, mB - fStrip) : mB
+  const headerTopPad = hasHeader ? headerFooterEdgeOffsetPx(margins.top) : 0
+  const footerBottomPad = hasFooter ? headerFooterEdgeOffsetPx(margins.bottom) : 0
+  const headerBottomPad = hasHeader ? minMarginZoneInnerPadPx() : 0
+  const footerTopPad = hasFooter ? minMarginZoneInnerPadPx() : 0
 
   // The body IS the page — no outer gray wrapper. The React container provides the gray surround.
   // #content is in normal flow so scrollHeight reflects true content height for page counting.
@@ -692,9 +784,9 @@ function buildPreviewPage(
   html{margin:0;padding:0;width:${wPx}px;overflow:hidden;}
   body{margin:0;padding:0;width:${wPx}px;background:${pageBg};color:${pageColor};font-family:'Times New Roman',serif;font-size:12pt;line-height:2}
   #content{width:${wPx}px;will-change:transform}
-  .ph{padding:${Math.round(hStrip*0.12)}px ${mR}px ${Math.round(hStrip*0.08)}px ${mL}px;min-height:${hStrip}px;font-size:10pt;line-height:1.4;display:flex;align-items:center}
+  .ph{padding:${headerTopPad}px ${mR}px ${headerBottomPad}px ${mL}px;min-height:${hStrip}px;font-size:10pt;line-height:1.4;display:flex;align-items:center}
   .pb{padding:${bodyPT}px ${mR}px ${bodyPB}px ${mL}px}
-  .pf{padding:${Math.round(fStrip*0.08)}px ${mR}px ${Math.round(fStrip*0.12)}px ${mL}px;min-height:${fStrip}px;font-size:10pt;line-height:1.4;display:flex;align-items:center}
+  .pf{padding:${footerTopPad}px ${mR}px ${footerBottomPad}px ${mL}px;min-height:${fStrip}px;font-size:10pt;line-height:1.4;display:flex;align-items:center}
   p{margin:0}ul,ol{margin:.5em 0;padding-left:2em}blockquote{margin:.5em 2em}
   pre{background:${preBg};padding:.5em;font-size:.9em}
   code{background:${preBg};padding:.1em .3em;border-radius:2px;font-size:.9em}
@@ -767,17 +859,13 @@ export async function exportToPdf(id: string, opts: ExportOptions): Promise<stri
   const effectiveFooterRaw = opts.includeFooter ? row.footer_content : null
   const legacyRunningHead = effectiveHeaderRaw ? null : (opts.includeHeader ? extractRunningHead(doc, row.format) : null)
 
-  let headerTemplate = '<span></span>'
-  if (effectiveHeaderRaw) {
-    headerTemplate = zoneToElectronTemplate(effectiveHeaderRaw, 'right', margins.left, margins.right)
-  } else if (legacyRunningHead) {
-    headerTemplate = legacyRunningHeadTemplate(legacyRunningHead, row.format, margins.left, margins.right)
-  }
-  let footerTemplate = '<span></span>'
-  if (effectiveFooterRaw) {
-    footerTemplate = zoneToElectronTemplate(effectiveFooterRaw, 'left', margins.left, margins.right)
-  }
-  const hasHeaderOrFooter = !!(effectiveHeaderRaw || legacyRunningHead || effectiveFooterRaw)
+  const { headerTemplate, footerTemplate, hasHeaderOrFooter } = buildPrintHeaderFooterTemplates(
+    effectiveHeaderRaw,
+    effectiveFooterRaw,
+    legacyRunningHead,
+    row.format,
+    margins,
+  )
 
   const html = buildHtmlPage(row.title, nodeToHtml(doc, row.format), row.format)
 

@@ -576,11 +576,16 @@ const TWO_MINUTES_MS = 2 * 60 * 1000
 const MIN_WORD_DELTA = 10
 const MAX_SNAPSHOTS = 20
 
-export function tryAddSnapshot(doc: ProseFileDocument, content: unknown): ProseFileDocument {
+export function tryAddSnapshot(
+  doc: ProseFileDocument,
+  content: unknown,
+  options?: { label?: string | null; force?: boolean },
+): ProseFileDocument {
   const wordCount = countWordsFromContent(content)
   const latest = doc.snapshots[doc.snapshots.length - 1]
+  const force = options?.force === true
 
-  if (latest) {
+  if (!force && latest) {
     const timeDiff = Date.now() - new Date(latest.createdAt).getTime()
     const wordDiff = Math.abs(wordCount - latest.wordCount)
     if (timeDiff < TWO_MINUTES_MS || wordDiff < MIN_WORD_DELTA) return doc
@@ -593,7 +598,7 @@ export function tryAddSnapshot(doc: ProseFileDocument, content: unknown): ProseF
     footerContent: doc.footerContent ?? null,
     wordCount,
     createdAt: new Date().toISOString(),
-    label: null,
+    label: options?.label ?? null,
   }
 
   let snapshots = [...doc.snapshots, newSnapshot]

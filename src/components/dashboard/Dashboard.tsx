@@ -795,7 +795,7 @@ function ListExportButton({ doc }: { doc: Document }): JSX.Element {
   return (
     <>
       <button
-        title="Export"
+        title="Preview and export"
         className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:text-foreground transition-colors"
         onClick={() => setOpen(true)}
       >

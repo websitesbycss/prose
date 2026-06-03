@@ -1,7 +1,16 @@
 import { create } from 'zustand'
+import { flushSync } from 'react-dom'
 import type { OllamaStatus } from '@/types'
 
 type Theme = 'dark' | 'light'
+
+function readStoredTheme(): Theme {
+  try {
+    return localStorage.getItem('prose-theme') === 'light' ? 'light' : 'dark'
+  } catch {
+    return 'dark'
+  }
+}
 type PomodoroPhase = 'idle' | 'running' | 'paused' | 'break'
 
 interface PomodoroState {
@@ -17,6 +26,7 @@ interface AppState {
   aiPanelOpen: boolean
   citationPanelOpen: boolean
   musicPanelOpen: boolean
+  musicPanelTab: 'tracks' | 'mixer'
   focusModeActive: boolean
   settingsOpen: boolean
   pomodoroState: PomodoroState
@@ -35,6 +45,7 @@ interface AppState {
   setAiPanelOpen(open: boolean): void
   setCitationPanelOpen(open: boolean): void
   setMusicPanelOpen(open: boolean): void
+  setMusicPanelTab(tab: 'tracks' | 'mixer'): void
   setFocusModeActive(active: boolean): void
   setSettingsOpen(open: boolean): void
   setPomodoroState(state: Partial<PomodoroState>): void
@@ -56,11 +67,12 @@ const DEFAULT_POMODORO: PomodoroState = {
 
 export const useAppStore = create<AppState>()((set) => ({
   currentDocumentId: null,
-  theme: 'dark',
+  theme: readStoredTheme(),
   sidebarOpen: true,
   aiPanelOpen: false,
   citationPanelOpen: false,
   musicPanelOpen: false,
+  musicPanelTab: 'tracks',
   focusModeActive: false,
   settingsOpen: false,
   pomodoroState: DEFAULT_POMODORO,
@@ -78,12 +90,16 @@ export const useAppStore = create<AppState>()((set) => ({
     try {
       localStorage.setItem('prose-theme', theme)
     } catch (_) {}
-    // Gate the color transition so it only fires during the theme switch,
-    // not on every hover/active state change throughout the session.
-    document.documentElement.classList.add('theme-transitioning')
-    document.documentElement.classList.toggle('dark', theme === 'dark')
-    set({ theme })
-    setTimeout(() => document.documentElement.classList.remove('theme-transitioning'), 250)
+    const apply = (): void => {
+      document.documentElement.classList.toggle('dark', theme === 'dark')
+      flushSync(() => set({ theme }))
+    }
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (!reduceMotion && typeof document.startViewTransition === 'function') {
+      document.startViewTransition(apply)
+    } else {
+      apply()
+    }
   },
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   // AI and citation panels are mutually exclusive; opening one closes the other
@@ -92,6 +108,7 @@ export const useAppStore = create<AppState>()((set) => ({
   setCitationPanelOpen: (open) =>
     set((s) => ({ citationPanelOpen: open, aiPanelOpen: open ? false : s.aiPanelOpen })),
   setMusicPanelOpen: (open) => set({ musicPanelOpen: open }),
+  setMusicPanelTab: (tab) => set({ musicPanelTab: tab }),
   setFocusModeActive: (active) => set({ focusModeActive: active }),
   setSettingsOpen: (open) => set({ settingsOpen: open }),
   setPomodoroState: (state) =>

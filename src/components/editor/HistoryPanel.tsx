@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useEditor, EditorContent } from '@tiptap/react'
@@ -44,28 +43,6 @@ const PAGE_HEIGHT_PX = 1056 // 11" at 96 dpi
 // ---------------------------------------------------------------------------
 // Utilities
 // ---------------------------------------------------------------------------
-
-function extractText(node: unknown): string {
-  if (!node || typeof node !== 'object') return ''
-  const n = node as Record<string, unknown>
-  if (n.type === 'text' && typeof n.text === 'string') return n.text
-  if (Array.isArray(n.content)) {
-    return (n.content as unknown[]).map(extractText).join(' ')
-  }
-  return ''
-}
-
-function contentToPlainText(contentStr: string): string {
-  try {
-    return extractText(JSON.parse(contentStr) as unknown).trim()
-  } catch {
-    return ''
-  }
-}
-
-function truncate(text: string, max = 120): string {
-  return text.length > max ? text.slice(0, max) + '…' : text
-}
 
 function fmtTime(d: Date): string {
   let h = d.getHours()
@@ -125,7 +102,7 @@ function ZonePreview({ content, fontFamily, fontSize }: {
 
   const zoneEditor = useEditor({
     extensions: [
-      StarterKit.configure({ heading: { levels: [1, 2, 3] }, bulletList: false, orderedList: false, listItem: false }),
+      StarterKit.configure({ heading: { levels: [1, 2, 3] }, bulletList: false, orderedList: false, listItem: false, link: false, underline: false }),
       Underline, Subscript, Superscript,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       TextStyle, FontFamily, FontSize, Color,
@@ -177,7 +154,7 @@ function SnapshotPreviewEditor({
 
   const previewEditor = useEditor({
     extensions: [
-      StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
+      StarterKit.configure({ heading: { levels: [1, 2, 3] }, link: false, underline: false }),
       Underline,
       Subscript,
       Superscript,
@@ -211,7 +188,7 @@ function SnapshotPreviewEditor({
 
   return (
     <div
-      className={cn('editor-page bg-white dark:bg-zinc-800', formatClass)}
+      className={cn('editor-page bg-editor-page', formatClass)}
       style={{
         '--page-margin-x': `${PAGE_MARGIN_X_PX}px`,
         '--page-margin-y': `${PAGE_MARGIN_Y_PX}px`,
@@ -259,31 +236,24 @@ export function HistoryPanel({ documentId, editor, format = 'none', onRestore }:
   const [snapshots, setSnapshots] = useState<Snapshot[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [currentSnapshotId, setCurrentSnapshotId] = useState<string | null>(null)
   const [confirmClear, setConfirmClear] = useState(false)
   const [confirmRestore, setConfirmRestore] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
-  const [restoring, setRestoring] = useState(false)
+  const pinnedCurrentIdRef = useRef<string | null>(null)
+  const skipPinClearRef = useRef(false)
   const [previewFontFamily, setPreviewFontFamily] = useState('Calibri')
   const [previewFontSize, setPreviewFontSize] = useState(11)
-  const [previewHeaderContent, setPreviewHeaderContent] = useState<string | null>(null)
-  const [previewFooterContent, setPreviewFooterContent] = useState<string | null>(null)
   const previewContainerRef = useRef<HTMLDivElement>(null)
   const [previewScale, setPreviewScale] = useState(1)
 
-  // Load settings, header/footer, and compute scale when the preview dialog opens
+  // Load settings and compute preview scale when the preview dialog opens
   useEffect(() => {
     if (!previewOpen) return
-    void Promise.all([
-      window.prose.settings.get(),
-      window.prose.documents.getById(documentId),
-    ]).then(([s, doc]) => {
+    void window.prose.settings.get().then((s) => {
       const appSettings = s as AppSettings
       if (appSettings.editorFontFamily) setPreviewFontFamily(appSettings.editorFontFamily)
       if (appSettings.editorFontSize) setPreviewFontSize(appSettings.editorFontSize)
-      if (doc) {
-        setPreviewHeaderContent((doc as { headerContent?: string | null }).headerContent ?? null)
-        setPreviewFooterContent((doc as { footerContent?: string | null }).footerContent ?? null)
-      }
     })
     const el = previewContainerRef.current
     if (!el) return
@@ -294,7 +264,7 @@ export function HistoryPanel({ documentId, editor, format = 'none', onRestore }:
     const ro = new ResizeObserver(compute)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [previewOpen])
+  }, [previewOpen, selectedId])
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
@@ -305,9 +275,18 @@ export function HistoryPanel({ documentId, editor, format = 'none', onRestore }:
         if (prev && snaps.some((s) => s.id === prev)) return prev
         return snaps.length > 0 ? (snaps[0]?.id ?? null) : null
       })
+      setCurrentSnapshotId((prev) => {
+        const pinned = pinnedCurrentIdRef.current
+        if (pinned && snaps.some((s) => s.id === pinned)) return pinned
+        if (prev && snaps.some((s) => s.id === prev)) return prev
+        pinnedCurrentIdRef.current = null
+        return snaps[0]?.id ?? null
+      })
     } catch {
       setSnapshots([])
       setSelectedId(null)
+      setCurrentSnapshotId(null)
+      pinnedCurrentIdRef.current = null
     } finally {
       if (!silent) setLoading(false)
     }
@@ -316,10 +295,18 @@ export function HistoryPanel({ documentId, editor, format = 'none', onRestore }:
   useEffect(() => {
     setSnapshots([])
     setSelectedId(null)
+    setCurrentSnapshotId(null)
+    pinnedCurrentIdRef.current = null
     setConfirmClear(false)
     setConfirmRestore(false)
     void load()
   }, [documentId, load])
+
+  useEffect(() => {
+    const onSnapshot = (): void => { void load(true) }
+    window.addEventListener('prose-snapshot-created', onSnapshot)
+    return () => window.removeEventListener('prose-snapshot-created', onSnapshot)
+  }, [load])
 
   const loadRef = useRef(load)
   loadRef.current = load
@@ -328,34 +315,48 @@ export function HistoryPanel({ documentId, editor, format = 'none', onRestore }:
     return () => clearInterval(id)
   }, [])
 
-  const selected = snapshots.find((s) => s.id === selectedId) ?? null
-  const selectedIsCurrent = selected?.id === snapshots[0]?.id
-
-  const previewText = selected
-    ? truncate(contentToPlainText(selected.content))
-    : editor
-      ? truncate(editor.getText())
-      : ''
-  const previewLabel = selected ? relativeTime(selected.createdAt) : 'current version'
-
-  async function handleRestore(): Promise<void> {
-    if (!selected) return
-    setRestoring(true)
-    try {
-      await window.prose.snapshots.restore(selected.id)
-      if (editor) {
-        const json = JSON.parse(selected.content) as object
-        editor.commands.setContent(json, false)
-      }
-      onRestore?.(selected.headerContent ?? null, selected.footerContent ?? null)
-      toast.success('Version restored')
-      setConfirmRestore(false)
-      setPreviewOpen(false)
-    } catch {
-      toast.error('Restore failed')
-    } finally {
-      setRestoring(false)
+  // After the user edits post-restore, resume tracking the newest snapshot as current
+  useEffect(() => {
+    if (!editor) return
+    const onEdit = (): void => {
+      if (skipPinClearRef.current) return
+      if (!pinnedCurrentIdRef.current) return
+      pinnedCurrentIdRef.current = null
+      setCurrentSnapshotId(snapshots[0]?.id ?? null)
     }
+    editor.on('update', onEdit)
+    return () => { editor.off('update', onEdit) }
+  }, [editor, snapshots])
+
+  const selected = snapshots.find((s) => s.id === selectedId) ?? null
+  const selectedIsCurrent = selected?.id === currentSnapshotId
+
+  function handleRestore(): void {
+    if (!selected) return
+
+    pinnedCurrentIdRef.current = selected.id
+    setCurrentSnapshotId(selected.id)
+    setConfirmRestore(false)
+    setPreviewOpen(false)
+
+    if (editor) {
+      skipPinClearRef.current = true
+      try {
+        editor.commands.setContent(JSON.parse(selected.content) as object, false)
+      } catch {
+        editor.commands.setContent('')
+      }
+      skipPinClearRef.current = false
+    }
+    onRestore?.(selected.headerContent ?? null, selected.footerContent ?? null)
+
+    void window.prose.snapshots.restore(selected.id)
+      .then(() => { toast.success('Version restored') })
+      .catch(() => {
+        pinnedCurrentIdRef.current = null
+        void load(true)
+        toast.error('Restore failed')
+      })
   }
 
   async function handleClearAll(): Promise<void> {
@@ -373,16 +374,7 @@ export function HistoryPanel({ documentId, editor, format = 'none', onRestore }:
     <div className="flex h-full flex-col overflow-hidden">
       {/* ── Header ── */}
       <div className="flex shrink-0 items-center justify-between px-3 py-2.5">
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs font-medium">Version History</span>
-          <button
-            onClick={() => void load()}
-            className="text-muted-foreground/50 transition-colors hover:text-muted-foreground"
-            title="Refresh"
-          >
-            <RefreshCw className="h-3 w-3" />
-          </button>
-        </div>
+        <span className="text-xs font-medium">Version History</span>
         {!confirmClear ? (
           <button
             className="text-[10px] text-muted-foreground transition-colors hover:text-foreground"
@@ -410,16 +402,6 @@ export function HistoryPanel({ documentId, editor, format = 'none', onRestore }:
         )}
       </div>
 
-      {/* ── Preview block ── */}
-      <div className="shrink-0 px-3 pb-2">
-        <div className="rounded-lg border border-border bg-muted/5 px-3 py-2.5">
-          <p className="mb-1 text-[10px] text-muted-foreground">{previewLabel}</p>
-          <p className="break-words font-serif text-[11px] leading-relaxed text-muted-foreground">
-            {previewText || <span className="italic opacity-50">No content</span>}
-          </p>
-        </div>
-      </div>
-
       {/* ── Snapshot list ── */}
       <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-1">
         {loading && (
@@ -438,17 +420,17 @@ export function HistoryPanel({ documentId, editor, format = 'none', onRestore }:
 
         {!loading && snapshots.length === 0 && (
           <p className="mt-4 px-2 text-center text-[11px] leading-relaxed text-muted-foreground/60">
-            No history yet — snapshots are saved automatically every 5 minutes.
+            No history yet — save with Ctrl+S or keep writing; snapshots are created automatically.
           </p>
         )}
 
         {!loading && snapshots.length > 0 && (
           <div className="flex flex-col">
             {snapshots.map((snap, idx) => {
-              const isFirst = idx === 0
               const isLast = idx === snapshots.length - 1
               const isSelected = snap.id === selectedId
-              const saveType = snap.label !== null ? 'manual save' : 'auto-saved'
+              const isCurrent = snap.id === currentSnapshotId
+              const saveType = snap.label === 'manual' ? 'manual save' : 'auto-saved'
 
               return (
                 <div key={snap.id} className="flex items-stretch gap-2">
@@ -457,7 +439,7 @@ export function HistoryPanel({ documentId, editor, format = 'none', onRestore }:
                     <div
                       className="mt-[9px] h-2 w-2 shrink-0 rounded-full"
                       style={{
-                        backgroundColor: isFirst
+                        backgroundColor: isCurrent
                           ? 'hsl(var(--primary))'
                           : 'hsl(var(--muted-foreground) / 0.2)',
                       }}
@@ -491,12 +473,12 @@ export function HistoryPanel({ documentId, editor, format = 'none', onRestore }:
                     <span
                       className={cn(
                         'ml-2 mt-0.5 shrink-0 rounded border px-1.5 py-0.5 text-[9px] font-medium',
-                        isFirst
+                        isCurrent
                           ? 'border-primary/25 bg-primary/[0.12] text-primary/80'
                           : 'border-border bg-muted/10 text-muted-foreground/50'
                       )}
                     >
-                      {isFirst ? 'current' : 'auto'}
+                      {isCurrent ? 'current' : 'auto'}
                     </span>
                   </button>
                 </div>
@@ -511,17 +493,16 @@ export function HistoryPanel({ documentId, editor, format = 'none', onRestore }:
         {confirmRestore ? (
           <div className="flex flex-col gap-1.5">
             <p className="text-[10px] text-muted-foreground">
-              this will overwrite your current draft —
+              Are you sure? This will overwrite your current version.
             </p>
             <div className="flex gap-1.5">
               <Button
                 variant="outline"
                 size="sm"
                 className="h-7 flex-1 border-primary/25 bg-primary/[0.12] text-[11px] text-primary/80 hover:bg-primary/20 hover:text-primary"
-                disabled={restoring}
-                onClick={() => void handleRestore()}
+                onClick={handleRestore}
               >
-                {restoring ? 'restoring…' : 'confirm restore'}
+                confirm restore
               </Button>
               <Button
                 variant="ghost"
@@ -577,7 +558,7 @@ export function HistoryPanel({ documentId, editor, format = 'none', onRestore }:
 
           <div
             ref={previewContainerRef}
-            className="min-h-0 flex-1 overflow-auto bg-zinc-100 dark:bg-zinc-900 flex justify-center"
+            className="min-h-0 flex-1 overflow-auto bg-editor-canvas flex justify-center"
           >
             <div style={{ zoom: previewScale, width: PAGE_WIDTH_PX }}>
               {selected && (
@@ -586,8 +567,8 @@ export function HistoryPanel({ documentId, editor, format = 'none', onRestore }:
                   format={format}
                   fontFamily={previewFontFamily}
                   fontSize={previewFontSize}
-                  headerContent={previewHeaderContent}
-                  footerContent={previewFooterContent}
+                  headerContent={selected.headerContent}
+                  footerContent={selected.footerContent}
                 />
               )}
             </div>
@@ -601,10 +582,10 @@ export function HistoryPanel({ documentId, editor, format = 'none', onRestore }:
               variant="outline"
               size="sm"
               className="border-primary/25 bg-primary/[0.12] text-primary/80 hover:bg-primary/20 hover:text-primary"
-              disabled={restoring || !selected}
-              onClick={() => void handleRestore()}
+              disabled={!selected}
+              onClick={handleRestore}
             >
-              {restoring ? 'Restoring…' : 'Restore this version'}
+              Restore this version
             </Button>
           </div>
         </DialogContent>

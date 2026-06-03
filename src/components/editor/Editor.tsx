@@ -88,6 +88,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   const citationPanelOpen = useAppStore((s) => s.citationPanelOpen)
   const musicPanelOpen = useAppStore((s) => s.musicPanelOpen)
   const setMusicPanelOpen = useAppStore((s) => s.setMusicPanelOpen)
+  const setMusicPanelTab = useAppStore((s) => s.setMusicPanelTab)
   const focusModeActive = useAppStore((s) => s.focusModeActive)
   const setFocusModeActive = useAppStore((s) => s.setFocusModeActive)
   const settingsOpen = useAppStore((s) => s.settingsOpen)
@@ -132,7 +133,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
     }, 200)
   }
 
-  const { document, saveStatus, saveNow, onEditorUpdate, updateTitle, patchDocument, notifySaveStatus } =
+  const { document: doc, saveStatus, saveNow, onEditorUpdate, updateTitle, patchDocument, notifySaveStatus } =
     useDocument(documentId)
 
   const [settings, setSettings] = useState<Pick<AppSettings, 'wordCountExcludesHeader'>>({
@@ -174,7 +175,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
+      StarterKit.configure({ heading: { levels: [1, 2, 3] }, link: false, underline: false }),
       Underline,
       Subscript,
       Superscript,
@@ -239,14 +240,14 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   })
 
   useEffect(() => {
-    if (!editor || !document) return
+    if (!editor || !doc) return
     // Clear analysis state from the previous document
     analysis.clearIssues()
     editor.commands.clearAnalysisIssues()
     useAppStore.getState().setAssignmentContext('')
-    setPageMargins(document.pageMargins ?? DEFAULT_PAGE_MARGINS)
+    setPageMargins(doc.pageMargins ?? DEFAULT_PAGE_MARGINS)
     try {
-      const parsed = JSON.parse(document.content || '{}') as object
+      const parsed = JSON.parse(doc.content || '{}') as object
       editor.commands.setContent(parsed, false)
     } catch {
       editor.commands.setContent('')
@@ -257,7 +258,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
         editor.view.dispatch(editor.state.tr.setMeta(spellKey, { setIgnored: words }))
       }
     })
-  }, [document?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [doc?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Show/hide issue decorations based on panel visibility and analysis results
   useEffect(() => {
@@ -331,7 +332,10 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
       if (sidebarDragRef.current) localStorage.setItem('prose-sidebar-width', String(sidebarWidthRef.current))
       dragStartRef.current = null
       sidebarDragRef.current = null
-      if (document.body) { document.body.style.cursor = ''; document.body.style.userSelect = '' }
+      if (globalThis.document?.body) {
+        globalThis.document.body.style.cursor = ''
+        globalThis.document.body.style.userSelect = ''
+      }
     }
     window.addEventListener('mousemove', onMouseMove)
     window.addEventListener('mouseup', onMouseUp)
@@ -379,7 +383,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
 
   const wordCount = useWordCount(
     editor,
-    settings.wordCountExcludesHeader && (document?.format === 'mla' || document?.format === 'apa')
+    settings.wordCountExcludesHeader && (doc?.format === 'mla' || doc?.format === 'apa')
   )
   const selectionWordCount = useSelectionWordCount(editor)
 
@@ -444,7 +448,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   )
 
   const currentJson = editor ? editor.getJSON() : null
-  const format = document?.format ?? 'none'
+  const format = doc?.format ?? 'none'
 
   const initialMla =
     format === 'mla' && currentJson ? extractMlaFields(currentJson) : undefined
@@ -529,8 +533,8 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
 
   const formatClass = format === 'mla' ? 'format-mla' : format === 'apa' ? 'format-apa' : ''
 
-  const headerContent = parseHeaderContent(document?.headerContent ?? null)
-  const footerContent = parseHeaderContent(document?.footerContent ?? null)
+  const headerContent = parseHeaderContent(doc?.headerContent ?? null)
+  const footerContent = parseHeaderContent(doc?.footerContent ?? null)
 
   return (
     <TooltipProvider delayDuration={400}>
@@ -547,7 +551,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
               className="shrink-0"
             >
               <TitleBar
-                document={document}
+                document={doc}
                 editor={editor}
                 saveStatus={saveStatus}
                 onBack={handleBack}
@@ -560,7 +564,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
               />
               <Toolbar
                 editor={zoneEditor ?? editor}
-                document={document}
+                document={doc}
                 onApplyFormat={setFormatModalTarget}
                 headingFontSizes={headingFontSizes}
                 isZoneEditor={zoneEditor !== null}
@@ -681,8 +685,8 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                   className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/30 transition-colors z-10"
                   onMouseDown={(e) => {
                     sidebarDragRef.current = { x: e.clientX, width: sidebarWidth }
-                    document.body.style.cursor = 'col-resize'
-                    document.body.style.userSelect = 'none'
+                    globalThis.document.body.style.cursor = 'col-resize'
+                    globalThis.document.body.style.userSelect = 'none'
                   }}
                 />
               )}
@@ -692,14 +696,14 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
           {/* Editor canvas */}
           <div
             ref={editorScrollRef}
-            className="flex flex-1 overflow-auto bg-zinc-100 dark:bg-zinc-900"
+            className="flex flex-1 overflow-auto bg-editor-canvas"
           >
             <div
               className={cn('mx-auto my-8 w-[816px] self-start', focusModeActive && 'my-16')}
               style={{ zoom: editorZoom / 100 }}
             >
               <div
-                className={cn('editor-page relative bg-white dark:bg-zinc-800', formatClass)}
+                className={cn('editor-page relative bg-editor-page', formatClass)}
                 style={{
                   '--page-margin-left': `${Math.round(pageMargins.left * 96)}px`,
                   '--page-margin-right': `${Math.round(pageMargins.right * 96)}px`,
@@ -708,7 +712,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                 } as React.CSSProperties}
               >
                 {/* Header zone — only rendered once document is loaded to prevent blank init on HMR */}
-                {document && (
+                {doc && (
                   <HeaderFooterEditor
                     zone="header"
                     documentId={documentId}
@@ -719,7 +723,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                     onSaveStatusChange={notifySaveStatus}
                   />
                 )}
-                <div className="border-b border-border dark:border-zinc-600" />
+                <div className="border-b border-border" />
 
                 {/* Body content — padding inherits --page-margin-* */}
                 <div
@@ -747,8 +751,8 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                 </div>
 
                 {/* Footer zone — only rendered once document is loaded to prevent blank init on HMR */}
-                <div className="border-t border-border dark:border-zinc-600" />
-                {document && (
+                <div className="border-t border-border" />
+                {doc && (
                   <HeaderFooterEditor
                     zone="footer"
                     documentId={documentId}
@@ -781,8 +785,8 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                     className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/30 transition-colors z-10"
                     onMouseDown={(e) => {
                       dragStartRef.current = { x: e.clientX, width: aiPanelWidth }
-                      document.body.style.cursor = 'col-resize'
-                      document.body.style.userSelect = 'none'
+                      globalThis.document.body.style.cursor = 'col-resize'
+                      globalThis.document.body.style.userSelect = 'none'
                     }}
                   />
                   {aiPanelOpen && <AiPanel editor={editor} analysis={analysis} />}
@@ -798,7 +802,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
         {/* Status bar — hidden in focus mode */}
         {!focusModeActive && (
           <StatusBar
-            document={document}
+            document={doc}
             wordCount={wordCount}
             selectionWordCount={selectionWordCount}
             saveStatus={saveStatus}
@@ -816,7 +820,14 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
               if (active.length === 2) return `${active[0]!.label} + ${active[1]!.label}`
               return `${active.length} Sounds`
             })()}
-            onMusicClick={() => setMusicPanelOpen(true)}
+            onMusicClick={() => {
+              setMusicPanelTab('tracks')
+              setMusicPanelOpen(true)
+            }}
+            onAmbientClick={() => {
+              setMusicPanelTab('mixer')
+              setMusicPanelOpen(true)
+            }}
           />
         )}
       </div>

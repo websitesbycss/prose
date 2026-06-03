@@ -1082,6 +1082,7 @@ function ToolbarInner({
 }): JSX.Element {
   const format = document?.format
   const setMusicPanelOpen = useAppStore((s) => s.setMusicPanelOpen)
+  const setMusicPanelTab = useAppStore((s) => s.setMusicPanelTab)
   const setCitationPanelOpen = useAppStore((s) => s.setCitationPanelOpen)
   const citationPanelOpen = useAppStore((s) => s.citationPanelOpen)
   const musicPanelOpen = useAppStore((s) => s.musicPanelOpen)
@@ -1191,7 +1192,7 @@ function ToolbarInner({
 
   return (
     <div
-      className="flex h-10 shrink-0 items-center gap-0.5 overflow-x-auto border-b border-border px-2 bg-muted/30 dark:bg-muted/10"
+      className="flex h-10 shrink-0 items-center gap-0.5 overflow-x-auto border-b border-border bg-muted/20 px-2 text-foreground"
       onMouseDown={(e) => e.preventDefault()}
     >
       {/* Font family */}
@@ -1427,7 +1428,10 @@ function ToolbarInner({
         icon={Music}
         title="Focus music"
         active={musicPanelOpen}
-        onClick={() => setMusicPanelOpen(!musicPanelOpen)}
+        onClick={() => {
+          if (!musicPanelOpen) setMusicPanelTab('tracks')
+          setMusicPanelOpen(!musicPanelOpen)
+        }}
       />
       <ToolbarBtn
         icon={BookOpen}
