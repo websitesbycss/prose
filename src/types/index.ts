@@ -190,7 +190,7 @@ export interface ExportOptions {
   pageSize: 'Letter' | 'A4' | 'Legal'
   orientation: 'portrait' | 'landscape'
   margins: PageMargins
-  colorMode: 'light' | 'dark'
+  colorMode?: 'light' | 'dark'
   includeHeader: boolean
   includeFooter: boolean
   openAfterExport: boolean
@@ -230,6 +230,7 @@ export interface ProseAPI {
   export: {
     getPreviewHtml(id: string, opts: ExportOptions): Promise<string | null>
     getPreviewPdf(id: string, opts: ExportOptions): Promise<string | null>
+    getPreviewDocx(id: string, opts: ExportOptions): Promise<string | null>
     run(id: string, opts: ExportOptions): Promise<void>
     saveImage(src: string): Promise<void>
   }

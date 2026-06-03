@@ -98,15 +98,13 @@ export default function ExportModal({
   const [pageSize, setPageSize]           = useState<ExportOptions['pageSize']>('Letter')
   const [orientation, setOrientation]     = useState<ExportOptions['orientation']>('portrait')
   const [margins, setMargins]             = useState<PageMargins>(documentMargins ?? DEFAULT_MARGINS)
-  const [colorMode, setColorMode]         = useState<ExportOptions['colorMode']>('light')
   const [includeHeader, setIncludeHeader] = useState(true)
   const [includeFooter, setIncludeFooter] = useState(true)
   const [openAfterExport, setOpenAfterExport] = useState(false)
 
   // Preview state
   const [previewLoading, setPreviewLoading] = useState(true)
-  // PDF/DOCX: one data URL per page rendered by PDF.js
-  const [pdfPages, setPdfPages] = useState<string[]>([])
+  const [pdfPages, setPdfPages]             = useState<string[]>([])
   const [zoom, setZoom] = useState(100)
 
   // Export state
@@ -128,7 +126,6 @@ export default function ExportModal({
     setPageSize('Letter')
     setOrientation('portrait')
     setMargins(documentMargins ?? DEFAULT_MARGINS)
-    setColorMode('light')
     setIncludeHeader(true)
     setIncludeFooter(true)
     setOpenAfterExport(false)
@@ -155,13 +152,14 @@ export default function ExportModal({
 
     const opts: ExportOptions = {
       format, fileName: baseName + EXT[format],
-      pageSize, orientation, margins, colorMode,
+      pageSize, orientation, margins,
       includeHeader, includeFooter, openAfterExport,
     }
 
     const timer = setTimeout(async () => {
       try {
         if (isPageFormat) {
+          // PDF and DOCX both use the PDF preview pipeline for a consistent paginated view.
           const b64 = await window.prose.export.getPreviewPdf(documentId, opts)
           if (b64) {
             const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
@@ -192,7 +190,7 @@ export default function ExportModal({
       }
     }, 400)
     return () => clearTimeout(timer)
-  }, [open, format, pageSize, orientation, margins, colorMode, includeHeader, includeFooter, appTheme]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, format, pageSize, orientation, margins, includeHeader, includeFooter, appTheme]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Export ────────────────────────────────────────────────────────────────
 
@@ -201,7 +199,7 @@ export default function ExportModal({
     try {
       await window.prose.export.run(documentId, {
         format, fileName: baseName + EXT[format],
-        pageSize, orientation, margins, colorMode,
+        pageSize, orientation, margins,
         includeHeader, includeFooter, openAfterExport,
       })
       onClose()
@@ -232,7 +230,7 @@ export default function ExportModal({
           {/* ── Preview pane ─────────────────────────────────────────────────── */}
           <div className="relative flex flex-1 flex-col overflow-hidden bg-neutral-300 dark:bg-neutral-600">
 
-            {/* ── PDF / DOCX — pages rendered by PDF.js ── */}
+            {/* ── PDF / DOCX — paginated PDF.js canvas images ── */}
             {isPageFormat ? (
               <div className="relative flex flex-1 flex-col overflow-hidden">
                 {previewLoading && (
@@ -259,7 +257,7 @@ export default function ExportModal({
                   </div>
                 </div>
 
-                {/* ── Zoom bar — only after load so it stays pinned to bottom ── */}
+                {/* ── Zoom bar — only after load ── */}
                 {!previewLoading && pdfPages.length > 0 && (
                 <div className="shrink-0 flex items-center gap-2 border-t border-border/50 bg-neutral-300/80 dark:bg-neutral-600/80 px-3 py-1.5">
                   <button
@@ -298,6 +296,7 @@ export default function ExportModal({
                   </div>
                 )}
                 <iframe
+                  key={format}
                   ref={iframeRef}
                   sandbox="allow-scripts"
                   title="Export preview"
@@ -414,23 +413,6 @@ export default function ExportModal({
                         ))}
                       </div>
                     </div>
-                  </div>
-                )}
-
-                {/* Appearance — PDF only */}
-                {format === 'pdf' && (
-                  <div className="flex flex-col gap-3">
-                    <SectionHeader>Appearance</SectionHeader>
-                    <Row label="Color mode">
-                      <SegmentedControl
-                        value={colorMode}
-                        onChange={setColorMode}
-                        options={[
-                          { value: 'light', label: 'Light' },
-                          { value: 'dark',  label: 'Dark' },
-                        ]}
-                      />
-                    </Row>
                   </div>
                 )}
 
