@@ -576,7 +576,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
         {/* Chrome — hidden in focus mode */}
         <AnimatePresence>
           {!focusModeActive && (
-            <div className="shrink-0">
+            <div className="shrink-0 overflow-visible">
               <TitleBar
                 document={doc}
                 editor={editor}

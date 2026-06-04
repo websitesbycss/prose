@@ -30,8 +30,12 @@ export function useDocument(id: string): UseDocumentReturn {
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const fetchGen = useRef(0)
+  const saveChainRef = useRef(Promise.resolve())
+  const saveGenRef = useRef(0)
 
   useEffect(() => {
+    saveGenRef.current += 1
+    saveChainRef.current = Promise.resolve()
     const gen = ++fetchGen.current
     const cached = getCachedDocument(id)
     if (cached) {
@@ -53,26 +57,34 @@ export function useDocument(id: string): UseDocumentReturn {
 
   const persistContent = useCallback(
     async (content: string, options?: { forceSnapshot?: boolean; snapshotLabel?: string | null }): Promise<void> => {
-      setSaveStatus('saving')
-      try {
-        const updated = await window.prose.documents.update(id, {
-          content,
-          ...(options?.forceSnapshot ? { forceSnapshot: true, snapshotLabel: options.snapshotLabel ?? 'manual' } : {}),
-        })
-        setCachedDocument(updated as Document)
-        setSaveStatus('saved')
-        if (savedTimer.current) clearTimeout(savedTimer.current)
-        savedTimer.current = setTimeout(() => setSaveStatus('idle'), 2000)
-        if (options?.forceSnapshot) {
-          window.dispatchEvent(new CustomEvent('prose-snapshot-created'))
+      const gen = saveGenRef.current
+      const run = async (): Promise<void> => {
+        if (gen !== saveGenRef.current) return
+        setSaveStatus('saving')
+        try {
+          const updated = await window.prose.documents.update(id, {
+            content,
+            ...(options?.forceSnapshot ? { forceSnapshot: true, snapshotLabel: options.snapshotLabel ?? 'manual' } : {}),
+          })
+          if (gen !== saveGenRef.current) return
+          setCachedDocument(updated as Document)
+          setSaveStatus('saved')
+          if (savedTimer.current) clearTimeout(savedTimer.current)
+          savedTimer.current = setTimeout(() => setSaveStatus('idle'), 2000)
+          if (options?.forceSnapshot) {
+            window.dispatchEvent(new CustomEvent('prose-snapshot-created'))
+          }
+        } catch (err) {
+          if (gen !== saveGenRef.current) return
+          console.error('Auto-save error:', err)
+          setSaveStatus('error')
+          toast.error('Failed to save — your changes may not be on disk')
+          if (savedTimer.current) clearTimeout(savedTimer.current)
+          savedTimer.current = setTimeout(() => setSaveStatus('idle'), 4000)
         }
-      } catch (err) {
-        console.error('Auto-save error:', err)
-        setSaveStatus('error')
-        toast.error('Failed to save — your changes may not be on disk')
-        if (savedTimer.current) clearTimeout(savedTimer.current)
-        savedTimer.current = setTimeout(() => setSaveStatus('idle'), 4000)
       }
+      saveChainRef.current = saveChainRef.current.catch(() => {}).then(run)
+      await saveChainRef.current
     },
     [id]
   )

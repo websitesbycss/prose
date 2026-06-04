@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect, Fragment } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { Home, Plus, X } from 'lucide-react'
+import { motion, AnimatePresence } from 'motion/react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { TabPickerPopover } from '@/components/editor/TabPickerPopover'
 import { FORMAT_LABELS } from '@/lib/documentFormat'
@@ -10,7 +10,6 @@ import { useAppStore } from '@/store/appStore'
 import type { OpenDocumentTab } from '@/store/appStore'
 
 interface DocumentTabBarProps {
-  /** Active document title editing — only for the active tab in the editor */
   activeDocumentId?: string | null
   editingTitle?: boolean
   draftTitle?: string
@@ -21,13 +20,11 @@ interface DocumentTabBarProps {
   saveIndicator?: string
 }
 
-/** Vertical rule — horizontal spacing comes from the parent flex gap. */
-function TabDivider(): JSX.Element {
-  return (
-    <div className="flex h-8 shrink-0 items-center" aria-hidden>
-      <div className="h-4 w-px bg-border" />
-    </div>
-  )
+const TAB_MOTION = {
+  initial: { opacity: 0, scale: 0.88, x: -6 },
+  animate: { opacity: 1, scale: 1, x: 0 },
+  exit: { opacity: 0, scale: 0.88, x: -6 },
+  transition: { duration: 0.14, ease: [0.25, 0.1, 0.25, 1] as const },
 }
 
 function DocumentTab({
@@ -61,30 +58,20 @@ function DocumentTab({
   }, [editing])
 
   return (
-    <div
-      className={cn(
-        'group relative flex h-8 max-w-[200px] shrink-0 items-center rounded-md border text-xs transition-colors',
-        active
-          ? 'border-border bg-background text-foreground shadow-sm'
-          : 'border-transparent bg-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground',
-      )}
-    >
+    <div className={cn('document-tab', active && 'document-tab--active')}>
       <button
         type="button"
-        className="flex min-w-0 flex-1 items-center gap-1.5 pl-2.5 pr-1 py-1"
+        className="document-tab__label"
         onClick={onSelect}
         onDoubleClick={(e) => {
-          if (active && onStartEdit) {
-            e.preventDefault()
-            onStartEdit()
-          }
+          if (active && onStartEdit) { e.preventDefault(); onStartEdit() }
         }}
         title={active ? 'Double-click to rename' : tab.title}
       >
         {editing ? (
           <input
             ref={inputRef}
-            className="min-w-0 flex-1 bg-transparent text-xs font-medium outline-none"
+            className="document-tab__input"
             value={draftTitle ?? tab.title}
             onChange={(e) => onDraftChange?.(e.target.value)}
             onBlur={() => onCommitEdit?.()}
@@ -96,21 +83,15 @@ function DocumentTab({
             onClick={(e) => e.stopPropagation()}
           />
         ) : (
-          <span className="truncate font-medium">{tab.title}</span>
-        )}
-        {!editing && formatLabel && (
-          <Badge variant="secondary" className="h-4 shrink-0 px-1 text-[9px] leading-none">
-            {formatLabel}
-          </Badge>
+          <>
+            <span className="document-tab__title">{tab.title}</span>
+            {formatLabel && <span className="document-tab__format">{formatLabel}</span>}
+          </>
         )}
       </button>
       <button
         type="button"
-        className={cn(
-          'mr-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors',
-          'opacity-0 hover:bg-muted hover:text-foreground group-hover:opacity-100',
-          active && 'opacity-70',
-        )}
+        className="document-tab__close"
         aria-label={`Close ${tab.title}`}
         onClick={onClose}
       >
@@ -130,102 +111,152 @@ export function DocumentTabBar({
   onCancelTitleEdit,
   saveIndicator,
 }: DocumentTabBarProps): JSX.Element {
-  const openTabs = useAppStore((s) => s.openTabs)
-  const showDashboard = useAppStore((s) => s.showDashboard)
-  const goToDashboard = useAppStore((s) => s.goToDashboard)
-  const activateDocumentTab = useAppStore((s) => s.activateDocumentTab)
-  const closeDocumentTab = useAppStore((s) => s.closeDocumentTab)
-  const saveActiveDocument = useAppStore((s) => s.saveActiveDocument)
+  const openTabs          = useAppStore((s) => s.openTabs)
+  const showDashboard     = useAppStore((s) => s.showDashboard)
+  const goToDashboard     = useAppStore((s) => s.goToDashboard)
+  const activateDocumentTab  = useAppStore((s) => s.activateDocumentTab)
+  const closeDocumentTab     = useAppStore((s) => s.closeDocumentTab)
+  const insertDocumentTab    = useAppStore((s) => s.insertDocumentTab)
+  const saveActiveDocument   = useAppStore((s) => s.saveActiveDocument)
   const setNewDocumentModalOpen = useAppStore((s) => s.setNewDocumentModalOpen)
 
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [dropIndex, setDropIndex]   = useState<number | null>(null)
+  const tabStripRef = useRef<HTMLDivElement>(null)
 
-  function handleSelectTab(id: string): void {
+  // Convert a screen-X coordinate to a tab-strip insert index.
+  const getDropIndex = useCallback((screenX: number): number => {
+    if (!tabStripRef.current) return openTabs.length
+    const clientX = screenX - window.screenX
+    const items = tabStripRef.current.querySelectorAll<HTMLElement>('.document-tab-item')
+    for (let i = 0; i < items.length; i++) {
+      const r = items[i]!.getBoundingClientRect()
+      if (clientX < r.left + r.width / 2) return i
+    }
+    return openTabs.length
+  }, [openTabs.length])
+
+  // IPC listeners for cross-window drag events.
+  useEffect(() => {
+    const tabdrag = window.prose.tabdrag
+    if (!tabdrag) return
+
+    const unsubHover = tabdrag.onHover(({ inside, screenX }) => {
+      setDropIndex(inside ? getDropIndex(screenX) : null)
+    })
+
+    const unsubAccept = tabdrag.onAccept(async ({ docId, screenX }) => {
+      setDropIndex(null)
+      const idx = getDropIndex(screenX)
+      try {
+        const doc = await window.prose.documents.getById(docId)
+        if (!doc) return
+        insertDocumentTab({ id: doc.id, title: doc.title, format: doc.format }, idx)
+      } catch { /* ignore */ }
+    })
+
+    const unsubDetached = tabdrag.onDetached(({ docId }) => {
+      closeDocumentTab(docId)
+    })
+
+    return () => { unsubHover(); unsubAccept(); unsubDetached() }
+  }, [getDropIndex, insertDocumentTab, closeDocumentTab])
+
+  function handleTabDragStart(docId: string, e: React.DragEvent): void {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', docId)
+    window.prose.tabdrag?.start(docId)
+  }
+
+  function handleTabDragEnd(docId: string, e: React.DragEvent): void {
+    window.prose.tabdrag?.end({ docId, screenX: e.screenX, screenY: e.screenY })
+  }
+
+  async function handleSelectTab(id: string): Promise<void> {
     if (id === activeDocumentId && !showDashboard) return
-    void saveActiveDocument?.()
+    await saveActiveDocument?.()
     activateDocumentTab(id)
   }
 
-  function handleCloseTab(id: string, e: React.MouseEvent): void {
+  async function handleCloseTab(id: string, e: React.MouseEvent): Promise<void> {
     e.stopPropagation()
-    if (id === activeDocumentId) {
-      void saveActiveDocument?.()
-    }
+    if (id === activeDocumentId) await saveActiveDocument?.()
     closeDocumentTab(id)
   }
 
-  function handleHome(): void {
-    void saveActiveDocument?.()
+  async function handleHome(): Promise<void> {
+    await saveActiveDocument?.()
     goToDashboard()
   }
 
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+    <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-visible">
       <Button
         variant="ghost"
         size="icon"
-        className={cn('h-8 w-8 shrink-0', showDashboard && 'bg-accent text-accent-foreground')}
+        className={cn(
+          'document-tab-bar__home h-7 w-7 shrink-0',
+          showDashboard && 'document-tab-bar__home--active',
+        )}
         onClick={handleHome}
         title="Dashboard"
       >
-        <Home className="h-4 w-4" />
+        <Home className="h-3.5 w-3.5" />
       </Button>
 
-      {openTabs.length > 0 && <TabDivider />}
-
-      <div className="flex min-w-0 flex-1 items-center overflow-hidden">
-        <div className="flex min-w-0 items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {openTabs.map((tab, index) => {
-            const isActive = !showDashboard && tab.id === activeDocumentId
-            const prevTab = index > 0 ? openTabs[index - 1] : undefined
-            const prevActive =
-              prevTab !== undefined && !showDashboard && prevTab.id === activeDocumentId
-            const showDivider = index > 0 && !isActive && !prevActive
-
-            return (
-              <Fragment key={tab.id}>
-                {showDivider && <TabDivider />}
-                <DocumentTab
-                  tab={tab}
-                  active={isActive}
-                  editing={isActive && editingTitle}
-                  draftTitle={draftTitle}
-                  onDraftChange={onDraftTitleChange}
-                  onStartEdit={onStartTitleEdit}
-                  onCommitEdit={onCommitTitleEdit}
-                  onCancelEdit={onCancelTitleEdit}
-                  onSelect={() => handleSelectTab(tab.id)}
-                  onClose={(e) => handleCloseTab(tab.id, e)}
-                />
-              </Fragment>
-            )
-          })}
-
-          {openTabs.length > 0 && <TabDivider />}
+      {openTabs.length > 0 && (
+        <div ref={tabStripRef} className="document-tab-strip min-w-0 flex-1">
+          <AnimatePresence initial={false} mode="popLayout">
+            {openTabs.map((tab, index) => {
+              const isActive = !showDashboard && tab.id === activeDocumentId
+              return (
+                <motion.div
+                  key={tab.id}
+                  layout
+                  className="document-tab-item"
+                  style={{ originX: 0 }}
+                  initial={TAB_MOTION.initial}
+                  animate={TAB_MOTION.animate}
+                  exit={TAB_MOTION.exit}
+                  transition={TAB_MOTION.transition}
+                  draggable
+                  onDragStart={(e) => handleTabDragStart(tab.id, e as unknown as React.DragEvent)}
+                  onDragEnd={(e) => handleTabDragEnd(tab.id, e as unknown as React.DragEvent)}
+                >
+                  {dropIndex === index && <div className="document-tab-drop-zone" />}
+                  <DocumentTab
+                    tab={tab}
+                    active={isActive}
+                    editing={isActive && editingTitle}
+                    draftTitle={draftTitle}
+                    onDraftChange={onDraftTitleChange}
+                    onStartEdit={onStartTitleEdit}
+                    onCommitEdit={onCommitTitleEdit}
+                    onCancelEdit={onCancelTitleEdit}
+                    onSelect={() => handleSelectTab(tab.id)}
+                    onClose={(e) => handleCloseTab(tab.id, e)}
+                  />
+                </motion.div>
+              )
+            })}
+            {dropIndex === openTabs.length && <div key="drop-end" className="document-tab-drop-zone" />}
+          </AnimatePresence>
 
           <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
             <PopoverTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 shrink-0"
-                title="Open document"
-              >
+              <button type="button" className="document-tab-strip__new" title="Open document">
                 <Plus className="h-4 w-4" />
-              </Button>
+              </button>
             </PopoverTrigger>
             <PopoverContent align="start" side="bottom" className="w-auto p-0">
               <TabPickerPopover
                 onOpenDocument={() => setPickerOpen(false)}
-                onNewDocument={() => {
-                  setPickerOpen(false)
-                  setNewDocumentModalOpen(true)
-                }}
+                onNewDocument={() => { setPickerOpen(false); setNewDocumentModalOpen(true) }}
               />
             </PopoverContent>
           </Popover>
         </div>
-      </div>
+      )}
 
       {saveIndicator && (
         <span className="ml-auto shrink-0 text-xs text-muted-foreground">{saveIndicator}</span>

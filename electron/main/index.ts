@@ -18,6 +18,7 @@ import { registerMigrationHandlers, checkAndRunMigration } from './ipc/migration
 import { registerImportHandlers } from './ipc/import'
 import { registerSpellHandlers } from './ipc/spell'
 import { registerFileAssociation } from './services/fileAssociation'
+import { createProseWindow, registerWindowHandlers } from './ipc/windows'
 import { autoUpdater } from 'electron-updater'
 
 const APP_ICON = join(__dirname, '../../resources/icons/prose.ico')
@@ -27,7 +28,7 @@ let pendingFileOpen: string | null = null
 
 interface SavedBounds { x: number; y: number; width: number; height: number; isMaximized: boolean }
 
-function createWindow(): BrowserWindow {
+function createMainWindow(): BrowserWindow {
   const saved = getSettingJson<SavedBounds | null>('windowBounds', null)
   const bounds = saved ?? { width: 1280, height: 800 }
 
@@ -50,7 +51,6 @@ function createWindow(): BrowserWindow {
 
   if (saved?.isMaximized) win.maximize()
 
-  // Debounced save so rapid resize/move events don't hammer the DB
   let boundsTimer: ReturnType<typeof setTimeout> | null = null
   function scheduleSaveBounds(): void {
     if (boundsTimer) clearTimeout(boundsTimer)
@@ -63,7 +63,6 @@ function createWindow(): BrowserWindow {
 
   win.on('resize', scheduleSaveBounds)
   win.on('move', scheduleSaveBounds)
-  // Flush immediately on close so the final state is always written
   win.on('close', () => {
     if (boundsTimer) { clearTimeout(boundsTimer); boundsTimer = null }
     if (!win.isDestroyed()) {
@@ -81,7 +80,6 @@ function createWindow(): BrowserWindow {
   })
 
   win.webContents.setWindowOpenHandler(({ url }) => {
-    // Only open http/https URLs externally; block file:// javascript: etc.
     try {
       const parsed = new URL(url)
       if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
@@ -93,16 +91,14 @@ function createWindow(): BrowserWindow {
 
   win.webContents.on('will-navigate', (event, url) => {
     const devUrl = process.env['ELECTRON_RENDERER_URL']
-    const allowed = devUrl
-      ? url.startsWith(devUrl)
-      : url.startsWith('file://')
+    const allowed = devUrl ? url.startsWith(devUrl) : url.startsWith('file://')
     if (!allowed) event.preventDefault()
   })
 
   if (process.env['ELECTRON_RENDERER_URL']) {
-    win.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    void win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    win.loadFile(join(__dirname, '../renderer/index.html'))
+    void win.loadFile(join(__dirname, '../renderer/index.html'))
   }
 
   return win
@@ -163,6 +159,7 @@ app.whenReady().then(async () => {
     registerMigrationHandlers()
     registerImportHandlers()
     registerSpellHandlers()
+    registerWindowHandlers()
 
     ipcMain.handle('documents:folderAccessible', () => isDocumentsFolderAccessible())
 
@@ -172,7 +169,7 @@ app.whenReady().then(async () => {
     return
   }
 
-  const win = createWindow()
+  const win = createMainWindow()
 
   // Run migration after window is created so it can display progress
   checkAndRunMigration().catch((err) => {
@@ -195,7 +192,7 @@ app.whenReady().then(async () => {
   })
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) createMainWindow()
   })
 })
 

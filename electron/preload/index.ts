@@ -60,6 +60,27 @@ contextBridge.exposeInMainWorld('prose', {
     saveImage: (src: string) => ipcRenderer.invoke('export:saveImage', src),
   },
 
+  tabdrag: {
+    start: (docId: string) => ipcRenderer.send('tabdrag:start', docId),
+    end: (data: { docId: string; screenX: number; screenY: number }) =>
+      ipcRenderer.send('tabdrag:end', data),
+    onHover: (cb: (data: { inside: boolean; screenX: number; screenY: number }) => void): (() => void) => {
+      const listener = (_: Electron.IpcRendererEvent, data: { inside: boolean; screenX: number; screenY: number }): void => cb(data)
+      ipcRenderer.on('tabdrag:hover', listener)
+      return () => ipcRenderer.removeListener('tabdrag:hover', listener)
+    },
+    onAccept: (cb: (data: { docId: string; screenX: number; screenY: number }) => void): (() => void) => {
+      const listener = (_: Electron.IpcRendererEvent, data: { docId: string; screenX: number; screenY: number }): void => cb(data)
+      ipcRenderer.on('tabdrag:accept', listener)
+      return () => ipcRenderer.removeListener('tabdrag:accept', listener)
+    },
+    onDetached: (cb: (data: { docId: string }) => void): (() => void) => {
+      const listener = (_: Electron.IpcRendererEvent, data: { docId: string }): void => cb(data)
+      ipcRenderer.on('tabdrag:detached', listener)
+      return () => ipcRenderer.removeListener('tabdrag:detached', listener)
+    },
+  },
+
   citations: {
     getByDocument: (documentId: string) =>
       ipcRenderer.invoke('citations:getByDocument', documentId),

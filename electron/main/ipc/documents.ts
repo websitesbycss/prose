@@ -6,8 +6,6 @@ import {
   resolveDocument,
   getAllDocumentsFromIndex,
   countWordsFromContent,
-  tryAddSnapshot,
-  writeProseFile,
   getFolderStats,
   changeDocumentsFolder,
   getDocumentsFolder,
@@ -104,7 +102,7 @@ export function registerDocumentHandlers(): void {
 
     const resolved = await resolveDocument(id)
     if (!resolved) throw new Error('Document not found')
-    const { doc, filePath } = resolved
+    const { doc } = resolved
 
     const patch: Partial<ProseFileDocument> = {}
 
@@ -132,32 +130,25 @@ export function registerDocumentHandlers(): void {
       patch.pageMargins = isValidMargins(d.pageMargins) ? (d.pageMargins as { top: number; right: number; bottom: number; left: number }) : null
     }
 
+    let snapshotOptions: { force?: boolean; label?: string | null } | undefined
     let newContent: unknown | undefined
     if (typeof d.content === 'string') {
       try { newContent = JSON.parse(d.content) } catch { newContent = doc.content }
       patch.content = newContent
-    }
-
-    const updatedDoc = await updateDocument(id, patch)
-
-    if (newContent !== undefined) {
-      try {
-        const forceSnapshot = d.forceSnapshot === true
-        const snapshotLabel =
+      snapshotOptions = {
+        force: d.forceSnapshot === true,
+        label:
           typeof d.snapshotLabel === 'string' ? d.snapshotLabel :
           d.snapshotLabel === null ? null :
-          undefined
-        const withSnapshot = tryAddSnapshot(updatedDoc, updatedDoc.content, {
-          force: forceSnapshot,
-          label: snapshotLabel,
-        })
-        if (withSnapshot.snapshots.length !== updatedDoc.snapshots.length) {
-          await writeProseFile(filePath, withSnapshot)
-        }
-      } catch (err) {
-        console.error('[snapshots] tryAddSnapshot failed:', err)
+          undefined,
       }
     }
+
+    const updatedDoc = await updateDocument(
+      id,
+      patch,
+      snapshotOptions ? { snapshot: snapshotOptions } : undefined,
+    )
 
     return docToOut(updatedDoc)
   })

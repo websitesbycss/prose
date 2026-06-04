@@ -7,7 +7,7 @@ export function DashboardTabBar(): JSX.Element | null {
   if (openTabs.length === 0) return null
 
   return (
-    <div className="flex h-11 shrink-0 items-center border-b border-border px-3">
+    <div className="flex h-11 shrink-0 items-end overflow-visible border-b border-border px-3">
       <DocumentTabBar />
     </div>
   )

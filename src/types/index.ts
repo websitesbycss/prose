@@ -243,6 +243,13 @@ export interface ProseAPI {
     run(id: string, opts: ExportOptions): Promise<void>
     saveImage(src: string): Promise<void>
   }
+  tabdrag: {
+    start(docId: string): void
+    end(data: { docId: string; screenX: number; screenY: number }): void
+    onHover(cb: (data: { inside: boolean; screenX: number; screenY: number }) => void): () => void
+    onAccept(cb: (data: { docId: string; screenX: number; screenY: number }) => void): () => void
+    onDetached(cb: (data: { docId: string }) => void): () => void
+  }
   citations: {
     getByDocument(documentId: string): Promise<Citation[]>
     create(data: CreateCitationInput): Promise<Citation>

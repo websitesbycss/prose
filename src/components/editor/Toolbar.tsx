@@ -1190,7 +1190,7 @@ function ToolbarInner({
 
   return (
     <div
-      className="flex h-10 shrink-0 items-center gap-0.5 overflow-x-auto border-b border-border bg-muted/20 px-2 text-foreground"
+      className="relative z-[1] flex h-10 shrink-0 items-center gap-0.5 overflow-x-auto border-b border-border bg-muted/20 px-2 text-foreground"
       onMouseDown={(e) => e.preventDefault()}
     >
       {/* Font family */}
@@ -1444,7 +1444,7 @@ function ToolbarInner({
 }
 
 export default function Toolbar({ editor, document, onApplyFormat, headingFontSizes, isZoneEditor = false, defaultFontFamily, defaultFontSize, onOpenMathModal }: ToolbarProps): JSX.Element {
-  if (!editor) return <div className="h-10 shrink-0 border-b border-border" />
+  if (!editor) return <div className="relative z-[1] h-10 shrink-0 border-b border-border" />
   return (
     <ToolbarInner
       editor={editor}

@@ -125,6 +125,18 @@ export default function App(): JSX.Element {
     return unsub
   }, [openDocumentTab])
 
+  // Detached window: URL hash #open=DOC_ID → open that document immediately.
+  useEffect(() => {
+    const hash = window.location.hash.slice(1) // strip leading #
+    if (!hash.startsWith('open=')) return
+    const docId = decodeURIComponent(hash.slice(5))
+    if (!docId) return
+    window.history.replaceState(null, '', window.location.pathname + window.location.search)
+    void window.prose.documents.getById(docId).then((doc) => {
+      if (doc) openDocumentTab({ id: doc.id, title: doc.title, format: doc.format })
+    })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleMigrationComplete = useCallback(() => setMigrationDone(true), [])
 
   // Still checking

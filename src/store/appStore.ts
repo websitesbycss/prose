@@ -53,6 +53,7 @@ interface AppState {
 
   setCurrentDocumentId(id: string | null): void
   openDocumentTab(tab: OpenDocumentTab): void
+  insertDocumentTab(tab: OpenDocumentTab, index: number): void
   closeDocumentTab(id: string): void
   activateDocumentTab(id: string): void
   updateDocumentTab(id: string, updates: Partial<Pick<OpenDocumentTab, 'title' | 'format'>>): void
@@ -133,6 +134,19 @@ export const useAppStore = create<AppState>()((set) => ({
       const openTabs = exists
         ? s.openTabs.map((t) => (t.id === tab.id ? { ...t, ...tab } : t))
         : [...s.openTabs, tab]
+      return {
+        openTabs,
+        activeDocumentId: tab.id,
+        currentDocumentId: tab.id,
+        showDashboard: false,
+      }
+    }),
+
+  insertDocumentTab: (tab, index) =>
+    set((s) => {
+      if (s.openTabs.some((t) => t.id === tab.id)) return {}
+      const openTabs = [...s.openTabs]
+      openTabs.splice(Math.max(0, Math.min(index, openTabs.length)), 0, tab)
       return {
         openTabs,
         activeDocumentId: tab.id,

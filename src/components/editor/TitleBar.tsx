@@ -40,6 +40,7 @@ export default function TitleBar({
   const ollamaStatus = useAppStore((s) => s.ollamaStatus)
   const issueCount = useAppStore((s) => s.issueCount)
   const activeDocumentId = useAppStore((s) => s.activeDocumentId)
+  const showDashboard = useAppStore((s) => s.showDashboard)
   const updateDocumentTab = useAppStore((s) => s.updateDocumentTab)
   const openTabs = useAppStore((s) => s.openTabs)
 
@@ -124,7 +125,7 @@ export default function TitleBar({
   const hasTabs = openTabs.length > 0
 
   return (
-    <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-3 text-foreground">
+    <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border px-3 text-foreground">
       {hasTabs ? (
         <DocumentTabBar
           activeDocumentId={activeDocumentId}

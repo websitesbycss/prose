@@ -110,12 +110,52 @@ export async function readProseFile(filePath: string): Promise<ProseFileDocument
   return JSON.parse(raw) as ProseFileDocument
 }
 
+/** Serializes writes to the same path so concurrent .tmp renames cannot collide. */
+const fileWriteQueues = new Map<string, Promise<void>>()
+
 export async function writeProseFile(filePath: string, doc: ProseFileDocument): Promise<void> {
-  const dir = dirname(filePath)
-  await mkdir(dir, { recursive: true })
-  const tmpPath = `${filePath}.tmp`
-  await writeFile(tmpPath, JSON.stringify(doc), 'utf8')
-  await rename(tmpPath, filePath)
+  const prev = fileWriteQueues.get(filePath) ?? Promise.resolve()
+  const run = async (): Promise<void> => {
+    const dir = dirname(filePath)
+    await mkdir(dir, { recursive: true })
+    const tmpPath = `${filePath}.tmp`
+    await writeFile(tmpPath, JSON.stringify(doc), 'utf8')
+    try {
+      await rename(tmpPath, filePath)
+    } catch (err) {
+      try {
+        await unlink(tmpPath)
+      } catch {
+        /* tmp may already be gone after a concurrent rename */
+      }
+      throw err
+    }
+  }
+  const next = prev.catch(() => {}).then(run)
+  fileWriteQueues.set(filePath, next)
+  try {
+    await next
+  } finally {
+    if (fileWriteQueues.get(filePath) === next) {
+      fileWriteQueues.delete(filePath)
+    }
+  }
+}
+
+/** Serializes read-modify-write updates per document id (body, header, footer, etc.). */
+const documentUpdateLocks = new Map<string, Promise<unknown>>()
+
+async function withDocumentUpdateLock<T>(id: string, fn: () => Promise<T>): Promise<T> {
+  const prev = documentUpdateLocks.get(id) ?? Promise.resolve()
+  const next = prev.catch(() => {}).then(fn)
+  documentUpdateLocks.set(id, next)
+  try {
+    return (await next) as T
+  } finally {
+    if (documentUpdateLocks.get(id) === next) {
+      documentUpdateLocks.delete(id)
+    }
+  }
 }
 
 export async function deleteProseFile(filePath: string): Promise<void> {
@@ -229,38 +269,45 @@ export async function createDocument(data: {
 
 export async function updateDocument(
   id: string,
-  patch: Partial<Omit<ProseFileDocument, 'id' | 'version' | 'createdAt' | 'citations' | 'snapshots'>>
+  patch: Partial<Omit<ProseFileDocument, 'id' | 'version' | 'createdAt' | 'citations' | 'snapshots'>>,
+  options?: { snapshot?: { force?: boolean; label?: string | null } },
 ): Promise<ProseFileDocument> {
-  const resolved = await resolveDocument(id)
-  if (!resolved) throw new Error('Document not found')
+  return withDocumentUpdateLock(id, async () => {
+    const resolved = await resolveDocument(id)
+    if (!resolved) throw new Error('Document not found')
 
-  const { doc, filePath } = resolved
-  const now = new Date().toISOString()
-  const updated: ProseFileDocument = {
-    ...doc,
-    ...patch,
-    id,
-    version: PROSE_FILE_VERSION,
-    createdAt: doc.createdAt,
-    updatedAt: now,
-    citations: doc.citations,
-    snapshots: doc.snapshots,
-  }
+    const { doc, filePath } = resolved
+    const now = new Date().toISOString()
+    let updated: ProseFileDocument = {
+      ...doc,
+      ...patch,
+      id,
+      version: PROSE_FILE_VERSION,
+      createdAt: doc.createdAt,
+      updatedAt: now,
+      citations: doc.citations,
+      snapshots: doc.snapshots,
+    }
 
-  await writeProseFile(filePath, updated)
+    if (options?.snapshot && 'content' in patch) {
+      updated = tryAddSnapshot(updated, updated.content, options.snapshot)
+    }
 
-  upsertIndex({
-    id,
-    title: updated.title,
-    file_path: filePath,
-    format: updated.format,
-    word_count: 'content' in patch ? countWordsFromContent(updated.content) : getIndexRow(id)?.word_count ?? 0,
-    category_id: updated.categoryId,
-    created_at: updated.createdAt,
-    updated_at: now,
+    await writeProseFile(filePath, updated)
+
+    upsertIndex({
+      id,
+      title: updated.title,
+      file_path: filePath,
+      format: updated.format,
+      word_count: 'content' in patch ? countWordsFromContent(updated.content) : getIndexRow(id)?.word_count ?? 0,
+      category_id: updated.categoryId,
+      created_at: updated.createdAt,
+      updated_at: now,
+    })
+
+    return updated
   })
-
-  return updated
 }
 
 export async function deleteDocument(id: string): Promise<void> {
