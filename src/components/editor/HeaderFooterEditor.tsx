@@ -114,7 +114,12 @@ export function HeaderFooterEditor({
         void persistContent(e.getJSON())
       }, AUTO_SAVE_DEBOUNCE_MS)
     },
-    onBlur: () => {
+    onBlur: ({ editor: e }) => {
+      if (saveTimer.current) {
+        clearTimeout(saveTimer.current)
+        saveTimer.current = null
+        void persistContent(e.getJSON())
+      }
       setActive(false)
       onZoneBlur?.()
     },
@@ -135,6 +140,12 @@ export function HeaderFooterEditor({
     editor.commands.setContent(initialContent ?? EMPTY_DOC, false)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documentId, contentKey])
+
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current)
+    }
+  }, [])
 
   // Deactivate when clicking outside this zone
   useEffect(() => {

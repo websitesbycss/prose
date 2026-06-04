@@ -4,19 +4,24 @@ import { useAppStore } from '@/store/appStore'
 import { applyAccentColors, DEFAULT_LIGHT_ACCENT, DEFAULT_DARK_ACCENT } from '@/lib/accentColor'
 import Dashboard from '@/components/dashboard/Dashboard'
 import Editor from '@/components/editor/Editor'
+import { GlobalNewDocumentModal } from '@/components/GlobalNewDocumentModal'
+import { DashboardTabBar } from '@/components/editor/DashboardTabBar'
 import Welcome from '@/components/onboarding/Welcome'
 import SaveLocation from '@/components/onboarding/SaveLocation'
 import OllamaInstall from '@/components/onboarding/OllamaInstall'
 import ModelDownload from '@/components/onboarding/ModelDownload'
 import MigrationOverlay from '@/components/migration/MigrationOverlay'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import type { DownloadStatus, OllamaStatus, MigrationProgress } from '@/types'
 
 type OnboardingStep = 'welcome' | 'save-location' | 'ollama-install' | 'model-download'
 
 export default function App(): JSX.Element {
   const theme = useAppStore((s) => s.theme)
-  const currentDocumentId = useAppStore((s) => s.currentDocumentId)
-  const setCurrentDocumentId = useAppStore((s) => s.setCurrentDocumentId)
+  const openTabs = useAppStore((s) => s.openTabs)
+  const activeDocumentId = useAppStore((s) => s.activeDocumentId)
+  const showDashboard = useAppStore((s) => s.showDashboard)
+  const openDocumentTab = useAppStore((s) => s.openDocumentTab)
   const setOllamaStatus = useAppStore((s) => s.setOllamaStatus)
 
   // null = still checking
@@ -112,13 +117,13 @@ export default function App(): JSX.Element {
     const unsub = window.prose.app.onOpenFile(async (filePath) => {
       try {
         const doc = await window.prose.documents.openByPath(filePath)
-        setCurrentDocumentId(doc.id)
+        openDocumentTab({ id: doc.id, title: doc.title, format: doc.format })
       } catch (err) {
         console.error('Failed to open file:', filePath, err)
       }
     })
     return unsub
-  }, [setCurrentDocumentId])
+  }, [openDocumentTab])
 
   const handleMigrationComplete = useCallback(() => setMigrationDone(true), [])
 
@@ -193,15 +198,28 @@ export default function App(): JSX.Element {
     )
   }
 
+  const inEditor =
+    !showDashboard && activeDocumentId !== null && openTabs.some((t) => t.id === activeDocumentId)
+
   return (
     <>
       {showMigration && <MigrationOverlay onComplete={handleMigrationComplete} />}
-      {currentDocumentId ? (
-        <Editor documentId={currentDocumentId} />
+      {inEditor ? (
+        <ErrorBoundary label="Editor">
+          <Editor documentId={activeDocumentId!} />
+        </ErrorBoundary>
       ) : (
-        <Dashboard />
+        <ErrorBoundary label="Dashboard">
+          <div className="flex h-screen flex-col bg-background">
+            <DashboardTabBar />
+            <div className="min-h-0 flex-1">
+              <Dashboard embedded={openTabs.length > 0} />
+            </div>
+          </div>
+        </ErrorBoundary>
       )}
       <Toaster theme={theme} richColors position="bottom-right" offset={32} />
+      <GlobalNewDocumentModal />
     </>
   )
 }

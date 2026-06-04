@@ -229,10 +229,11 @@ interface HistoryPanelProps {
   documentId: string
   editor: Editor | null
   format?: string
-  onRestore?: (headerContent: string | null, footerContent: string | null) => void
+  pollSnapshots?: boolean
+  onRestore?: (headerContent: string | null, footerContent: string | null, content: string) => void
 }
 
-export function HistoryPanel({ documentId, editor, format = 'none', onRestore }: HistoryPanelProps): JSX.Element {
+export function HistoryPanel({ documentId, editor, format = 'none', pollSnapshots = true, onRestore }: HistoryPanelProps): JSX.Element {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -311,9 +312,10 @@ export function HistoryPanel({ documentId, editor, format = 'none', onRestore }:
   const loadRef = useRef(load)
   loadRef.current = load
   useEffect(() => {
+    if (!pollSnapshots) return
     const id = setInterval(() => { void loadRef.current(true) }, 20_000)
     return () => clearInterval(id)
-  }, [])
+  }, [pollSnapshots])
 
   // After the user edits post-restore, resume tracking the newest snapshot as current
   useEffect(() => {
@@ -334,24 +336,26 @@ export function HistoryPanel({ documentId, editor, format = 'none', onRestore }:
   function handleRestore(): void {
     if (!selected) return
 
-    pinnedCurrentIdRef.current = selected.id
-    setCurrentSnapshotId(selected.id)
+    const snapshot = selected
     setConfirmRestore(false)
     setPreviewOpen(false)
 
-    if (editor) {
-      skipPinClearRef.current = true
-      try {
-        editor.commands.setContent(JSON.parse(selected.content) as object, false)
-      } catch {
-        editor.commands.setContent('')
-      }
-      skipPinClearRef.current = false
-    }
-    onRestore?.(selected.headerContent ?? null, selected.footerContent ?? null)
-
-    void window.prose.snapshots.restore(selected.id)
-      .then(() => { toast.success('Version restored') })
+    void window.prose.snapshots.restore(snapshot.id)
+      .then(() => {
+        pinnedCurrentIdRef.current = snapshot.id
+        setCurrentSnapshotId(snapshot.id)
+        if (editor) {
+          skipPinClearRef.current = true
+          try {
+            editor.commands.setContent(JSON.parse(snapshot.content) as object, false)
+          } catch {
+            editor.commands.setContent('')
+          }
+          skipPinClearRef.current = false
+        }
+        onRestore?.(snapshot.headerContent ?? null, snapshot.footerContent ?? null, snapshot.content)
+        toast.success('Version restored')
+      })
       .catch(() => {
         pinnedCurrentIdRef.current = null
         void load(true)
@@ -563,6 +567,7 @@ export function HistoryPanel({ documentId, editor, format = 'none', onRestore }:
             <div style={{ zoom: previewScale, width: PAGE_WIDTH_PX }}>
               {selected && (
                 <SnapshotPreviewEditor
+                  key={selected.id}
                   content={selected.content}
                   format={format}
                   fontFamily={previewFontFamily}

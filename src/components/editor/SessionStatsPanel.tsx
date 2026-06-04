@@ -15,7 +15,7 @@ interface Props {
 }
 
 export function SessionStatsPanel({ stats }: Props): JSX.Element {
-  const { wordsToday, sessionMinutes, avgWPM, streak, writingDays, goal, setGoal, resetSession } =
+  const { wordsToday, sessionMinutes, avgWPM, streak, goal, setGoal, resetSession } =
     stats
 
   const [editingGoal, setEditingGoal] = useState(false)
@@ -41,14 +41,6 @@ export function SessionStatsPanel({ stats }: Props): JSX.Element {
 
   const progress = goal && goal > 0 ? Math.min(wordsToday / goal, 1) : 0
   const dashOffset = CIRC * (1 - progress)
-
-  // Last 7 days for streak dots — oldest on left, today on right
-  const todayKey = new Date().toISOString().slice(0, 10)
-  const last7 = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date()
-    d.setDate(d.getDate() - (6 - i))
-    return d.toISOString().slice(0, 10)
-  })
 
   const streakMsg =
     streak === 0
@@ -183,23 +175,11 @@ export function SessionStatsPanel({ stats }: Props): JSX.Element {
               <div className="text-[10px] text-muted-foreground">{streakMsg}</div>
             </div>
           </div>
-          {/* 7-day dot row — filled when user wrote on that day */}
+          {/* Streak progress — fills left-to-right; 7th dot stays partial at 7+ days */}
           <div className="flex shrink-0 items-center gap-[3px] pt-0.5">
-            {last7.map((date) => {
-              const wrote = writingDays.includes(date)
-              const isToday = date === todayKey
-              return (
-                <div
-                  key={date}
-                  title={date}
-                  className={cn(
-                    'h-2 w-2 rounded-full transition-colors',
-                    wrote ? 'bg-primary' : 'bg-muted-foreground/25',
-                    isToday && wrote && streak >= 7 && 'animate-pulse',
-                  )}
-                />
-              )
-            })}
+            {streakBubbleStates(streak).map((state, i) => (
+              <StreakBubble key={i} state={state} pulse={state === 'partial'} />
+            ))}
           </div>
         </div>
       </div>
@@ -228,4 +208,42 @@ function StatCard({ value, label }: { value: string; label: string }): JSX.Eleme
       <div className="text-[10px] text-muted-foreground">{label}</div>
     </div>
   )
+}
+
+type StreakBubbleState = 'empty' | 'full' | 'partial'
+
+/** Map consecutive streak count to 7 bubble states (oldest step on the left). */
+function streakBubbleStates(streak: number): StreakBubbleState[] {
+  return Array.from({ length: 7 }, (_, i) => {
+    if (streak <= 0) return 'empty'
+    if (streak >= 7) {
+      if (i < 6) return 'full'
+      return 'partial'
+    }
+    return i < streak ? 'full' : 'empty'
+  })
+}
+
+function StreakBubble({ state, pulse }: { state: StreakBubbleState; pulse?: boolean }): JSX.Element {
+  if (state === 'full') {
+    return (
+      <div
+        className={cn('h-2 w-2 rounded-full bg-primary transition-colors', pulse && 'animate-pulse')}
+      />
+    )
+  }
+  if (state === 'partial') {
+    return (
+      <div
+        className={cn(
+          'relative h-2 w-2 overflow-hidden rounded-full bg-muted-foreground/25',
+          pulse && 'animate-pulse',
+        )}
+        title="Streak continues…"
+      >
+        <div className="absolute inset-y-0 left-0 w-[55%] rounded-full bg-primary" />
+      </div>
+    )
+  }
+  return <div className="h-2 w-2 rounded-full bg-muted-foreground/25" />
 }

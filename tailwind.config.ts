@@ -46,6 +46,7 @@ export default {
         },
         'editor-canvas': 'hsl(var(--editor-canvas))',
         'editor-page': 'hsl(var(--editor-page))',
+        'editor-zone-divider': 'hsl(var(--editor-zone-divider))',
         'preview-surround': 'hsl(var(--preview-surround))',
       },
       borderRadius: {

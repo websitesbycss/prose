@@ -60,6 +60,7 @@ export function EditorContextMenu({ editor, documentId, onEditMath }: EditorCont
   const menuRef = useRef<HTMLDivElement>(null)
   const setAiPanelOpen = useAppStore((s) => s.setAiPanelOpen)
   const setPendingAiPrompt = useAppStore((s) => s.setPendingAiPrompt)
+  const setPendingAiAttachment = useAppStore((s) => s.setPendingAiAttachment)
   const setActiveAiTab = useAppStore((s) => s.setActiveAiTab)
 
   // Spell suggestions for the word under the cursor when right-clicking
@@ -367,7 +368,15 @@ export function EditorContextMenu({ editor, documentId, onEditMath }: EditorCont
           label: 'AI: Improve this selection',
           icon: Sparkles,
           onClick: () => {
-            setPendingAiPrompt(`Improve this selection: "${ctx.selectedText}"`)
+            const { from, to } = editor.state.selection
+            setPendingAiAttachment({
+              id: crypto.randomUUID(),
+              text: ctx.selectedText,
+              from,
+              to,
+            })
+            setPendingAiPrompt('Improve this selection')
+            setActiveAiTab('chat')
             setAiPanelOpen(true)
             dismiss()
           },

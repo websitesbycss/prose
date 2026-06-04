@@ -41,7 +41,43 @@ const DEFAULTS: AppSettingsOut = {
 
 const VALID_FORMATS = new Set(['none', 'mla', 'apa', 'chicago', 'ieee'])
 const VALID_THEMES = new Set(['dark', 'light'])
+const VALID_FONTS = new Set(['Calibri', 'Arial', 'Times New Roman', 'Georgia', 'Garamond', 'Courier New'])
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/
 const APP_SETTING_KEYS = new Set(Object.keys(DEFAULTS))
+
+function validateSettingValue(key: string, value: unknown): unknown {
+  switch (key) {
+    case 'theme':
+      return typeof value === 'string' && VALID_THEMES.has(value) ? value : DEFAULTS.theme
+    case 'defaultFormat':
+      return typeof value === 'string' && VALID_FORMATS.has(value) ? value : DEFAULTS.defaultFormat
+    case 'ollamaModel':
+      return typeof value === 'string' && value.length <= 128 && /^[\w.:+-]+$/.test(value)
+        ? value
+        : DEFAULTS.ollamaModel
+    case 'editorFontFamily':
+      return typeof value === 'string' && VALID_FONTS.has(value) ? value : DEFAULTS.editorFontFamily
+    case 'lightAccentColor':
+      return value === null || (typeof value === 'string' && HEX_COLOR.test(value))
+        ? value as string | null
+        : DEFAULTS.lightAccentColor
+    case 'darkAccentColor':
+      return value === null || (typeof value === 'string' && HEX_COLOR.test(value))
+        ? value as string | null
+        : DEFAULTS.darkAccentColor
+    case 'musicVolume':
+      return typeof value === 'number' ? Math.min(100, Math.max(0, value)) : DEFAULTS.musicVolume
+    case 'uiScale':
+      return typeof value === 'number' ? Math.min(125, Math.max(75, value)) : DEFAULTS.uiScale
+    case 'editorFontSize':
+      return typeof value === 'number' ? Math.max(8, Math.min(72, value)) : DEFAULTS.editorFontSize
+    case 'pomodoroWorkMinutes':
+    case 'pomodoroBreakMinutes':
+      return typeof value === 'number' ? Math.max(1, Math.min(120, value)) : DEFAULTS[key as keyof AppSettingsOut]
+    default:
+      return value
+  }
+}
 
 function loadSettings(): AppSettingsOut {
   const db = getSettingsDb()
@@ -90,7 +126,7 @@ export function registerSettingsHandlers(): void {
     const d = data as Record<string, unknown>
     for (const [key, value] of Object.entries(d)) {
       if (!APP_SETTING_KEYS.has(key)) continue
-      upsert.run(key, JSON.stringify(value))
+      upsert.run(key, JSON.stringify(validateSettingValue(key, value)))
     }
   })
 }

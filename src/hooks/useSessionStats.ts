@@ -16,8 +16,15 @@ export interface SessionStats {
   resetSession: () => void
 }
 
+function dateKey(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10)
+  return dateKey(new Date())
 }
 
 function loadGoal(): number | null {
@@ -51,9 +58,10 @@ function calculateStreak(writingDays: string[]): number {
   const daySet = new Set(writingDays)
   const today = todayStr()
   const cursor = new Date()
+  // If the user hasn't written today, the streak ends yesterday.
   if (!daySet.has(today)) cursor.setDate(cursor.getDate() - 1)
   let streak = 0
-  while (daySet.has(cursor.toISOString().slice(0, 10))) {
+  while (daySet.has(dateKey(cursor))) {
     streak++
     cursor.setDate(cursor.getDate() - 1)
   }

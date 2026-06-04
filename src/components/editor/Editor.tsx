@@ -31,6 +31,7 @@ import { Indent } from '@/extensions/indent'
 import { PageNumberNode } from '@/extensions/pageNumber'
 import { PageBreakNode } from '@/extensions/pageBreak'
 import { IssueHighlight } from '@/extensions/issueHighlight'
+import { AiSelectionHighlight } from '@/extensions/aiSelectionHighlight'
 import { LineHeight } from '@/extensions/lineHeight'
 import { ExitMarkOnArrowRight } from '@/extensions/exitMarkOnArrowRight'
 import { ParagraphRole } from '@/extensions/paragraphRole'
@@ -73,6 +74,7 @@ import SettingsModal from '@/components/settings/SettingsModal'
 import type { AppSettings, Document, PageMargins } from '@/types'
 import { List, Timer, BarChart2, History, ChevronLeft, ChevronRight, Settings } from 'lucide-react'
 import { AI_PANEL_WIDTH, DEFAULT_PAGE_MARGINS } from '@/constants'
+import { getDocumentScroll, setDocumentScroll } from '@/lib/documentTabCache'
 
 type SidebarPanel = 'outline' | 'pomodoro' | 'stats' | 'history'
 
@@ -81,7 +83,6 @@ interface EditorProps {
 }
 
 export default function Editor({ documentId }: EditorProps): JSX.Element {
-  const setCurrentDocumentId = useAppStore((s) => s.setCurrentDocumentId)
   const sidebarOpen = useAppStore((s) => s.sidebarOpen)
   const setSidebarOpen = useAppStore((s) => s.setSidebarOpen)
   const aiPanelOpen = useAppStore((s) => s.aiPanelOpen)
@@ -93,8 +94,10 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   const setFocusModeActive = useAppStore((s) => s.setFocusModeActive)
   const settingsOpen = useAppStore((s) => s.settingsOpen)
   const setSettingsOpen = useAppStore((s) => s.setSettingsOpen)
+  const setSaveActiveDocument = useAppStore((s) => s.setSaveActiveDocument)
 
   const editorScrollRef = useRef<HTMLDivElement>(null)
+  const loadedContentKeyRef = useRef<string | null>(null)
   const typewriterMode = useAppStore((s) => s.typewriterMode)
   const setTypewriterMode = useAppStore((s) => s.setTypewriterMode)
   const [aiPanelWidth, setAiPanelWidth] = useState(() => {
@@ -133,7 +136,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
     }, 200)
   }
 
-  const { document: doc, saveStatus, saveNow, onEditorUpdate, updateTitle, patchDocument, notifySaveStatus } =
+  const { document: doc, saveStatus, saveNow, flushSave, onEditorUpdate, updateTitle, patchDocument, notifySaveStatus } =
     useDocument(documentId)
 
   const [settings, setSettings] = useState<Pick<AppSettings, 'wordCountExcludesHeader'>>({
@@ -196,6 +199,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
       PageNumberNode,
       PageBreakNode,
       IssueHighlight,
+      AiSelectionHighlight,
       LineHeight,
       ExitMarkOnArrowRight,
       ParagraphRole,
@@ -241,9 +245,19 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
 
   useEffect(() => {
     if (!editor || !doc) return
-    // Clear analysis state from the previous document
+
+    const contentKey = `${doc.id}:${doc.updatedAt ?? ''}:${doc.content?.length ?? 0}`
+    if (loadedContentKeyRef.current === contentKey) return
+
+    const previousKey = loadedContentKeyRef.current
+    if (previousKey && editorScrollRef.current) {
+      const previousId = previousKey.split(':')[0]
+      if (previousId) setDocumentScroll(previousId, editorScrollRef.current.scrollTop)
+    }
+
     analysis.clearIssues()
     editor.commands.clearAnalysisIssues()
+    editor.commands.clearAiSelectionHighlight()
     useAppStore.getState().setAssignmentContext('')
     setPageMargins(doc.pageMargins ?? DEFAULT_PAGE_MARGINS)
     try {
@@ -252,13 +266,24 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
     } catch {
       editor.commands.setContent('')
     }
-    // Load per-document custom word list and seed the spellcheck extension
+
+    loadedContentKeyRef.current = contentKey
+    setHeaderContentKey(crypto.randomUUID())
+    setFooterContentKey(crypto.randomUUID())
+
+    const savedScroll = getDocumentScroll(doc.id)
+    requestAnimationFrame(() => {
+      if (editorScrollRef.current && savedScroll !== undefined) {
+        editorScrollRef.current.scrollTop = savedScroll
+      }
+    })
+
     void window.prose.spell.getWords(documentId).then((words) => {
       if (!editor.isDestroyed) {
         editor.view.dispatch(editor.state.tr.setMeta(spellKey, { setIgnored: words }))
       }
     })
-  }, [doc?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [doc?.id, doc?.updatedAt, doc?.content]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Show/hide issue decorations based on panel visibility and analysis results
   useEffect(() => {
@@ -267,6 +292,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
       editor.commands.setAnalysisIssues(analysis.issues)
     } else {
       editor.commands.clearAnalysisIssues()
+      editor.commands.clearAiSelectionHighlight()
     }
   }, [editor, analysis.issues, aiPanelOpen])
 
@@ -455,11 +481,19 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   const initialApa =
     format === 'apa' && currentJson ? extractApaFields(currentJson) : undefined
 
-  const handleBack = useCallback((): void => setCurrentDocumentId(null), [setCurrentDocumentId])
   const handleSaveNow = useCallback(
     async (): Promise<void> => { if (editor) await saveNow(editor) },
     [editor, saveNow]
   )
+
+  useEffect(() => {
+    setSaveActiveDocument(async () => {
+      if (editor && !editor.isDestroyed) {
+        await flushSave(editor)
+      }
+    })
+    return () => setSaveActiveDocument(null)
+  }, [editor, flushSave, setSaveActiveDocument])
 
   const openMathModal = useCallback((opts?: { editPos: number; latex: string; displayMode: boolean }): void => {
     if (opts) {
@@ -542,20 +576,11 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
         {/* Chrome — hidden in focus mode */}
         <AnimatePresence>
           {!focusModeActive && (
-            <motion.div
-              key="chrome-top"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
-              className="shrink-0"
-            >
+            <div className="shrink-0">
               <TitleBar
                 document={doc}
                 editor={editor}
                 saveStatus={saveStatus}
-                onBack={handleBack}
-                onSaveNow={handleSaveNow}
                 onTitleChange={updateTitle}
                 findOpen={findOpen}
                 onFindOpenChange={setFindOpen}
@@ -572,7 +597,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                 defaultFontSize={editorFontSize}
                 onOpenMathModal={() => openMathModal()}
               />
-            </motion.div>
+            </div>
           )}
         </AnimatePresence>
 
@@ -649,8 +674,9 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                           documentId={documentId}
                           editor={editor}
                           format={format}
-                          onRestore={(hc, fc) => {
-                            patchDocument({ headerContent: hc, footerContent: fc })
+                          pollSnapshots={activePanel === 'history'}
+                          onRestore={(hc, fc, content) => {
+                            patchDocument({ headerContent: hc, footerContent: fc, content })
                             setHeaderContentKey(crypto.randomUUID())
                             setFooterContentKey(crypto.randomUUID())
                           }}
@@ -723,7 +749,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                     onSaveStatusChange={notifySaveStatus}
                   />
                 )}
-                <div className="border-b border-border" />
+                <div className="border-b border-editor-zone-divider" />
 
                 {/* Body content — padding inherits --page-margin-* */}
                 <div
@@ -751,7 +777,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                 </div>
 
                 {/* Footer zone — only rendered once document is loaded to prevent blank init on HMR */}
-                <div className="border-t border-border" />
+                <div className="border-t border-editor-zone-divider" />
                 {doc && (
                   <HeaderFooterEditor
                     zone="footer"

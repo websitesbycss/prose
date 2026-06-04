@@ -9,10 +9,10 @@ import { Separator } from '@/components/ui/separator'
 import { useAppStore } from '@/store/appStore'
 import { useAi } from '@/hooks/useAi'
 import { cn } from '@/lib/utils'
-import type { Issue } from '@/types'
+import type { Issue, AiSelectionAttachment } from '@/types'
 import type { AnalysisState, AnalysisControls } from '@/hooks/useAnalysis'
 import {
-  Send, Loader2, Sparkles, WandSparkles, MessageSquare, ScanText, X,
+  Send, Loader2, Sparkles, WandSparkles, MessageSquare, ScanText, X, TextSelect,
 } from 'lucide-react'
 
 // ── Markdown renderer for assistant messages ─────────────────────────────────
@@ -129,6 +129,62 @@ const CHIPS = [
   'Determine reading level',
 ] as const
 
+function attachmentPreview(text: string, maxLen = 24): string {
+  const normalized = text.replace(/\s+/g, ' ').trim()
+  if (normalized.length <= maxLen) return normalized
+  return `${normalized.slice(0, maxLen).trimEnd()}…`
+}
+
+function ChatSelectionAttachmentChip({
+  attachment,
+  active,
+  onActivate,
+  onDismiss,
+}: {
+  attachment: AiSelectionAttachment
+  active: boolean
+  onActivate(): void
+  onDismiss(): void
+}): JSX.Element {
+  const preview = attachmentPreview(attachment.text)
+
+  return (
+    <div
+      className={cn(
+        'group relative flex max-w-full items-center gap-1.5 rounded-md border px-2 py-1 text-left transition-colors',
+        active
+          ? 'border-primary/40 bg-primary/5'
+          : 'border-border bg-muted/30 hover:border-primary/30 hover:bg-muted/50',
+      )}
+    >
+      <button
+        type="button"
+        className="flex min-w-0 flex-1 items-center gap-1.5"
+        title={attachment.text}
+        onClick={onActivate}
+      >
+        <TextSelect className="h-3 w-3 shrink-0 text-muted-foreground" />
+        <span className="truncate text-[11px] text-foreground">{preview}</span>
+      </button>
+      <button
+        type="button"
+        className={cn(
+          'shrink-0 rounded p-0.5 text-muted-foreground transition-opacity hover:bg-background hover:text-foreground',
+          'opacity-0 group-hover:opacity-100',
+          active && 'opacity-100',
+        )}
+        aria-label="Remove selection attachment"
+        onClick={(e) => {
+          e.stopPropagation()
+          onDismiss()
+        }}
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </div>
+  )
+}
+
 // ── Issue colors ──────────────────────────────────────────────────────────────
 
 const ISSUE_COLORS: Record<Issue['type'], string> = {
@@ -193,16 +249,51 @@ function ChatTab({
   const ollamaStatus = useAppStore((s) => s.ollamaStatus)
   const pendingAiPrompt = useAppStore((s) => s.pendingAiPrompt)
   const setPendingAiPrompt = useAppStore((s) => s.setPendingAiPrompt)
+  const pendingAiAttachment = useAppStore((s) => s.pendingAiAttachment)
+  const setPendingAiAttachment = useAppStore((s) => s.setPendingAiAttachment)
   const { messages, streaming, reloading, error, sendMessage, clearMessages } = useAi()
 
   const [contextOpen, setContextOpen] = useState(false)
   const [input, setInput] = useState('')
+  const [attachment, setAttachment] = useState<AiSelectionAttachment | null>(null)
+  const [attachmentActive, setAttachmentActive] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  const clearAttachmentHighlight = useCallback((): void => {
+    setAttachmentActive(false)
+    editor?.commands.clearAiSelectionHighlight()
+  }, [editor])
+
+  const dismissAttachment = useCallback((): void => {
+    setAttachment(null)
+    clearAttachmentHighlight()
+  }, [clearAttachmentHighlight])
+
+  const activateAttachment = useCallback((): void => {
+    if (!editor || !attachment) return
+    setAttachmentActive(true)
+    editor
+      .chain()
+      .focus()
+      .setTextSelection({ from: attachment.from, to: attachment.to })
+      .scrollIntoView()
+      .setAiSelectionHighlight(attachment.from, attachment.to)
+      .run()
+  }, [editor, attachment])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  useEffect(() => {
+    if (pendingAiAttachment !== null) {
+      setAttachment(pendingAiAttachment)
+      setAttachmentActive(false)
+      editor?.commands.clearAiSelectionHighlight()
+      setPendingAiAttachment(null)
+    }
+  }, [pendingAiAttachment, setPendingAiAttachment, editor])
 
   useEffect(() => {
     if (pendingAiPrompt !== null) {
@@ -231,24 +322,26 @@ function ChatTab({
   async function send(text: string): Promise<void> {
     const t = text.trim()
     if (!t || busy || unavailable) return
+    const selectionContent = attachment?.text
     setInput('')
+    dismissAttachment()
     if (inputRef.current) {
       inputRef.current.style.height = ''
       inputRef.current.style.overflowY = 'hidden'
     }
-    await sendMessage(t, docText, assignmentContext || undefined)
+    await sendMessage(t, docText, assignmentContext || undefined, selectionContent)
   }
 
   return (
     <div className="flex h-full flex-col">
-      {/* Assignment context */}
+      {/* Document context */}
       <div className="shrink-0 px-3 pt-2 pb-1">
         <button
           className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
           onClick={() => setContextOpen((o) => !o)}
         >
           <span className={cn('transition-transform', contextOpen && 'rotate-90')}>›</span>
-          Assignment context
+          Document context
         </button>
         <AnimatePresence>
           {contextOpen && (
@@ -265,7 +358,7 @@ function ChatTab({
                   'text-xs placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring',
                   'min-h-[60px]'
                 )}
-                placeholder="Paste your assignment prompt…"
+                placeholder="What's this document about? Topic, audience, goals…"
                 value={assignmentContext}
                 onChange={(e) => setAssignmentContext(e.target.value)}
               />
@@ -365,42 +458,54 @@ function ChatTab({
 
       {/* Input */}
       <div className="shrink-0 p-2">
-        <div className="flex gap-1.5 rounded-lg border border-input bg-background px-2 py-1.5 focus-within:ring-1 focus-within:ring-ring">
-          <textarea
-            ref={inputRef}
-            rows={1}
-            className="flex-1 resize-none bg-transparent text-xs outline-none placeholder:text-muted-foreground/50"
-            style={{ lineHeight: '1.4', overflowY: 'hidden' }}
-            placeholder={unavailable ? 'AI unavailable' : 'Ask anything…'}
-            value={input}
-            disabled={unavailable || busy}
-            onChange={(e) => {
-              setInput(e.target.value)
-              const el = e.target
-              el.style.height = '0'
-              const full = el.scrollHeight
-              const max = 128 // 8rem at 16px
-              el.style.height = `${Math.min(full, max)}px`
-              el.style.overflowY = full > max ? 'auto' : 'hidden'
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                void send(input)
-              }
-            }}
-          />
-          <button
-            disabled={!input.trim() || unavailable || busy}
-            className="shrink-0 text-muted-foreground transition-colors hover:text-primary disabled:opacity-30"
-            onClick={() => void send(input)}
-          >
-            {streaming ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Send className="h-3.5 w-3.5" />
-            )}
-          </button>
+        <div className="rounded-lg border border-input bg-background focus-within:ring-1 focus-within:ring-ring">
+          {attachment && (
+            <div className="border-b border-border px-2 py-1.5">
+              <ChatSelectionAttachmentChip
+                attachment={attachment}
+                active={attachmentActive}
+                onActivate={activateAttachment}
+                onDismiss={dismissAttachment}
+              />
+            </div>
+          )}
+          <div className="flex gap-1.5 px-2 py-1.5">
+            <textarea
+              ref={inputRef}
+              rows={1}
+              className="flex-1 resize-none bg-transparent text-xs outline-none placeholder:text-muted-foreground/50"
+              style={{ lineHeight: '1.4', overflowY: 'hidden' }}
+              placeholder={unavailable ? 'AI unavailable' : 'Ask anything…'}
+              value={input}
+              disabled={unavailable || busy}
+              onChange={(e) => {
+                setInput(e.target.value)
+                const el = e.target
+                el.style.height = '0'
+                const full = el.scrollHeight
+                const max = 128 // 8rem at 16px
+                el.style.height = `${Math.min(full, max)}px`
+                el.style.overflowY = full > max ? 'auto' : 'hidden'
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  void send(input)
+                }
+              }}
+            />
+            <button
+              disabled={!input.trim() || unavailable || busy}
+              className="shrink-0 text-muted-foreground transition-colors hover:text-primary disabled:opacity-30"
+              onClick={() => void send(input)}
+            >
+              {streaming ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Send className="h-3.5 w-3.5" />
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -461,14 +566,14 @@ function AnalysisTab({
     <div className="flex h-full flex-col">
       {/* Controls */}
       <div className="shrink-0 px-3 pt-2 pb-3 space-y-2">
-        {/* Assignment context */}
+        {/* Document context */}
         <div>
           <button
             className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
             onClick={() => setContextOpen((o) => !o)}
           >
             <span className={cn('transition-transform', contextOpen && 'rotate-90')}>›</span>
-            Assignment context
+            Document context
           </button>
           <AnimatePresence>
             {contextOpen && (
@@ -485,7 +590,7 @@ function AnalysisTab({
                     'text-xs placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring',
                     'min-h-[60px]'
                   )}
-                  placeholder="Paste your assignment prompt…"
+                  placeholder="What's this document about? Topic, audience, goals…"
                   value={assignmentContext}
                   onChange={(e) => setAssignmentContext(e.target.value)}
                 />

@@ -3,13 +3,15 @@ import { toast } from 'sonner'
 import type { Editor } from '@tiptap/react'
 import type { Document } from '@/types'
 import { AUTO_SAVE_DEBOUNCE_MS } from '@/constants'
+import { getCachedDocument, setCachedDocument } from '@/lib/documentTabCache'
 
-export type SaveStatus = 'idle' | 'saving' | 'saved'
+export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 interface UseDocumentReturn {
   document: Document | null
   saveStatus: SaveStatus
   saveNow: (editor: Editor) => Promise<void>
+  flushSave: (editor: Editor) => Promise<void>
   onEditorUpdate: (editor: Editor) => void
   updateTitle: (title: string) => Promise<void>
   patchDocument: (updates: Partial<Document>) => void
@@ -17,15 +19,31 @@ interface UseDocumentReturn {
 }
 
 export function useDocument(id: string): UseDocumentReturn {
-  const [document, setDocument] = useState<Document | null>(null)
+  const [trackedId, setTrackedId] = useState(id)
+  const [document, setDocument] = useState<Document | null>(() => getCachedDocument(id) ?? null)
+
+  if (trackedId !== id) {
+    setTrackedId(id)
+    setDocument(getCachedDocument(id) ?? null)
+  }
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const fetchGen = useRef(0)
 
   useEffect(() => {
-    setDocument(null)
+    const gen = ++fetchGen.current
+    const cached = getCachedDocument(id)
+    if (cached) {
+      setDocument(cached)
+    }
+
     void window.prose.documents.getById(id).then((doc) => {
-      setDocument(doc as Document | null)
+      if (fetchGen.current === gen) {
+        const loaded = doc as Document
+        setCachedDocument(loaded)
+        setDocument(loaded)
+      }
     })
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current)
@@ -37,10 +55,11 @@ export function useDocument(id: string): UseDocumentReturn {
     async (content: string, options?: { forceSnapshot?: boolean; snapshotLabel?: string | null }): Promise<void> => {
       setSaveStatus('saving')
       try {
-        await window.prose.documents.update(id, {
+        const updated = await window.prose.documents.update(id, {
           content,
           ...(options?.forceSnapshot ? { forceSnapshot: true, snapshotLabel: options.snapshotLabel ?? 'manual' } : {}),
         })
+        setCachedDocument(updated as Document)
         setSaveStatus('saved')
         if (savedTimer.current) clearTimeout(savedTimer.current)
         savedTimer.current = setTimeout(() => setSaveStatus('idle'), 2000)
@@ -49,7 +68,10 @@ export function useDocument(id: string): UseDocumentReturn {
         }
       } catch (err) {
         console.error('Auto-save error:', err)
-        setSaveStatus('idle')
+        setSaveStatus('error')
+        toast.error('Failed to save — your changes may not be on disk')
+        if (savedTimer.current) clearTimeout(savedTimer.current)
+        savedTimer.current = setTimeout(() => setSaveStatus('idle'), 4000)
       }
     },
     [id]
@@ -59,6 +81,14 @@ export function useDocument(id: string): UseDocumentReturn {
     async (editor: Editor): Promise<void> => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current)
       await persistContent(JSON.stringify(editor.getJSON()), { forceSnapshot: true, snapshotLabel: 'manual' })
+    },
+    [persistContent]
+  )
+
+  const flushSave = useCallback(
+    async (editor: Editor): Promise<void> => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current)
+      await persistContent(JSON.stringify(editor.getJSON()))
     },
     [persistContent]
   )
@@ -78,6 +108,7 @@ export function useDocument(id: string): UseDocumentReturn {
       if (!title.trim()) return
       try {
         const updated = await window.prose.documents.update(id, { title: title.trim() })
+        setCachedDocument(updated as Document)
         setDocument(updated as Document)
       } catch (err) {
         if ((err as Error).message?.includes('DUPLICATE_TITLE')) {
@@ -91,7 +122,12 @@ export function useDocument(id: string): UseDocumentReturn {
   )
 
   const patchDocument = useCallback((updates: Partial<Document>): void => {
-    setDocument((prev) => (prev ? { ...prev, ...updates } : null))
+    setDocument((prev) => {
+      if (!prev) return null
+      const next = { ...prev, ...updates }
+      setCachedDocument(next)
+      return next
+    })
   }, [])
 
   const notifySaveStatus = useCallback((status: SaveStatus): void => {
@@ -102,5 +138,5 @@ export function useDocument(id: string): UseDocumentReturn {
     }
   }, [])
 
-  return { document, saveStatus, saveNow, onEditorUpdate, updateTitle, patchDocument, notifySaveStatus }
+  return { document, saveStatus, saveNow, flushSave, onEditorUpdate, updateTitle, patchDocument, notifySaveStatus }
 }

@@ -74,7 +74,10 @@ export const SpellcheckExtension = Extension.create({
       },
 
       view(editorView) {
+        let checkGeneration = 0
+
         async function runCheck(): Promise<void> {
+          const gen = ++checkGeneration
           const wordMap = collectWords(editorView.state.doc)
           const toCheck = [...wordMap.keys()].filter(w => !ignored.has(w.toLowerCase()))
 
@@ -93,7 +96,7 @@ export const SpellcheckExtension = Extension.create({
           } catch {
             return
           }
-          if (editorView.isDestroyed) return
+          if (editorView.isDestroyed || gen !== checkGeneration) return
 
           const decos: Decoration[] = []
           for (const [word, positions] of wordMap) {

@@ -1,7 +1,6 @@
 import { app, BrowserWindow, shell, ipcMain } from 'electron'
-import { isAbsolute } from 'path'
-import { autoUpdater } from 'electron-updater'
-import { join } from 'path'
+import { existsSync } from 'fs'
+import { isAbsolute, join } from 'path'
 import { initSettingsDb, closeSettingsDb, getSettingJson, setSetting } from './services/settingsDb'
 import { initIndexDb, closeIndexDb } from './services/indexDb'
 import { ensureDocumentsFolderExists, isDocumentsFolderAccessible, rebuildIndexFromFolder, renameUuidSuffixedFiles } from './services/fileService'
@@ -19,6 +18,9 @@ import { registerMigrationHandlers, checkAndRunMigration } from './ipc/migration
 import { registerImportHandlers } from './ipc/import'
 import { registerSpellHandlers } from './ipc/spell'
 import { registerFileAssociation } from './services/fileAssociation'
+import { autoUpdater } from 'electron-updater'
+
+const APP_ICON = join(__dirname, '../../resources/icons/prose.ico')
 
 // Pending file open from OS (before window is ready or while running)
 let pendingFileOpen: string | null = null
@@ -37,6 +39,7 @@ function createWindow(): BrowserWindow {
     minHeight: 600,
     show: false,
     autoHideMenuBar: true,
+    ...(existsSync(APP_ICON) ? { icon: APP_ICON } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -86,6 +89,14 @@ function createWindow(): BrowserWindow {
       }
     } catch { /* malformed URL — ignore */ }
     return { action: 'deny' }
+  })
+
+  win.webContents.on('will-navigate', (event, url) => {
+    const devUrl = process.env['ELECTRON_RENDERER_URL']
+    const allowed = devUrl
+      ? url.startsWith(devUrl)
+      : url.startsWith('file://')
+    if (!allowed) event.preventDefault()
   })
 
   if (process.env['ELECTRON_RENDERER_URL']) {
@@ -172,7 +183,9 @@ app.whenReady().then(async () => {
   if (fileArg) pendingFileOpen = fileArg
 
   if (app.isPackaged) {
-    autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+    autoUpdater.autoDownload = false
+    autoUpdater.autoInstallOnAppQuit = false
+    autoUpdater.checkForUpdates().catch((err) => {
       console.error('Auto-update check failed:', err)
     })
   }

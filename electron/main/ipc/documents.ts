@@ -1,5 +1,4 @@
 import { ipcMain } from 'electron'
-import { isAbsolute } from 'path'
 import {
   createDocument,
   updateDocument,
@@ -17,7 +16,7 @@ import {
 } from '../services/fileService'
 import { upsertIndex, getAllIndexRows } from '../services/indexDb'
 import { shell, dialog, BrowserWindow } from 'electron'
-import { extname } from 'path'
+import { validateFolderPath } from '../lib/pathValidation'
 
 const VALID_FORMATS = new Set(['none', 'mla', 'apa', 'chicago', 'ieee'])
 
@@ -174,9 +173,7 @@ export function registerDocumentHandlers(): void {
 
   ipcMain.handle('documents:changeFolder', async (event, newPath: unknown, moveFiles: unknown) => {
     if (typeof newPath !== 'string' || !newPath) throw new Error('Invalid folder path')
-    if (!isAbsolute(newPath)) throw new Error('Folder path must be absolute')
-    // Reject paths containing traversal sequences
-    if (newPath.includes('..')) throw new Error('Path traversal not allowed')
+    validateFolderPath(newPath)
     const shouldMove = moveFiles === true
     await changeDocumentsFolder(newPath, shouldMove)
   })
@@ -194,6 +191,7 @@ export function registerDocumentHandlers(): void {
 
   ipcMain.handle('documents:setFolder', async (_, folder: unknown) => {
     if (typeof folder !== 'string' || !folder) throw new Error('Invalid folder')
+    validateFolderPath(folder)
     setDocumentsFolder(folder)
   })
 

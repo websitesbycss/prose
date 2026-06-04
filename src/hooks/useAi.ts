@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { useAppStore } from '@/store/appStore'
 
 export interface ChatMessage {
@@ -15,7 +15,12 @@ export interface AiChatState {
 }
 
 export interface AiChatControls {
-  sendMessage(request: string, documentContent: string, assignmentContext?: string): Promise<void>
+  sendMessage(
+    request: string,
+    documentContent: string,
+    assignmentContext?: string,
+    selectionContent?: string,
+  ): Promise<void>
   clearMessages(): void
 }
 
@@ -33,7 +38,12 @@ export function useAi(): AiChatState & AiChatControls {
   const messagesRef = useRef<ChatMessage[]>([])
 
   const sendMessage = useCallback(
-    async (request: string, documentContent: string, assignmentContext?: string): Promise<void> => {
+    async (
+      request: string,
+      documentContent: string,
+      assignmentContext?: string,
+      selectionContent?: string,
+    ): Promise<void> => {
       if (ollamaStatus !== 'ready') return
 
       // Capture history before adding the new turn
@@ -57,7 +67,7 @@ export function useAi(): AiChatState & AiChatControls {
 
       try {
         await window.prose.ai.streamPrompt(
-          { documentContent, assignmentContext, request, history },
+          { documentContent, assignmentContext, request, history, selectionContent },
           (chunk) => {
             if (!firstChunkRef.current) {
               firstChunkRef.current = true
@@ -121,6 +131,12 @@ export function useAi(): AiChatState & AiChatControls {
     messagesRef.current = []
     setMessages([])
     setError(null)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current)
+    }
   }, [])
 
   return { messages, streaming, reloading, error, sendMessage, clearMessages }

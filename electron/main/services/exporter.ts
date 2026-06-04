@@ -30,6 +30,13 @@ import {
 import type { JSONContent } from '@tiptap/core'
 import katex from 'katex'
 import { resolveDocument } from './fileService'
+import { sanitizeUrl, sanitizeCssColor, sanitizeCssLength } from '../lib/exportSanitize'
+
+const HIDDEN_WIN_PREFS = {
+  sandbox: true,
+  contextIsolation: true,
+  nodeIntegration: false,
+} as const
 
 // ── ExportOptions ─────────────────────────────────────────────────────────────
 
@@ -241,7 +248,7 @@ export async function getPreviewPdf(id: string, opts: ExportOptions): Promise<Bu
   const tmpHtml = join(tmpdir(), `prose-preview-${randomUUID()}.html`)
   await writeFile(tmpHtml, html, 'utf8')
 
-  const win = new BrowserWindow({ show: false, webPreferences: { sandbox: true } })
+  const win = new BrowserWindow({ show: false, webPreferences: HIDDEN_WIN_PREFS })
   try {
     await win.loadFile(tmpHtml)
     const pdfBuffer = await win.webContents.printToPDF({
@@ -442,18 +449,22 @@ function inlineToHtml(node: JSONContent): string {
       else if (mark.type === 'subscript') text = `<sub>${text}</sub>`
       else if (mark.type === 'code') text = `<code>${text}</code>`
       else if (mark.type === 'highlight') {
-        const color = (mark.attrs?.color as string) ?? 'yellow'
+        const color = sanitizeCssColor((mark.attrs?.color as string) ?? 'yellow') || 'yellow'
         text = `<mark style="background-color:${color}">${text}</mark>`
       } else if (mark.type === 'textStyle') {
         const attrs = mark.attrs ?? {}
         const styles: string[] = []
-        if (attrs.color) styles.push(`color:${attrs.color}`)
-        if (attrs.fontSize) styles.push(`font-size:${attrs.fontSize}`)
-        if (attrs.fontFamily) styles.push(`font-family:${attrs.fontFamily}`)
+        const c = sanitizeCssColor(attrs.color as string | undefined)
+        const fs = sanitizeCssLength(attrs.fontSize as string | undefined)
+        if (c) styles.push(`color:${c}`)
+        if (fs) styles.push(`font-size:${fs}`)
+        if (attrs.fontFamily && /^[\w\s,'"-]+$/i.test(String(attrs.fontFamily))) {
+          styles.push(`font-family:${String(attrs.fontFamily).replace(/"/g, '')}`)
+        }
         if (styles.length) text = `<span style="${styles.join(';')}">${text}</span>`
       } else if (mark.type === 'link') {
-        const href = escapeHtml((mark.attrs?.href as string) ?? '')
-        text = `<a href="${href}">${text}</a>`
+        const href = sanitizeUrl((mark.attrs?.href as string) ?? '')
+        text = href ? `<a href="${href}">${text}</a>` : text
       }
     }
     return text
@@ -538,9 +549,9 @@ function nodeToHtml(node: JSONContent, format = 'none'): string {
     case 'rightTab':
       return '<span class="right-tab"></span>'
     case 'image': {
-      const src = escapeHtml((node.attrs?.src as string) ?? '')
+      const src = sanitizeUrl((node.attrs?.src as string) ?? '')
       const alt = escapeHtml((node.attrs?.alt as string) ?? '')
-      return `<img src="${src}" alt="${alt}" style="max-width:100%">`
+      return src ? `<img src="${src}" alt="${alt}" style="max-width:100%">` : ''
     }
     case 'table':
       return `<div style="max-width:100%;overflow:hidden"><table border="1" style="border-collapse:collapse;width:100%;table-layout:fixed">${(node.content ?? []).map((n) => nodeToHtml(n, format)).join('')}</table></div>`
@@ -550,10 +561,15 @@ function nodeToHtml(node: JSONContent, format = 'none'): string {
     case 'tableCell': {
       const ca = node.attrs ?? {}
       const cellStyles: string[] = ['padding:4px 8px']
-      if (ca.backgroundColor) cellStyles.push(`background-color:${ca.backgroundColor as string}`)
-      const bColor = ca.borderColor as string | null | undefined
-      const bWidth = ca.borderWidth as number | null | undefined
-      if (bColor || bWidth) cellStyles.push(`border:${bWidth ?? 1}px solid ${bColor ?? '#000'}`)
+      if (ca.backgroundColor) {
+        const bg = sanitizeCssColor(ca.backgroundColor as string)
+        if (bg) cellStyles.push(`background-color:${bg}`)
+      }
+      const bColor = sanitizeCssColor(ca.borderColor as string | null | undefined) || '#000'
+      const bWidth = typeof ca.borderWidth === 'number' && ca.borderWidth >= 0 && ca.borderWidth <= 20
+        ? ca.borderWidth
+        : (bColor ? 1 : undefined)
+      if (bWidth) cellStyles.push(`border:${bWidth}px solid ${bColor}`)
       const colwidths = ca.colwidth as number[] | null | undefined
       if (colwidths?.[0]) cellStyles.push(`width:${colwidths[0]}px`)
       const rowspan = ca.rowspan as number | undefined
@@ -879,7 +895,7 @@ export async function exportToPdf(id: string, opts: ExportOptions): Promise<stri
   const tmpHtml = join(tmpdir(), `prose-export-${randomUUID()}.html`)
   await writeFile(tmpHtml, html, 'utf8')
 
-  const win = new BrowserWindow({ show: false, webPreferences: { sandbox: true } })
+  const win = new BrowserWindow({ show: false, webPreferences: HIDDEN_WIN_PREFS })
   await win.loadFile(tmpHtml)
   const pdfBuffer = await win.webContents.printToPDF({
     margins: {

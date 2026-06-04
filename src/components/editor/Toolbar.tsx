@@ -102,6 +102,7 @@ function ColorPickerDropdown({
 }
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { enterVerticalMark, exitVerticalMark, type VerticalMark } from '@/lib/verticalMarkExit'
 import { useAppStore } from '@/store/appStore'
 import type { Document } from '@/types'
 
@@ -1175,19 +1176,16 @@ function ToolbarInner({
     if (dataUrl) editor.chain().focus().setImage({ src: dataUrl }).run()
   }
 
-  function handleToggleSubSup(mark: 'subscript' | 'superscript', isActive: boolean): void {
-    // When turning off or when text is selected, use the standard toggle so the
-    // mark is applied/removed from the selection range normally.
-    if (isActive || !editor.state.selection.empty) {
+  function handleToggleSubSup(mark: VerticalMark, isActive: boolean): void {
+    if (!editor.state.selection.empty) {
       editor.chain().focus()[mark === 'subscript' ? 'toggleSubscript' : 'toggleSuperscript']().run()
       return
     }
-    // Turning on with an empty cursor: insert a zero-width space carrying the
-    // mark so the <sub>/<sup> element materialises in the DOM immediately and
-    // the browser caret visually shifts to the correct vertical position.
-    // Without this, the stored mark is pending but has no DOM node, so the
-    // caret stays on the baseline until the first real character is typed.
-    editor.chain().focus().insertContent({ type: 'text', text: '​', marks: [{ type: mark }] }).run()
+    if (isActive) {
+      exitVerticalMark(editor, mark)
+      return
+    }
+    enterVerticalMark(editor, mark)
   }
 
   return (

@@ -308,9 +308,9 @@ export function useMusic(): MusicHook {
     ambientVolumesRef.current = { ...ambientVolumesRef.current, [id]: clamped }
     setAmbientVolumesUI({ ...ambientVolumesRef.current })
     const el = ambientRef.current.get(id)
-    if (el) el.volume = clamped / 100
+    if (el) el.volume = ambientVolumeFraction(id, ambientVolumesRef.current)
     persistSettings(volumeRef.current, ambientVolumesRef.current)
-  }, [])
+  }, [playAmbientLayer])
 
   const nowPlayingTitle = playing ? (TRACKS[trackIndex]?.title ?? null) : null
 

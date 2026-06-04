@@ -83,6 +83,11 @@ export function registerSpellHandlers(): void {
   void load()
   void loadStore()
 
+  ipcMain.handle('spell:isReady', async () => {
+    await load()
+    return checker !== null
+  })
+
   ipcMain.handle('spell:check', async (_, word: unknown) => {
     if (typeof word !== 'string') return { correct: true, suggestions: [] }
     const clean = stripPunct(word)
@@ -131,7 +136,7 @@ export function registerSpellHandlers(): void {
     if (typeof documentId !== 'string' || typeof word !== 'string') return []
     const list = wordStore[documentId]
     if (!list) return []
-    wordStore[documentId] = list.filter(w => w !== word)
+    wordStore[documentId] = list.filter(w => w.toLowerCase() !== word.toLowerCase())
     await saveStore()
     return wordStore[documentId]
   })

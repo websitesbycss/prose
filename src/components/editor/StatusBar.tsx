@@ -146,7 +146,11 @@ export default function StatusBar({
   const goal = document?.wordCountGoal ?? null
   const formatLabel =
     document && document.format !== 'none' ? (FORMAT_LABELS[document.format] ?? '') : ''
-  const saveLabel = saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved' : ''
+  const saveLabel =
+    saveStatus === 'saving' ? 'Saving…'
+    : saveStatus === 'saved' ? 'Saved'
+    : saveStatus === 'error' ? 'Save failed'
+    : ''
 
   return (
     <div className="flex h-7 shrink-0 items-center border-t border-border px-4 text-[11px] text-muted-foreground">
@@ -198,7 +202,9 @@ export default function StatusBar({
             {ambientPlaying}
           </button>
         )}
-        {saveLabel && <span>{saveLabel}</span>}
+        {saveLabel && (
+          <span className={saveStatus === 'error' ? 'text-destructive' : undefined}>{saveLabel}</span>
+        )}
       </div>
     </div>
   )

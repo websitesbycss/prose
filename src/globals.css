@@ -27,6 +27,7 @@
     --editor-canvas: 240 4.8% 95.9%;
     --editor-page: 0 0% 100%;
     --preview-surround: 0 0% 84%;
+    --editor-zone-divider: 240 5.9% 85%;
     --editor-page-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
   }
 
@@ -53,6 +54,7 @@
     --editor-canvas: 240 5.9% 10%;
     --editor-page: 240 3.7% 15.9%;
     --preview-surround: 0 0% 32%;
+    --editor-zone-divider: 240 4% 28%;
     --editor-page-shadow: 0 1px 4px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.04);
   }
 }
@@ -446,6 +448,15 @@
 .issue-highlight--style {
   background-color: rgba(139, 92, 246, 0.12);
   text-decoration-color: rgb(139, 92, 246);
+}
+
+/* AI chat selection attachment highlight */
+.ai-selection-highlight {
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1.5px;
+  text-decoration-color: hsl(var(--primary) / 0.45);
 }
 
 /* ── Header / footer zone editors ─────────────────────────────── */

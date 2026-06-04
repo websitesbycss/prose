@@ -13,37 +13,18 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import NewDocumentModal from './NewDocumentModal'
+import { DocContextMenu } from './DocContextMenu'
 import SettingsModal from '@/components/settings/SettingsModal'
 import ExportModal from '@/components/editor/ExportModal'
-import { DocContextMenu } from './DocContextMenu'
 import type { Document, Category, ImportResult } from '@/types'
 import { useAppStore } from '@/store/appStore'
 import { formatRelativeTime, extractWordCount, cn } from '@/lib/utils'
 
-// ── Pinned docs ───────────────────────────────────────────────────────────────
-
-const PINNED_KEY = 'prose-pinned-docs'
-
-function loadPinnedIds(): Set<string> {
-  try {
-    const v = localStorage.getItem(PINNED_KEY)
-    return new Set(v ? (JSON.parse(v) as string[]) : [])
-  } catch { return new Set() }
-}
-
-function savePinnedIds(ids: Set<string>): void {
-  try { localStorage.setItem(PINNED_KEY, JSON.stringify([...ids])) } catch { /* noop */ }
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
+import { loadPinnedIds, savePinnedIds } from '@/lib/pinnedDocs'
+import { FORMAT_LABELS } from '@/lib/documentFormat'
 
 type SortBy = 'recent' | 'name' | 'words'
 type FilterKey = 'all' | 'pinned' | string
-
-const FORMAT_LABELS: Record<string, string> = {
-  mla: 'MLA', apa: 'APA', chicago: 'Chicago', ieee: 'IEEE',
-}
 
 const CATEGORY_COLORS = [
   '#7F77DD', '#E879A0', '#34D399', '#FBBF24',
@@ -64,8 +45,11 @@ function sortedDocs(docs: Document[], sortBy: SortBy): Document[] {
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
-export default function Dashboard(): JSX.Element {
-  const setCurrentDocumentId = useAppStore((s) => s.setCurrentDocumentId)
+export default function Dashboard({ embedded = false }: { embedded?: boolean }): JSX.Element {
+  const openDocumentTab = useAppStore((s) => s.openDocumentTab)
+  const closeDocumentTab = useAppStore((s) => s.closeDocumentTab)
+  const updateDocumentTab = useAppStore((s) => s.updateDocumentTab)
+  const setNewDocumentModalOpen = useAppStore((s) => s.setNewDocumentModalOpen)
   const settingsOpen = useAppStore((s) => s.settingsOpen)
   const setSettingsOpen = useAppStore((s) => s.setSettingsOpen)
 
@@ -74,7 +58,6 @@ export default function Dashboard(): JSX.Element {
   const [filter, setFilter] = useState<FilterKey>('all')
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState<SortBy>('recent')
-  const [newDocOpen, setNewDocOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Document | null>(null)
   const [newCatName, setNewCatName] = useState('')
   const [newCatColor, setNewCatColor] = useState(CATEGORY_COLORS[0]!)
@@ -89,6 +72,19 @@ export default function Dashboard(): JSX.Element {
 
   useEffect(() => { void loadAll() }, [])
   useEffect(() => { if (addingCat) catInputRef.current?.focus() }, [addingCat])
+
+  useEffect(() => {
+    function onDocumentCreated(e: Event): void {
+      const doc = (e as CustomEvent<Document>).detail
+      if (doc) setDocuments((prev) => [doc, ...prev.filter((d) => d.id !== doc.id)])
+    }
+    window.addEventListener('prose-document-created', onDocumentCreated)
+    return () => window.removeEventListener('prose-document-created', onDocumentCreated)
+  }, [])
+
+  function openDoc(doc: Document): void {
+    openDocumentTab({ id: doc.id, title: doc.title, format: doc.format })
+  }
 
   async function loadAll(): Promise<void> {
     try {
@@ -140,6 +136,7 @@ export default function Dashboard(): JSX.Element {
       await window.prose.documents.delete(deleteTarget.id)
       setDocuments((prev) => prev.filter((d) => d.id !== deleteTarget.id))
       setPinnedIds((prev) => { const n = new Set(prev); n.delete(deleteTarget.id); savePinnedIds(n); return n })
+      closeDocumentTab(deleteTarget.id)
       toast.success('Document deleted')
     } catch { toast.error('Delete failed') } finally { setDeleteTarget(null) }
   }
@@ -174,6 +171,7 @@ export default function Dashboard(): JSX.Element {
     try {
       await window.prose.documents.update(id, { title })
       setDocuments((prev) => prev.map((d) => d.id === id ? { ...d, title } : d))
+      updateDocumentTab(id, { title })
     } catch (err) {
       if ((err as Error).message?.includes('DUPLICATE_TITLE')) {
         toast.error('A document with that name already exists')
@@ -247,7 +245,7 @@ export default function Dashboard(): JSX.Element {
         pinned={pinnedIds.has(doc.id)}
         startEditing={renamingId === doc.id}
         onEditStarted={() => setRenamingId(null)}
-        onOpen={() => setCurrentDocumentId(doc.id)}
+        onOpen={() => openDoc(doc)}
         onPin={() => togglePin(doc.id)}
         onRename={(title) => handleRename(doc.id, title)}
         onDelete={() => setDeleteTarget(doc)}
@@ -265,7 +263,7 @@ export default function Dashboard(): JSX.Element {
 
   return (
     <div
-      className={cn('flex h-screen bg-background text-foreground', dragOver && 'ring-2 ring-inset ring-primary/50')}
+      className={cn('flex bg-background text-foreground', embedded ? 'h-full' : 'h-screen', dragOver && 'ring-2 ring-inset ring-primary/50')}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={(e) => void handleDrop(e)}
@@ -443,7 +441,7 @@ export default function Dashboard(): JSX.Element {
             <Upload className="h-3.5 w-3.5" />
             Import
           </Button>
-          <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setNewDocOpen(true)}>
+          <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setNewDocumentModalOpen(true)}>
             <Plus className="h-3.5 w-3.5" />
             New document
           </Button>
@@ -459,7 +457,7 @@ export default function Dashboard(): JSX.Element {
             )}
 
             {documents.length === 0 && !dragOver ? (
-              <EmptyState onNew={() => setNewDocOpen(true)} />
+              <EmptyState onNew={() => setNewDocumentModalOpen(true)} />
             ) : filtered.length === 0 ? (
               <motion.div
                 initial={{ opacity: 0 }}
@@ -481,7 +479,7 @@ export default function Dashboard(): JSX.Element {
                   <ContinueCard
                     doc={continueDoc}
                     categories={categories}
-                    onOpen={() => setCurrentDocumentId(continueDoc.id)}
+                    onOpen={() => openDoc(continueDoc)}
                   />
                 )}
 
@@ -531,17 +529,6 @@ export default function Dashboard(): JSX.Element {
         }}
       />
 
-      {/* Modals */}
-      <NewDocumentModal
-        open={newDocOpen}
-        categories={categories}
-        onClose={() => setNewDocOpen(false)}
-        onCreated={(doc) => {
-          setDocuments((prev) => [doc, ...prev])
-          setNewDocOpen(false)
-          setCurrentDocumentId(doc.id)
-        }}
-      />
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       {ctxExportTarget && (
         <ExportModal

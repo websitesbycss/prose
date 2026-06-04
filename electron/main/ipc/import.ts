@@ -2,6 +2,9 @@ import { ipcMain, dialog, BrowserWindow } from 'electron'
 import { extname } from 'path'
 import { importProseFile, importMarkdownFile, importDocxFile, resolveDocument, type ProseFileDocument } from '../services/fileService'
 import { getAllIndexRows } from '../services/indexDb'
+import { validateImportFilePath } from '../lib/pathValidation'
+
+const IMPORT_EXTS = ['.prose', '.md', '.markdown', '.docx']
 
 function docToOut(doc: ProseFileDocument) {
   return {
@@ -32,7 +35,10 @@ export function registerImportHandlers(): void {
     let paths: string[]
 
     if (Array.isArray(filePaths) && filePaths.every((p) => typeof p === 'string')) {
-      paths = filePaths as string[]
+      paths = (filePaths as string[]).map((p) => {
+        validateImportFilePath(p, IMPORT_EXTS)
+        return p
+      })
     } else {
       const win = BrowserWindow.fromWebContents(event.sender) ?? BrowserWindow.getFocusedWindow()
       const result = await dialog.showOpenDialog(win!, {
@@ -68,8 +74,7 @@ export function registerImportHandlers(): void {
   // Open a .prose file by path (used by file association handler in main/index.ts)
   ipcMain.handle('documents:openByPath', async (_, filePath: unknown) => {
     if (typeof filePath !== 'string') throw new Error('Invalid path')
-    const ext = extname(filePath).toLowerCase()
-    if (ext !== '.prose') throw new Error('Only .prose files can be opened directly')
+    validateImportFilePath(filePath, ['.prose'])
 
     // If already in index, return existing doc
     for (const row of getAllIndexRows()) {

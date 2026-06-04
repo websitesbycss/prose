@@ -97,10 +97,19 @@ export interface UpdateCategoryInput {
   color?: string
 }
 
+export interface AiSelectionAttachment {
+  id: string
+  text: string
+  from: number
+  to: number
+}
+
 export interface AiPromptPayload {
   documentContent: string
   assignmentContext?: string
   request: string
+  selectionContent?: string
+  history?: Array<{ role: 'user' | 'assistant'; content: string }>
 }
 
 export interface Issue {

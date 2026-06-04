@@ -1,9 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
-import { ArrowLeft, Sun, Moon, Maximize2, Sparkles, Download, Search, X, ChevronUp, ChevronDown } from 'lucide-react'
+import { Sun, Moon, Maximize2, Sparkles, Download, Search, X, ChevronUp, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { useAppStore } from '@/store/appStore'
-
+import { DocumentTabBar } from '@/components/editor/DocumentTabBar'
 import { cn } from '@/lib/utils'
 import type { Document } from '@/types'
 import type { Editor } from '@tiptap/react'
@@ -15,7 +14,6 @@ interface TitleBarProps {
   document: Document | null
   editor: Editor | null
   saveStatus: SaveStatus
-  onBack: () => void
   onSaveNow: () => Promise<void>
   onTitleChange: (title: string) => Promise<void>
   findOpen: boolean
@@ -24,19 +22,10 @@ interface TitleBarProps {
   onFindNavigate?: () => void
 }
 
-const FORMAT_LABELS: Record<string, string> = {
-  mla: 'MLA',
-  apa: 'APA',
-  chicago: 'Chicago',
-  ieee: 'IEEE',
-}
-
 export default function TitleBar({
   document,
   editor,
   saveStatus,
-  onBack,
-  onSaveNow,
   onTitleChange,
   findOpen,
   onFindOpenChange,
@@ -50,15 +39,16 @@ export default function TitleBar({
   const setAiPanelOpen = useAppStore((s) => s.setAiPanelOpen)
   const ollamaStatus = useAppStore((s) => s.ollamaStatus)
   const issueCount = useAppStore((s) => s.issueCount)
+  const activeDocumentId = useAppStore((s) => s.activeDocumentId)
+  const updateDocumentTab = useAppStore((s) => s.updateDocumentTab)
+  const openTabs = useAppStore((s) => s.openTabs)
 
-  const [editing, setEditing] = useState(false)
+  const [editingTitle, setEditingTitle] = useState(false)
   const [draftTitle, setDraftTitle] = useState('')
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [findQuery, setFindQuery] = useState('')
   const [findMatchInfo, setFindMatchInfo] = useState({ count: 0, index: 0 })
-  const titleInputRef = useRef<HTMLInputElement>(null)
 
-  // Re-read find plugin state after every transaction so the counter stays live
   useEffect(() => {
     if (!editor) return
     const update = (): void => {
@@ -69,7 +59,6 @@ export default function TitleBar({
     return () => { editor.off('transaction', update) }
   }, [editor])
 
-  // Focus find input when findOpen becomes true
   useEffect(() => {
     if (findOpen) {
       setTimeout(() => findInputRef.current?.focus(), 0)
@@ -79,7 +68,6 @@ export default function TitleBar({
     }
   }, [findOpen]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Run search whenever query changes
   useEffect(() => {
     if (!editor) return
     if (findQuery) {
@@ -89,22 +77,27 @@ export default function TitleBar({
     }
   }, [findQuery, editor])
 
+  useEffect(() => {
+    if (document) {
+      updateDocumentTab(document.id, { title: document.title, format: document.format })
+    }
+  }, [document?.id, document?.title, document?.format, updateDocumentTab])
+
   const matchCount = findOpen ? findMatchInfo.count : 0
   const matchIndex = matchCount > 0 ? findMatchInfo.index + 1 : 0
 
-  useEffect(() => {
-    if (editing) titleInputRef.current?.select()
-  }, [editing])
-
-  function startEdit(): void {
+  function startTitleEdit(): void {
     setDraftTitle(document?.title ?? '')
-    setEditing(true)
+    setEditingTitle(true)
   }
 
-  async function commitEdit(): Promise<void> {
-    setEditing(false)
+  async function commitTitleEdit(): Promise<void> {
+    setEditingTitle(false)
     if (draftTitle.trim() && draftTitle !== document?.title) {
       await onTitleChange(draftTitle.trim())
+      if (document) {
+        updateDocumentTab(document.id, { title: draftTitle.trim() })
+      }
     }
   }
 
@@ -121,8 +114,6 @@ export default function TitleBar({
     }
   }
 
-  const formatLabel = document ? FORMAT_LABELS[document.format] : undefined
-
   const saveIndicator =
     saveStatus === 'saving'
       ? 'Saving…'
@@ -130,57 +121,30 @@ export default function TitleBar({
       ? 'Saved'
       : ''
 
+  const hasTabs = openTabs.length > 0
+
   return (
     <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-3 text-foreground">
-      {/* Left: back + title */}
-      <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 shrink-0"
-          onClick={async () => {
-            await onSaveNow()
-            onBack()
-          }}
-          title="Back to dashboard"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
+      {hasTabs ? (
+        <DocumentTabBar
+          activeDocumentId={activeDocumentId}
+          editingTitle={editingTitle}
+          draftTitle={draftTitle}
+          onDraftTitleChange={setDraftTitle}
+          onStartTitleEdit={startTitleEdit}
+          onCommitTitleEdit={() => void commitTitleEdit()}
+          onCancelTitleEdit={() => setEditingTitle(false)}
+          saveIndicator={saveIndicator}
+        />
+      ) : (
+        <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+          <span className="truncate text-sm font-medium">{document?.title ?? 'Loading…'}</span>
+          {saveIndicator && (
+            <span className="shrink-0 text-xs text-muted-foreground">{saveIndicator}</span>
+          )}
+        </div>
+      )}
 
-        {editing ? (
-          <input
-            ref={titleInputRef}
-            className="min-w-0 flex-1 bg-transparent text-sm font-medium text-foreground outline-none focus:underline focus:underline-offset-2"
-            value={draftTitle}
-            onChange={(e) => setDraftTitle(e.target.value)}
-            onBlur={() => void commitEdit()}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') void commitEdit()
-              if (e.key === 'Escape') setEditing(false)
-            }}
-          />
-        ) : (
-          <button
-            className="truncate text-sm font-medium text-foreground hover:underline hover:underline-offset-2"
-            onClick={startEdit}
-            title="Click to rename"
-          >
-            {document?.title ?? 'Loading…'}
-          </button>
-        )}
-
-        {formatLabel && (
-          <Badge variant="secondary" className="shrink-0 text-xs">
-            {formatLabel}
-          </Badge>
-        )}
-
-        {saveIndicator && (
-          <span className="shrink-0 text-xs text-muted-foreground">{saveIndicator}</span>
-        )}
-      </div>
-
-      {/* Center: find bar (only shown when open) */}
       {findOpen && (
         <div className="flex shrink-0 items-center">
           <div className="flex items-center gap-1 rounded-md border border-border bg-background px-1.5 py-0.5">
@@ -226,9 +190,7 @@ export default function TitleBar({
         </div>
       )}
 
-      {/* Right: actions */}
       <div className="flex shrink-0 items-center gap-0.5">
-        {/* Search icon lives here when bar is closed — same gap as other icons */}
         {!findOpen && (
           <Button
             variant="ghost"

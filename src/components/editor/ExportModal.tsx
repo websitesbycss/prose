@@ -8,12 +8,7 @@ import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 import type { ExportOptions, PageMargins } from '@/types'
 import { useAppStore } from '@/store/appStore'
-import * as pdfjsLib from 'pdfjs-dist'
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).href
+import { renderPdfPreviewPages } from '@/lib/pdfPreview'
 
 interface ExportModalProps {
   open: boolean
@@ -112,6 +107,7 @@ export default function ExportModal({
 
   const iframeRef        = useRef<HTMLIFrameElement>(null)
   const baseNameInputRef = useRef<HTMLInputElement>(null)
+  const previewGenRef    = useRef(0)
 
   const appTheme     = useAppStore(s => s.theme)
   const isPageFormat = format === 'pdf' || format === 'docx'
@@ -156,29 +152,20 @@ export default function ExportModal({
       includeHeader, includeFooter, openAfterExport,
     }
 
+    const gen = ++previewGenRef.current
     const timer = setTimeout(async () => {
       try {
         if (isPageFormat) {
-          // PDF and DOCX both use the PDF preview pipeline for a consistent paginated view.
           const b64 = await window.prose.export.getPreviewPdf(documentId, opts)
+          if (gen !== previewGenRef.current) return
           if (b64) {
-            const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
-            const pdf = await pdfjsLib.getDocument({ data: bytes }).promise
-            const images: string[] = []
-            for (let i = 1; i <= pdf.numPages; i++) {
-              const page = await pdf.getPage(i)
-              const viewport = page.getViewport({ scale: 2 })
-              const canvas = document.createElement('canvas')
-              canvas.width = viewport.width
-              canvas.height = viewport.height
-              await page.render({ canvasContext: canvas.getContext('2d')!, viewport }).promise
-              images.push(canvas.toDataURL('image/png'))
-            }
+            const images = await renderPdfPreviewPages(b64)
+            if (gen !== previewGenRef.current) return
             setPdfPages(images)
           }
         } else {
-          // Markdown / plain text — use app theme so preview matches current UI
           const html = await window.prose.export.getPreviewHtml(documentId, { ...opts, colorMode: appTheme })
+          if (gen !== previewGenRef.current) return
           if (html && iframeRef.current) {
             iframeRef.current.srcdoc = html
           }
@@ -186,7 +173,7 @@ export default function ExportModal({
       } catch (err) {
         console.error('[ExportModal] preview error:', err)
       } finally {
-        setPreviewLoading(false)
+        if (gen === previewGenRef.current) setPreviewLoading(false)
       }
     }, 400)
     return () => clearTimeout(timer)

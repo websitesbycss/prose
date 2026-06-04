@@ -11,20 +11,29 @@ export default function MigrationOverlay({ onComplete }: MigrationOverlayProps):
   const [visible, setVisible] = useState(true)
 
   useEffect(() => {
+    const timeouts: ReturnType<typeof setTimeout>[] = []
+    const scheduleComplete = (): void => {
+      const t1 = setTimeout(() => {
+        setVisible(false)
+        const t2 = setTimeout(onComplete, 300)
+        timeouts.push(t2)
+      }, 800)
+      timeouts.push(t1)
+    }
+
     void window.prose.migration.getStatus().then((p) => {
       setProgress(p as MigrationProgress)
-      if (p.status === 'complete') {
-        setTimeout(() => { setVisible(false); setTimeout(onComplete, 300) }, 800)
-      }
+      if (p.status === 'complete') scheduleComplete()
     })
 
     const unsub = window.prose.migration.onProgress((p) => {
       setProgress(p as MigrationProgress)
-      if ((p as MigrationProgress).status === 'complete') {
-        setTimeout(() => { setVisible(false); setTimeout(onComplete, 300) }, 800)
-      }
+      if ((p as MigrationProgress).status === 'complete') scheduleComplete()
     })
-    return unsub
+    return () => {
+      unsub()
+      for (const t of timeouts) clearTimeout(t)
+    }
   }, [onComplete])
 
   const pct = progress && progress.total > 0

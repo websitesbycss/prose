@@ -6,7 +6,8 @@ import { tmpdir } from 'os'
 import { spawnSync, spawn } from 'child_process'
 
 const INSTALLER_URL =
-  'https://github.com/ollama/ollama/releases/latest/download/OllamaSetup.exe'
+  'https://github.com/ollama/ollama/releases/download/v0.6.5/OllamaSetup.exe'
+const MIN_INSTALLER_BYTES = 50 * 1024 * 1024
 
 export function isOllamaInstalled(): boolean {
   const localAppData = process.env['LOCALAPPDATA'] ?? ''
@@ -54,6 +55,11 @@ export async function downloadAndInstallOllama(): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     fileStream.end((err?: Error | null) => (err ? reject(err) : resolve()))
   })
+
+  if (received < MIN_INSTALLER_BYTES) {
+    await unlink(dest).catch(() => { /* ignore */ })
+    throw new Error('Downloaded installer is unexpectedly small — aborting for safety')
+  }
 
   // ── Install ───────────────────────────────────────────────────────────────
   sendToRenderer('ollama:install-progress', { percent: 92, status: 'Installing…' })

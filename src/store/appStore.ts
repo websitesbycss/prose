@@ -1,8 +1,14 @@
 import { create } from 'zustand'
 import { flushSync } from 'react-dom'
-import type { OllamaStatus } from '@/types'
+import type { AiSelectionAttachment, OllamaStatus } from '@/types'
 
 type Theme = 'dark' | 'light'
+
+export interface OpenDocumentTab {
+  id: string
+  title: string
+  format: string
+}
 
 function readStoredTheme(): Theme {
   try {
@@ -21,6 +27,11 @@ interface PomodoroState {
 
 interface AppState {
   currentDocumentId: string | null
+  openTabs: OpenDocumentTab[]
+  activeDocumentId: string | null
+  showDashboard: boolean
+  saveActiveDocument: (() => Promise<void>) | null
+  newDocumentModalOpen: boolean
   theme: Theme
   sidebarOpen: boolean
   aiPanelOpen: boolean
@@ -32,6 +43,7 @@ interface AppState {
   pomodoroState: PomodoroState
   ollamaStatus: OllamaStatus
   pendingAiPrompt: string | null
+  pendingAiAttachment: AiSelectionAttachment | null
   issueCount: number
   analyzeOnSave: boolean
   activeAiTab: 'chat' | 'analysis'
@@ -40,6 +52,13 @@ interface AppState {
   uiScale: number
 
   setCurrentDocumentId(id: string | null): void
+  openDocumentTab(tab: OpenDocumentTab): void
+  closeDocumentTab(id: string): void
+  activateDocumentTab(id: string): void
+  updateDocumentTab(id: string, updates: Partial<Pick<OpenDocumentTab, 'title' | 'format'>>): void
+  goToDashboard(): void
+  setSaveActiveDocument(fn: (() => Promise<void>) | null): void
+  setNewDocumentModalOpen(open: boolean): void
   setTheme(theme: Theme): void
   setSidebarOpen(open: boolean): void
   setAiPanelOpen(open: boolean): void
@@ -51,6 +70,7 @@ interface AppState {
   setPomodoroState(state: Partial<PomodoroState>): void
   setOllamaStatus(status: OllamaStatus): void
   setPendingAiPrompt(prompt: string | null): void
+  setPendingAiAttachment(attachment: AiSelectionAttachment | null): void
   setIssueCount(n: number): void
   setAnalyzeOnSave(v: boolean): void
   setActiveAiTab(tab: 'chat' | 'analysis'): void
@@ -67,6 +87,11 @@ const DEFAULT_POMODORO: PomodoroState = {
 
 export const useAppStore = create<AppState>()((set) => ({
   currentDocumentId: null,
+  openTabs: [],
+  activeDocumentId: null,
+  showDashboard: true,
+  saveActiveDocument: null,
+  newDocumentModalOpen: false,
   theme: readStoredTheme(),
   sidebarOpen: true,
   aiPanelOpen: false,
@@ -78,6 +103,7 @@ export const useAppStore = create<AppState>()((set) => ({
   pomodoroState: DEFAULT_POMODORO,
   ollamaStatus: 'loading',
   pendingAiPrompt: null,
+  pendingAiAttachment: null,
   issueCount: 0,
   analyzeOnSave: false,
   activeAiTab: 'chat',
@@ -85,7 +111,80 @@ export const useAppStore = create<AppState>()((set) => ({
   typewriterMode: false,
   uiScale: 110,
 
-  setCurrentDocumentId: (id) => set({ currentDocumentId: id }),
+  setCurrentDocumentId: (id) => {
+    if (id === null) {
+      set({ showDashboard: true })
+      return
+    }
+    set((s) => {
+      const exists = s.openTabs.some((t) => t.id === id)
+      return {
+        activeDocumentId: id,
+        currentDocumentId: id,
+        showDashboard: false,
+        openTabs: exists ? s.openTabs : [...s.openTabs, { id, title: 'Untitled', format: 'mla' }],
+      }
+    })
+  },
+
+  openDocumentTab: (tab) =>
+    set((s) => {
+      const exists = s.openTabs.some((t) => t.id === tab.id)
+      const openTabs = exists
+        ? s.openTabs.map((t) => (t.id === tab.id ? { ...t, ...tab } : t))
+        : [...s.openTabs, tab]
+      return {
+        openTabs,
+        activeDocumentId: tab.id,
+        currentDocumentId: tab.id,
+        showDashboard: false,
+      }
+    }),
+
+  closeDocumentTab: (id) =>
+    set((s) => {
+      const idx = s.openTabs.findIndex((t) => t.id === id)
+      const openTabs = s.openTabs.filter((t) => t.id !== id)
+      let activeDocumentId = s.activeDocumentId
+      let showDashboard = s.showDashboard
+
+      if (s.activeDocumentId === id) {
+        if (openTabs.length === 0) {
+          activeDocumentId = null
+          showDashboard = true
+        } else {
+          const next = openTabs[Math.min(idx, openTabs.length - 1)]!
+          activeDocumentId = next.id
+          showDashboard = false
+        }
+      }
+
+      return {
+        openTabs,
+        activeDocumentId,
+        currentDocumentId: activeDocumentId,
+        showDashboard,
+      }
+    }),
+
+  activateDocumentTab: (id) =>
+    set({
+      activeDocumentId: id,
+      currentDocumentId: id,
+      showDashboard: false,
+    }),
+
+  updateDocumentTab: (id, updates) =>
+    set((s) => ({
+      openTabs: s.openTabs.map((t) => (t.id === id ? { ...t, ...updates } : t)),
+    })),
+
+  goToDashboard: () => set({ showDashboard: true }),
+
+  setSaveActiveDocument: (fn) => set({ saveActiveDocument: fn }),
+
+  setNewDocumentModalOpen: (open) => set({ newDocumentModalOpen: open }),
+
   setTheme: (theme) => {
     try {
       localStorage.setItem('prose-theme', theme)
@@ -115,6 +214,7 @@ export const useAppStore = create<AppState>()((set) => ({
     set((s) => ({ pomodoroState: { ...s.pomodoroState, ...state } })),
   setOllamaStatus: (status) => set({ ollamaStatus: status }),
   setPendingAiPrompt: (prompt) => set({ pendingAiPrompt: prompt }),
+  setPendingAiAttachment: (attachment) => set({ pendingAiAttachment: attachment }),
   setIssueCount: (n) => set({ issueCount: n }),
   setAnalyzeOnSave: (v) => set({ analyzeOnSave: v }),
   setActiveAiTab: (tab) => set({ activeAiTab: tab }),

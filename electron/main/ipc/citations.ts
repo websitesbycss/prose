@@ -2,6 +2,7 @@ import { ipcMain } from 'electron'
 import { randomUUID } from 'crypto'
 import { resolveDocument, writeProseFile, type ProseFileCitation } from '../services/fileService'
 import { getAllIndexRows } from '../services/indexDb'
+import { formatAll, fieldsFromRecord, type CitationType } from '../lib/citationFormat'
 
 // ── Output types (same shape the renderer expects) ────────────────────────────
 
@@ -29,12 +30,14 @@ interface CitationFieldsOut {
 const VALID_CITATION_TYPES = new Set(['book', 'article', 'website', 'journal'])
 
 function citationToOut(c: ProseFileCitation, documentId: string): CitationOut {
+  const type = VALID_CITATION_TYPES.has(c.type) ? c.type as CitationType : 'book'
+  const fields = fieldsFromRecord(c.fields as Record<string, unknown>)
   return {
     id: c.id,
     documentId,
     type: c.type,
-    fields: c.fields as Record<string, string>,
-    formatted: c.formatted,
+    fields: fields as Record<string, string>,
+    formatted: formatAll(type, fields),
     createdAt: c.createdAt,
   }
 }
@@ -86,19 +89,26 @@ function assertSafePublicUrl(raw: string): void {
     throw new Error('Only HTTP and HTTPS URLs are allowed')
   }
   const h = parsed.hostname.toLowerCase()
-  // Block loopback, private ranges, link-local, and metadata endpoints
+  // Block decimal IP encodings (e.g. 2130706433 = 127.0.0.1)
+  if (/^\d+$/.test(h)) {
+    const n = Number(h)
+    if (n === 2130706433 || n === 0) throw new Error('Private and loopback addresses are not allowed')
+  }
   if (
     h === 'localhost' ||
     h === '0.0.0.0' ||
+    h.endsWith('.localhost') ||
     /^127\./.test(h) ||
     /^10\./.test(h) ||
     /^172\.(1[6-9]|2[0-9]|3[01])\./.test(h) ||
     /^192\.168\./.test(h) ||
-    /^169\.254\./.test(h) ||   // link-local / AWS metadata
+    /^169\.254\./.test(h) ||
     /^::1$/.test(h) ||
+    /^\[::1\]$/.test(h) ||
     /^fc00:/i.test(h) ||
     /^fd[0-9a-f]{2}:/i.test(h) ||
-    h === '0x7f000001'          // hex loopback
+    /^::ffff:127\./i.test(h) ||
+    h === '0x7f000001'
   ) {
     throw new Error('Private and loopback addresses are not allowed')
   }
@@ -204,16 +214,17 @@ export function registerCitationHandlers(): void {
     if (typeof d.documentId !== 'string' || !d.documentId) throw new Error('documentId is required')
     if (typeof d.type !== 'string' || !VALID_CITATION_TYPES.has(d.type)) throw new Error('Invalid citation type')
     if (!d.fields || typeof d.fields !== 'object') throw new Error('fields is required')
-    if (!d.formatted || typeof d.formatted !== 'object') throw new Error('formatted is required')
 
     const resolved = await resolveDocument(d.documentId)
     if (!resolved) throw new Error('Document not found')
 
+    const type = d.type as CitationType
+    const fields = fieldsFromRecord(d.fields as Record<string, unknown>)
     const citation: ProseFileCitation = {
       id: randomUUID(),
       type: d.type,
       fields: d.fields as Record<string, unknown>,
-      formatted: d.formatted as ProseFileCitation['formatted'],
+      formatted: formatAll(type, fields),
       createdAt: new Date().toISOString(),
     }
 
@@ -229,7 +240,6 @@ export function registerCitationHandlers(): void {
     const d = data as Record<string, unknown>
     if (typeof d.type !== 'string' || !VALID_CITATION_TYPES.has(d.type)) throw new Error('Invalid citation type')
     if (!d.fields || typeof d.fields !== 'object') throw new Error('fields is required')
-    if (!d.formatted || typeof d.formatted !== 'object') throw new Error('formatted is required')
 
     for (const row of getAllIndexRows()) {
       const resolved = await resolveDocument(row.id)
@@ -237,7 +247,14 @@ export function registerCitationHandlers(): void {
       const idx = resolved.doc.citations.findIndex((c) => c.id === id)
       if (idx === -1) continue
 
-      const updated = { ...resolved.doc.citations[idx]!, type: d.type, fields: d.fields as Record<string, unknown>, formatted: d.formatted as ProseFileCitation['formatted'] }
+      const type = d.type as CitationType
+      const fields = fieldsFromRecord(d.fields as Record<string, unknown>)
+      const updated = {
+        ...resolved.doc.citations[idx]!,
+        type: d.type,
+        fields: d.fields as Record<string, unknown>,
+        formatted: formatAll(type, fields),
+      }
       const citations = [...resolved.doc.citations]
       citations[idx] = updated
       await writeProseFile(resolved.filePath, { ...resolved.doc, citations })

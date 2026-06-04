@@ -8,31 +8,32 @@ import {
   getPreviewHtml,
   getPreviewPdf,
   getPreviewDocx,
-  type ExportOptions,
 } from '../services/exporter'
+import { parseExportOptions } from '../lib/exportOptions'
+
+const MAX_IMAGE_BYTES = 20 * 1024 * 1024
 
 export function registerExportHandlers(): void {
   ipcMain.handle('export:getPreviewHtml', async (_event, id: unknown, opts: unknown): Promise<string | null> => {
     if (typeof id !== 'string' || !id) throw new Error('Invalid document id')
-    return getPreviewHtml(id, opts as ExportOptions)
+    return getPreviewHtml(id, parseExportOptions(opts))
   })
 
   ipcMain.handle('export:getPreviewDocx', async (_event, id: unknown, opts: unknown): Promise<string | null> => {
     if (typeof id !== 'string' || !id) throw new Error('Invalid document id')
-    const buffer = await getPreviewDocx(id, opts as ExportOptions)
+    const buffer = await getPreviewDocx(id, parseExportOptions(opts))
     return buffer ? buffer.toString('base64') : null
   })
 
-  // Returns the PDF as a base64 string so it can be converted to a blob URL in the renderer.
   ipcMain.handle('export:getPreviewPdf', async (_event, id: unknown, opts: unknown): Promise<string | null> => {
     if (typeof id !== 'string' || !id) throw new Error('Invalid document id')
-    const buffer = await getPreviewPdf(id, opts as ExportOptions)
+    const buffer = await getPreviewPdf(id, parseExportOptions(opts))
     return buffer ? buffer.toString('base64') : null
   })
 
   ipcMain.handle('export:run', async (_event, id: unknown, opts: unknown): Promise<void> => {
     if (typeof id !== 'string' || !id) throw new Error('Invalid document id')
-    const o = opts as ExportOptions
+    const o = parseExportOptions(opts)
     let filePath: string | null = null
 
     switch (o.format) {
@@ -55,6 +56,8 @@ export function registerExportHandlers(): void {
     if (!match) throw new Error('src must be a base64 data URL')
     const ext = match[1] ?? 'png'
     const base64Data = match[2] ?? ''
+    const bytes = Buffer.from(base64Data, 'base64')
+    if (bytes.length > MAX_IMAGE_BYTES) throw new Error('Image too large (max 20 MB)')
 
     const win = BrowserWindow.fromWebContents(event.sender) ?? BrowserWindow.getFocusedWindow()
     const result = await dialog.showSaveDialog(win!, {
@@ -64,6 +67,6 @@ export function registerExportHandlers(): void {
     })
 
     if (result.canceled || !result.filePath) return
-    await writeFile(result.filePath, Buffer.from(base64Data, 'base64'))
+    await writeFile(result.filePath, bytes)
   })
 }
