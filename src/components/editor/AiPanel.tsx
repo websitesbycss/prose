@@ -9,6 +9,8 @@ import { Separator } from '@/components/ui/separator'
 import { useAppStore } from '@/store/appStore'
 import { useAi } from '@/hooks/useAi'
 import { cn } from '@/lib/utils'
+import { FILE_TYPE_AI_CONFIG } from '@/lib/aiConfig'
+import type { FileType } from '@/lib/aiConfig'
 import type { Issue, AiSelectionAttachment } from '@/types'
 import type { AnalysisState, AnalysisControls } from '@/hooks/useAnalysis'
 import {
@@ -120,15 +122,6 @@ function AiMarkdown({ children }: { children: string }): JSX.Element {
 
 // ── Suggestion chips ──────────────────────────────────────────────────────────
 
-const CHIPS = [
-  'Strengthen thesis',
-  'Check paragraph focus',
-  'Suggest transition',
-  'Improve clarity',
-  'Check argument',
-  'Determine reading level',
-] as const
-
 function attachmentPreview(text: string, maxLen = 24): string {
   const normalized = text.replace(/\s+/g, ' ').trim()
   if (normalized.length <= maxLen) return normalized
@@ -204,6 +197,7 @@ const ISSUE_BADGE_COLORS: Record<Issue['type'], string> = {
 interface AiPanelProps {
   editor: Editor | null
   analysis: AnalysisState & AnalysisControls
+  fileType?: FileType
 }
 
 // ── Shared apply logic ────────────────────────────────────────────────────────
@@ -239,10 +233,12 @@ function applyIssueSuggestion(editor: Editor, issue: Issue): void {
 
 function ChatTab({
   editor,
+  fileType = 'document',
   assignmentContext,
   setAssignmentContext,
 }: {
   editor: Editor | null
+  fileType?: FileType
   assignmentContext: string
   setAssignmentContext: (v: string) => void
 }): JSX.Element {
@@ -315,6 +311,7 @@ function ChatTab({
     el.style.overflowY = full > max ? 'auto' : 'hidden'
   }, [input])
 
+  const config = FILE_TYPE_AI_CONFIG[fileType]
   const docText = editor ? editor.getText() : ''
   const unavailable = ollamaStatus === 'unavailable'
   const busy = streaming || ollamaStatus === 'loading'
@@ -329,7 +326,7 @@ function ChatTab({
       inputRef.current.style.height = ''
       inputRef.current.style.overflowY = 'hidden'
     }
-    await sendMessage(t, docText, assignmentContext || undefined, selectionContent)
+    await sendMessage(t, docText, assignmentContext || undefined, selectionContent, fileType)
   }
 
   return (
@@ -341,7 +338,7 @@ function ChatTab({
           onClick={() => setContextOpen((o) => !o)}
         >
           <span className={cn('transition-transform', contextOpen && 'rotate-90')}>›</span>
-          Document context
+          {config.contextLabel}
         </button>
         <AnimatePresence>
           {contextOpen && (
@@ -358,7 +355,7 @@ function ChatTab({
                   'text-xs placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring',
                   'min-h-[60px]'
                 )}
-                placeholder="What's this document about? Topic, audience, goals…"
+                placeholder={config.contextPlaceholder}
                 value={assignmentContext}
                 onChange={(e) => setAssignmentContext(e.target.value)}
               />
@@ -377,18 +374,18 @@ function ChatTab({
               Suggestions
             </p>
             <div className="flex flex-col gap-1">
-              {CHIPS.map((chip) => (
+              {config.chips.map((chip) => (
                 <button
-                  key={chip}
+                  key={chip.label}
                   disabled={busy || unavailable}
                   className={cn(
                     'rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
                     'border border-border hover:bg-accent hover:text-accent-foreground',
                     (busy || unavailable) && 'cursor-not-allowed opacity-40'
                   )}
-                  onClick={() => void send(chip)}
+                  onClick={() => void send(chip.promptText)}
                 >
-                  {chip}
+                  {chip.label}
                 </button>
               ))}
             </div>
@@ -874,13 +871,17 @@ export function IssueTooltip({
 
 // ── Main panel ────────────────────────────────────────────────────────────────
 
-export default function AiPanel({ editor, analysis }: AiPanelProps): JSX.Element {
+export default function AiPanel({ editor, analysis, fileType = 'document' }: AiPanelProps): JSX.Element {
   const activeAiTab = useAppStore((s) => s.activeAiTab)
   const setActiveAiTab = useAppStore((s) => s.setActiveAiTab)
   const setAiPanelOpen = useAppStore((s) => s.setAiPanelOpen)
   const issueCount = useAppStore((s) => s.issueCount)
   const assignmentContext = useAppStore((s) => s.assignmentContext)
   const setAssignmentContext = useAppStore((s) => s.setAssignmentContext)
+
+  const hasAnalysis = FILE_TYPE_AI_CONFIG[fileType].hasAnalysis
+  // If the current tab is 'analysis' but this file type doesn't support it, switch to chat.
+  const resolvedTab = !hasAnalysis && activeAiTab === 'analysis' ? 'chat' : activeAiTab
 
   return (
     <div className="flex h-full flex-col border-l border-border">
@@ -889,41 +890,46 @@ export default function AiPanel({ editor, analysis }: AiPanelProps): JSX.Element
         <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
         <span className="text-xs font-medium">AI assistant</span>
 
-        {/* Tab pills — right-aligned */}
-        <div className="ml-auto flex items-center rounded-md border border-border bg-muted/40 p-0.5 gap-0.5">
-          <button
-            onClick={() => setActiveAiTab('chat')}
-            className={cn(
-              'flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium transition-colors',
-              activeAiTab === 'chat'
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            <MessageSquare className="h-2.5 w-2.5" />
-            Chat
-          </button>
-          <button
-            onClick={() => setActiveAiTab('analysis')}
-            className={cn(
-              'flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium transition-colors',
-              activeAiTab === 'analysis'
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            <ScanText className="h-2.5 w-2.5" />
-            Issues
-            {issueCount > 0 && (
-              <span className="rounded-full bg-primary px-1 py-px text-[8px] font-bold leading-none text-primary-foreground">
-                {issueCount > 99 ? '99+' : issueCount}
-              </span>
-            )}
-          </button>
-        </div>
+        {/* Tab pills — only shown when analysis is available */}
+        {hasAnalysis && (
+          <div className="ml-auto flex items-center rounded-md border border-border bg-muted/40 p-0.5 gap-0.5">
+            <button
+              onClick={() => setActiveAiTab('chat')}
+              className={cn(
+                'flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium transition-colors',
+                resolvedTab === 'chat'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <MessageSquare className="h-2.5 w-2.5" />
+              Chat
+            </button>
+            <button
+              onClick={() => setActiveAiTab('analysis')}
+              className={cn(
+                'flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium transition-colors',
+                resolvedTab === 'analysis'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <ScanText className="h-2.5 w-2.5" />
+              Issues
+              {issueCount > 0 && (
+                <span className="rounded-full bg-primary px-1 py-px text-[8px] font-bold leading-none text-primary-foreground">
+                  {issueCount > 99 ? '99+' : issueCount}
+                </span>
+              )}
+            </button>
+          </div>
+        )}
 
         <button
-          className="ml-0 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          className={cn(
+            'flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
+            !hasAnalysis && 'ml-auto',
+          )}
           onClick={() => setAiPanelOpen(false)}
         >
           <X className="h-4 w-4" />
@@ -934,9 +940,10 @@ export default function AiPanel({ editor, analysis }: AiPanelProps): JSX.Element
 
       {/* Tab content */}
       <div className="flex-1 overflow-hidden">
-        {activeAiTab === 'chat' ? (
+        {resolvedTab === 'chat' || !hasAnalysis ? (
           <ChatTab
             editor={editor}
+            fileType={fileType}
             assignmentContext={assignmentContext}
             setAssignmentContext={setAssignmentContext}
           />

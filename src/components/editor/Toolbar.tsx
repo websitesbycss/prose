@@ -1105,8 +1105,8 @@ function ToolbarInner({
       isSubscript: ctx.editor.isActive('subscript'),
       isSuperscript: ctx.editor.isActive('superscript'),
       isLink: ctx.editor.isActive('link'),
-      canUndo: ctx.editor.can().undo(),
-      canRedo: ctx.editor.can().redo(),
+      canUndo: ctx.editor?.can().undo() ?? false,
+      canRedo: ctx.editor?.can().redo() ?? false,
       fontFamily: (() => {
         const raw = (ctx.editor.getAttributes('textStyle').fontFamily as string | undefined) ?? ''
         const clean = raw.replace(/^['"]|['"]$/g, '')

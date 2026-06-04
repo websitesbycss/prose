@@ -111,7 +111,7 @@ export function TabPickerPopover({ onOpenDocument, onNewDocument }: TabPickerPop
       </div>
 
       <ScrollArea className="max-h-[340px]">
-        <div className="space-y-3 p-2">
+        <div className="space-y-3 px-2 pt-2 pb-4">
           {loading && (
             <p className="px-2 py-4 text-center text-xs text-muted-foreground">Loading…</p>
           )}

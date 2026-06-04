@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
-import { Sun, Moon, Maximize2, Sparkles, Download, Search, X, ChevronUp, ChevronDown } from 'lucide-react'
+import { Sun, Moon, Maximize2, Sparkles, Download, Search, X, ChevronUp, ChevronDown, Bot } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAppStore } from '@/store/appStore'
 import { DocumentTabBar } from '@/components/editor/DocumentTabBar'
+import { WindowControls } from '@/components/WindowControls'
 import { cn } from '@/lib/utils'
 import type { Document } from '@/types'
 import type { Editor } from '@tiptap/react'
@@ -37,6 +38,8 @@ export default function TitleBar({
   const setFocusModeActive = useAppStore((s) => s.setFocusModeActive)
   const aiPanelOpen = useAppStore((s) => s.aiPanelOpen)
   const setAiPanelOpen = useAppStore((s) => s.setAiPanelOpen)
+  const setGlobalAiOpen = useAppStore((s) => s.setGlobalAiOpen)
+  const globalAiOpen = useAppStore((s) => s.globalAiOpen)
   const ollamaStatus = useAppStore((s) => s.ollamaStatus)
   const issueCount = useAppStore((s) => s.issueCount)
   const activeDocumentId = useAppStore((s) => s.activeDocumentId)
@@ -115,17 +118,13 @@ export default function TitleBar({
     }
   }
 
-  const saveIndicator =
-    saveStatus === 'saving'
-      ? 'Saving…'
-      : saveStatus === 'saved'
-      ? 'Saved'
-      : ''
-
   const hasTabs = openTabs.length > 0
 
+  const saveIndicator =
+    saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved' : ''
+
   return (
-    <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border px-3 text-foreground">
+    <div className="title-bar flex h-10 shrink-0 items-center border-b border-border pl-3 text-foreground">
       {hasTabs ? (
         <DocumentTabBar
           activeDocumentId={activeDocumentId}
@@ -135,7 +134,6 @@ export default function TitleBar({
           onStartTitleEdit={startTitleEdit}
           onCommitTitleEdit={() => void commitTitleEdit()}
           onCancelTitleEdit={() => setEditingTitle(false)}
-          saveIndicator={saveIndicator}
         />
       ) : (
         <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
@@ -145,6 +143,9 @@ export default function TitleBar({
           )}
         </div>
       )}
+
+      {/* ~1 inch drag buffer between tab strip and action icons */}
+      <div className="shrink-0" style={{ minWidth: '5rem' }} />
 
       {findOpen && (
         <div className="flex shrink-0 items-center">
@@ -191,7 +192,7 @@ export default function TitleBar({
         </div>
       )}
 
-      <div className="flex shrink-0 items-center gap-0.5">
+      <div className="flex shrink-0 items-center gap-0.5 pr-1">
         {!findOpen && (
           <Button
             variant="ghost"
@@ -254,6 +255,16 @@ export default function TitleBar({
         <Button
           variant="ghost"
           size="icon"
+          className={cn('h-7 w-7', globalAiOpen && 'bg-accent text-accent-foreground')}
+          onClick={() => setGlobalAiOpen(!globalAiOpen)}
+          title="Global AI chat (Ctrl+Shift+Space)"
+        >
+          <Bot className="h-3.5 w-3.5" />
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="icon"
           className="h-7 w-7"
           onClick={() => setFocusModeActive(true)}
           title="Focus mode"
@@ -261,6 +272,8 @@ export default function TitleBar({
           <Maximize2 className="h-3.5 w-3.5" />
         </Button>
       </div>
+
+      <WindowControls />
     </div>
   )
 }

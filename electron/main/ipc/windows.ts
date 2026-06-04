@@ -4,9 +4,23 @@ import { join } from 'path'
 
 const APP_ICON = join(__dirname, '../../../resources/icons/prose.ico')
 
-let dragInterval: ReturnType<typeof setInterval> | null = null
-let activeDragDocId: string | null = null
-let activeDragSourceWinId: number | null = null
+let _preloadPath = join(__dirname, '../preload/index.js')
+let _rendererPath = join(__dirname, '../renderer/index.html')
+let _devUrl: string | undefined
+
+export function initPaths(preloadPath: string, rendererPath: string, devUrl?: string): void {
+  _preloadPath = preloadPath
+  _rendererPath = rendererPath
+  _devUrl = devUrl
+}
+
+// Detach state for the Chrome-style tear-off
+let detach: {
+  docId: string
+  sourceWinId: number
+  win: BrowserWindow
+  interval: ReturnType<typeof setInterval>
+} | null = null
 
 export function createProseWindow(docId?: string): BrowserWindow {
   const win = new BrowserWindow({
@@ -14,34 +28,32 @@ export function createProseWindow(docId?: string): BrowserWindow {
     height: 800,
     minWidth: 960,
     minHeight: 600,
+    frame: false,
     show: false,
     autoHideMenuBar: true,
     ...(existsSync(APP_ICON) ? { icon: APP_ICON } : {}),
     webPreferences: {
-      preload: join(__dirname, '../../preload/index.js'),
+      preload: _preloadPath,
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
     },
   })
 
-  const devUrl = process.env['ELECTRON_RENDERER_URL']
-  if (devUrl) {
-    const url = docId ? `${devUrl}#open=${encodeURIComponent(docId)}` : devUrl
+  if (_devUrl) {
+    const url = docId ? `${_devUrl}#open=${encodeURIComponent(docId)}` : _devUrl
     void win.loadURL(url)
   } else {
-    void win.loadFile(join(__dirname, '../../renderer/index.html'), {
+    void win.loadFile(_rendererPath, {
       hash: docId ? `open=${encodeURIComponent(docId)}` : undefined,
     })
   }
-
-  win.once('ready-to-show', () => win.show())
 
   win.webContents.setWindowOpenHandler(({ url }) => {
     try {
       const parsed = new URL(url)
       if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
-        void import('electron').then(({ shell }) => shell.openExternal(url))
+        void import('electron').then(({ shell }) => { void shell.openExternal(url) })
       }
     } catch { /* ignore */ }
     return { action: 'deny' }
@@ -50,80 +62,118 @@ export function createProseWindow(docId?: string): BrowserWindow {
   return win
 }
 
+let moveInterval: ReturnType<typeof setInterval> | null = null
+
 export function registerWindowHandlers(): void {
-  ipcMain.on('tabdrag:start', (event, docId: string) => {
-    activeDragDocId = docId
-    activeDragSourceWinId = BrowserWindow.fromWebContents(event.sender)?.id ?? null
-    startPolling()
+  // Window control buttons
+  ipcMain.on('window:minimize', (event) => {
+    BrowserWindow.fromWebContents(event.sender)?.minimize()
+  })
+  ipcMain.on('window:maximize', (event) => {
+    BrowserWindow.fromWebContents(event.sender)?.maximize()
+  })
+  ipcMain.on('window:unmaximize', (event) => {
+    BrowserWindow.fromWebContents(event.sender)?.unmaximize()
+  })
+  ipcMain.on('window:close', (event) => {
+    BrowserWindow.fromWebContents(event.sender)?.close()
+  })
+  ipcMain.handle('window:isMaximized', (event) => {
+    return BrowserWindow.fromWebContents(event.sender)?.isMaximized() ?? false
+  })
+  // Subscribe to maximize state changes for a specific window.
+  ipcMain.on('window:subscribeMaximize', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return
+    const onMax   = (): void => { event.sender.send('window:maximize-change', true) }
+    const onUnmax = (): void => { event.sender.send('window:maximize-change', false) }
+    win.on('maximize', onMax)
+    win.on('unmaximize', onUnmax)
+    event.sender.once('destroyed', () => {
+      win.removeListener('maximize', onMax)
+      win.removeListener('unmaximize', onUnmax)
+    })
   })
 
-  ipcMain.on('tabdrag:end', (event, { docId, screenX, screenY }: { docId: string; screenX: number; screenY: number }) => {
-    stopPolling()
+  // Single-tab window move: renderer sends offset on drag-out, main follows cursor.
+  ipcMain.on('window:startMove', (event, { offsetX, offsetY }: { offsetX: number; offsetY: number }) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return
+    if (moveInterval) clearInterval(moveInterval)
+    moveInterval = setInterval(() => {
+      const pos = screen.getCursorScreenPoint()
+      win.setPosition(pos.x - offsetX, pos.y - offsetY)
+    }, 16)
+  })
 
+  ipcMain.on('window:stopMove', () => {
+    if (moveInterval) { clearInterval(moveInterval); moveInterval = null }
+  })
+  // Renderer signals tear-off start: create a detached window and follow the cursor.
+  ipcMain.on('tabdrag:detach', (event, docId: string) => {
+    if (detach) return // already detaching
     const sourceWin = BrowserWindow.fromWebContents(event.sender)
     if (!sourceWin) return
 
-    const sb = sourceWin.getBounds()
-    const inSource = screenX >= sb.x && screenX <= sb.x + sb.width && screenY >= sb.y && screenY <= sb.y + sb.height
+    const cursor = screen.getCursorScreenPoint()
+    const win = createProseWindow(docId)
 
-    if (inSource) {
-      // Drag ended inside the source window — no action needed.
-      activeDragDocId = null
-      activeDragSourceWinId = null
-      return
-    }
-
-    // Check if dropped onto another Prose window.
-    const targetWin = BrowserWindow.getAllWindows().find(w => {
-      if (w.id === sourceWin.id || w.isDestroyed()) return false
-      const b = w.getBounds()
-      return screenX >= b.x && screenX <= b.x + b.width && screenY >= b.y && screenY <= b.y + b.height
+    win.once('ready-to-show', () => {
+      if (!win || win.isDestroyed()) return
+      const [w] = win.getSize()
+      win.setPosition(Math.max(0, cursor.x - Math.floor(w / 2)), Math.max(0, cursor.y - 20))
+      win.show()
     })
 
-    if (targetWin) {
-      targetWin.webContents.send('tabdrag:accept', { docId, screenX, screenY })
-    } else {
-      // Tear off into a brand-new window, positioned near the drop point.
-      const newWin = createProseWindow(docId)
-      newWin.once('ready-to-show', () => {
-        newWin.setPosition(Math.max(0, screenX - 300), Math.max(0, screenY - 20))
-        newWin.show()
-      })
-    }
+    // Tab-bar area of the source window: approx top 50px of the window.
+    // If the cursor returns there, cancel the tear-off and send tabdrag:return.
+    const TAB_BAR_HEIGHT = 50
 
-    // Always tell the source to remove the tab after a successful detach.
-    event.sender.send('tabdrag:detached', { docId })
-    activeDragDocId = null
-    activeDragSourceWinId = null
+    const interval = setInterval(() => {
+      if (!detach || win.isDestroyed()) { stopDetach(); return }
+
+      const pos = screen.getCursorScreenPoint()
+
+      // Move detached window so it follows the cursor (tab bar under cursor).
+      const [w] = win.getSize()
+      win.setPosition(Math.max(0, pos.x - Math.floor(w / 2)), Math.max(0, pos.y - 20))
+
+      // If cursor returned to the source window's tab-bar area, auto-cancel.
+      if (!sourceWin.isDestroyed()) {
+        const sb = sourceWin.getBounds()
+        const inTabBar =
+          pos.x >= sb.x && pos.x <= sb.x + sb.width &&
+          pos.y >= sb.y && pos.y <= sb.y + TAB_BAR_HEIGHT
+        if (inTabBar) {
+          win.close()
+          clearInterval(interval)
+          if (detach?.win === win) detach = null
+          sourceWin.webContents.send('tabdrag:return', { screenX: pos.x })
+        }
+      }
+    }, 16)
+
+    detach = { docId, sourceWinId: sourceWin.id, win, interval }
+  })
+
+  // Renderer signals cancel (cursor returned to source strip via pointer events).
+  ipcMain.on('tabdrag:cancel', () => {
+    stopDetach()
+  })
+
+  // Renderer signals finalise: keep the new window, remove source tab.
+  ipcMain.on('tabdrag:finalize', (event) => {
+    if (!detach) return
+    clearInterval(detach.interval)
+    // Send tabdrag:detached to source so it removes the tab.
+    event.sender.send('tabdrag:detached', { docId: detach.docId })
+    detach = null // window lives on
   })
 }
 
-function startPolling(): void {
-  if (dragInterval) return
-  const lastState = new Map<number, boolean>()
-
-  dragInterval = setInterval(() => {
-    if (!activeDragDocId) { stopPolling(); return }
-    const pos = screen.getCursorScreenPoint()
-
-    for (const win of BrowserWindow.getAllWindows()) {
-      if (win.id === activeDragSourceWinId || win.isDestroyed()) continue
-      const b = win.getBounds()
-      const inside = pos.x >= b.x && pos.x <= b.x + b.width && pos.y >= b.y && pos.y <= b.y + b.height
-
-      // Only send when state changes, plus continuous screenX while inside for drop-index tracking.
-      if (inside || lastState.get(win.id)) {
-        win.webContents.send('tabdrag:hover', { inside, screenX: pos.x, screenY: pos.y })
-      }
-      lastState.set(win.id, inside)
-    }
-  }, 32)
-}
-
-function stopPolling(): void {
-  if (dragInterval) { clearInterval(dragInterval); dragInterval = null }
-  // Clear any active drop zones in all windows.
-  for (const win of BrowserWindow.getAllWindows()) {
-    if (!win.isDestroyed()) win.webContents.send('tabdrag:hover', { inside: false, screenX: 0, screenY: 0 })
-  }
+function stopDetach(): void {
+  if (!detach) return
+  clearInterval(detach.interval)
+  if (!detach.win.isDestroyed()) detach.win.close()
+  detach = null
 }

@@ -50,10 +50,13 @@ interface AppState {
   assignmentContext: string
   typewriterMode: boolean
   uiScale: number
+  globalAiOpen: boolean
 
   setCurrentDocumentId(id: string | null): void
   openDocumentTab(tab: OpenDocumentTab): void
   insertDocumentTab(tab: OpenDocumentTab, index: number): void
+  reorderTabs(tabId: string, toIndex: number): void
+  setTabOrder(tabIds: string[]): void
   closeDocumentTab(id: string): void
   activateDocumentTab(id: string): void
   updateDocumentTab(id: string, updates: Partial<Pick<OpenDocumentTab, 'title' | 'format'>>): void
@@ -78,6 +81,7 @@ interface AppState {
   setAssignmentContext(ctx: string): void
   setTypewriterMode(v: boolean): void
   setUiScale(v: number): void
+  setGlobalAiOpen(open: boolean): void
 }
 
 const DEFAULT_POMODORO: PomodoroState = {
@@ -111,6 +115,7 @@ export const useAppStore = create<AppState>()((set) => ({
   assignmentContext: '',
   typewriterMode: false,
   uiScale: 110,
+  globalAiOpen: false,
 
   setCurrentDocumentId: (id) => {
     if (id === null) {
@@ -153,6 +158,24 @@ export const useAppStore = create<AppState>()((set) => ({
         currentDocumentId: tab.id,
         showDashboard: false,
       }
+    }),
+
+  reorderTabs: (tabId, toIndex) =>
+    set((s) => {
+      const fromIndex = s.openTabs.findIndex((t) => t.id === tabId)
+      if (fromIndex === -1 || fromIndex === toIndex) return {}
+      const openTabs = [...s.openTabs]
+      const [tab] = openTabs.splice(fromIndex, 1)
+      openTabs.splice(toIndex, 0, tab!)
+      return { openTabs }
+    }),
+
+  setTabOrder: (tabIds) =>
+    set((s) => {
+      const map = new Map(s.openTabs.map((t) => [t.id, t]))
+      const reordered = tabIds.map((id) => map.get(id)).filter(Boolean) as typeof s.openTabs
+      const remaining = s.openTabs.filter((t) => !tabIds.includes(t.id))
+      return { openTabs: [...reordered, ...remaining] }
     }),
 
   closeDocumentTab: (id) =>
@@ -238,4 +261,5 @@ export const useAppStore = create<AppState>()((set) => ({
     document.documentElement.style.fontSize = `${v}%`
     set({ uiScale: v })
   },
+  setGlobalAiOpen: (open) => set({ globalAiOpen: open }),
 }))

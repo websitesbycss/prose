@@ -46,6 +46,21 @@ contextBridge.exposeInMainWorld('prose', {
     },
     analyze: (payload: { documentContent: string; assignmentContext?: string }) =>
       ipcRenderer.invoke('ai:analyze', payload),
+    globalStreamPrompt: (
+      request: string,
+      history: Array<{ role: 'user' | 'assistant'; content: string }>,
+      onChunk: (chunk: string) => void,
+      onError: (msg: string) => void,
+    ): Promise<void> => {
+      const chunkListener = (_: Electron.IpcRendererEvent, chunk: string): void => onChunk(chunk)
+      const errorListener = (_: Electron.IpcRendererEvent, msg: string): void => onError(msg)
+      ipcRenderer.on('ai:global-stream-chunk', chunkListener)
+      ipcRenderer.on('ai:global-stream-error', errorListener)
+      return ipcRenderer.invoke('ai:globalStreamPrompt', { request, history }).finally(() => {
+        ipcRenderer.removeListener('ai:global-stream-chunk', chunkListener)
+        ipcRenderer.removeListener('ai:global-stream-error', errorListener)
+      })
+    },
   },
 
   export: {
@@ -60,24 +75,36 @@ contextBridge.exposeInMainWorld('prose', {
     saveImage: (src: string) => ipcRenderer.invoke('export:saveImage', src),
   },
 
+  win: {
+    minimize: () => ipcRenderer.send('window:minimize'),
+    maximize: () => ipcRenderer.send('window:maximize'),
+    unmaximize: () => ipcRenderer.send('window:unmaximize'),
+    close: () => ipcRenderer.send('window:close'),
+    isMaximized: (): Promise<boolean> => ipcRenderer.invoke('window:isMaximized'),
+    subscribeMaximize: (cb: (isMaximized: boolean) => void): (() => void) => {
+      ipcRenderer.send('window:subscribeMaximize')
+      const listener = (_: Electron.IpcRendererEvent, v: boolean): void => cb(v)
+      ipcRenderer.on('window:maximize-change', listener)
+      return () => ipcRenderer.removeListener('window:maximize-change', listener)
+    },
+    startMove: (offset: { offsetX: number; offsetY: number }) =>
+      ipcRenderer.send('window:startMove', offset),
+    stopMove: () => ipcRenderer.send('window:stopMove'),
+  },
+
   tabdrag: {
-    start: (docId: string) => ipcRenderer.send('tabdrag:start', docId),
-    end: (data: { docId: string; screenX: number; screenY: number }) =>
-      ipcRenderer.send('tabdrag:end', data),
-    onHover: (cb: (data: { inside: boolean; screenX: number; screenY: number }) => void): (() => void) => {
-      const listener = (_: Electron.IpcRendererEvent, data: { inside: boolean; screenX: number; screenY: number }): void => cb(data)
-      ipcRenderer.on('tabdrag:hover', listener)
-      return () => ipcRenderer.removeListener('tabdrag:hover', listener)
-    },
-    onAccept: (cb: (data: { docId: string; screenX: number; screenY: number }) => void): (() => void) => {
-      const listener = (_: Electron.IpcRendererEvent, data: { docId: string; screenX: number; screenY: number }): void => cb(data)
-      ipcRenderer.on('tabdrag:accept', listener)
-      return () => ipcRenderer.removeListener('tabdrag:accept', listener)
-    },
+    detach: (docId: string) => ipcRenderer.send('tabdrag:detach', docId),
+    cancel: () => ipcRenderer.send('tabdrag:cancel'),
+    finalize: () => ipcRenderer.send('tabdrag:finalize'),
     onDetached: (cb: (data: { docId: string }) => void): (() => void) => {
       const listener = (_: Electron.IpcRendererEvent, data: { docId: string }): void => cb(data)
       ipcRenderer.on('tabdrag:detached', listener)
       return () => ipcRenderer.removeListener('tabdrag:detached', listener)
+    },
+    onReturn: (cb: (data: { screenX: number }) => void): (() => void) => {
+      const listener = (_: Electron.IpcRendererEvent, data: { screenX: number }): void => cb(data)
+      ipcRenderer.on('tabdrag:return', listener)
+      return () => ipcRenderer.removeListener('tabdrag:return', listener)
     },
   },
 

@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useAppStore } from '@/store/appStore'
+import type { FileType } from '@/lib/aiConfig'
 
 export interface ChatMessage {
   id: string
@@ -20,6 +21,7 @@ export interface AiChatControls {
     documentContent: string,
     assignmentContext?: string,
     selectionContent?: string,
+    fileType?: FileType,
   ): Promise<void>
   clearMessages(): void
 }
@@ -43,6 +45,7 @@ export function useAi(): AiChatState & AiChatControls {
       documentContent: string,
       assignmentContext?: string,
       selectionContent?: string,
+      fileType?: FileType,
     ): Promise<void> => {
       if (ollamaStatus !== 'ready') return
 
@@ -67,7 +70,7 @@ export function useAi(): AiChatState & AiChatControls {
 
       try {
         await window.prose.ai.streamPrompt(
-          { documentContent, assignmentContext, request, history, selectionContent },
+          { documentContent, assignmentContext, request, history, selectionContent, fileType },
           (chunk) => {
             if (!firstChunkRef.current) {
               firstChunkRef.current = true

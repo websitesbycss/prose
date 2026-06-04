@@ -2,6 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Custom title bar ────────────────────────────────────────────────────── */
+/* Mark the entire title bar as a drag region for the frameless window. */
+.title-bar { -webkit-app-region: drag; }
+/* All interactive descendants opt out of window-drag so they stay clickable. */
+.title-bar button,
+.title-bar input,
+.title-bar a,
+.title-bar [role="button"],
+.title-bar .document-tab-strip,
+.title-bar .document-tab-item { -webkit-app-region: no-drag; }
+
+/* Window-control close button: red on hover. */
+.win-close:hover { background-color: #e81123 !important; color: #fff !important; }
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -76,19 +90,16 @@
   gap: 1px;
   min-width: 0;
   flex: 1;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.document-tab-strip::-webkit-scrollbar {
-  display: none;
+  /* No scroll — tabs compress like Chrome tabs. */
+  overflow: hidden;
 }
 
 .document-tab {
   display: flex;
   align-items: center;
-  flex-shrink: 0;
-  max-width: 13rem;
+  /* Fill the flex item width; item handles max-width. */
+  width: 100%;
+  min-width: 0;
   height: 1.75rem;
   padding-left: 0.625rem;
   padding-right: 0.25rem;
@@ -122,13 +133,9 @@
   flex: 1;
   align-items: center;
   gap: 0.375rem;
-  padding: 0;
-  border: none;
-  background: transparent;
+  height: 100%;
+  line-height: 1;
   color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
 }
 
 .document-tab__title {
@@ -141,10 +148,13 @@
 
 .document-tab__format {
   flex-shrink: 0;
-  font-size: 0.625rem;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  opacity: 0.65;
+  font-size: 0.5rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  opacity: 0.6;
+  align-self: center;
+  text-transform: uppercase;
 }
 
 .document-tab__input {
@@ -186,8 +196,12 @@
 .document-tab-item {
   display: flex;
   align-items: center;
-  flex-shrink: 0;
+  /* Shrink proportionally when many tabs, like Chrome. */
+  flex: 1 1 0;
+  min-width: 3.5rem;
+  max-width: 13rem;
   position: relative;
+  overflow: hidden;
 }
 
 .document-tab-drop-zone {

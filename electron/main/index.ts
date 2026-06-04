@@ -18,7 +18,7 @@ import { registerMigrationHandlers, checkAndRunMigration } from './ipc/migration
 import { registerImportHandlers } from './ipc/import'
 import { registerSpellHandlers } from './ipc/spell'
 import { registerFileAssociation } from './services/fileAssociation'
-import { createProseWindow, registerWindowHandlers } from './ipc/windows'
+import { createProseWindow, registerWindowHandlers, initPaths } from './ipc/windows'
 import { autoUpdater } from 'electron-updater'
 
 const APP_ICON = join(__dirname, '../../resources/icons/prose.ico')
@@ -38,6 +38,7 @@ function createMainWindow(): BrowserWindow {
     height: bounds.height,
     minWidth: 960,
     minHeight: 600,
+    frame: false,
     show: false,
     autoHideMenuBar: true,
     ...(existsSync(APP_ICON) ? { icon: APP_ICON } : {}),
@@ -159,6 +160,11 @@ app.whenReady().then(async () => {
     registerMigrationHandlers()
     registerImportHandlers()
     registerSpellHandlers()
+    initPaths(
+      join(__dirname, '../preload/index.js'),
+      join(__dirname, '../renderer/index.html'),
+      process.env['ELECTRON_RENDERER_URL'],
+    )
     registerWindowHandlers()
 
     ipcMain.handle('documents:folderAccessible', () => isDocumentsFolderAccessible())

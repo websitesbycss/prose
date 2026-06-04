@@ -1,6 +1,7 @@
 import { ipcMain, WebContents } from 'electron'
 import type { OllamaManager } from '../services/ollama'
 import { getSettingJson } from '../services/settingsDb'
+import { getIndexDb } from '../services/indexDb'
 
 interface Issue {
   id: string
@@ -16,13 +17,33 @@ interface AnalysisResult {
   tone: string
 }
 
-// ── Chat ─────────────────────────────────────────────────────────────────────
+// ── System prompts per file type ─────────────────────────────────────────────
 
-const CHAT_SYSTEM_PROMPT = `You are a writing and mathematics assistant embedded in a document editor. Give specific, actionable responses grounded in what the user provides.
+const SYSTEM_PROMPTS: Record<string, string> = {
+  document: `You are a writing and mathematics assistant embedded in a document editor. Give specific, actionable responses grounded in what the user provides.
 
 For writing help: quote or paraphrase the relevant passage when it helps. Never rewrite the essay for the user; instead point to what needs changing and why. Keep responses tight: 2–3 sentences for simple requests, a short numbered list (3–5 items max) when the request calls for multiple points. No preamble, no "Great essay!", no filler.
 
-For mathematics: always wrap every mathematical expression — no matter how small — in LaTeX delimiters: $...$ for inline math (e.g. $x^2$) and $$...$$ on its own line for display equations. Never write math as plain text. Always brace subscripts and superscripts with curly braces: $x_{n}$ not $x_n$. Show steps clearly using numbered lists. State the final answer on its own line as a decimal approximation (e.g. $\approx 282.67$) — do not chain fraction arithmetic in the final line. After reaching a final answer, verify it by briefly checking your arithmetic or substituting back — if the check fails, correct the answer before responding.`
+For mathematics: always wrap every mathematical expression — no matter how small — in LaTeX delimiters: $...$ for inline math (e.g. $x^2$) and $$...$$ on its own line for display equations. Never write math as plain text. Always brace subscripts and superscripts with curly braces: $x_{n}$ not $x_n$. Show steps clearly using numbered lists. State the final answer on its own line as a decimal approximation (e.g. $\\approx 282.67$) — do not chain fraction arithmetic in the final line. After reaching a final answer, verify it by briefly checking your arithmetic or substituting back — if the check fails, correct the answer before responding.`,
+
+  sheet: `You are a spreadsheet and data assistant embedded in a spreadsheet editor. Help users with formulas, data organization, and analysis.
+
+When explaining formulas, describe each part concisely and give a one-line example. When suggesting formulas, provide the exact formula text the user should type, formatted in a code block. When analyzing data, focus on what the numbers show — not how to use the software. Keep responses to 2–3 sentences for simple requests; use a short numbered list when multiple steps are involved.`,
+
+  board: `You are a visual thinking and knowledge organization assistant embedded in an infinite canvas tool. Help users map relationships between ideas, identify gaps in their thinking, and suggest connections between files and notes.
+
+Keep responses concise and structural — focus on what's present, what's missing, and how things relate. When suggesting connections, name the specific files or notes involved and explain briefly why they are related. No preamble, no filler.`,
+}
+
+const GLOBAL_CHAT_SYSTEM_PROMPT = `You are a writing suite assistant with access to the user's complete file library metadata. You have the title, file type (Document, Sheet, or Board), format (for Documents), word count, category, and last-modified date of every file in their library.
+
+You do not have access to full file content — only the metadata listed above. If the user asks about the content of a specific file, let them know you can only see metadata.
+
+Answer questions about their library: which files need attention, recent activity, summaries by category, file counts by type, suggestions about what to work on next. Be concise — 2–3 sentences for simple queries, a short bulleted list when the request calls for multiple items. No preamble, no filler.`
+
+// ── Chat ─────────────────────────────────────────────────────────────────────
+
+const CHAT_SYSTEM_PROMPT = SYSTEM_PROMPTS.document
 
 interface IssueBudget {
   errors: number   // type "error"  — spelling / grammar / logic
@@ -247,6 +268,19 @@ function validateAnalysisResult(data: unknown, budget: IssueBudget): AnalysisRes
   return { issues, tone }
 }
 
+// ── Utilities ────────────────────────────────────────────────────────────────
+
+function relativeDate(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime()
+  const m = Math.floor(ms / 60_000)
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ago`
+  const d = Math.floor(h / 24)
+  if (d < 7) return `${d}d ago`
+  return `${Math.floor(d / 7)}w ago`
+}
+
 // ── Handlers ─────────────────────────────────────────────────────────────────
 
 export function registerAiHandlers(manager: OllamaManager): void {
@@ -255,14 +289,15 @@ export function registerAiHandlers(manager: OllamaManager): void {
   ipcMain.handle('ai:prompt', async (_, payload: unknown): Promise<string> => {
     if (!checkRateLimit('ai:prompt', 20)) return ''
     if (!payload || typeof payload !== 'object') return ''
-    const p = payload as { documentContent?: string; request?: string; assignmentContext?: string; history?: unknown; selectionContent?: string }
+    const p = payload as { documentContent?: string; request?: string; assignmentContext?: string; history?: unknown; selectionContent?: string; fileType?: string }
     if (typeof p.documentContent !== 'string' || typeof p.request !== 'string') return ''
     if (!p.request.trim()) return ''
     const history = Array.isArray(p.history) ? (p.history as HistoryMessage[]) : []
+    const systemPrompt = SYSTEM_PROMPTS[p.fileType ?? 'document'] ?? CHAT_SYSTEM_PROMPT
     const model = getModel()
     let result = ''
     try {
-      for await (const chunk of manager.streamChat(model, CHAT_SYSTEM_PROMPT, buildConversationMessages(p.documentContent, p.request, p.assignmentContext, history, p.selectionContent))) {
+      for await (const chunk of manager.streamChat(model, systemPrompt, buildConversationMessages(p.documentContent, p.request, p.assignmentContext, history, p.selectionContent))) {
         result += chunk
         if (result.length > 50_000) break
       }
@@ -275,22 +310,22 @@ export function registerAiHandlers(manager: OllamaManager): void {
   ipcMain.handle('ai:streamPrompt', async (event, payload: unknown): Promise<void> => {
     if (!checkRateLimit('ai:streamPrompt', 20)) return
     if (!payload || typeof payload !== 'object') return
-    const p = payload as { documentContent?: string; request?: string; assignmentContext?: string; history?: unknown; selectionContent?: string }
+    const p = payload as { documentContent?: string; request?: string; assignmentContext?: string; history?: unknown; selectionContent?: string; fileType?: string }
     if (typeof p.documentContent !== 'string' || typeof p.request !== 'string') return
     if (!p.request.trim()) return
     const history = Array.isArray(p.history) ? (p.history as HistoryMessage[]) : []
+    const systemPrompt = SYSTEM_PROMPTS[p.fileType ?? 'document'] ?? CHAT_SYSTEM_PROMPT
     const sender: WebContents = event.sender
     const model = getModel()
     let totalLen = 0
     let firstChunk = false
-    // 30-second timeout waiting for the first token
     const firstChunkTimeout = setTimeout(() => {
       if (!firstChunk && !sender.isDestroyed()) {
         sender.send('ai:stream-error', 'The model took too long to respond. Is Ollama running and the model loaded?')
       }
     }, 30_000)
     try {
-      for await (const chunk of manager.streamChat(model, CHAT_SYSTEM_PROMPT, buildConversationMessages(p.documentContent, p.request, p.assignmentContext, history, p.selectionContent))) {
+      for await (const chunk of manager.streamChat(model, systemPrompt, buildConversationMessages(p.documentContent, p.request, p.assignmentContext, history, p.selectionContent))) {
         if (!firstChunk) { firstChunk = true; clearTimeout(firstChunkTimeout) }
         if (sender.isDestroyed()) break
         totalLen += chunk.length
@@ -312,6 +347,82 @@ export function registerAiHandlers(manager: OllamaManager): void {
       }
     } finally {
       clearTimeout(firstChunkTimeout)
+    }
+  })
+
+  ipcMain.handle('ai:globalStreamPrompt', async (event, payload: unknown): Promise<void> => {
+    if (!checkRateLimit('ai:globalStreamPrompt', 10)) return
+    if (!payload || typeof payload !== 'object') return
+    const p = payload as { request?: string; history?: unknown }
+    if (typeof p.request !== 'string' || !p.request.trim()) return
+    const history = Array.isArray(p.history) ? (p.history as HistoryMessage[]) : []
+    const request = sanitizeForPrompt(p.request, 2000)
+
+    // Fetch file index from DB to build context — main process pulls this itself
+    // so the renderer cannot forge the library contents.
+    let fileIndex = '[FILE LIBRARY — unavailable]'
+    try {
+      const db = getIndexDb()
+      const rows = db.prepare(`
+        SELECT d.id, d.title, d.format, d.word_count, d.updated_at, c.name AS category_name
+        FROM documents d
+        LEFT JOIN categories c ON c.id = d.category_id
+        ORDER BY d.updated_at DESC
+        LIMIT 200
+      `).all() as Array<{ title: string; format: string; word_count: number; updated_at: string; category_name: string | null }>
+      if (rows.length === 0) {
+        fileIndex = '[FILE LIBRARY — no files yet]'
+      } else {
+        const lines = rows.map((r) => {
+          const format = r.format && r.format !== 'none' ? `, ${r.format.toUpperCase()}` : ''
+          const words  = `${r.word_count.toLocaleString()} words`
+          const cat    = r.category_name ? `, ${r.category_name}` : ''
+          const age    = r.updated_at ? `, ${relativeDate(r.updated_at)}` : ''
+          return `- "${r.title}" (Document${format}, ${words}${cat}${age})`
+        })
+        fileIndex = `[FILE LIBRARY — ${rows.length} file${rows.length !== 1 ? 's' : ''}]\n${lines.join('\n')}\n[END FILE LIBRARY]`
+      }
+    } catch { /* leave default */ }
+
+    // Inject file index only into the first user message of the conversation.
+    const messages: HistoryMessage[] = []
+    for (let i = 0; i < history.length; i++) {
+      const m = history[i]!
+      if (i === 0 && m.role === 'user') {
+        messages.push({ role: 'user', content: `${fileIndex}\n\n[USER REQUEST]\n${sanitizeForPrompt(m.content, 2000)}\n[END USER REQUEST]` })
+      } else {
+        messages.push({ role: m.role, content: m.content.slice(0, 6000) })
+      }
+    }
+    if (messages.length === 0) {
+      messages.push({ role: 'user', content: `${fileIndex}\n\n[USER REQUEST]\n${request}\n[END USER REQUEST]` })
+    } else {
+      messages.push({ role: 'user', content: sanitizeForPrompt(request, 2000) })
+    }
+
+    const sender: WebContents = event.sender
+    const model = getModel()
+    let totalLen = 0
+    let firstChunk = false
+    const timeout = setTimeout(() => {
+      if (!firstChunk && !sender.isDestroyed()) {
+        sender.send('ai:global-stream-error', 'The model took too long to respond.')
+      }
+    }, 30_000)
+    try {
+      for await (const chunk of manager.streamChat(model, GLOBAL_CHAT_SYSTEM_PROMPT, messages)) {
+        if (!firstChunk) { firstChunk = true; clearTimeout(timeout) }
+        if (sender.isDestroyed()) break
+        totalLen += chunk.length
+        if (totalLen > 50_000) break
+        sender.send('ai:global-stream-chunk', chunk)
+      }
+    } catch (err) {
+      console.error('ai:globalStreamPrompt error:', err)
+      clearTimeout(timeout)
+      if (!sender.isDestroyed()) sender.send('ai:global-stream-error', 'AI request failed. Is Ollama running?')
+    } finally {
+      clearTimeout(timeout)
     }
   })
 

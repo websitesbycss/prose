@@ -110,6 +110,7 @@ export interface AiPromptPayload {
   request: string
   selectionContent?: string
   history?: Array<{ role: 'user' | 'assistant'; content: string }>
+  fileType?: 'document' | 'sheet' | 'board'
 }
 
 export interface Issue {
@@ -235,6 +236,12 @@ export interface ProseAPI {
     getStatus(): Promise<OllamaStatus>
     streamPrompt(payload: AiPromptPayload, onChunk: (chunk: string) => void, onError: (msg: string) => void): Promise<void>
     analyze(payload: { documentContent: string; assignmentContext?: string }): Promise<AnalysisResult>
+    globalStreamPrompt(
+      request: string,
+      history: Array<{ role: 'user' | 'assistant'; content: string }>,
+      onChunk: (chunk: string) => void,
+      onError: (msg: string) => void,
+    ): Promise<void>
   }
   export: {
     getPreviewHtml(id: string, opts: ExportOptions): Promise<string | null>
@@ -243,12 +250,22 @@ export interface ProseAPI {
     run(id: string, opts: ExportOptions): Promise<void>
     saveImage(src: string): Promise<void>
   }
+  win: {
+    minimize(): void
+    maximize(): void
+    unmaximize(): void
+    close(): void
+    isMaximized(): Promise<boolean>
+    subscribeMaximize(cb: (isMaximized: boolean) => void): () => void
+    startMove(offset: { offsetX: number; offsetY: number }): void
+    stopMove(): void
+  }
   tabdrag: {
-    start(docId: string): void
-    end(data: { docId: string; screenX: number; screenY: number }): void
-    onHover(cb: (data: { inside: boolean; screenX: number; screenY: number }) => void): () => void
-    onAccept(cb: (data: { docId: string; screenX: number; screenY: number }) => void): () => void
+    detach(docId: string): void
+    cancel(): void
+    finalize(): void
     onDetached(cb: (data: { docId: string }) => void): () => void
+    onReturn(cb: (data: { screenX: number }) => void): () => void
   }
   citations: {
     getByDocument(documentId: string): Promise<Citation[]>
