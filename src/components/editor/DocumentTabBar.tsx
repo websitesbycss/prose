@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Home, Plus, X } from 'lucide-react'
+import { Home, Plus, X, FileText, LayoutGrid, LayoutPanelLeft } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -8,6 +8,12 @@ import { FORMAT_LABELS } from '@/lib/documentFormat'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store/appStore'
 import type { OpenDocumentTab } from '@/store/appStore'
+
+const TAB_TYPE_ICONS = {
+  document: FileText,
+  sheet: LayoutGrid,
+  board: LayoutPanelLeft,
+} as const
 
 interface DocumentTabBarProps {
   activeDocumentId?: string | null
@@ -81,10 +87,13 @@ function TabContent({
   }
 
   const formatLabel = FORMAT_LABELS[tab.format]
+  const fileType = tab.fileType ?? 'document'
+  const TypeIcon = TAB_TYPE_ICONS[fileType] ?? FileText
   return (
     <span className="document-tab__label">
+      <TypeIcon className="h-3 w-3 shrink-0 opacity-50" />
       <span className="document-tab__title">{tab.title}</span>
-      {formatLabel && <span className="document-tab__format">{formatLabel}</span>}
+      {fileType === 'document' && formatLabel && <span className="document-tab__format">{formatLabel}</span>}
     </span>
   )
 }

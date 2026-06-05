@@ -16,6 +16,7 @@
   "dependencies": {
     "@fontsource/geist-mono": "^5.0.3",
     "@fontsource/geist-sans": "^5.0.3",
+    "@handsontable/react": "^16.2.0",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-popover": "^1.1.15",
@@ -51,6 +52,8 @@
     "docx": "^9.6.1",
     "docx-preview": "^0.3.7",
     "electron-updater": "^6.8.3",
+    "handsontable": "^17.1.0",
+    "hyperformula": "^3.3.0",
     "katex": "^0.17.0",
     "lucide-react": "^0.400.0",
     "mammoth": "^1.8.0",
@@ -66,6 +69,7 @@
     "sonner": "^1.5.0",
     "tailwind-merge": "^2.3.0",
     "tailwindcss-animate": "^1.0.7",
+    "tldraw": "^5.1.0",
     "zustand": "^4.5.2"
   },
   "devDependencies": {

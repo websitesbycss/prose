@@ -50,7 +50,7 @@ Each file type has its own:
 
 ## Global AI improvements (implement before Sheets and Boards)
 
-### Phase 13 — AI system refactor: cross-type awareness
+### ✅ Phase 13 — AI system refactor: cross-type awareness
 
 The current AI assistant is scoped to Document analysis. Before building Sheets and Boards, the AI system needs to be refactored to be file-type-aware so it can serve all three types well.
 
@@ -93,7 +93,7 @@ Add a global AI chat accessible from the title bar or a keyboard shortcut that i
 
 ---
 
-## Phase 14 — Suite dashboard updates
+## ✅ Phase 14 — Suite dashboard updates
 
 Before building Sheets or Boards, the dashboard needs updates to support all three file types clearly.
 
@@ -133,7 +133,7 @@ Tabs for Sheets show the grid icon. Tabs for Boards show the canvas icon. Tabs f
 
 ---
 
-## Phase 15 — Sheets: data model and file service
+## ✅ Phase 15 — Sheets: data model and file service
 
 Before building the Sheets UI, define the data model and ensure the file service handles it correctly.
 
@@ -156,7 +156,7 @@ The existing file service handles Sheet files identically to Document files — 
 
 ---
 
-## Phase 16 — Sheets: editor implementation
+## ✅ Phase 16 — Sheets: editor implementation
 
 **Library choice:**
 Use Handsontable Community Edition with `@handsontable/react`. It has TypeScript support, is MIT licensed for open source projects, and is the most capable spreadsheet library in the JS ecosystem. Install `handsontable`, `@handsontable/react`, and `hyperformula`.
@@ -204,7 +204,7 @@ Wire Handsontable's `afterChange`, `afterCreateRow`, `afterCreateCol`, `afterRem
 
 ---
 
-## Phase 17 — Sheets: AI integration
+## ✅ Phase 17 — Sheets: AI integration
 
 The AI panel works in Sheet mode with the Sheet-specific chips from Phase 13.
 
@@ -220,7 +220,7 @@ When AI suggests a formula, render it in the AI panel with monospace font and a 
 
 ---
 
-## Phase 18 — Boards: data model and infrastructure
+## ✅ Phase 18 — Boards: data model and infrastructure
 
 **Library choice:**
 Use tldraw. It is open source, built in React, and handles infinite canvas, pan/zoom, built-in shapes, sticky notes, arrows, selection, resize, and undo/redo. Install `tldraw` and import its CSS.
@@ -240,7 +240,7 @@ The index stores Board files with `word_count` equal to the total number of elem
 
 ---
 
-## Phase 19 — Boards: editor implementation
+## ✅ Phase 19 — Boards: editor implementation
 
 **Board editor component:**
 Create `src/components/boards/BoardEditor.tsx`. Fills the full content area with no page canvas or margins.
@@ -303,7 +303,7 @@ Debounce tldraw's `change` event at 1 second and call the existing auto-save IPC
 
 ---
 
-## Phase 20 — Boards: AI integration
+## ✅ Phase 20 — Boards: AI integration
 
 **Context construction:**
 Collect all `ProseFileCard` shapes on the Board and send their titles, types, formats, categories, and preview text as a structured list. Never send full file content — 80-character previews only.

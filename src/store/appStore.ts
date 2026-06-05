@@ -8,6 +8,7 @@ export interface OpenDocumentTab {
   id: string
   title: string
   format: string
+  fileType?: 'document' | 'sheet' | 'board'
 }
 
 function readStoredTheme(): Theme {
@@ -51,6 +52,7 @@ interface AppState {
   typewriterMode: boolean
   uiScale: number
   globalAiOpen: boolean
+  typeFilter: 'all' | 'document' | 'sheet' | 'board'
 
   setCurrentDocumentId(id: string | null): void
   openDocumentTab(tab: OpenDocumentTab): void
@@ -82,6 +84,7 @@ interface AppState {
   setTypewriterMode(v: boolean): void
   setUiScale(v: number): void
   setGlobalAiOpen(open: boolean): void
+  setTypeFilter(filter: 'all' | 'document' | 'sheet' | 'board'): void
 }
 
 const DEFAULT_POMODORO: PomodoroState = {
@@ -116,6 +119,7 @@ export const useAppStore = create<AppState>()((set) => ({
   typewriterMode: false,
   uiScale: 110,
   globalAiOpen: false,
+  typeFilter: 'all',
 
   setCurrentDocumentId: (id) => {
     if (id === null) {
@@ -262,4 +266,5 @@ export const useAppStore = create<AppState>()((set) => ({
     set({ uiScale: v })
   },
   setGlobalAiOpen: (open) => set({ globalAiOpen: open }),
+  setTypeFilter: (filter) => set({ typeFilter: filter }),
 }))

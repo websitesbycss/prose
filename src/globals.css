@@ -127,6 +127,62 @@
   background: hsl(var(--accent));
 }
 
+/* ── Handsontable dark theme (Prose design system) ────────────────────────── */
+/* Override ht-theme-main CSS variables to match Prose's dark palette.         */
+/* Scoped to .prose-hot-root so these only apply inside the SheetsEditor.      */
+.prose-hot-root {
+  --ht-background-color: hsl(var(--background));
+  --ht-background-secondary-color: hsl(var(--muted) / 0.6);
+  --ht-foreground-color: hsl(var(--foreground));
+  --ht-foreground-secondary-color: hsl(var(--muted-foreground));
+  --ht-border-color: hsl(var(--border));
+  --ht-accent-color: hsl(var(--primary));
+  --ht-cell-selection-background-color: hsl(var(--primary) / 0.18);
+  --ht-bar-background-color: hsl(var(--muted) / 0.5);
+  --ht-bar-foreground-color: hsl(var(--muted-foreground));
+  --ht-font-family: inherit;
+  --ht-font-size: 13px;
+  /* No outer border on the table wrapper */
+  --ht-wrapper-border-width: 0px;
+}
+
+/* Make the grid container fill its parent */
+.prose-hot-root .handsontable,
+.prose-hot-root .wtHolder,
+.prose-hot-root .ht_master {
+  width: 100% !important;
+}
+
+/* Context menu dark styling */
+.prose-hot-root + .htContextMenu,
+.htContextMenu {
+  --ht-background-color: hsl(var(--popover));
+  --ht-foreground-color: hsl(var(--popover-foreground));
+  --ht-border-color: hsl(var(--border));
+}
+
+/* ── tldraw Board editor dark-mode overrides ─────────────────────────────── */
+/* Scoped to .prose-tldraw-root so these only apply inside the BoardEditor.   */
+.prose-tldraw-root {
+  --tl-background: hsl(var(--background));
+  --color-background: hsl(var(--background));
+  --color-low: hsl(var(--muted));
+  --color-text: hsl(var(--foreground));
+  --color-text-0: hsl(var(--muted-foreground));
+  --color-text-1: hsl(var(--foreground));
+  --color-text-2: hsl(var(--muted-foreground));
+  --color-text-3: hsl(var(--muted-foreground) / 0.7);
+  --color-primary: hsl(var(--primary));
+  --color-selection-fill: hsl(var(--primary) / 0.15);
+  --color-selection-stroke: hsl(var(--primary));
+  --color-shadow: hsl(220 10% 0% / 0.4);
+  --color-overlay: hsl(var(--background) / 0.9);
+  --color-culled: transparent;
+}
+.prose-tldraw-root .tl-background {
+  background: hsl(var(--background));
+}
+
 .document-tab__label {
   display: flex;
   min-width: 0;

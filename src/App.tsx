@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Toaster } from 'sonner'
+import { LayoutGrid, LayoutPanelLeft } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
 import { applyAccentColors, DEFAULT_LIGHT_ACCENT, DEFAULT_DARK_ACCENT } from '@/lib/accentColor'
 import Dashboard from '@/components/dashboard/Dashboard'
@@ -13,7 +14,29 @@ import OllamaInstall from '@/components/onboarding/OllamaInstall'
 import ModelDownload from '@/components/onboarding/ModelDownload'
 import MigrationOverlay from '@/components/migration/MigrationOverlay'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
-import type { DownloadStatus, OllamaStatus, MigrationProgress } from '@/types'
+import { SheetsEditor } from '@/components/sheets/SheetsEditor'
+import { BoardEditor } from '@/components/boards/BoardEditor'
+import type { DownloadStatus, OllamaStatus, MigrationProgress, FileType } from '@/types'
+
+function FileTypePlaceholder({ fileType }: { fileType: FileType }): JSX.Element {
+  const Icon = LayoutPanelLeft
+  return (
+    <div className="flex h-screen flex-col bg-background">
+      <DashboardTabBar />
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-dashed border-border/60">
+          <Icon className="h-7 w-7 text-muted-foreground/30" />
+        </div>
+        <div>
+          <p className="text-base font-semibold text-foreground">Unable to open {fileType} file</p>
+          <p className="mt-1 text-sm text-muted-foreground/70">
+            This file could not be loaded. Try reopening it from the dashboard.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 type OnboardingStep = 'welcome' | 'save-location' | 'ollama-install' | 'model-download'
 
@@ -211,16 +234,31 @@ export default function App(): JSX.Element {
     )
   }
 
-  const inEditor =
-    !showDashboard && activeDocumentId !== null && openTabs.some((t) => t.id === activeDocumentId)
+  const activeTab = openTabs.find((t) => t.id === activeDocumentId) ?? null
+  const inEditor = !showDashboard && activeDocumentId !== null && activeTab !== null
+  const activeFileType = activeTab?.fileType ?? 'document'
 
   return (
     <>
       {showMigration && <MigrationOverlay onComplete={handleMigrationComplete} />}
       {inEditor ? (
-        <ErrorBoundary label="Editor">
-          <Editor documentId={activeDocumentId!} />
-        </ErrorBoundary>
+        activeFileType === 'document' ? (
+          <ErrorBoundary label="Editor">
+            <Editor documentId={activeDocumentId!} />
+          </ErrorBoundary>
+        ) : activeFileType === 'sheet' ? (
+          <ErrorBoundary label="SheetsEditor">
+            <SheetsEditor documentId={activeDocumentId!} />
+          </ErrorBoundary>
+        ) : activeFileType === 'board' ? (
+          <ErrorBoundary label="BoardEditor">
+            <BoardEditor documentId={activeDocumentId!} />
+          </ErrorBoundary>
+        ) : (
+          <ErrorBoundary label="FileEditor">
+            <FileTypePlaceholder fileType={activeFileType} />
+          </ErrorBoundary>
+        )
       ) : (
         <ErrorBoundary label="Dashboard">
           <div className="flex h-screen flex-col bg-background">

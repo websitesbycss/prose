@@ -4,6 +4,8 @@ import { join, basename, extname, dirname } from 'path'
 import { randomUUID } from 'crypto'
 import { getSettingJson, setSetting } from './settingsDb'
 import { upsertIndex, removeFromIndex, getIndexRow, getAllIndexRows, IndexRow } from './indexDb'
+import { isSheetContent, countSheetCells, createInitialSheetContent } from '../lib/sheetContent'
+import { isBoardContent, countBoardElements, createInitialBoardContent } from '../lib/boardContent'
 
 // ── .prose file schema ────────────────────────────────────────────────────────
 
@@ -31,8 +33,9 @@ export interface ProseFileDocument {
   version: typeof PROSE_FILE_VERSION
   id: string
   title: string
+  fileType: 'document' | 'sheet' | 'board'
   format: string
-  content: unknown  // Tiptap JSONContent object
+  content: unknown  // Tiptap JSONContent or Sheet/Board JSON
   headerContent: unknown | null
   footerContent: unknown | null
   pageMargins: { top: number; right: number; bottom: number; left: number } | null
@@ -172,7 +175,7 @@ export async function resolveDocument(id: string): Promise<{ doc: ProseFileDocum
       // Recount in case the stored word_count is stale (e.g. from a past import bug)
       const freshCount = countWordsFromContent(doc.content)
       if (freshCount !== row.word_count) {
-        upsertIndex({ ...row, word_count: freshCount })
+        upsertIndex({ ...row, word_count: freshCount, file_type: doc.fileType ?? row.file_type ?? 'document' })
       }
       return { doc, filePath: row.file_path }
     } catch {
@@ -193,6 +196,7 @@ export async function resolveDocument(id: string): Promise<{ doc: ProseFileDocum
     category_id: found.doc.categoryId,
     created_at: found.doc.createdAt,
     updated_at: found.doc.updatedAt,
+    file_type: found.doc.fileType ?? 'document',
   })
   return found
 }
@@ -217,6 +221,7 @@ async function scanFolderForId(id: string): Promise<{ doc: ProseFileDocument; fi
 
 export async function createDocument(data: {
   title: string
+  fileType?: 'document' | 'sheet' | 'board'
   format: string
   content?: unknown
   headerContent?: unknown | null
@@ -230,13 +235,18 @@ export async function createDocument(data: {
 
   const id = randomUUID()
   const now = new Date().toISOString()
-  const emptyDoc = { type: 'doc', content: [] }
-  const content = data.content ?? emptyDoc
+  const fileType = data.fileType ?? 'document'
+  const defaultContent =
+    fileType === 'sheet' ? createInitialSheetContent()
+    : fileType === 'board' ? createInitialBoardContent()
+    : { type: 'doc', content: [] }
+  const content = data.content ?? defaultContent
 
   const doc: ProseFileDocument = {
     version: PROSE_FILE_VERSION,
     id,
     title: data.title,
+    fileType,
     format: data.format ?? 'none',
     content,
     headerContent: data.headerContent ?? null,
@@ -258,10 +268,11 @@ export async function createDocument(data: {
     title: doc.title,
     file_path: filePath,
     format: doc.format,
-    word_count: countWordsFromContent(content),
+    word_count: countUnitsFromContent(content, fileType),
     category_id: doc.categoryId,
     created_at: now,
     updated_at: now,
+    file_type: fileType,
   })
 
   return doc
@@ -300,10 +311,11 @@ export async function updateDocument(
       title: updated.title,
       file_path: filePath,
       format: updated.format,
-      word_count: 'content' in patch ? countWordsFromContent(updated.content) : getIndexRow(id)?.word_count ?? 0,
+      word_count: 'content' in patch ? countUnitsFromContent(updated.content, updated.fileType ?? 'document') : getIndexRow(id)?.word_count ?? 0,
       category_id: updated.categoryId,
       created_at: updated.createdAt,
       updated_at: now,
+      file_type: updated.fileType ?? 'document',
     })
 
     return updated
@@ -322,6 +334,7 @@ export interface DashboardDocument {
   id: string
   title: string
   format: string
+  fileType: 'document' | 'sheet' | 'board'
   wordCount: number
   categoryId: string | null
   createdAt: string
@@ -333,10 +346,12 @@ export function getAllDocumentsFromIndex(): DashboardDocument[] {
 }
 
 function rowToDashboard(row: IndexRow): DashboardDocument {
+  const ft = row.file_type
   return {
     id: row.id,
     title: row.title,
     format: row.format,
+    fileType: ft === 'sheet' || ft === 'board' ? ft : 'document',
     wordCount: row.word_count,
     categoryId: row.category_id,
     createdAt: row.created_at,
@@ -365,6 +380,7 @@ export async function rebuildIndexFromFolder(): Promise<void> {
         category_id: doc.categoryId,
         created_at: doc.createdAt,
         updated_at: doc.updatedAt,
+        file_type: doc.fileType ?? 'document',
       })
     } catch { /* skip bad files */ }
   }
@@ -399,10 +415,11 @@ export async function renameUuidSuffixedFiles(): Promise<void> {
         title: titleChanged ? resolvedTitle : doc.title,
         file_path: newPath,
         format: doc.format,
-        word_count: getIndexRow(doc.id)?.word_count ?? countWordsFromContent(doc.content),
+        word_count: getIndexRow(doc.id)?.word_count ?? countUnitsFromContent(doc.content, doc.fileType ?? 'document'),
         category_id: doc.categoryId,
         created_at: doc.createdAt,
         updated_at: doc.updatedAt,
+        file_type: doc.fileType ?? 'document',
       })
     } catch (err) {
       console.error('[migration] Failed to rename', entry, err)
@@ -499,10 +516,11 @@ export async function importProseFile(filePath: string): Promise<ProseFileDocume
     title: newDoc.title,
     file_path: destPath,
     format: newDoc.format,
-    word_count: countWordsFromContent(newDoc.content),
+    word_count: countUnitsFromContent(newDoc.content, newDoc.fileType ?? 'document'),
     category_id: newDoc.categoryId,
     created_at: newDoc.createdAt,
     updated_at: newDoc.updatedAt,
+    file_type: newDoc.fileType ?? 'document',
   })
   return newDoc
 }
@@ -521,6 +539,7 @@ export async function importMarkdownFile(filePath: string): Promise<ProseFileDoc
     version: PROSE_FILE_VERSION,
     id,
     title: titleFromFilename,
+    fileType: 'document',
     format: 'none',
     content,
     headerContent: null,
@@ -546,6 +565,7 @@ export async function importMarkdownFile(filePath: string): Promise<ProseFileDoc
     category_id: null,
     created_at: now,
     updated_at: now,
+    file_type: 'document',
   })
   return doc
 }
@@ -566,6 +586,7 @@ export async function importDocxFile(filePath: string): Promise<ProseFileDocumen
     version: PROSE_FILE_VERSION,
     id,
     title: titleFromFilename,
+    fileType: 'document',
     format: 'none',
     content,
     headerContent: null,
@@ -591,6 +612,7 @@ export async function importDocxFile(filePath: string): Promise<ProseFileDocumen
     category_id: null,
     created_at: now,
     updated_at: now,
+    file_type: 'document',
   })
   return doc
 }
@@ -615,6 +637,17 @@ function extractText(node: unknown): string {
 export function countWordsFromContent(content: unknown): number {
   const text = extractText(content).trim()
   return text ? text.split(/\s+/).length : 0
+}
+
+/** Unified content unit counter — words for documents, cells for sheets, 0 for boards. */
+export function countUnitsFromContent(content: unknown, fileType: string): number {
+  if (fileType === 'sheet') {
+    return isSheetContent(content) ? countSheetCells(content) : 0
+  }
+  if (fileType === 'board') {
+    return isBoardContent(content) ? countBoardElements(content) : 0
+  }
+  return countWordsFromContent(content)
 }
 
 // ── Snapshot helpers ──────────────────────────────────────────────────────────

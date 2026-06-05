@@ -12,6 +12,7 @@ function docToOut(doc: ProseFileDocument) {
     title: doc.title,
     content: JSON.stringify(doc.content),
     format: doc.format,
+    fileType: doc.fileType ?? 'document',
     wordCountGoal: doc.wordCountGoal,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,

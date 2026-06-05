@@ -5,11 +5,19 @@ export interface PageMargins {
   left: number   // inches
 }
 
+export type FileType = 'document' | 'sheet' | 'board'
+
+export type { SheetContent, SheetTab, SheetCell, SheetCellFormat, SheetMergedCell } from './sheet'
+export { isSheetContent, countSheetCells, createInitialSheetContent } from './sheet'
+export type { BoardContent } from './board'
+export { isBoardContent, createInitialBoardContent, countBoardElements } from './board'
+
 export interface Document {
   id: string
   title: string
   content: string
   format: 'none' | 'mla' | 'apa' | 'chicago' | 'ieee'
+  fileType?: FileType
   wordCountGoal: number | null
   createdAt: string
   updatedAt: string
@@ -68,6 +76,7 @@ export type DocumentFormat = Document['format']
 export interface CreateDocumentInput {
   title: string
   content?: string
+  fileType?: FileType
   format?: DocumentFormat
   categoryId?: string | null
   wordCountGoal?: number | null

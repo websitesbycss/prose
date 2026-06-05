@@ -17,6 +17,7 @@ import { shell, dialog, BrowserWindow } from 'electron'
 import { validateFolderPath } from '../lib/pathValidation'
 
 const VALID_FORMATS = new Set(['none', 'mla', 'apa', 'chicago', 'ieee'])
+const VALID_FILE_TYPES = new Set(['document', 'sheet', 'board'])
 
 function docToOut(doc: ProseFileDocument, filePath?: string) {
   return {
@@ -24,6 +25,7 @@ function docToOut(doc: ProseFileDocument, filePath?: string) {
     title: doc.title,
     content: JSON.stringify(doc.content),
     format: doc.format,
+    fileType: doc.fileType ?? 'document',
     wordCountGoal: doc.wordCountGoal,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
@@ -40,13 +42,13 @@ function dashboardDocToOut(doc: ReturnType<typeof getAllDocumentsFromIndex>[0]) 
     title: doc.title,
     content: '{}',  // not used by the dashboard card (it uses pre-computed wordCount)
     format: doc.format,
+    fileType: doc.fileType,
     wordCountGoal: null,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
     categoryId: doc.categoryId,
     headerContent: null,
     footerContent: null,
-    // Extra field for dashboard word count display
     wordCount: doc.wordCount,
   }
 }
@@ -68,6 +70,7 @@ export function registerDocumentHandlers(): void {
     const d = data as Record<string, unknown>
 
     if (typeof d.title !== 'string' || !d.title.trim()) throw new Error('title is required')
+    const fileType = typeof d.fileType === 'string' && VALID_FILE_TYPES.has(d.fileType) ? (d.fileType as 'document' | 'sheet' | 'board') : 'document'
     const format = typeof d.format === 'string' && VALID_FORMATS.has(d.format) ? d.format : 'none'
     const _wcg = d.wordCountGoal != null ? Number(d.wordCountGoal) : null
     const wordCountGoal = _wcg != null && isFinite(_wcg) ? Math.max(0, Math.min(999_999, Math.round(_wcg))) : null
@@ -83,6 +86,7 @@ export function registerDocumentHandlers(): void {
 
     const doc = await createDocument({
       title: d.title.trim(),
+      fileType,
       format,
       content,
       headerContent,

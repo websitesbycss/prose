@@ -4,7 +4,9 @@ import { toast } from 'sonner'
 import {
   Plus, Search, Settings, X, Upload, FileText, Pin,
   Pencil, Trash2, Download, ArrowRight, ChevronRight, FolderOpen, Check,
+  LayoutGrid, LayoutPanelLeft,
 } from 'lucide-react'
+import type { FileType } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -25,6 +27,24 @@ import { FORMAT_LABELS } from '@/lib/documentFormat'
 
 type SortBy = 'recent' | 'name' | 'words'
 type FilterKey = 'all' | 'pinned' | string
+
+const FILE_TYPE_ICONS: Record<FileType, React.FC<{ className?: string; style?: React.CSSProperties }>> = {
+  document: FileText,
+  sheet: LayoutGrid,
+  board: LayoutPanelLeft,
+}
+
+const FILE_TYPE_COUNT_LABEL: Record<FileType, string> = {
+  document: 'words',
+  sheet: 'cells',
+  board: 'elements',
+}
+
+const CONTINUE_LABEL: Record<FileType, string> = {
+  document: 'Continue writing',
+  sheet: 'Continue editing',
+  board: 'Continue mapping',
+}
 
 const CATEGORY_COLORS = [
   '#7F77DD', '#E879A0', '#34D399', '#FBBF24',
@@ -52,6 +72,8 @@ export default function Dashboard({ embedded = false }: { embedded?: boolean }):
   const setNewDocumentModalOpen = useAppStore((s) => s.setNewDocumentModalOpen)
   const settingsOpen = useAppStore((s) => s.settingsOpen)
   const setSettingsOpen = useAppStore((s) => s.setSettingsOpen)
+  const typeFilter = useAppStore((s) => s.typeFilter)
+  const setTypeFilter = useAppStore((s) => s.setTypeFilter)
 
   const [documents, setDocuments] = useState<Document[]>([])
   const [categories, setCategories] = useState<Category[]>([])
@@ -75,7 +97,7 @@ export default function Dashboard({ embedded = false }: { embedded?: boolean }):
 
   useEffect(() => {
     function onDocumentCreated(e: Event): void {
-      const doc = (e as CustomEvent<Document>).detail
+      const doc = (e as CustomEvent<Document>).detail as Document | undefined
       if (doc) setDocuments((prev) => [doc, ...prev.filter((d) => d.id !== doc.id)])
     }
     window.addEventListener('prose-document-created', onDocumentCreated)
@@ -83,7 +105,7 @@ export default function Dashboard({ embedded = false }: { embedded?: boolean }):
   }, [])
 
   function openDoc(doc: Document): void {
-    openDocumentTab({ id: doc.id, title: doc.title, format: doc.format })
+    openDocumentTab({ id: doc.id, title: doc.title, format: doc.format, fileType: doc.fileType ?? 'document' })
   }
 
   async function loadAll(): Promise<void> {
@@ -204,8 +226,11 @@ export default function Dashboard({ embedded = false }: { embedded?: boolean }):
       if (filter === 'pinned') return pinnedIds.has(doc.id)
       if (filter !== 'all') return doc.categoryId === filter
       return true
+    }).filter((doc) => {
+      if (typeFilter !== 'all') return (doc.fileType ?? 'document') === typeFilter
+      return true
     }).filter((doc) => !search || doc.title.toLowerCase().includes(search.toLowerCase()))
-  }, [documents, filter, pinnedIds, search])
+  }, [documents, filter, pinnedIds, search, typeFilter])
 
   const continueDoc = useMemo<Document | null>(() => {
     if (filter !== 'all' || search || documents.length === 0) return null
@@ -278,7 +303,7 @@ export default function Dashboard({ embedded = false }: { embedded?: boolean }):
           <nav className="flex flex-col gap-0.5 p-2 pb-4">
             <NavItem
               icon={<FileText className="h-3.5 w-3.5" />}
-              label="All documents"
+              label="All files"
               active={filter === 'all'}
               count={documents.length || undefined}
               onClick={() => setFilter('all')}
@@ -398,7 +423,7 @@ export default function Dashboard({ embedded = false }: { embedded?: boolean }):
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/50" />
             <input
               className="h-8 w-full rounded-md border border-input bg-transparent pl-8 pr-8 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring transition-colors"
-              placeholder="Search documents…"
+              placeholder="Search files…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -412,7 +437,7 @@ export default function Dashboard({ embedded = false }: { embedded?: boolean }):
             )}
           </div>
 
-          {/* Sort toggle — sits immediately right of search */}
+          {/* Sort toggle */}
           <div className="flex items-center rounded-md border border-border bg-muted/30 p-0.5 gap-0.5">
             {(['recent', 'name', 'words'] as SortBy[]).map((s) => (
               <button
@@ -430,6 +455,24 @@ export default function Dashboard({ embedded = false }: { embedded?: boolean }):
             ))}
           </div>
 
+          {/* Type filter pills */}
+          <div className="flex items-center rounded-md border border-border bg-muted/30 p-0.5 gap-0.5">
+            {(['all', 'document', 'sheet', 'board'] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTypeFilter(t)}
+                className={cn(
+                  'rounded px-2.5 py-1 text-[11px] font-medium capitalize transition-colors',
+                  typeFilter === t
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {t === 'all' ? 'All' : t === 'document' ? 'Documents' : t === 'sheet' ? 'Sheets' : 'Boards'}
+              </button>
+            ))}
+          </div>
+
           <Button
             size="sm"
             variant="outline"
@@ -443,7 +486,7 @@ export default function Dashboard({ embedded = false }: { embedded?: boolean }):
           </Button>
           <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setNewDocumentModalOpen(true)}>
             <Plus className="h-3.5 w-3.5" />
-            New document
+            New file
           </Button>
         </header>
 
@@ -466,10 +509,10 @@ export default function Dashboard({ embedded = false }: { embedded?: boolean }):
               >
                 {search ? (
                   <p className="text-sm text-muted-foreground">
-                    No documents match <span className="font-medium text-foreground">"{search}"</span>
+                    No files match <span className="font-medium text-foreground">"{search}"</span>
                   </p>
                 ) : (
-                  <p className="text-sm text-muted-foreground">No documents in this view</p>
+                  <p className="text-sm text-muted-foreground">No files in this view</p>
                 )}
               </motion.div>
             ) : (
@@ -641,6 +684,9 @@ function DocRow({ doc, categories, pinned, startEditing, onEditStarted, onOpen, 
   const wordCount = doc.wordCount ?? extractWordCount(doc.content)
   const formatLabel = FORMAT_LABELS[doc.format]
   const accentColor = category?.color
+  const fileType: FileType = doc.fileType ?? 'document'
+  const TypeIcon = FILE_TYPE_ICONS[fileType]
+  const countLabel = FILE_TYPE_COUNT_LABEL[fileType]
 
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(doc.title)
@@ -675,7 +721,7 @@ function DocRow({ doc, categories, pinned, startEditing, onEditStarted, onOpen, 
         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors"
         style={{ backgroundColor: accentColor ? accentColor + '20' : 'hsl(var(--muted)/0.5)' }}
       >
-        <FileText
+        <TypeIcon
           className="h-[15px] w-[15px]"
           style={{ color: accentColor ?? 'hsl(var(--muted-foreground))' }}
         />
@@ -716,7 +762,7 @@ function DocRow({ doc, categories, pinned, startEditing, onEditStarted, onOpen, 
             {formatLabel ?? ''}
           </span>
           <span className="w-[68px] shrink-0 text-[11px] text-muted-foreground/60 tabular-nums">
-            {wordCount.toLocaleString()} words
+            {wordCount.toLocaleString()} {countLabel}
           </span>
           <span className="w-[68px] shrink-0 text-[11px] text-muted-foreground/50">
             {formatRelativeTime(doc.updatedAt)}
@@ -927,6 +973,10 @@ function ContinueCard({
   const wordCount = doc.wordCount ?? extractWordCount(doc.content)
   const formatLabel = FORMAT_LABELS[doc.format]
   const accent = category?.color ?? 'hsl(var(--primary))'
+  const fileType: FileType = doc.fileType ?? 'document'
+  const TypeIcon = FILE_TYPE_ICONS[fileType]
+  const countLabel = FILE_TYPE_COUNT_LABEL[fileType]
+  const continueLabel = CONTINUE_LABEL[fileType]
 
   return (
     <motion.button
@@ -948,13 +998,13 @@ function ContinueCard({
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
           style={{ backgroundColor: accent + '18' }}
         >
-          <FileText className="h-5 w-5" style={{ color: accent }} />
+          <TypeIcon className="h-5 w-5" style={{ color: accent }} />
         </div>
 
         {/* Text */}
         <div className="min-w-0 flex-1">
           <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">
-            Continue writing
+            {continueLabel}
           </p>
           <p className="truncate font-semibold text-foreground">{doc.title}</p>
           <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground/70">
@@ -964,13 +1014,13 @@ function ContinueCard({
                 <span className="opacity-40">·</span>
               </>
             )}
-            {formatLabel && (
+            {fileType === 'document' && formatLabel && (
               <>
                 <span>{formatLabel}</span>
                 <span className="opacity-40">·</span>
               </>
             )}
-            <span>{wordCount.toLocaleString()} words</span>
+            <span>{wordCount.toLocaleString()} {countLabel}</span>
             <span className="opacity-40">·</span>
             <span>{formatRelativeTime(doc.updatedAt)}</span>
           </div>
@@ -1007,15 +1057,15 @@ function EmptyState({ onNew }: { onNew: () => void }): JSX.Element {
       </div>
 
       <div>
-        <p className="text-base font-semibold text-foreground">No documents yet</p>
+        <p className="text-base font-semibold text-foreground">No files yet</p>
         <p className="mt-1 text-sm text-muted-foreground/70">
-          Start writing or import an existing file
+          Create a Document, Sheet, or Board to get started
         </p>
       </div>
 
       <Button onClick={onNew} className="gap-1.5">
         <Plus className="h-4 w-4" />
-        New document
+        New file
       </Button>
 
       <p className="text-[11px] text-muted-foreground/40">

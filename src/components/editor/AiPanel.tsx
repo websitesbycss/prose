@@ -196,8 +196,13 @@ const ISSUE_BADGE_COLORS: Record<Issue['type'], string> = {
 
 interface AiPanelProps {
   editor: Editor | null
-  analysis: AnalysisState & AnalysisControls
+  /** Only required for Documents — omit for Sheets and Boards. */
+  analysis?: AnalysisState & AnalysisControls
   fileType?: FileType
+  /** Optional override for document content injected as AI context. Used by Sheets and Boards. */
+  getDocumentContent?: () => string
+  /** Called when the user clicks "Insert formula" on an AI suggestion (Sheets only). */
+  onInsertFormula?: (formula: string) => void
 }
 
 // ── Shared apply logic ────────────────────────────────────────────────────────
@@ -229,6 +234,21 @@ function applyIssueSuggestion(editor: Editor, issue: Issue): void {
   }
 }
 
+// ── Formula extraction (Sheets) ───────────────────────────────────────────────
+
+function extractFormula(content: string): string | null {
+  // Code block: ```=FORMULA(...)```
+  const cbMatch = content.match(/```(?:\w*\n)?\s*(=[^\n`]{2,100})\s*(?:\n)?```/m)
+  if (cbMatch) return cbMatch[1].trim()
+  // Inline code: `=FORMULA(...)`
+  const icMatch = content.match(/`(=[^`]{2,100})`/)
+  if (icMatch) return icMatch[1].trim()
+  // Bare formula on its own line: =FUNCTION(...) — case-insensitive function name
+  const bareMatch = content.match(/^(=[A-Za-z]+\([^)]{0,200}\))/m)
+  if (bareMatch) return bareMatch[1].trim()
+  return null
+}
+
 // ── Chat tab ──────────────────────────────────────────────────────────────────
 
 function ChatTab({
@@ -236,11 +256,15 @@ function ChatTab({
   fileType = 'document',
   assignmentContext,
   setAssignmentContext,
+  getDocumentContent,
+  onInsertFormula,
 }: {
   editor: Editor | null
   fileType?: FileType
   assignmentContext: string
   setAssignmentContext: (v: string) => void
+  getDocumentContent?: () => string
+  onInsertFormula?: (formula: string) => void
 }): JSX.Element {
   const ollamaStatus = useAppStore((s) => s.ollamaStatus)
   const pendingAiPrompt = useAppStore((s) => s.pendingAiPrompt)
@@ -312,13 +336,22 @@ function ChatTab({
   }, [input])
 
   const config = FILE_TYPE_AI_CONFIG[fileType]
-  const docText = editor ? editor.getText() : ''
   const unavailable = ollamaStatus === 'unavailable'
   const busy = streaming || ollamaStatus === 'loading'
+
+  // Capture refs so send() can read the latest values without being recreated
+  const getDocumentContentRef = useRef(getDocumentContent)
+  getDocumentContentRef.current = getDocumentContent
+  const editorRef = useRef(editor)
+  editorRef.current = editor
 
   async function send(text: string): Promise<void> {
     const t = text.trim()
     if (!t || busy || unavailable) return
+    // Compute document context at send-time, not on every render
+    const docText = getDocumentContentRef.current
+      ? getDocumentContentRef.current()
+      : (editorRef.current ? editorRef.current.getText() : '')
     const selectionContent = attachment?.text
     setInput('')
     dismissAttachment()
@@ -392,40 +425,53 @@ function ChatTab({
           </div>
         )}
 
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={cn('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}
-          >
-            <div
-              className={cn(
-                'ai-chat-bubble min-w-0 max-w-[85%] rounded-2xl px-3 py-2 text-xs leading-relaxed',
-                msg.role === 'user'
-                  ? 'rounded-br-sm bg-primary text-primary-foreground'
-                  : 'rounded-bl-sm bg-muted text-foreground'
-              )}
-            >
-              {msg.role === 'assistant' && msg.content ? (
-                <AiMarkdown>{normaliseMath(msg.content)}</AiMarkdown>
-              ) : msg.content || (
-                <span className="flex items-center gap-1 text-muted-foreground">
-                  {reloading ? (
-                    <>
-                      <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                      Reloading model…
-                    </>
-                  ) : (
-                    <span className="flex gap-0.5">
-                      <span className="animate-bounce" style={{ animationDelay: '0ms' }}>·</span>
-                      <span className="animate-bounce" style={{ animationDelay: '150ms' }}>·</span>
-                      <span className="animate-bounce" style={{ animationDelay: '300ms' }}>·</span>
-                    </span>
-                  )}
-                </span>
+        {messages.map((msg) => {
+          const formula = msg.role === 'assistant' && fileType === 'sheet' && msg.content
+            ? extractFormula(msg.content)
+            : null
+          return (
+            <div key={msg.id} className={cn('flex flex-col', msg.role === 'user' ? 'items-end' : 'items-start')}>
+              <div
+                className={cn(
+                  'ai-chat-bubble min-w-0 max-w-[85%] rounded-2xl px-3 py-2 text-xs leading-relaxed',
+                  msg.role === 'user'
+                    ? 'rounded-br-sm bg-primary text-primary-foreground'
+                    : 'rounded-bl-sm bg-muted text-foreground'
+                )}
+              >
+                {msg.role === 'assistant' && msg.content ? (
+                  <AiMarkdown>{normaliseMath(msg.content)}</AiMarkdown>
+                ) : msg.content || (
+                  <span className="flex items-center gap-1 text-muted-foreground">
+                    {reloading ? (
+                      <>
+                        <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                        Reloading model…
+                      </>
+                    ) : (
+                      <span className="flex gap-0.5">
+                        <span className="animate-bounce" style={{ animationDelay: '0ms' }}>·</span>
+                        <span className="animate-bounce" style={{ animationDelay: '150ms' }}>·</span>
+                        <span className="animate-bounce" style={{ animationDelay: '300ms' }}>·</span>
+                      </span>
+                    )}
+                  </span>
+                )}
+              </div>
+              {formula && onInsertFormula && (
+                <div className="mt-1 flex items-center gap-2 rounded-md border border-border bg-background px-2.5 py-1.5 text-[11px] max-w-[85%]">
+                  <code className="min-w-0 flex-1 truncate font-mono text-[10px] text-foreground">{formula}</code>
+                  <button
+                    className="shrink-0 rounded bg-primary px-2 py-0.5 text-[10px] font-medium text-primary-foreground hover:bg-primary/90"
+                    onClick={() => onInsertFormula(formula)}
+                  >
+                    Insert
+                  </button>
+                </div>
               )}
             </div>
-          </div>
-        ))}
+          )
+        })}
 
         {error && (
           <p className="rounded-md bg-destructive/10 px-2.5 py-2 text-xs text-destructive">{error}</p>
@@ -871,7 +917,7 @@ export function IssueTooltip({
 
 // ── Main panel ────────────────────────────────────────────────────────────────
 
-export default function AiPanel({ editor, analysis, fileType = 'document' }: AiPanelProps): JSX.Element {
+export default function AiPanel({ editor, analysis, fileType = 'document', getDocumentContent, onInsertFormula }: AiPanelProps): JSX.Element {
   const activeAiTab = useAppStore((s) => s.activeAiTab)
   const setActiveAiTab = useAppStore((s) => s.setActiveAiTab)
   const setAiPanelOpen = useAppStore((s) => s.setAiPanelOpen)
@@ -946,11 +992,13 @@ export default function AiPanel({ editor, analysis, fileType = 'document' }: AiP
             fileType={fileType}
             assignmentContext={assignmentContext}
             setAssignmentContext={setAssignmentContext}
+            getDocumentContent={getDocumentContent}
+            onInsertFormula={onInsertFormula}
           />
         ) : (
           <AnalysisTab
             editor={editor}
-            analysis={analysis}
+            analysis={analysis!}
             assignmentContext={assignmentContext}
             setAssignmentContext={setAssignmentContext}
           />
