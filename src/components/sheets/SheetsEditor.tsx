@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useEffect } from 'react'
+import { useRef, useState, useMemo, useCallback, useEffect } from 'react'
 import { HotTable, HotTableClass } from '@handsontable/react'
 import Handsontable from 'handsontable'
 import HyperFormula from 'hyperformula'
@@ -376,21 +376,36 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
     h.setDataAtCell(row, col, formulaBarValue)
   }, [formulaBarValue])
 
+  // Stable HyperFormula instance — created once so updateSettings never re-inits the engine
+  const hyperFormulaRef = useRef(HyperFormula.buildEmpty({ licenseKey: 'gpl-v3' }))
+
+  // Stable per-tab derived values so useMemo deps are referentially stable
+  const tabData = useMemo(() => cellsToData(activeTab), [activeTab])
+  const tabMergedCells = useMemo(
+    () => activeTab.mergedCells.map((mc) => ({
+      row: mc.row, col: mc.col, rowspan: mc.rowspan, colspan: mc.colspan,
+    })),
+    [activeTab],
+  )
+
   // Build Handsontable settings ───────────────────────────────────────────────
-  const hotSettings: Handsontable.GridSettings = {
-    data: cellsToData(activeTab),
+  // Wrapped in useMemo so the settings object reference is stable across renders
+  // that don't change the sheet.  Without this, every toolbar-state update
+  // (e.g. selecting a cell) would recreate the object, trigger updateSettings(),
+  // and immediately kill any in-progress cell edit.
+  const hotSettings = useMemo<Handsontable.GridSettings>(() => ({
+    data: tabData,
     licenseKey: 'non-commercial-and-evaluation',
-    formulas: { engine: HyperFormula },
+    formulas: { engine: hyperFormulaRef.current },
     rowHeaders: true,
     colHeaders: true,
     height: hotHeight,
     width: '100%',
     stretchH: 'none',
+    colWidths: 100,
     manualColumnResize: true,
     manualRowResize: true,
-    mergeCells: activeTab.mergedCells.map((mc) => ({
-      row: mc.row, col: mc.col, rowspan: mc.rowspan, colspan: mc.colspan,
-    })),
+    mergeCells: tabMergedCells,
     contextMenu: {
       items: {
         row_above: {},
@@ -446,7 +461,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
     afterMergeCells: () => scheduleSave(),
     afterUnmergeCells: () => scheduleSave(),
     afterSelectionEnd: (row, col) => onSelectionEnd(row, col),
-  }
+  }), [tabData, tabMergedCells, hotHeight, scheduleSave, onSelectionEnd])
 
   if (!doc) {
     return (
@@ -471,7 +486,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
       {/* Grid + AI panel row */}
       <div className="flex min-h-0 flex-1">
         {/* Handsontable container */}
-        <div ref={containerRef} className="ht-theme-main-dark prose-hot-root min-h-0 min-w-0 flex-1 overflow-hidden">
+        <div ref={containerRef} className="ht-theme-main-dark prose-hot-root relative min-h-0 min-w-0 flex-1">
           <HotTable ref={hotRef} settings={hotSettings} />
         </div>
 

@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import {
   Plus, Search, Settings, X, Upload, FileText, Pin,
   Pencil, Trash2, Download, ArrowRight, ChevronRight, FolderOpen, Check,
-  LayoutGrid, LayoutPanelLeft,
+  Table2, Shapes,
 } from 'lucide-react'
 import type { FileType } from '@/types'
 import { Button } from '@/components/ui/button'
@@ -30,8 +30,8 @@ type FilterKey = 'all' | 'pinned' | string
 
 const FILE_TYPE_ICONS: Record<FileType, React.FC<{ className?: string; style?: React.CSSProperties }>> = {
   document: FileText,
-  sheet: LayoutGrid,
-  board: LayoutPanelLeft,
+  sheet: Table2,
+  board: Shapes,
 }
 
 const FILE_TYPE_COUNT_LABEL: Record<FileType, string> = {
@@ -718,11 +718,11 @@ function DocRow({ doc, categories, pinned, startEditing, onEditStarted, onOpen, 
     >
       {/* Icon */}
       <div
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition-colors"
         style={{ backgroundColor: accentColor ? accentColor + '20' : 'hsl(var(--muted)/0.5)' }}
       >
         <TypeIcon
-          className="h-[15px] w-[15px]"
+          className="h-[18px] w-[18px]"
           style={{ color: accentColor ?? 'hsl(var(--muted-foreground))' }}
         />
       </div>
@@ -995,10 +995,10 @@ function ContinueCard({
       <div className="flex items-center gap-4 px-5 py-4">
         {/* Icon */}
         <div
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg"
           style={{ backgroundColor: accent + '18' }}
         >
-          <TypeIcon className="h-5 w-5" style={{ color: accent }} />
+          <TypeIcon className="h-6 w-6" style={{ color: accent }} />
         </div>
 
         {/* Text */}

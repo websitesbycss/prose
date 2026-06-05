@@ -39,5 +39,12 @@ export default defineConfig({
       },
     },
     plugins: [react()],
+    // Explicitly include Excalidraw so Vite pre-bundles it with esbuild.
+    // This converts all its transitive CJS dependencies (es6-promise-pool,
+    // png-chunks-*, lodash.*, roughjs, etc.) to ESM in one pass, avoiding
+    // a cascade of "does not provide an export named 'default'" errors.
+    optimizeDeps: {
+      include: ['@excalidraw/excalidraw'],
+    },
   },
 })

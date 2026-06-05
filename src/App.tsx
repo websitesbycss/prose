@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Toaster } from 'sonner'
-import { LayoutGrid, LayoutPanelLeft } from 'lucide-react'
+import { AlertCircle } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
 import { applyAccentColors, DEFAULT_LIGHT_ACCENT, DEFAULT_DARK_ACCENT } from '@/lib/accentColor'
 import Dashboard from '@/components/dashboard/Dashboard'
@@ -19,7 +19,7 @@ import { BoardEditor } from '@/components/boards/BoardEditor'
 import type { DownloadStatus, OllamaStatus, MigrationProgress, FileType } from '@/types'
 
 function FileTypePlaceholder({ fileType }: { fileType: FileType }): JSX.Element {
-  const Icon = LayoutPanelLeft
+  const Icon = AlertCircle
   return (
     <div className="flex h-screen flex-col bg-background">
       <DashboardTabBar />

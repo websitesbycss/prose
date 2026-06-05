@@ -1,14 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
-import {
-  MousePointer2, Hand, Pencil, Square, Circle, ArrowRight, Type, StickyNote,
-  PlusSquare, ZoomIn, ZoomOut, Maximize2, Search,
-} from 'lucide-react'
-import { GeoShapeGeoStyle } from 'tldraw'
-import type { Editor } from 'tldraw'
+import { PlusSquare, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { cn } from '@/lib/utils'
-import type { ProseFileCardProps } from './ProseFileCardShape'
 import type { FileType } from '@/types'
 
 interface DashboardDocument {
@@ -19,39 +12,18 @@ interface DashboardDocument {
 }
 
 interface BoardToolbarProps {
-  editor: Editor | null
-  activeTool: string
-  onToolChange: (tool: string) => void
-  zoomLevel: number
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  excalidrawAPI: any | null
+  onAddFileCard: (
+    fileId: string,
+    fileType: string,
+    title: string,
+    wordCount: number,
+    preview: string,
+  ) => void
 }
 
-const TOOLS = [
-  { id: 'select',   icon: MousePointer2, title: 'Select (V)',    key: 'v' },
-  { id: 'hand',     icon: Hand,           title: 'Hand (H)',     key: 'h' },
-  { id: 'draw',     icon: Pencil,         title: 'Draw (P)',     key: 'p' },
-  { id: 'geo_rect', icon: Square,         title: 'Rectangle (R)', key: 'r' },
-  { id: 'geo_ellipse', icon: Circle,      title: 'Ellipse (O)',  key: 'o' },
-  { id: 'arrow',    icon: ArrowRight,     title: 'Arrow (A)',    key: 'a' },
-  { id: 'text',     icon: Type,           title: 'Text (T)',     key: 't' },
-  { id: 'prose-sticky-note', icon: StickyNote, title: 'Sticky note (S)', key: 's' },
-]
-
-function setEditorTool(editor: Editor | null, toolId: string): void {
-  if (!editor) return
-  if (toolId === 'geo_rect') {
-    editor.setCurrentTool('geo')
-    editor.setStyleForNextShapes(GeoShapeGeoStyle, 'rectangle')
-  } else if (toolId === 'geo_ellipse') {
-    editor.setCurrentTool('geo')
-    editor.setStyleForNextShapes(GeoShapeGeoStyle, 'ellipse')
-  } else if (toolId === 'prose-sticky-note') {
-    editor.setCurrentTool('prose-sticky-note')
-  } else {
-    editor.setCurrentTool(toolId)
-  }
-}
-
-export function BoardToolbar({ editor, activeTool, onToolChange, zoomLevel }: BoardToolbarProps): JSX.Element {
+export function BoardToolbar({ excalidrawAPI, onAddFileCard }: BoardToolbarProps): JSX.Element {
   const [filePopoverOpen, setFilePopoverOpen] = useState(false)
   const [files, setFiles] = useState<DashboardDocument[]>([])
   const [search, setSearch] = useState('')
@@ -86,16 +58,14 @@ export function BoardToolbar({ editor, activeTool, onToolChange, zoomLevel }: Bo
     f.title.toLowerCase().includes(search.toLowerCase())
   )
 
-  function addFileCard(file: DashboardDocument) {
-    if (!editor) return
+  function handleSelectFile(file: DashboardDocument) {
+    if (!excalidrawAPI) return
     setFilePopoverOpen(false)
 
-    // Fetch full file to get preview text
     void window.prose.documents.getById(file.id).then((doc) => {
       if (!doc) return
       let preview = ''
       try {
-        // For documents try to extract plain text preview
         const content = typeof doc.content === 'string' ? JSON.parse(doc.content) : doc.content
         if (content?.content) {
           const texts: string[] = []
@@ -107,46 +77,13 @@ export function BoardToolbar({ editor, activeTool, onToolChange, zoomLevel }: Bo
           preview = texts.join(' ').slice(0, 80)
         }
       } catch { /* ignore */ }
-
-      const { x, y } = editor.getViewportPageBounds().center
-      const props: ProseFileCardProps = {
-        fileId: file.id,
-        fileType: file.fileType,
-        title: doc.title,
-        wordCount: file.wordCount,
-        preview,
-        category: '',
-        w: 240,
-        h: 120,
-      }
-      editor.createShape({
-        type: 'prose-file-card',
-        x: x - 120,
-        y: y - 60,
-        props,
-      })
+      onAddFileCard(file.id, file.fileType, doc.title, file.wordCount, preview)
     })
   }
 
   return (
-    <div className="flex shrink-0 items-center gap-0.5 border-b border-border bg-background px-2 py-1 relative">
-      {/* Tool buttons */}
-      {TOOLS.map(({ id, icon: Icon, title }) => (
-        <Button
-          key={id}
-          variant="ghost"
-          size="icon"
-          className={cn('h-7 w-7', activeTool === id && 'bg-accent text-accent-foreground')}
-          title={title}
-          onClick={() => { onToolChange(id); setEditorTool(editor, id) }}
-        >
-          <Icon className="h-3.5 w-3.5" />
-        </Button>
-      ))}
-
-      <Separator orientation="vertical" className="mx-0.5 h-5" />
-
-      {/* Add file button */}
+    <div className="relative flex shrink-0 items-center gap-0.5 border-b border-border bg-background px-2 py-1">
+      {/* Add file card */}
       <div className="relative">
         <Button
           variant="ghost"
@@ -181,7 +118,7 @@ export function BoardToolbar({ editor, activeTool, onToolChange, zoomLevel }: Bo
                 <button
                   key={f.id}
                   className="w-full px-3 py-1.5 text-left text-xs hover:bg-accent"
-                  onClick={() => addFileCard(f)}
+                  onClick={() => handleSelectFile(f)}
                 >
                   <span className="font-medium">{f.title}</span>
                   <span className="ml-1.5 text-[10px] text-muted-foreground capitalize">{f.fileType}</span>
@@ -194,22 +131,9 @@ export function BoardToolbar({ editor, activeTool, onToolChange, zoomLevel }: Bo
 
       <Separator orientation="vertical" className="mx-0.5 h-5" />
 
-      {/* Zoom controls */}
-      <Button variant="ghost" size="icon" className="h-7 w-7" title="Zoom out" onClick={() => editor?.zoomOut()}>
-        <ZoomOut className="h-3.5 w-3.5" />
-      </Button>
-
-      <span className="min-w-[3rem] text-center text-[10px] text-muted-foreground tabular-nums">
-        {zoomLevel}%
+      <span className="text-[10px] text-muted-foreground">
+        Double-click a file card to open · Use Excalidraw tools to draw
       </span>
-
-      <Button variant="ghost" size="icon" className="h-7 w-7" title="Zoom in" onClick={() => editor?.zoomIn()}>
-        <ZoomIn className="h-3.5 w-3.5" />
-      </Button>
-
-      <Button variant="ghost" size="icon" className="h-7 w-7" title="Fit to screen" onClick={() => editor?.zoomToFit()}>
-        <Maximize2 className="h-3.5 w-3.5" />
-      </Button>
     </div>
   )
 }

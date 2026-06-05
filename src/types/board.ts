@@ -1,34 +1,47 @@
-/** Serialized tldraw store snapshot (opaque object). */
+/** Serialized Excalidraw scene. */
 export interface BoardContent {
+  version: 2
+  elements: unknown[]
+  appState: Record<string, unknown>
+}
+
+/** Legacy tldraw format — treated as empty board on load. */
+interface LegacyBoardContent {
   version: 1
-  /** tldraw TLStoreSnapshot — serialized via editor.store.getSnapshot() */
   snapshot: Record<string, unknown>
 }
 
 export function isBoardContent(content: unknown): content is BoardContent {
+  if (typeof content !== 'object' || content === null) return false
+  const c = content as Record<string, unknown>
+  if (c.version === 1 && typeof c.snapshot === 'object' && c.snapshot !== null) {
+    // Legacy tldraw content — valid structure but we'll treat as empty
+    return true
+  }
   return (
-    typeof content === 'object' &&
-    content !== null &&
-    (content as BoardContent).version === 1 &&
-    typeof (content as BoardContent).snapshot === 'object' &&
-    (content as BoardContent).snapshot !== null
+    c.version === 2 &&
+    Array.isArray(c.elements) &&
+    typeof c.appState === 'object' &&
+    c.appState !== null
   )
 }
 
 export function createInitialBoardContent(): BoardContent {
-  return { version: 1, snapshot: {} }
+  return { version: 2, elements: [], appState: {} }
 }
 
-/** Count of non-background shapes on the board (page/document shapes only). */
+/** Migrate legacy tldraw content to Excalidraw format (creates empty board). */
+export function migrateBoardContent(content: BoardContent | LegacyBoardContent): BoardContent {
+  if (content.version === 1) return { version: 2, elements: [], appState: {} }
+  return content as BoardContent
+}
+
+/** Count non-deleted elements on the board. */
 export function countBoardElements(content: BoardContent): number {
-  const snap = content.snapshot
-  if (!snap || typeof snap !== 'object') return 0
-  // tldraw snapshot has a `store` key containing shape records
-  const store = (snap as Record<string, unknown>).store
-  if (!store || typeof store !== 'object') return 0
-  return Object.values(store as Record<string, unknown>).filter((v) => {
-    if (!v || typeof v !== 'object') return false
-    const record = v as Record<string, unknown>
-    return record.typeName === 'shape'
-  }).length
+  if (content.version === 2) {
+    return content.elements.filter(
+      (el) => typeof el === 'object' && el !== null && !(el as Record<string, unknown>).isDeleted,
+    ).length
+  }
+  return 0
 }

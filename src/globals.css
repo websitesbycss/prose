@@ -146,11 +146,10 @@
   --ht-wrapper-border-width: 0px;
 }
 
-/* Make the grid container fill its parent */
-.prose-hot-root .handsontable,
-.prose-hot-root .wtHolder,
-.prose-hot-root .ht_master {
-  width: 100% !important;
+/* Create a CSS stacking context so Handsontable's internal overlays (ht_clone_top,
+   ht_clone_left, etc.) cannot escape the container and cover Prose's own popovers. */
+.prose-hot-root {
+  isolation: isolate;
 }
 
 /* Context menu dark styling */
@@ -161,26 +160,16 @@
   --ht-border-color: hsl(var(--border));
 }
 
-/* ── tldraw Board editor dark-mode overrides ─────────────────────────────── */
-/* Scoped to .prose-tldraw-root so these only apply inside the BoardEditor.   */
-.prose-tldraw-root {
-  --tl-background: hsl(var(--background));
-  --color-background: hsl(var(--background));
-  --color-low: hsl(var(--muted));
-  --color-text: hsl(var(--foreground));
-  --color-text-0: hsl(var(--muted-foreground));
-  --color-text-1: hsl(var(--foreground));
-  --color-text-2: hsl(var(--muted-foreground));
-  --color-text-3: hsl(var(--muted-foreground) / 0.7);
-  --color-primary: hsl(var(--primary));
-  --color-selection-fill: hsl(var(--primary) / 0.15);
-  --color-selection-stroke: hsl(var(--primary));
-  --color-shadow: hsl(220 10% 0% / 0.4);
-  --color-overlay: hsl(var(--background) / 0.9);
-  --color-culled: transparent;
+/* ── Excalidraw Board editor integration ─────────────────────────────────── */
+/* Container wraps the Excalidraw canvas; keep it as a flex child.            */
+.prose-excalidraw-root {
+  position: relative;
 }
-.prose-tldraw-root .tl-background {
-  background: hsl(var(--background));
+/* Excalidraw renders its own full-height canvas — let it fill the container. */
+.prose-excalidraw-root .excalidraw,
+.prose-excalidraw-root .excalidraw-container {
+  height: 100% !important;
+  width: 100% !important;
 }
 
 .document-tab__label {

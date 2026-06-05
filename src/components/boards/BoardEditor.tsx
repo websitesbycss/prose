@@ -1,55 +1,112 @@
-import { useRef, useState, useCallback, useEffect } from 'react'
-import { Tldraw, getSnapshot, loadSnapshot } from 'tldraw'
-import type { Editor, TLStoreSnapshot } from 'tldraw'
-import 'tldraw/tldraw.css'
+import { useState, useRef, useCallback, useEffect } from 'react'
+import { Excalidraw } from '@excalidraw/excalidraw'
+import '@excalidraw/excalidraw/index.css'
 
 import { useDocument } from '@/hooks/useDocument'
 import type { BoardContent } from '@/types/board'
-import { isBoardContent } from '@/types/board'
+import { isBoardContent, createInitialBoardContent } from '@/types/board'
 import { FileEditorTitleBar } from '@/components/editor/FileEditorTitleBar'
 import { BoardToolbar } from './BoardToolbar'
-import { ProseFileCardShapeUtil } from './ProseFileCardShape'
-import { ProseStickyNoteShapeUtil } from './ProseStickyNoteShape'
 import { AUTO_SAVE_DEBOUNCE_MS, AI_PANEL_WIDTH } from '@/constants'
 import { useAppStore } from '@/store/appStore'
 import AiPanel from '@/components/editor/AiPanel'
 
-// ── Custom shape utils ────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-const CUSTOM_SHAPE_UTILS = [ProseFileCardShapeUtil, ProseStickyNoteShapeUtil]
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ExcalidrawAPI = any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ExcalidrawElements = readonly any[]
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ExcalidrawAppState = any
+
+export interface ProseFileCardData {
+  proseFileCard: true
+  fileId: string
+  fileType: string
+  title: string
+  wordCount: number
+  preview: string
+}
+
+// ── ProseFileCard embeddable renderer ─────────────────────────────────────────
+
+function ProseFileCardView({
+  data,
+  width,
+  height,
+  onOpen,
+}: {
+  data: ProseFileCardData
+  width: number
+  height: number
+  onOpen: () => void
+}) {
+  const typeLabel: Record<string, string> = { document: 'DOC', sheet: 'SHEET', board: 'BOARD' }
+  const countLabel: Record<string, string> = { sheet: 'cells', board: 'elements' }
+  const unit = countLabel[data.fileType] ?? 'words'
+
+  return (
+    <div
+      style={{ width, height }}
+      className="flex flex-col overflow-hidden rounded-lg border border-border bg-card p-3 text-card-foreground shadow-sm"
+      onDoubleClick={(e) => { e.stopPropagation(); onOpen() }}
+    >
+      <div className="mb-1.5 flex items-center gap-1.5">
+        <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-primary">
+          {typeLabel[data.fileType] ?? 'FILE'}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-xs font-semibold">{data.title}</span>
+      </div>
+      {data.wordCount > 0 && (
+        <p className="mb-1 text-[10px] text-muted-foreground">
+          {data.wordCount.toLocaleString()} {unit}
+        </p>
+      )}
+      {data.preview && (
+        <p className="line-clamp-2 text-[10px] leading-relaxed text-muted-foreground/80">
+          {data.preview}
+        </p>
+      )}
+      <p className="mt-auto pt-1.5 text-[9px] text-muted-foreground/50">Double-click to open</p>
+    </div>
+  )
+}
 
 // ── Board AI context builder ──────────────────────────────────────────────────
 
-function buildBoardContext(editor: Editor): string {
-  const shapes = editor.getCurrentPageShapes()
-  const fileCards = shapes.filter((s) => s.type === 'prose-file-card')
-  const stickyNotes = shapes.filter((s) => s.type === 'prose-sticky-note')
-  const others = shapes.filter((s) => s.type !== 'prose-file-card' && s.type !== 'prose-sticky-note')
+function buildBoardContext(elements: ExcalidrawElements): string {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const cards = elements.filter((el: any) => el.type === 'embeddable' && el.customData?.proseFileCard && !el.isDeleted)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const texts = elements.filter((el: any) => el.type === 'text' && !el.isDeleted)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const others = elements.filter((el: any) => el.type !== 'embeddable' && el.type !== 'text' && !el.isDeleted)
 
   const parts: string[] = [
-    `Board has ${shapes.length} elements total:`,
-    `  - ${fileCards.length} file card(s)`,
-    `  - ${stickyNotes.length} sticky note(s)`,
+    `Board has ${elements.filter((e: any) => !e.isDeleted).length} elements:`,
+    `  - ${cards.length} file card(s)`,
+    `  - ${texts.length} text note(s)`,
     `  - ${others.length} other shape(s)`,
     '',
   ]
 
-  if (fileCards.length > 0) {
+  if (cards.length > 0) {
     parts.push('File cards:')
-    for (const card of fileCards) {
-      const p = card.props as { title?: string; fileType?: string; wordCount?: number; preview?: string }
-      const unit = p.fileType === 'sheet' ? 'cells' : p.fileType === 'board' ? 'elements' : 'words'
-      parts.push(`  - "${p.title ?? 'Untitled'}" (${p.fileType ?? 'document'}, ${p.wordCount ?? 0} ${unit})`)
-      if (p.preview) parts.push(`    Preview: "${p.preview.slice(0, 80)}"`)
+    for (const card of cards) {
+      const d = card.customData as ProseFileCardData
+      const unit = d.fileType === 'sheet' ? 'cells' : d.fileType === 'board' ? 'elements' : 'words'
+      parts.push(`  - "${d.title}" (${d.fileType}, ${d.wordCount} ${unit})`)
+      if (d.preview) parts.push(`    Preview: "${d.preview.slice(0, 80)}"`)
     }
     parts.push('')
   }
 
-  if (stickyNotes.length > 0) {
-    parts.push('Sticky notes:')
-    for (const note of stickyNotes) {
-      const p = note.props as { text?: string; color?: string }
-      if (p.text) parts.push(`  - "${p.text.slice(0, 80)}"`)
+  if (texts.length > 0) {
+    parts.push('Text notes:')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const t of texts.slice(0, 10)) {
+      if (t.text) parts.push(`  - "${String(t.text).slice(0, 80)}"`)
     }
   }
 
@@ -64,27 +121,32 @@ interface BoardEditorProps {
 
 export function BoardEditor({ documentId }: BoardEditorProps) {
   const { document: doc } = useDocument(documentId)
-  const editorRef = useRef<Editor | null>(null)
-  // Ref so listeners always have access to the latest scheduleSave without re-subscribing
-  const scheduleSaveRef = useRef<() => void>(() => undefined)
+  const excalidrawAPIRef = useRef<ExcalidrawAPI | null>(null)
   const aiPanelOpen = useAppStore((s) => s.aiPanelOpen)
-  const [activeTool, setActiveTool] = useState('select')
-  // Separate zoom state to avoid re-rendering the whole tree on every camera move
-  const [zoomLevel, setZoomLevel] = useState(100)
-  // Ref to store unsubscribe functions set up inside onMount, cleaned up on unmount
-  const listenersCleanupRef = useRef<(() => void) | null>(null)
-  // Track whether we've loaded the initial snapshot so we don't double-load on re-mount
-  const snapshotLoadedRef = useRef(false)
+  const theme = useAppStore((s) => s.theme)
+  const openDocumentTab = useAppStore((s) => s.openDocumentTab)
 
   // Auto-save ─────────────────────────────────────────────────────────────────
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const latestElementsRef = useRef<ExcalidrawElements>([])
+  const latestAppStateRef = useRef<ExcalidrawAppState | null>(null)
 
   const flushAndSave = useCallback(async () => {
-    const editor = editorRef.current
-    if (!editor) return
+    const api = excalidrawAPIRef.current
+    if (!api) return
     try {
-      const snapshot = getSnapshot(editor.store)
-      const boardContent: BoardContent = { version: 1, snapshot: snapshot as unknown as Record<string, unknown> }
+      const elements = api.getSceneElements()
+      const appState = api.getAppState()
+      const boardContent: BoardContent = {
+        version: 2,
+        elements: elements as unknown[],
+        appState: {
+          zoom: appState.zoom,
+          scrollX: appState.scrollX,
+          scrollY: appState.scrollY,
+          theme: appState.theme,
+        },
+      }
       await window.prose.documents.update(documentId, { content: JSON.stringify(boardContent) })
     } catch (err) {
       console.error('[BoardEditor] save error:', err)
@@ -96,80 +158,131 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
     saveTimerRef.current = setTimeout(() => void flushAndSave(), AUTO_SAVE_DEBOUNCE_MS)
   }, [flushAndSave])
 
-  // Keep the ref current so store listeners always call the latest version
-  scheduleSaveRef.current = scheduleSave
-
-  // Unmount: cancel any pending save and clean up tldraw store listeners
   useEffect(() => () => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-    listenersCleanupRef.current?.()
   }, [])
+
+  // Parse initial board content ───────────────────────────────────────────────
+  const [initialData, setInitialData] = useState<{
+    elements: unknown[]
+    appState: Record<string, unknown>
+  } | null>(null)
+  const initialLoadedRef = useRef(false)
+
+  useEffect(() => {
+    if (!doc || initialLoadedRef.current) return
+    initialLoadedRef.current = true
+    try {
+      const raw = typeof doc.content === 'string' ? JSON.parse(doc.content) : doc.content
+      if (isBoardContent(raw)) {
+        setInitialData({ elements: raw.elements ?? [], appState: raw.appState ?? {} })
+      } else {
+        setInitialData({ elements: [], appState: {} })
+      }
+    } catch {
+      setInitialData({ elements: [], appState: {} })
+    }
+  }, [doc])
+
+  // onChange — auto-save every time the scene changes ─────────────────────────
+  const handleChange = useCallback(
+    (elements: ExcalidrawElements, appState: ExcalidrawAppState) => {
+      latestElementsRef.current = elements
+      latestAppStateRef.current = appState
+      scheduleSave()
+    },
+    [scheduleSave],
+  )
 
   // Board AI context ──────────────────────────────────────────────────────────
   const getBoardContext = useCallback((): string => {
-    const editor = editorRef.current
-    if (!editor) return ''
-    return buildBoardContext(editor)
+    return buildBoardContext(latestElementsRef.current)
   }, [])
 
-  // Load initial snapshot once the doc is available and editor is mounted
-  useEffect(() => {
-    if (!doc || snapshotLoadedRef.current || !editorRef.current) return
-    const editor = editorRef.current
-    try {
-      const raw = typeof doc.content === 'string' ? JSON.parse(doc.content) : doc.content
-      if (isBoardContent(raw) && Object.keys(raw.snapshot).length > 0) {
-        loadSnapshot(editor.store, raw.snapshot as TLStoreSnapshot)
-      }
-    } catch { /* keep empty board */ }
-    snapshotLoadedRef.current = true
-  }, [doc])
+  // ProseFileCard embeddable renderer ────────────────────────────────────────
+  const renderEmbeddable = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (element: any): JSX.Element | null => {
+      if (!element.customData?.proseFileCard) return null
+      const data = element.customData as ProseFileCardData
 
-  // tldraw mount ──────────────────────────────────────────────────────────────
-  const onMount = useCallback((editor: Editor) => {
-    editorRef.current = editor
-
-    // Load snapshot if doc is already available at mount time
-    if (!snapshotLoadedRef.current) {
-      const { document: latestDoc } = { document: doc }
-      if (latestDoc) {
+      const openFile = async () => {
         try {
-          const raw = typeof latestDoc.content === 'string' ? JSON.parse(latestDoc.content) : latestDoc.content
-          if (isBoardContent(raw) && Object.keys(raw.snapshot).length > 0) {
-            loadSnapshot(editor.store, raw.snapshot as TLStoreSnapshot)
-          }
-        } catch { /* keep empty board */ }
-        snapshotLoadedRef.current = true
+          const d = await window.prose.documents.getById(data.fileId)
+          if (d) openDocumentTab({ id: d.id, title: d.title, format: d.format })
+        } catch { /* ignore */ }
       }
-    }
 
-    // Subscribe to document changes for auto-save.
-    // Use the ref so we don't need to re-subscribe when scheduleSave changes.
-    const unsubSave = editor.store.listen(
-      () => scheduleSaveRef.current(),
-      { scope: 'document' },
-    )
+      return (
+        <ProseFileCardView
+          data={data}
+          width={element.width}
+          height={element.height}
+          onOpen={openFile}
+        />
+      )
+    },
+    [openDocumentTab],
+  )
 
-    // Subscribe to session changes for zoom display (debounced to avoid per-frame re-renders).
-    let zoomTimer: ReturnType<typeof setTimeout> | null = null
-    const unsubZoom = editor.store.listen(() => {
-      if (zoomTimer) clearTimeout(zoomTimer)
-      zoomTimer = setTimeout(() => {
-        setZoomLevel(Math.round(editor.getZoomLevel() * 100))
-      }, 60)
-    }, { scope: 'session' })
+  // Add file card to board ────────────────────────────────────────────────────
+  const addFileCard = useCallback(
+    (fileId: string, fileType: string, title: string, wordCount: number, preview: string) => {
+      const api = excalidrawAPIRef.current
+      if (!api) return
 
-    // Store cleanup so the useEffect above can call it on unmount
-    listenersCleanupRef.current = () => {
-      unsubSave()
-      unsubZoom()
-      if (zoomTimer) clearTimeout(zoomTimer)
-    }
-  // doc is intentionally excluded — handled via the separate useEffect above
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+      const appState = api.getAppState()
+      const elements = api.getSceneElements()
 
-  if (!doc) {
+      // Place at center of current viewport
+      const x = -appState.scrollX + (appState.width ?? 800) / 2 / appState.zoom.value - 140
+      const y = -appState.scrollY + (appState.height ?? 600) / 2 / appState.zoom.value - 70
+
+      const newElement = {
+        type: 'embeddable',
+        id: crypto.randomUUID(),
+        x,
+        y,
+        width: 280,
+        height: 140,
+        angle: 0,
+        strokeColor: 'transparent',
+        backgroundColor: 'transparent',
+        fillStyle: 'solid',
+        strokeWidth: 1,
+        strokeStyle: 'solid',
+        roundness: { type: 3, value: 8 },
+        roughness: 0,
+        opacity: 100,
+        groupIds: [],
+        frameId: null,
+        boundElements: null,
+        updated: Date.now(),
+        isDeleted: false,
+        link: null,
+        locked: false,
+        seed: Math.floor(Math.random() * 2 ** 31),
+        version: 1,
+        versionNonce: Math.floor(Math.random() * 2 ** 31),
+        index: null,
+        customData: {
+          proseFileCard: true,
+          fileId,
+          fileType,
+          title,
+          wordCount,
+          preview,
+        } satisfies ProseFileCardData,
+      }
+
+      api.updateScene({ elements: [...elements, newElement] })
+      scheduleSave()
+    },
+    [scheduleSave],
+  )
+
+  // Loading state ─────────────────────────────────────────────────────────────
+  if (!doc || initialData === null) {
     return (
       <div className="flex h-screen flex-col bg-background">
         <FileEditorTitleBar />
@@ -184,32 +297,37 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
     <div className="flex h-screen flex-col bg-background">
       <FileEditorTitleBar />
       <BoardToolbar
-        editor={editorRef.current}
-        activeTool={activeTool}
-        onToolChange={setActiveTool}
-        zoomLevel={zoomLevel}
+        excalidrawAPI={excalidrawAPIRef.current}
+        onAddFileCard={addFileCard}
       />
 
       {/* Canvas + AI panel row */}
-      <div className="flex min-h-0 flex-1">
-        <div className="prose-tldraw-root min-h-0 min-w-0 flex-1 overflow-hidden">
-          <Tldraw
-            onMount={onMount}
-            shapeUtils={CUSTOM_SHAPE_UTILS}
-            components={{
-              Toolbar: null,
-              MainMenu: null,
-              StylePanel: null,
-              NavigationPanel: null,
-              SharePanel: null,
-            }}
-            options={{
-              maxPages: 1,
+      <div className="prose-excalidraw-root flex min-h-0 flex-1">
+        <div className="min-h-0 min-w-0 flex-1">
+          <Excalidraw
+            excalidrawAPI={(api) => { excalidrawAPIRef.current = api }}
+            initialData={initialData}
+            onChange={handleChange}
+            theme={theme === 'dark' ? 'dark' : 'light'}
+            gridModeEnabled={true}
+            renderEmbeddable={renderEmbeddable}
+            UIOptions={{
+              welcomeScreen: false,
+              canvasActions: {
+                changeViewBackgroundColor: false,
+                clearCanvas: false,
+                export: false,
+                loadScene: false,
+                saveToActiveFile: false,
+                saveAsImage: false,
+                toggleTheme: false,
+              },
+              tools: { image: false },
             }}
           />
         </div>
 
-        {/* AI panel — AiPanel already adds border-l border-border on its root */}
+        {/* AI panel */}
         {aiPanelOpen && (
           <div className="shrink-0" style={{ width: AI_PANEL_WIDTH }}>
             <AiPanel
