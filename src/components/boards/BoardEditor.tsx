@@ -122,9 +122,13 @@ interface BoardEditorProps {
 export function BoardEditor({ documentId }: BoardEditorProps) {
   const { document: doc } = useDocument(documentId)
   const excalidrawAPIRef = useRef<ExcalidrawAPI | null>(null)
+  const [excalidrawAPIState, setExcalidrawAPIState] = useState<ExcalidrawAPI | null>(null)
   const aiPanelOpen = useAppStore((s) => s.aiPanelOpen)
   const theme = useAppStore((s) => s.theme)
   const openDocumentTab = useAppStore((s) => s.openDocumentTab)
+
+  // Track active Excalidraw tool for toolbar highlighting
+  const [activeToolType, setActiveToolType] = useState('selection')
 
   // Auto-save ─────────────────────────────────────────────────────────────────
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -189,6 +193,9 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
     (elements: ExcalidrawElements, appState: ExcalidrawAppState) => {
       latestElementsRef.current = elements
       latestAppStateRef.current = appState
+      // Track active tool for toolbar highlighting
+      const toolType = appState?.activeTool?.type as string | undefined
+      if (toolType) setActiveToolType(toolType)
       scheduleSave()
     },
     [scheduleSave],
@@ -286,6 +293,12 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
     return (
       <div className="flex h-screen flex-col bg-background">
         <FileEditorTitleBar />
+        <BoardToolbar
+          excalidrawAPI={null}
+          activeToolType="selection"
+          documentId={documentId}
+          onAddFileCard={addFileCard}
+        />
         <div className="flex flex-1 items-center justify-center">
           <span className="text-sm text-muted-foreground/50">Loading…</span>
         </div>
@@ -297,7 +310,9 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
     <div className="flex h-screen flex-col bg-background">
       <FileEditorTitleBar />
       <BoardToolbar
-        excalidrawAPI={excalidrawAPIRef.current}
+        excalidrawAPI={excalidrawAPIState}
+        activeToolType={activeToolType}
+        documentId={documentId}
         onAddFileCard={addFileCard}
       />
 
@@ -305,7 +320,7 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
       <div className="prose-excalidraw-root flex min-h-0 flex-1">
         <div className="min-h-0 min-w-0 flex-1">
           <Excalidraw
-            excalidrawAPI={(api) => { excalidrawAPIRef.current = api }}
+            excalidrawAPI={(api) => { excalidrawAPIRef.current = api; setExcalidrawAPIState(api) }}
             initialData={initialData}
             onChange={handleChange}
             theme={theme === 'dark' ? 'dark' : 'light'}

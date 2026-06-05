@@ -43,7 +43,8 @@ import { useWordCount } from '@/hooks/useWordCount'
 import { useSelectionWordCount } from '@/hooks/useSelectionWordCount'
 import { usePomodoro } from '@/hooks/usePomodoro'
 import { useSessionStats } from '@/hooks/useSessionStats'
-import { useMusic, AMBIENT_LAYERS } from '@/hooks/useMusic'
+import { AMBIENT_LAYERS } from '@/hooks/useMusic'
+import { useMusicContext } from '@/contexts/MusicContext'
 import { useAppStore } from '@/store/appStore'
 import { cn } from '@/lib/utils'
 import {
@@ -59,12 +60,12 @@ import Toolbar from './Toolbar'
 import StatusBar from './StatusBar'
 import FocusBar from './FocusBar'
 import FormatModal from './FormatModal'
+import { FindWidget } from './FindWidget'
 import { HeaderFooterEditor, parseHeaderContent, buildMlaHeaderContent, buildApaHeaderContent } from './HeaderFooterEditor'
 import OutlinePanel from './OutlinePanel'
 import PomodoroPanel from './PomodoroPanel'
 import AiPanel, { IssueTooltip } from './AiPanel'
 import CitationPanel from './CitationPanel'
-import MusicPanel from './MusicPanel'
 import { SessionStatsPanel } from './SessionStatsPanel'
 import { HistoryPanel } from './HistoryPanel'
 import { EditorContextMenu } from './EditorContextMenu'
@@ -87,7 +88,6 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   const setSidebarOpen = useAppStore((s) => s.setSidebarOpen)
   const aiPanelOpen = useAppStore((s) => s.aiPanelOpen)
   const citationPanelOpen = useAppStore((s) => s.citationPanelOpen)
-  const musicPanelOpen = useAppStore((s) => s.musicPanelOpen)
   const setMusicPanelOpen = useAppStore((s) => s.setMusicPanelOpen)
   const setMusicPanelTab = useAppStore((s) => s.setMusicPanelTab)
   const focusModeActive = useAppStore((s) => s.focusModeActive)
@@ -157,12 +157,12 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
     initialLatex: string
     initialDisplayMode: boolean
   }>({ open: false, editPos: null, initialLatex: '', initialDisplayMode: false })
-  const findInputRef = useRef<HTMLInputElement>(null)
   const [formatModalTarget, setFormatModalTarget] = useState<'mla' | 'apa' | null>(null)
   const [activePanel, setActivePanel] = useState<SidebarPanel>('outline')
 
   const pomodoroControls = usePomodoro()
-  const music = useMusic()
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const music = useMusicContext()!
   const analysis = useAnalysis()
 
   useEffect(() => {
@@ -317,7 +317,6 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
       if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
         e.preventDefault()
         setFindOpen(true)
-        setTimeout(() => findInputRef.current?.focus(), 0)
       }
       // Zoom: Ctrl+- and Ctrl+= (unshifted +)
       if ((e.ctrlKey || e.metaKey) && (e.key === '-' || e.key === '_')) {
@@ -579,13 +578,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
             <div className="shrink-0 overflow-visible">
               <TitleBar
                 document={doc}
-                editor={editor}
-                saveStatus={saveStatus}
                 onTitleChange={updateTitle}
-                findOpen={findOpen}
-                onFindOpenChange={setFindOpen}
-                findInputRef={findInputRef}
-                onFindNavigate={handleFindNavigate}
               />
               <Toolbar
                 editor={zoneEditor ?? editor}
@@ -596,6 +589,9 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                 defaultFontFamily={editorFontFamily}
                 defaultFontSize={editorFontSize}
                 onOpenMathModal={() => openMathModal()}
+                onFindOpen={() => setFindOpen(true)}
+                onFocusMode={() => setFocusModeActive(true)}
+                documentMargins={doc?.pageMargins}
               />
             </div>
           )}
@@ -719,7 +715,14 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
             </aside>
           )}
 
-          {/* Editor canvas */}
+          {/* Editor canvas — relative wrapper so FindWidget can anchor top-right */}
+          <div className="relative flex min-h-0 flex-1">
+            <FindWidget
+              editor={editor}
+              open={findOpen}
+              onClose={() => setFindOpen(false)}
+              onNavigate={handleFindNavigate}
+            />
           <div
             ref={editorScrollRef}
             className="flex flex-1 overflow-auto bg-editor-canvas"
@@ -791,7 +794,8 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                 )}
               </div>
             </div>
-          </div>
+          </div>{/* end editorScrollRef */}
+          </div>{/* end relative canvas wrapper */}
 
           {/* Right panel — AI or Citations (hidden in focus mode) */}
           {!focusModeActive && (
@@ -857,10 +861,6 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
           />
         )}
       </div>
-
-      <AnimatePresence>
-        {musicPanelOpen && <MusicPanel music={music} />}
-      </AnimatePresence>
 
       <MathModal
         open={mathModal.open}

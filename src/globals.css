@@ -171,6 +171,12 @@
   height: 100% !important;
   width: 100% !important;
 }
+/* Hide Excalidraw's native floating toolbar — tools live in Prose's toolbar. */
+.prose-excalidraw-root .App-toolbar { display: none !important; }
+/* Hide Excalidraw's bottom bar (zoom/stats) — zoom via Ctrl+= shortcut.     */
+.prose-excalidraw-root .App-bottom-bar { display: none !important; }
+.prose-excalidraw-root footer.App-menu_bottom { display: none !important; }
+.prose-excalidraw-root .layer-ui__wrapper__footer { display: none !important; }
 
 .document-tab__label {
   display: flex;

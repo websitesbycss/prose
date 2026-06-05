@@ -188,10 +188,17 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
   }, [])
 
   // Container height for Handsontable ────────────────────────────────────────
-  const [hotHeight, setHotHeight] = useState(500)
+  // hotHeight is kept as a ref (not state) so height changes never cause hotSettings to
+  // rebuild — which would call updateSettings() and cascade into afterSelectionEnd loops.
+  const hotHeightRef = useRef(500)
   useEffect(() => {
     const update = () => {
-      if (containerRef.current) setHotHeight(containerRef.current.clientHeight)
+      if (!containerRef.current) return
+      const h = containerRef.current.clientHeight
+      if (h === hotHeightRef.current) return
+      hotHeightRef.current = h
+      const hot = hotRef.current?.hotInstance
+      if (hot) hot.updateSettings({ height: h })
     }
     update()
     const ro = new ResizeObserver(update)
@@ -399,7 +406,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
     formulas: { engine: hyperFormulaRef.current },
     rowHeaders: true,
     colHeaders: true,
-    height: hotHeight,
+    height: hotHeightRef.current,
     width: '100%',
     stretchH: 'none',
     colWidths: 100,
@@ -461,7 +468,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
     afterMergeCells: () => scheduleSave(),
     afterUnmergeCells: () => scheduleSave(),
     afterSelectionEnd: (row, col) => onSelectionEnd(row, col),
-  }), [tabData, tabMergedCells, hotHeight, scheduleSave, onSelectionEnd])
+  }), [tabData, tabMergedCells, scheduleSave, onSelectionEnd])
 
   if (!doc) {
     return (
@@ -481,6 +488,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
         formulaBarValue={formulaBarValue}
         onFormulaBarChange={setFormulaBarValue}
         onFormulaBarCommit={commitFormulaBar}
+        documentId={documentId}
       />
 
       {/* Grid + AI panel row */}

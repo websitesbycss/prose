@@ -16,6 +16,9 @@ import MigrationOverlay from '@/components/migration/MigrationOverlay'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { SheetsEditor } from '@/components/sheets/SheetsEditor'
 import { BoardEditor } from '@/components/boards/BoardEditor'
+import { useMusic } from '@/hooks/useMusic'
+import MusicPanel from '@/components/editor/MusicPanel'
+import { MusicContext } from '@/contexts/MusicContext'
 import type { DownloadStatus, OllamaStatus, MigrationProgress, FileType } from '@/types'
 
 function FileTypePlaceholder({ fileType }: { fileType: FileType }): JSX.Element {
@@ -47,6 +50,9 @@ export default function App(): JSX.Element {
   const showDashboard = useAppStore((s) => s.showDashboard)
   const openDocumentTab = useAppStore((s) => s.openDocumentTab)
   const setOllamaStatus = useAppStore((s) => s.setOllamaStatus)
+  const musicPanelOpen = useAppStore((s) => s.musicPanelOpen)
+
+  const music = useMusic()
 
   // null = still checking
   const [ollamaInstalled, setOllamaInstalled] = useState<boolean | null>(null)
@@ -239,7 +245,7 @@ export default function App(): JSX.Element {
   const activeFileType = activeTab?.fileType ?? 'document'
 
   return (
-    <>
+    <MusicContext.Provider value={music}>
       {showMigration && <MigrationOverlay onComplete={handleMigrationComplete} />}
       {inEditor ? (
         activeFileType === 'document' ? (
@@ -269,9 +275,10 @@ export default function App(): JSX.Element {
           </div>
         </ErrorBoundary>
       )}
+      {musicPanelOpen && <MusicPanel music={music} />}
       <Toaster theme={theme} richColors position="bottom-right" offset={32} />
       <GlobalNewDocumentModal />
       <GlobalAiChat />
-    </>
+    </MusicContext.Provider>
   )
 }

@@ -10,7 +10,7 @@ import {
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
   List, ListOrdered, IndentIcon, Outdent,
   Subscript, Superscript, Sigma,
-  Image, Link2, Table2, Music, BookOpen, Hash, SeparatorHorizontal,
+  Image, Link2, Table2, BookOpen, Hash, SeparatorHorizontal,
   ChevronDown, Undo2, Redo2, Highlighter, PaintBucket,
 } from 'lucide-react'
 import type { DocumentFormat } from '@/types'
@@ -22,6 +22,8 @@ import {
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from '@/components/ui/popover'
+import { ToolbarRightSection } from '@/components/editor/ToolbarRightSection'
+import type { PageMargins } from '@/types'
 
 // Plain portal dropdown — bypasses Radix focus/pointer issues in Electron
 function ColorPickerDropdown({
@@ -121,6 +123,9 @@ interface ToolbarProps {
   defaultFontFamily?: string
   defaultFontSize?: number
   onOpenMathModal?: () => void
+  onFindOpen?: () => void
+  onFocusMode?: () => void
+  documentMargins?: PageMargins | null
 }
 
 const FONT_FAMILIES = [
@@ -1071,6 +1076,9 @@ function ToolbarInner({
   defaultFontFamily = 'Calibri',
   defaultFontSize = 12,
   onOpenMathModal,
+  onFindOpen,
+  onFocusMode,
+  documentMargins,
 }: {
   editor: Editor
   document: Document | null
@@ -1080,13 +1088,13 @@ function ToolbarInner({
   defaultFontFamily?: string
   defaultFontSize?: number
   onOpenMathModal?: () => void
+  onFindOpen?: () => void
+  onFocusMode?: () => void
+  documentMargins?: PageMargins | null
 }): JSX.Element {
   const format = document?.format
-  const setMusicPanelOpen = useAppStore((s) => s.setMusicPanelOpen)
-  const setMusicPanelTab = useAppStore((s) => s.setMusicPanelTab)
   const setCitationPanelOpen = useAppStore((s) => s.setCitationPanelOpen)
   const citationPanelOpen = useAppStore((s) => s.citationPanelOpen)
-  const musicPanelOpen = useAppStore((s) => s.musicPanelOpen)
   const theme = useAppStore((s) => s.theme)
 
   const s = useEditorState({
@@ -1190,7 +1198,11 @@ function ToolbarInner({
 
   return (
     <div
-      className="relative z-[1] flex h-10 shrink-0 items-center gap-0.5 overflow-x-auto border-b border-border bg-muted/20 px-2 text-foreground"
+      className="relative z-[1] flex h-10 shrink-0 border-b border-border bg-muted/20 text-foreground"
+    >
+    {/* Scrollable formatting controls */}
+    <div
+      className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto px-2"
       onMouseDown={(e) => e.preventDefault()}
     >
       {/* Font family */}
@@ -1421,16 +1433,7 @@ function ToolbarInner({
       </Tooltip>
       <Sep />
 
-      {/* Panels */}
-      <ToolbarBtn
-        icon={Music}
-        title="Focus music"
-        active={musicPanelOpen}
-        onClick={() => {
-          if (!musicPanelOpen) setMusicPanelTab('tracks')
-          setMusicPanelOpen(!musicPanelOpen)
-        }}
-      />
+      {/* Citations */}
       <ToolbarBtn
         icon={BookOpen}
         title="Citations"
@@ -1439,12 +1442,42 @@ function ToolbarInner({
       />
 
       <ChevronDown className="ml-auto h-3 w-3 shrink-0 text-muted-foreground/0" aria-hidden />
+    </div>{/* end scrollable */}
+
+    {/* Persistent right section */}
+    <ToolbarRightSection
+      fileType="document"
+      documentId={document?.id ?? null}
+      documentTitle={document?.title}
+      documentMargins={documentMargins}
+      onFindOpen={onFindOpen}
+      onFocusMode={onFocusMode}
+    />
     </div>
   )
 }
 
-export default function Toolbar({ editor, document, onApplyFormat, headingFontSizes, isZoneEditor = false, defaultFontFamily, defaultFontSize, onOpenMathModal }: ToolbarProps): JSX.Element {
-  if (!editor) return <div className="relative z-[1] h-10 shrink-0 border-b border-border" />
+export default function Toolbar({
+  editor,
+  document,
+  onApplyFormat,
+  headingFontSizes,
+  isZoneEditor = false,
+  defaultFontFamily,
+  defaultFontSize,
+  onOpenMathModal,
+  onFindOpen,
+  onFocusMode,
+  documentMargins,
+}: ToolbarProps): JSX.Element {
+  if (!editor) {
+    return (
+      <div className="relative z-[1] flex h-10 shrink-0 border-b border-border bg-muted/20">
+        <div className="flex-1" />
+        <ToolbarRightSection fileType="document" documentId={null} onFindOpen={onFindOpen} onFocusMode={onFocusMode} />
+      </div>
+    )
+  }
   return (
     <ToolbarInner
       editor={editor}
@@ -1455,6 +1488,9 @@ export default function Toolbar({ editor, document, onApplyFormat, headingFontSi
       defaultFontFamily={defaultFontFamily}
       defaultFontSize={defaultFontSize}
       onOpenMathModal={onOpenMathModal}
+      onFindOpen={onFindOpen}
+      onFocusMode={onFocusMode}
+      documentMargins={documentMargins}
     />
   )
 }
