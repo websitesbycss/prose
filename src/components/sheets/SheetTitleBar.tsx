@@ -1,18 +1,16 @@
-import { Sun, Moon, Sparkles, Bot } from 'lucide-react'
+import { Sun, Moon, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DocumentTabBar } from '@/components/editor/DocumentTabBar'
 import { WindowControls } from '@/components/WindowControls'
 import { useAppStore } from '@/store/appStore'
 import { cn } from '@/lib/utils'
 
-/** Minimal title bar for the Sheet editor — tab strip + AI panel toggle + theme + global AI. */
+/** Minimal title bar for the Sheet editor — tab strip + AI panel toggle + theme. */
 export function SheetTitleBar(): JSX.Element {
   const theme = useAppStore((s) => s.theme)
   const setTheme = useAppStore((s) => s.setTheme)
   const aiPanelOpen = useAppStore((s) => s.aiPanelOpen)
   const setAiPanelOpen = useAppStore((s) => s.setAiPanelOpen)
-  const globalAiOpen = useAppStore((s) => s.globalAiOpen)
-  const setGlobalAiOpen = useAppStore((s) => s.setGlobalAiOpen)
   const ollamaStatus = useAppStore((s) => s.ollamaStatus)
   const openTabs = useAppStore((s) => s.openTabs)
 
@@ -47,16 +45,6 @@ export function SheetTitleBar(): JSX.Element {
           title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
         >
           {theme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
-        </Button>
-
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn('h-7 w-7', globalAiOpen && 'bg-accent text-accent-foreground')}
-          onClick={() => setGlobalAiOpen(!globalAiOpen)}
-          title="Global AI chat (Ctrl+Shift+Space)"
-        >
-          <Bot className="h-3.5 w-3.5" />
         </Button>
       </div>
 

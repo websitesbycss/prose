@@ -1,12 +1,13 @@
 import { useRef, useState, useMemo, useCallback, useEffect } from 'react'
 import { HotTable, HotTableClass } from '@handsontable/react'
-import Handsontable from 'handsontable'
+import type Handsontable from 'handsontable'
 import HyperFormula from 'hyperformula'
+import '@/lib/handsontableSetup'
 import 'handsontable/styles/handsontable.css'
 import 'handsontable/styles/ht-theme-main.css'
 
 import { useDocument } from '@/hooks/useDocument'
-import type { SheetContent, SheetTab, SheetCellFormat } from '@/types/sheet'
+import type { SheetContent, SheetTab } from '@/types/sheet'
 import { isSheetContent, createInitialSheetContent } from '@/types/sheet'
 import { FileEditorTitleBar } from '@/components/editor/FileEditorTitleBar'
 import { SheetToolbar, type ToolbarState } from './SheetToolbar'
@@ -15,26 +16,29 @@ import { cellsToData, serializeTab, cellAddress, colToLetter, getFormatAtCell, r
 import { AUTO_SAVE_DEBOUNCE_MS, AI_PANEL_WIDTH } from '@/constants'
 import { useAppStore } from '@/store/appStore'
 import AiPanel from '@/components/editor/AiPanel'
+import { TooltipProvider } from '@/components/ui/tooltip'
+import { cn } from '@/lib/utils'
 
-// ── Custom cell renderer (applies proseFormat metadata to cell style) ─────────
+function parseSheetContent(raw: unknown): SheetContent {
+  if (isSheetContent(raw)) return raw
+  return createInitialSheetContent()
+}
 
-Handsontable.renderers.registerRenderer(
-  'proseRenderer',
-  function (hot, td, row, col, prop, value, cellProperties) {
-    Handsontable.renderers.TextRenderer.call(this, hot, td, row, col, prop, value, cellProperties)
-    const fmt = (cellProperties as { proseFormat?: SheetCellFormat }).proseFormat
-    if (!fmt) return
-    if (fmt.bold) td.style.fontWeight = 'bold'
-    if (fmt.italic) td.style.fontStyle = 'italic'
-    if (fmt.underline) td.style.textDecoration = 'underline'
-    if (fmt.fontFamily && fmt.fontFamily !== 'Default') td.style.fontFamily = fmt.fontFamily
-    if (fmt.fontSize) td.style.fontSize = `${fmt.fontSize}pt`
-    if (fmt.textColor) td.style.color = fmt.textColor
-    if (fmt.bgColor) td.style.backgroundColor = fmt.bgColor
-    if (fmt.align) td.style.textAlign = fmt.align
-    if (fmt.wrap) { td.style.whiteSpace = 'pre-wrap'; td.style.overflow = 'visible' }
-  }
-)
+function mergedCellsForTab(tab: SheetTab) {
+  return tab.mergedCells.map((mc) => ({
+    row: mc.row,
+    col: mc.col,
+    rowspan: mc.rowspan,
+    colspan: mc.colspan,
+  }))
+}
+
+function loadTabIntoGrid(hot: Handsontable, tab: SheetTab): void {
+  hot.loadData(cellsToData(tab))
+  hot.updateSettings({ mergeCells: mergedCellsForTab(tab) })
+  restoreTabFormats(hot, tab)
+  hot.render()
+}
 
 // ── Defaults ──────────────────────────────────────────────────────────────────
 
@@ -126,35 +130,37 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
   const hotRef = useRef<HotTableClass>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const aiPanelOpen = useAppStore((s) => s.aiPanelOpen)
+  const theme = useAppStore((s) => s.theme)
   const setPendingAiPrompt = useAppStore((s) => s.setPendingAiPrompt)
   const setAiPanelOpen = useAppStore((s) => s.setAiPanelOpen)
 
-  // Parse sheet content ───────────────────────────────────────────────────────
-  const [sheetContent, setSheetContent] = useState<SheetContent>(() => createInitialSheetContent())
-  const [activeTabId, setActiveTabId] = useState<string>(() => createInitialSheetContent().activeTabId)
-  const sheetContentRef = useRef(sheetContent)
+  // Parse sheet content — wait for doc before mounting the grid ───────────────
+  const [sheetContent, setSheetContent] = useState<SheetContent | null>(null)
+  const [activeTabId, setActiveTabId] = useState<string>('')
+  const sheetContentRef = useRef<SheetContent>(createInitialSheetContent())
   const activeTabIdRef = useRef(activeTabId)
 
-  // Once the doc loads, sync sheet content from it
   useEffect(() => {
     if (!doc) return
+    let parsed: SheetContent
     try {
       const raw = typeof doc.content === 'string' ? JSON.parse(doc.content) : doc.content
-      if (isSheetContent(raw)) {
-        setSheetContent(raw)
-        sheetContentRef.current = raw
-        setActiveTabId(raw.activeTabId)
-        activeTabIdRef.current = raw.activeTabId
-      }
-    } catch { /* keep defaults */ }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc?.id])
+      parsed = parseSheetContent(raw)
+    } catch {
+      parsed = createInitialSheetContent()
+    }
+    setSheetContent(parsed)
+    sheetContentRef.current = parsed
+    setActiveTabId(parsed.activeTabId)
+    activeTabIdRef.current = parsed.activeTabId
+  }, [doc?.id, doc?.content])
 
   // Toolbar + formula bar state ───────────────────────────────────────────────
   const [toolbarState, setToolbarState] = useState<ToolbarState>(DEFAULT_TOOLBAR)
   const [formulaAddress, setFormulaAddress] = useState('A1')
   const [formulaBarValue, setFormulaBarValue] = useState('')
   const selectedCellRef = useRef({ row: 0, col: 0 })
+  const selectionRangeRef = useRef<Array<{ from: { row: number; col: number }; to: { row: number; col: number } }>>([])
 
   // Auto-save ─────────────────────────────────────────────────────────────────
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -191,20 +197,26 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
   // hotHeight is kept as a ref (not state) so height changes never cause hotSettings to
   // rebuild — which would call updateSettings() and cascade into afterSelectionEnd loops.
   const hotHeightRef = useRef(500)
-  useEffect(() => {
-    const update = () => {
-      if (!containerRef.current) return
-      const h = containerRef.current.clientHeight
-      if (h === hotHeightRef.current) return
-      hotHeightRef.current = h
-      const hot = hotRef.current?.hotInstance
-      if (hot) hot.updateSettings({ height: h })
-    }
-    update()
-    const ro = new ResizeObserver(update)
-    if (containerRef.current) ro.observe(containerRef.current)
-    return () => ro.disconnect()
+
+  const syncHotHeight = useCallback(() => {
+    if (!containerRef.current) return
+    const h = containerRef.current.clientHeight
+    if (h <= 0) return
+    hotHeightRef.current = h
+    const hot = hotRef.current?.hotInstance
+    if (hot) hot.updateSettings({ height: h })
   }, [])
+
+  // Attach after the grid container mounts (it isn't in the DOM during the loading state).
+  useEffect(() => {
+    if (!sheetContent) return
+    const el = containerRef.current
+    if (!el) return
+    syncHotHeight()
+    const ro = new ResizeObserver(() => syncHotHeight())
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [sheetContent, syncHotHeight])
 
   // Context menu DOM events ───────────────────────────────────────────────────
   useEffect(() => {
@@ -226,14 +238,15 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
   }, [setAiPanelOpen, setPendingAiPrompt])
 
   // Sheet AI context ──────────────────────────────────────────────────────────
-  const activeTab = sheetContent.tabs.find((t) => t.id === activeTabId) ?? sheetContent.tabs[0]!
-  const activeTabRef = useRef(activeTab)
-  activeTabRef.current = activeTab
+  const activeTab = sheetContent?.tabs.find((t) => t.id === activeTabId) ?? sheetContent?.tabs[0]
+  const activeTabRef = useRef<SheetTab | null>(activeTab ?? null)
+  activeTabRef.current = activeTab ?? null
 
   const getSheetContext = useCallback((): string => {
     const h = hotRef.current?.hotInstance
-    if (!h) return ''
-    return buildSheetContext(h, activeTabRef.current)
+    const tab = activeTabRef.current
+    if (!h || !tab) return ''
+    return buildSheetContext(h, tab)
   }, [])
 
   const onInsertFormula = useCallback((formula: string) => {
@@ -267,11 +280,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
     setActiveTabId(tabId)
 
     const h = hotRef.current?.hotInstance
-    if (h) {
-      h.loadData(cellsToData(nextTab))
-      restoreTabFormats(h, nextTab)
-      h.render()
-    }
+    if (h) loadTabIntoGrid(h, nextTab)
     scheduleSave()
   }, [serializeCurrentTab, scheduleSave])
 
@@ -296,10 +305,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
     setActiveTabId(newTab.id)
 
     const h = hotRef.current?.hotInstance
-    if (h) {
-      h.loadData(cellsToData(newTab))
-      h.render()
-    }
+    if (h) loadTabIntoGrid(h, newTab)
     scheduleSave()
   }, [serializeCurrentTab, scheduleSave])
 
@@ -325,11 +331,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
       setActiveTabId(newActiveId)
       const nextTab = tabs.find((t) => t.id === newActiveId)!
       const h = hotRef.current?.hotInstance
-      if (h) {
-        h.loadData(cellsToData(nextTab))
-        restoreTabFormats(h, nextTab)
-        h.render()
-      }
+      if (h) loadTabIntoGrid(h, nextTab)
     }
     scheduleSave()
   }, [scheduleSave])
@@ -345,6 +347,9 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
     setFormulaBarValue(src !== null && src !== undefined ? String(src) : '')
 
     const sel = h.getSelectedRangeLast()
+    if (sel) {
+      selectionRangeRef.current = [{ from: sel.from, to: sel.to }]
+    }
     let isMerged = false
     if (sel) {
       const plugin = h.getPlugin('mergeCells') as unknown as {
@@ -386,22 +391,11 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
   // Stable HyperFormula instance — created once so updateSettings never re-inits the engine
   const hyperFormulaRef = useRef(HyperFormula.buildEmpty({ licenseKey: 'gpl-v3' }))
 
-  // Stable per-tab derived values so useMemo deps are referentially stable
-  const tabData = useMemo(() => cellsToData(activeTab), [activeTab])
-  const tabMergedCells = useMemo(
-    () => activeTab.mergedCells.map((mc) => ({
-      row: mc.row, col: mc.col, rowspan: mc.rowspan, colspan: mc.colspan,
-    })),
-    [activeTab],
-  )
-
   // Build Handsontable settings ───────────────────────────────────────────────
-  // Wrapped in useMemo so the settings object reference is stable across renders
-  // that don't change the sheet.  Without this, every toolbar-state update
-  // (e.g. selecting a cell) would recreate the object, trigger updateSettings(),
-  // and immediately kill any in-progress cell edit.
+  // Settings must stay referentially stable — never include `data` or `mergeCells`
+  // here or every save/selection will call updateSettings() and re-init the grid.
+  // Tab data is loaded via afterInit and loadTabIntoGrid instead.
   const hotSettings = useMemo<Handsontable.GridSettings>(() => ({
-    data: tabData,
     licenseKey: 'non-commercial-and-evaluation',
     formulas: { engine: hyperFormulaRef.current },
     rowHeaders: true,
@@ -412,7 +406,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
     colWidths: 100,
     manualColumnResize: true,
     manualRowResize: true,
-    mergeCells: tabMergedCells,
+    mergeCells: true,
     contextMenu: {
       items: {
         row_above: {},
@@ -455,6 +449,11 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
     },
     undo: true,
     renderer: 'proseRenderer',
+    afterInit() {
+      const tab = activeTabRef.current
+      if (tab) loadTabIntoGrid(this, tab)
+      requestAnimationFrame(() => syncHotHeight())
+    },
     afterChange: (_changes, source) => {
       if (source === 'loadData') return
       scheduleSave()
@@ -468,34 +467,45 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
     afterMergeCells: () => scheduleSave(),
     afterUnmergeCells: () => scheduleSave(),
     afterSelectionEnd: (row, col) => onSelectionEnd(row, col),
-  }), [tabData, tabMergedCells, scheduleSave, onSelectionEnd])
+  }), [scheduleSave, onSelectionEnd, syncHotHeight])
 
-  if (!doc) {
+  if (!doc || !sheetContent) {
     return (
-      <div className="flex h-screen flex-col bg-background">
-        <FileEditorTitleBar />
-      </div>
+      <TooltipProvider delayDuration={400}>
+        <div className="flex h-screen flex-col bg-background">
+          <FileEditorTitleBar />
+        </div>
+      </TooltipProvider>
     )
   }
 
   return (
+    <TooltipProvider delayDuration={400}>
     <div className="flex h-screen flex-col bg-background">
       <FileEditorTitleBar />
       <SheetToolbar
         hotRef={hotRef}
+        selectionRangeRef={selectionRangeRef}
         state={toolbarState}
         cellAddress={formulaAddress}
         formulaBarValue={formulaBarValue}
         onFormulaBarChange={setFormulaBarValue}
         onFormulaBarCommit={commitFormulaBar}
+        onFormatChange={scheduleSave}
         documentId={documentId}
       />
 
       {/* Grid + AI panel row */}
       <div className="flex min-h-0 flex-1">
         {/* Handsontable container */}
-        <div ref={containerRef} className="ht-theme-main-dark prose-hot-root relative min-h-0 min-w-0 flex-1">
-          <HotTable ref={hotRef} settings={hotSettings} />
+        <div
+          ref={containerRef}
+          className={cn(
+            'prose-hot-root relative flex h-full min-h-0 min-w-0 flex-1 flex-col',
+            theme === 'dark' ? 'ht-theme-main-dark' : 'ht-theme-main',
+          )}
+        >
+          <HotTable key={documentId} ref={hotRef} settings={hotSettings} />
         </div>
 
         {/* AI panel */}
@@ -520,5 +530,6 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
         onDeleteTab={deleteTab}
       />
     </div>
+    </TooltipProvider>
   )
 }

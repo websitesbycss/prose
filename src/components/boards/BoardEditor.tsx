@@ -21,6 +21,7 @@ import { useMusicContext } from '@/contexts/MusicContext'
 import { AMBIENT_LAYERS } from '@/hooks/useMusic'
 import { cn } from '@/lib/utils'
 import SettingsModal from '@/components/settings/SettingsModal'
+import { TooltipProvider } from '@/components/ui/tooltip'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -518,12 +519,14 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
   // ── Loading state ───────────────────────────────────────────────────────────
   if (!doc || initialData === null) {
     return (
+      <TooltipProvider delayDuration={400}>
       <div className="flex h-screen flex-col bg-background">
         <FileEditorTitleBar />
         <BoardToolbar
           excalidrawAPI={null}
           activeToolType="selection"
           documentId={documentId}
+          documentTitle={doc?.title}
           canvasZoom={canvasZoom}
           onCanvasZoomChange={handleCanvasZoomChange}
           onAddFileCard={addFileCard}
@@ -536,16 +539,19 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
         </div>
         {statusBar}
       </div>
+      </TooltipProvider>
     )
   }
 
   return (
+    <TooltipProvider delayDuration={400}>
     <div className="flex h-screen flex-col bg-background">
       <FileEditorTitleBar />
       <BoardToolbar
         excalidrawAPI={excalidrawAPIState}
         activeToolType={activeToolType}
         documentId={documentId}
+        documentTitle={doc.title}
         canvasZoom={canvasZoom}
         onCanvasZoomChange={handleCanvasZoomChange}
         onAddFileCard={addFileCard}
@@ -611,5 +617,6 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
         />
       )}
     </div>
+    </TooltipProvider>
   )
 }

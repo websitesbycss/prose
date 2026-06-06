@@ -271,16 +271,21 @@ function FontFamilyPicker({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          className="h-7 w-36 justify-between border-input px-2 text-xs font-normal"
-          style={{ fontFamily }}
-        >
-          <span className="truncate">{fontFamily}</span>
-          <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className="h-7 w-36 justify-between border-input px-2 text-xs font-normal"
+              style={{ fontFamily }}
+            >
+              <span className="truncate">{fontFamily}</span>
+              <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Font family</TooltipContent>
+      </Tooltip>
       <PopoverContent
         className="w-44 p-1"
         side="bottom"
@@ -339,15 +344,20 @@ function FontSizeInput({
         if (o) setDraft(display)
       }}
     >
-      <PopoverTrigger asChild>
-        {/* Non-focusable trigger — parent onMouseDown preventDefault keeps editor focus */}
-        <div className="flex h-7 cursor-pointer items-center overflow-hidden rounded-md border border-input transition-colors hover:bg-accent/30">
-          <span className="w-10 select-none text-center text-xs">{display}</span>
-          <div className="flex h-7 w-5 shrink-0 items-center justify-center border-l border-input text-muted-foreground">
-            <ChevronDown className="h-3 w-3" />
-          </div>
-        </div>
-      </PopoverTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            {/* Non-focusable trigger — parent onMouseDown preventDefault keeps editor focus */}
+            <div className="flex h-7 cursor-pointer items-center overflow-hidden rounded-md border border-input transition-colors hover:bg-accent/30">
+              <span className="w-10 select-none text-center text-xs">{display}</span>
+              <div className="flex h-7 w-5 shrink-0 items-center justify-center border-l border-input text-muted-foreground">
+                <ChevronDown className="h-3 w-3" />
+              </div>
+            </div>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Font size</TooltipContent>
+      </Tooltip>
       <PopoverContent
         className="w-16 p-1"
         side="bottom"
@@ -415,15 +425,20 @@ function ParagraphStylePicker({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          className="h-7 w-28 justify-between border-input px-2 text-xs font-normal"
-        >
-          <span>{labels[paragraphStyle] ?? 'Paragraph'}</span>
-          <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className="h-7 w-28 justify-between border-input px-2 text-xs font-normal"
+            >
+              <span>{labels[paragraphStyle] ?? 'Paragraph'}</span>
+              <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Text style</TooltipContent>
+      </Tooltip>
       <PopoverContent
         className="w-36 p-1"
         side="bottom"

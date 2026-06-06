@@ -138,12 +138,38 @@
   --ht-border-color: hsl(var(--border));
   --ht-accent-color: hsl(var(--primary));
   --ht-cell-selection-background-color: hsl(var(--primary) / 0.18);
+  --ht-cell-selection-border-color: hsl(var(--primary));
   --ht-bar-background-color: hsl(var(--muted) / 0.5);
   --ht-bar-foreground-color: hsl(var(--muted-foreground));
   --ht-font-family: inherit;
   --ht-font-size: 13px;
   /* No outer border on the table wrapper */
   --ht-wrapper-border-width: 0px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Fill the editor column — Handsontable only sizes correctly when the wrapper chain has explicit height. */
+.prose-hot-root .ht-root-wrapper,
+.prose-hot-root .handsontable {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100% !important;
+}
+
+/* Even 2px selection ring — default wtBorder lines can look thinner on some edges. */
+.prose-hot-root .handsontable .wtBorder.current {
+  background-color: hsl(var(--primary)) !important;
+  z-index: 20 !important;
+}
+.prose-hot-root .handsontable .wtBorder.current:nth-child(1),
+.prose-hot-root .handsontable .wtBorder.current:nth-child(3) {
+  height: 2px !important;
+}
+.prose-hot-root .handsontable .wtBorder.current:nth-child(2),
+.prose-hot-root .handsontable .wtBorder.current:nth-child(4) {
+  width: 2px !important;
 }
 
 /* Create a CSS stacking context so Handsontable's internal overlays (ht_clone_top,

@@ -5,8 +5,10 @@ import {
   Search, Download, Maximize2, Settings,
   ZoomIn, ZoomOut, RotateCcw, Trash2, HelpCircle,
 } from 'lucide-react'
+import { BoardExportModal } from '@/components/boards/BoardExportModal'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useAppStore } from '@/store/appStore'
 import { cn } from '@/lib/utils'
 import type { PageMargins } from '@/types'
@@ -74,6 +76,7 @@ function ThreeDotsMenu({
 }: ThreeDotsProps): JSX.Element {
   const [open, setOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
+  const [boardExportOpen, setBoardExportOpen] = useState(false)
   const [pos, setPos] = useState({ top: 0, right: 0 })
   const btnRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -122,16 +125,20 @@ function ThreeDotsMenu({
 
   return (
     <>
-      <Button
-        ref={btnRef}
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7"
-        onClick={handleOpen}
-        title="More options"
-      >
-        <MoreHorizontal className="h-3.5 w-3.5" />
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            ref={btnRef}
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={handleOpen}
+          >
+            <MoreHorizontal className="h-3.5 w-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">More options</TooltipContent>
+      </Tooltip>
 
       {open &&
         createPortal(
@@ -204,12 +211,10 @@ function ThreeDotsMenu({
                 <MenuItem
                   icon={Search}
                   label="Find in canvas"
-                  shortcut="Ctrl+/"
+                  shortcut="Ctrl+F"
                   onClick={() => {
                     setOpen(false)
-                    document.dispatchEvent(
-                      new KeyboardEvent('keydown', { key: '/', ctrlKey: true, bubbles: true, cancelable: true }),
-                    )
+                    if (excalidrawAPI) excalidrawAPI.updateScene({ appState: { openDialog: { name: 'search' } } })
                   }}
                 />
                 <MenuItem
@@ -218,14 +223,15 @@ function ThreeDotsMenu({
                   shortcut="?"
                   onClick={() => {
                     setOpen(false)
-                    document.dispatchEvent(
-                      new KeyboardEvent('keydown', { key: '?', shiftKey: true, bubbles: true, cancelable: true }),
-                    )
+                    if (excalidrawAPI) excalidrawAPI.updateScene({ appState: { openDialog: { name: 'help' } } })
                   }}
                 />
                 <MenuSep />
-                <MenuItem icon={Download} label="Export as PNG" onClick={() => setOpen(false)} />
-                <MenuItem icon={Download} label="Export as PDF" onClick={() => setOpen(false)} />
+                <MenuItem
+                  icon={Download}
+                  label="Export…"
+                  onClick={() => { setOpen(false); setBoardExportOpen(true) }}
+                />
               </>
             )}
 
@@ -243,6 +249,15 @@ function ThreeDotsMenu({
           </div>,
           document.body,
         )}
+
+      {boardExportOpen && fileType === 'board' && excalidrawAPI && (
+        <BoardExportModal
+          open={boardExportOpen}
+          onClose={() => setBoardExportOpen(false)}
+          boardTitle={documentTitle ?? 'Board'}
+          excalidrawAPI={excalidrawAPI}
+        />
+      )}
 
       {exportOpen && fileType === 'document' && documentId && (
         <ExportModal
@@ -293,44 +308,60 @@ export function ToolbarRightSection({
     <div className="flex shrink-0 items-center gap-0.5 pr-1">
       <Separator orientation="vertical" className="mx-1 h-5" />
 
-      <Button
-        variant="ghost"
-        size="icon"
-        className={cn('h-7 w-7', musicPanelOpen && 'bg-accent text-accent-foreground')}
-        onClick={() => {
-          if (!musicPanelOpen) setMusicPanelTab('tracks')
-          setMusicPanelOpen(!musicPanelOpen)
-        }}
-        title="Focus music"
-      >
-        <Music className="h-3.5 w-3.5" />
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn('h-7 w-7', musicPanelOpen && 'bg-accent text-accent-foreground')}
+            onClick={() => {
+              if (!musicPanelOpen) setMusicPanelTab('tracks')
+              setMusicPanelOpen(!musicPanelOpen)
+            }}
+          >
+            <Music className="h-3.5 w-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Music</TooltipContent>
+      </Tooltip>
 
-      <Button
-        variant="ghost"
-        size="icon"
-        className={cn('relative h-7 w-7', aiPanelOpen && 'bg-accent text-accent-foreground')}
-        onClick={() => setAiPanelOpen(!aiPanelOpen)}
-        title={aiPanelOpen ? 'Hide AI panel' : 'Show AI panel'}
-        disabled={ollamaStatus === 'unavailable'}
-      >
-        <Sparkles className="h-3.5 w-3.5" />
-        {issueCount > 0 && !aiPanelOpen && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-primary px-0.5 text-[8px] font-bold leading-none text-primary-foreground">
-            {issueCount > 9 ? '9+' : issueCount}
-          </span>
-        )}
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn('relative h-7 w-7', aiPanelOpen && 'bg-accent text-accent-foreground')}
+            onClick={() => setAiPanelOpen(!aiPanelOpen)}
+            disabled={ollamaStatus === 'unavailable'}
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            {issueCount > 0 && !aiPanelOpen && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-primary px-0.5 text-[8px] font-bold leading-none text-primary-foreground">
+                {issueCount > 9 ? '9+' : issueCount}
+              </span>
+            )}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">
+          {aiPanelOpen ? 'Hide AI panel' : 'Show AI panel'}
+        </TooltipContent>
+      </Tooltip>
 
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7"
-        onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-        title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-      >
-        {theme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          >
+            {theme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">
+          {theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        </TooltipContent>
+      </Tooltip>
 
       <ThreeDotsMenu
         fileType={fileType}

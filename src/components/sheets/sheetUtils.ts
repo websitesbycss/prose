@@ -116,10 +116,33 @@ export function getFormatAtCell(hot: Handsontable, row: number, col: number): Sh
 
 export function applyFormatToSelection(
   hot: Handsontable,
-  updater: (existing: SheetCellFormat) => SheetCellFormat
+  updater: (existing: SheetCellFormat) => SheetCellFormat,
+  fallbackRange?: Array<{ from: { row: number; col: number }; to: { row: number; col: number } }>,
 ): void {
-  const selected = hot.getSelectedRange()
-  if (!selected) return
+  type ActiveEditor = {
+    isOpened?: () => boolean
+    row?: number
+    col?: number
+    focus?: () => void
+  }
+  const editor = hot.getActiveEditor() as ActiveEditor | undefined
+  if (editor?.isOpened?.()) {
+    const r = editor.row
+    const c = editor.col
+    if (r === undefined || c === undefined) return
+    const meta = hot.getCellMeta(r, c) as { proseFormat?: SheetCellFormat }
+    hot.setCellMeta(r, c, 'proseFormat', updater(meta.proseFormat ?? {}))
+    hot.render()
+    editor.focus?.()
+    return
+  }
+
+  let selected = hot.getSelectedRange()
+  if (!selected?.length && fallbackRange?.length) {
+    selected = fallbackRange
+  }
+  if (!selected?.length) return
+
   for (const range of selected) {
     const r1 = Math.min(range.from.row, range.to.row)
     const r2 = Math.max(range.from.row, range.to.row)
@@ -133,6 +156,7 @@ export function applyFormatToSelection(
     }
   }
   hot.render()
+  hot.listen()
 }
 
 export function restoreTabFormats(hot: Handsontable, tab: SheetTab): void {

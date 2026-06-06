@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { ToolbarRightSection } from '@/components/editor/ToolbarRightSection'
 import type { FileType } from '@/types'
@@ -103,15 +104,19 @@ function FilePickerPopover({ excalidrawAPI, onAddFileCard }: FilePickerProps): J
 
   return (
     <div className="relative">
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7"
-        title="Add file card"
-        onClick={() => setOpen((o) => !o)}
-      >
-        <PlusSquare className="h-3.5 w-3.5" />
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => setOpen((o) => !o)}
+          >
+            <PlusSquare className="h-3.5 w-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Add file card</TooltipContent>
+      </Tooltip>
 
       {open && (
         <div
@@ -172,13 +177,17 @@ function BoardZoomControls({ zoom, onZoomChange }: { zoom: number; onZoomChange(
 
   return (
     <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-      <button
-        className="transition-colors hover:text-foreground"
-        onClick={() => onZoomChange(clamp(zoom - BOARD_ZOOM_STEP))}
-        title="Zoom out"
-      >
-        <ZoomOut className="h-3 w-3" />
-      </button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            className="transition-colors hover:text-foreground"
+            onClick={() => onZoomChange(clamp(zoom - BOARD_ZOOM_STEP))}
+          >
+            <ZoomOut className="h-3 w-3" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Zoom out</TooltipContent>
+      </Tooltip>
 
       <input
         type="range"
@@ -192,24 +201,30 @@ function BoardZoomControls({ zoom, onZoomChange }: { zoom: number; onZoomChange(
       />
 
       <div className="flex items-center gap-0.5">
-        <button
-          className="transition-colors hover:text-foreground"
-          onClick={() => onZoomChange(clamp(zoom + BOARD_ZOOM_STEP))}
-          title="Zoom in"
-        >
-          <ZoomIn className="h-3 w-3" />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              className="transition-colors hover:text-foreground"
+              onClick={() => onZoomChange(clamp(zoom + BOARD_ZOOM_STEP))}
+            >
+              <ZoomIn className="h-3 w-3" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">Zoom in</TooltipContent>
+        </Tooltip>
 
         <Popover open={open} onOpenChange={(o) => { setOpen(o); if (o) setDraft(String(zoom)) }}>
-          <PopoverTrigger asChild>
-            <button
-              className="flex items-center gap-0.5 tabular-nums transition-colors hover:text-foreground"
-              title="Set zoom level"
-            >
-              <span className="w-8 text-right">{zoom}%</span>
-              <ChevronDown className="h-2.5 w-2.5" />
-            </button>
-          </PopoverTrigger>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <PopoverTrigger asChild>
+                <button className="flex items-center gap-0.5 tabular-nums transition-colors hover:text-foreground">
+                  <span className="w-8 text-right">{zoom}%</span>
+                  <ChevronDown className="h-2.5 w-2.5" />
+                </button>
+              </PopoverTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">Set zoom level</TooltipContent>
+          </Tooltip>
           <PopoverContent className="w-20 p-1" side="bottom" align="end" onOpenAutoFocus={(e) => e.preventDefault()}>
             <Input
               className="mb-1 h-7 w-full text-center text-xs focus-visible:ring-1 focus-visible:ring-offset-0"
@@ -245,6 +260,7 @@ interface BoardToolbarProps {
   excalidrawAPI: any | null
   activeToolType: string
   documentId: string | null
+  documentTitle?: string
   canvasZoom: number
   onCanvasZoomChange: (pct: number) => void
   onAddFileCard: (fileId: string, fileType: string, title: string, wordCount: number, preview: string) => void
@@ -254,6 +270,7 @@ export function BoardToolbar({
   excalidrawAPI,
   activeToolType,
   documentId,
+  documentTitle,
   canvasZoom,
   onCanvasZoomChange,
   onAddFileCard,
@@ -270,19 +287,22 @@ export function BoardToolbar({
       {/* Tool buttons */}
       <div className="flex items-center gap-0.5 px-2">
         {EXCALIDRAW_TOOLS.map(({ type, icon: Icon, title }) => (
-          <Button
-            key={type}
-            variant="ghost"
-            size="icon"
-            className={cn(
-              'h-7 w-7',
-              activeToolType === type && 'bg-accent text-accent-foreground',
-            )}
-            title={title}
-            onClick={() => setTool(type)}
-          >
-            <Icon className="h-3.5 w-3.5" />
-          </Button>
+          <Tooltip key={type}>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  'h-7 w-7',
+                  activeToolType === type && 'bg-accent text-accent-foreground',
+                )}
+                onClick={() => setTool(type)}
+              >
+                <Icon className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">{title}</TooltipContent>
+          </Tooltip>
         ))}
 
         <Separator orientation="vertical" className="mx-0.5 h-5" />
@@ -300,6 +320,7 @@ export function BoardToolbar({
       <ToolbarRightSection
         fileType="board"
         documentId={documentId}
+        documentTitle={documentTitle}
         excalidrawAPI={excalidrawAPI}
       />
     </div>

@@ -6,7 +6,6 @@ import { applyAccentColors, DEFAULT_LIGHT_ACCENT, DEFAULT_DARK_ACCENT } from '@/
 import Dashboard from '@/components/dashboard/Dashboard'
 import Editor from '@/components/editor/Editor'
 import { GlobalNewDocumentModal } from '@/components/GlobalNewDocumentModal'
-import { GlobalAiChat } from '@/components/GlobalAiChat'
 import { DashboardTabBar } from '@/components/editor/DashboardTabBar'
 import Welcome from '@/components/onboarding/Welcome'
 import SaveLocation from '@/components/onboarding/SaveLocation'
@@ -278,7 +277,6 @@ export default function App(): JSX.Element {
       {musicPanelOpen && <MusicPanel music={music} />}
       <Toaster theme={theme} richColors position="bottom-right" offset={32} />
       <GlobalNewDocumentModal />
-      <GlobalAiChat />
     </MusicContext.Provider>
   )
 }

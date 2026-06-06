@@ -52,7 +52,6 @@ interface AppState {
   assignmentContext: string
   typewriterMode: boolean
   uiScale: number
-  globalAiOpen: boolean
   typeFilter: 'all' | 'document' | 'sheet' | 'board'
 
   setCurrentDocumentId(id: string | null): void
@@ -85,7 +84,6 @@ interface AppState {
   setAssignmentContext(ctx: string): void
   setTypewriterMode(v: boolean): void
   setUiScale(v: number): void
-  setGlobalAiOpen(open: boolean): void
   setTypeFilter(filter: 'all' | 'document' | 'sheet' | 'board'): void
 }
 
@@ -121,7 +119,6 @@ export const useAppStore = create<AppState>()((set) => ({
   assignmentContext: '',
   typewriterMode: false,
   uiScale: 110,
-  globalAiOpen: false,
   typeFilter: 'all',
 
   setCurrentDocumentId: (id) => {
@@ -269,6 +266,5 @@ export const useAppStore = create<AppState>()((set) => ({
     document.documentElement.style.fontSize = `${v}%`
     set({ uiScale: v })
   },
-  setGlobalAiOpen: (open) => set({ globalAiOpen: open }),
   setTypeFilter: (filter) => set({ typeFilter: filter }),
 }))
