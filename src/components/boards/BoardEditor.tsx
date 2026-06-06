@@ -228,11 +228,22 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const latestElementsRef = useRef<ExcalidrawElements>([])
   const latestAppStateRef = useRef<ExcalidrawAppState | null>(null)
+  // Last values we scheduled a save for — used to skip onChange events that
+  // only update transient state (cursor, hover, active tool) that we don't persist.
+  const lastScheduledRef = useRef<{
+    elements: ExcalidrawElements
+    scrollX: number
+    scrollY: number
+    zoom: number
+  } | null>(null)
 
   const flushAndSave = useCallback(async () => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = null
+    }
     const elements = latestElementsRef.current
     const appState = latestAppStateRef.current
-    if (!elements.length) return
     const boardContent: BoardContent = {
       version: 2,
       elements: elements as unknown[],
@@ -252,38 +263,33 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
     } catch (err) {
       console.error('[BoardEditor] save error:', err)
       setSaveStatus('error')
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
+      savedTimerRef.current = setTimeout(() => setSaveStatus('idle'), 4000)
     }
   }, [documentId])
 
   const scheduleSave = useCallback(() => {
-    setSaveStatus('saving')
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => void flushAndSave(), AUTO_SAVE_DEBOUNCE_MS)
+  }, [flushAndSave])
+
+  // Ctrl+S / Cmd+S — flush immediately
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 's' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault()
+        void flushAndSave()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
   }, [flushAndSave])
 
   // Flush any pending save on unmount — prevents blank board when switching tabs
   useEffect(() => () => {
     if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current)
-      const elements = latestElementsRef.current
-      const appState = latestAppStateRef.current
-      if (elements.length > 0) {
-        void window.prose.documents.update(documentId, {
-          content: JSON.stringify({
-            version: 2,
-            elements: elements as unknown[],
-            appState: appState ? {
-              zoom: appState.zoom,
-              scrollX: appState.scrollX,
-              scrollY: appState.scrollY,
-              theme: appState.theme,
-            } : {},
-          }),
-        })
-      }
-    }
-  }, [documentId])
+    if (saveTimerRef.current) void flushAndSave()
+  }, [flushAndSave])
 
   // Parse initial board content ───────────────────────────────────────────────
   const [initialData, setInitialData] = useState<{
@@ -312,13 +318,33 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
     (elements: ExcalidrawElements, appState: ExcalidrawAppState) => {
       latestElementsRef.current = elements
       latestAppStateRef.current = appState
+
+      // UI-only tracking (always runs, never triggers a save)
       const toolType = appState?.activeTool?.type as string | undefined
       if (toolType) setActiveToolType(toolType)
       const selectedCount = Object.keys(appState?.selectedElementIds ?? {}).length
       setHasSelection(selectedCount > 0)
       const zoomValue = appState?.zoom?.value
       if (zoomValue != null) setCanvasZoom(Math.round(zoomValue * 100))
-      scheduleSave()
+
+      // Only schedule a save when something we actually persist has changed.
+      // Excalidraw fires onChange for transient state (cursor position, hover,
+      // active tool) that we don't save, which would otherwise reset the debounce
+      // and the 'Saved' idle timer on every mouse move.
+      const last = lastScheduledRef.current
+      const scrollX = appState?.scrollX ?? 0
+      const scrollY = appState?.scrollY ?? 0
+      const zoom = appState?.zoom?.value ?? 1
+      const changed = !last
+        || elements !== last.elements
+        || scrollX !== last.scrollX
+        || scrollY !== last.scrollY
+        || zoom !== last.zoom
+
+      if (changed) {
+        lastScheduledRef.current = { elements, scrollX, scrollY, zoom }
+        scheduleSave()
+      }
     },
     [scheduleSave],
   )
