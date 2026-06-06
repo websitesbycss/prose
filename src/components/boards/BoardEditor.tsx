@@ -3,13 +3,17 @@ import { Excalidraw } from '@excalidraw/excalidraw'
 import '@excalidraw/excalidraw/index.css'
 
 import { useDocument } from '@/hooks/useDocument'
+import type { SaveStatus } from '@/hooks/useDocument'
 import type { BoardContent } from '@/types/board'
-import { isBoardContent, createInitialBoardContent } from '@/types/board'
+import { isBoardContent } from '@/types/board'
 import { FileEditorTitleBar } from '@/components/editor/FileEditorTitleBar'
 import { BoardToolbar } from './BoardToolbar'
+import { BoardStatusBar } from './BoardStatusBar'
 import { AUTO_SAVE_DEBOUNCE_MS, AI_PANEL_WIDTH } from '@/constants'
 import { useAppStore } from '@/store/appStore'
 import AiPanel from '@/components/editor/AiPanel'
+import { useMusicContext } from '@/contexts/MusicContext'
+import { AMBIENT_LAYERS } from '@/hooks/useMusic'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -126,45 +130,86 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
   const aiPanelOpen = useAppStore((s) => s.aiPanelOpen)
   const theme = useAppStore((s) => s.theme)
   const openDocumentTab = useAppStore((s) => s.openDocumentTab)
+  const setMusicPanelOpen = useAppStore((s) => s.setMusicPanelOpen)
+  const setMusicPanelTab = useAppStore((s) => s.setMusicPanelTab)
 
   // Track active Excalidraw tool for toolbar highlighting
   const [activeToolType, setActiveToolType] = useState('selection')
+
+  // Save status for the status bar
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Music
+  const music = useMusicContext()
+  const activeAmbient = AMBIENT_LAYERS.filter((l) => music?.ambientEnabled[l.id])
+  const ambientPlaying =
+    activeAmbient.length === 0 ? null
+    : activeAmbient.length === 1 ? activeAmbient[0]!.label
+    : activeAmbient.length === 2 ? `${activeAmbient[0]!.label} + ${activeAmbient[1]!.label}`
+    : `${activeAmbient.length} Sounds`
 
   // Auto-save ─────────────────────────────────────────────────────────────────
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const latestElementsRef = useRef<ExcalidrawElements>([])
   const latestAppStateRef = useRef<ExcalidrawAppState | null>(null)
 
+  // flushAndSave reads from refs so it works regardless of API availability
   const flushAndSave = useCallback(async () => {
-    const api = excalidrawAPIRef.current
-    if (!api) return
+    const elements = latestElementsRef.current
+    const appState = latestAppStateRef.current
+    if (!elements.length) return
+    const boardContent: BoardContent = {
+      version: 2,
+      elements: elements as unknown[],
+      appState: appState ? {
+        zoom: appState.zoom,
+        scrollX: appState.scrollX,
+        scrollY: appState.scrollY,
+        theme: appState.theme,
+      } : {},
+    }
     try {
-      const elements = api.getSceneElements()
-      const appState = api.getAppState()
-      const boardContent: BoardContent = {
-        version: 2,
-        elements: elements as unknown[],
-        appState: {
-          zoom: appState.zoom,
-          scrollX: appState.scrollX,
-          scrollY: appState.scrollY,
-          theme: appState.theme,
-        },
-      }
+      setSaveStatus('saving')
       await window.prose.documents.update(documentId, { content: JSON.stringify(boardContent) })
+      setSaveStatus('saved')
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
+      savedTimerRef.current = setTimeout(() => setSaveStatus('idle'), 2000)
     } catch (err) {
       console.error('[BoardEditor] save error:', err)
+      setSaveStatus('error')
     }
   }, [documentId])
 
   const scheduleSave = useCallback(() => {
+    setSaveStatus('saving')
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => void flushAndSave(), AUTO_SAVE_DEBOUNCE_MS)
   }, [flushAndSave])
 
+  // Flush any pending save on unmount — prevents blank board when switching tabs
   useEffect(() => () => {
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-  }, [])
+    if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current)
+      const elements = latestElementsRef.current
+      const appState = latestAppStateRef.current
+      if (elements.length > 0) {
+        void window.prose.documents.update(documentId, {
+          content: JSON.stringify({
+            version: 2,
+            elements: elements as unknown[],
+            appState: appState ? {
+              zoom: appState.zoom,
+              scrollX: appState.scrollX,
+              scrollY: appState.scrollY,
+              theme: appState.theme,
+            } : {},
+          }),
+        })
+      }
+    }
+  }, [documentId])
 
   // Parse initial board content ───────────────────────────────────────────────
   const [initialData, setInitialData] = useState<{
@@ -288,6 +333,16 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
     [scheduleSave],
   )
 
+  const statusBar = (
+    <BoardStatusBar
+      saveStatus={saveStatus}
+      nowPlaying={music?.nowPlayingTitle}
+      ambientPlaying={ambientPlaying}
+      onMusicClick={() => { setMusicPanelTab('tracks'); setMusicPanelOpen(true) }}
+      onAmbientClick={() => { setMusicPanelTab('mixer'); setMusicPanelOpen(true) }}
+    />
+  )
+
   // Loading state ─────────────────────────────────────────────────────────────
   if (!doc || initialData === null) {
     return (
@@ -302,6 +357,7 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
         <div className="flex flex-1 items-center justify-center">
           <span className="text-sm text-muted-foreground/50">Loading…</span>
         </div>
+        {statusBar}
       </div>
     )
   }
@@ -353,6 +409,7 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
           </div>
         )}
       </div>
+      {statusBar}
     </div>
   )
 }

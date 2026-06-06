@@ -1,12 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Search, Pin, FileText, Plus } from 'lucide-react'
+import { Search, Pin, FileText, Table2, Shapes, Plus } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { loadPinnedIds } from '@/lib/pinnedDocs'
 import { FORMAT_LABELS } from '@/lib/documentFormat'
 import { cn, formatRelativeTime } from '@/lib/utils'
-import type { Document } from '@/types'
+import type { Document, FileType } from '@/types'
 import { useAppStore } from '@/store/appStore'
+
+const FILE_TYPE_ICONS: Record<FileType, React.FC<{ className?: string }>> = {
+  document: FileText,
+  sheet: Table2,
+  board: Shapes,
+}
 
 interface TabPickerPopoverProps {
   onOpenDocument(): void
@@ -27,14 +33,16 @@ function PickerRow({
   onSelect(): void
 }): JSX.Element {
   const formatLabel = FORMAT_LABELS[doc.format]
+  const fileType = doc.fileType ?? 'document'
+  const TypeIcon = FILE_TYPE_ICONS[fileType]
 
   return (
     <button
       type="button"
-      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent hover:text-accent-foreground"
+      className="flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent hover:text-accent-foreground"
       onClick={onSelect}
     >
-      <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+      <TypeIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
       <span className="min-w-0 flex-1 truncate font-medium">{doc.title}</span>
       {formatLabel && (
         <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
@@ -91,12 +99,12 @@ export function TabPickerPopover({ onOpenDocument, onNewDocument }: TabPickerPop
   }, [filtered, pinnedIds, search])
 
   function selectDoc(doc: Document): void {
-    openDocumentTab({ id: doc.id, title: doc.title, format: doc.format })
+    openDocumentTab({ id: doc.id, title: doc.title, format: doc.format, fileType: doc.fileType ?? 'document' })
     onOpenDocument()
   }
 
   return (
-    <div className="flex w-[320px] flex-col" onPointerDown={(e) => e.stopPropagation()}>
+    <div className="flex w-[350px] flex-col" onPointerDown={(e) => e.stopPropagation()}>
       <div className="border-b border-border p-2">
         <div className="relative">
           <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />

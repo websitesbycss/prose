@@ -391,7 +391,7 @@ export function DocumentTabBar({
                 <Plus className="h-4 w-4" />
               </button>
             </PopoverTrigger>
-            <PopoverContent align="start" side="bottom" className="z-[300] w-auto p-0">
+            <PopoverContent align="end" side="bottom" sideOffset={4} collisionPadding={8} className="z-[300] w-auto p-0">
               <TabPickerPopover
                 onOpenDocument={() => setPickerOpen(false)}
                 onNewDocument={() => { setPickerOpen(false); setNewDocumentModalOpen(true) }}

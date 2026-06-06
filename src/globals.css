@@ -177,6 +177,16 @@
 .prose-excalidraw-root .App-bottom-bar { display: none !important; }
 .prose-excalidraw-root footer.App-menu_bottom { display: none !important; }
 .prose-excalidraw-root .layer-ui__wrapper__footer { display: none !important; }
+/* Hide Excalidraw brand references from hamburger menu, Help dialog, and library panel. */
+/* Hamburger menu "Excalidraw links" group (GitHub / Follow us / Discord). */
+.prose-excalidraw-root .dropdown-menu-group { display: none !important; }
+/* Help dialog external link buttons (Documentation / Blog / Issues / YouTube). */
+.prose-excalidraw-root .HelpDialog__header { display: none !important; }
+/* Library panel: Excalidraw Library heading, its items, the Browse button, and hint text. */
+.prose-excalidraw-root .library-menu-items-container__header--excal { display: none !important; }
+.prose-excalidraw-root .library-menu-items-container__header--excal ~ * { display: none !important; }
+.prose-excalidraw-root .library-menu-browse-button { display: none !important; }
+.prose-excalidraw-root .library-menu-items__no-items__hint { display: none !important; }
 
 .document-tab__label {
   display: flex;
