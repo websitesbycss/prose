@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import {
   Sun, Moon, Sparkles, Music, MoreHorizontal,
   Search, Download, Maximize2, Settings,
-  ZoomIn, ZoomOut, RotateCcw, Trash2,
+  ZoomIn, ZoomOut, RotateCcw, Trash2, HelpCircle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -59,6 +59,8 @@ interface ThreeDotsProps {
   documentMargins?: PageMargins | null
   onFindOpen?: () => void
   onFocusMode?: () => void
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  excalidrawAPI?: any
 }
 
 function ThreeDotsMenu({
@@ -68,6 +70,7 @@ function ThreeDotsMenu({
   documentMargins,
   onFindOpen,
   onFocusMode,
+  excalidrawAPI,
 }: ThreeDotsProps): JSX.Element {
   const [open, setOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
@@ -103,7 +106,7 @@ function ThreeDotsMenu({
   }
 
   function dispatchZoom(key: string) {
-    window.dispatchEvent(
+    document.dispatchEvent(
       new KeyboardEvent('keydown', { key, ctrlKey: true, bubbles: true, cancelable: true }),
     )
     setOpen(false)
@@ -137,9 +140,23 @@ function ThreeDotsMenu({
             style={{ position: 'fixed', top: pos.top, right: pos.right, zIndex: 99999 }}
             className="min-w-[200px] rounded-lg border border-border bg-background py-1 shadow-lg"
           >
-            <MenuItem icon={ZoomIn} label="Zoom in" shortcut="Ctrl+=" onClick={() => dispatchZoom('=')} />
-            <MenuItem icon={ZoomOut} label="Zoom out" shortcut="Ctrl+-" onClick={() => dispatchZoom('-')} />
-            <MenuItem icon={RotateCcw} label="Reset zoom" shortcut="Ctrl+0" onClick={() => dispatchZoom('0')} />
+            {fileType !== 'board' && (
+              <>
+                <MenuItem icon={ZoomIn} label="Zoom in" shortcut="Ctrl+=" onClick={() => dispatchZoom('=')} />
+                <MenuItem icon={ZoomOut} label="Zoom out" shortcut="Ctrl+-" onClick={() => dispatchZoom('-')} />
+              </>
+            )}
+            {fileType === 'board'
+              ? <MenuItem icon={RotateCcw} label="Reset zoom" shortcut="Ctrl+0" onClick={() => {
+                  setOpen(false)
+                  if (excalidrawAPI) {
+                    excalidrawAPI.updateScene({ appState: { zoom: { value: 1 } } })
+                  } else {
+                    dispatchZoom('0')
+                  }
+                }} />
+              : <MenuItem icon={RotateCcw} label="Reset zoom" shortcut="Ctrl+0" onClick={() => dispatchZoom('0')} />
+            }
 
             <MenuSep />
 
@@ -184,6 +201,29 @@ function ThreeDotsMenu({
 
             {fileType === 'board' && (
               <>
+                <MenuItem
+                  icon={Search}
+                  label="Find in canvas"
+                  shortcut="Ctrl+/"
+                  onClick={() => {
+                    setOpen(false)
+                    document.dispatchEvent(
+                      new KeyboardEvent('keydown', { key: '/', ctrlKey: true, bubbles: true, cancelable: true }),
+                    )
+                  }}
+                />
+                <MenuItem
+                  icon={HelpCircle}
+                  label="Keyboard shortcuts"
+                  shortcut="?"
+                  onClick={() => {
+                    setOpen(false)
+                    document.dispatchEvent(
+                      new KeyboardEvent('keydown', { key: '?', shiftKey: true, bubbles: true, cancelable: true }),
+                    )
+                  }}
+                />
+                <MenuSep />
                 <MenuItem icon={Download} label="Export as PNG" onClick={() => setOpen(false)} />
                 <MenuItem icon={Download} label="Export as PDF" onClick={() => setOpen(false)} />
               </>
@@ -226,6 +266,8 @@ export interface ToolbarRightSectionProps {
   documentMargins?: PageMargins | null
   onFindOpen?: () => void
   onFocusMode?: () => void
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  excalidrawAPI?: any
 }
 
 export function ToolbarRightSection({
@@ -235,6 +277,7 @@ export function ToolbarRightSection({
   documentMargins,
   onFindOpen,
   onFocusMode,
+  excalidrawAPI,
 }: ToolbarRightSectionProps): JSX.Element {
   const theme = useAppStore((s) => s.theme)
   const setTheme = useAppStore((s) => s.setTheme)
@@ -296,6 +339,7 @@ export function ToolbarRightSection({
         documentMargins={documentMargins}
         onFindOpen={onFindOpen}
         onFocusMode={onFocusMode}
+        excalidrawAPI={excalidrawAPI}
       />
     </div>
   )

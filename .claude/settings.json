@@ -35,11 +35,12 @@
       "Bash(node -e \"const p=require\\('./package.json'\\); const d={...p.dependencies,...p.devDependencies}; Object.entries\\(d\\).filter\\(\\([k]\\)=>k.includes\\('sonner'\\)||k.includes\\('@radix'\\)||k.includes\\('dialog'\\)\\).forEach\\(\\([k,v]\\)=>console.log\\(k,v\\)\\)\")",
       "Bash(findstr -i \"tabler\\\\|lucide\\\\|react-icons\")",
       "Bash(Get-Content package.json)",
-      "Bash(Select-String -Pattern \"tabler|lucide|react-icons\")"
+      "Bash(Select-String -Pattern \"tabler|lucide|react-icons\")",
+      "Bash(node *)"
     ],
     "additionalDirectories": [
       "C:\\"
     ],
-    "allowedTools": ["bash", "edit", "read", "write"]
+    "allowedTools": ["bash", "edit", "read", "write", "node"]
   }
 }

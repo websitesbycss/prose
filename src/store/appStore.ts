@@ -35,6 +35,7 @@ interface AppState {
   newDocumentModalOpen: boolean
   theme: Theme
   sidebarOpen: boolean
+  boardSidebarOpen: boolean
   aiPanelOpen: boolean
   citationPanelOpen: boolean
   musicPanelOpen: boolean
@@ -67,6 +68,7 @@ interface AppState {
   setNewDocumentModalOpen(open: boolean): void
   setTheme(theme: Theme): void
   setSidebarOpen(open: boolean): void
+  setBoardSidebarOpen(open: boolean): void
   setAiPanelOpen(open: boolean): void
   setCitationPanelOpen(open: boolean): void
   setMusicPanelOpen(open: boolean): void
@@ -102,6 +104,7 @@ export const useAppStore = create<AppState>()((set) => ({
   newDocumentModalOpen: false,
   theme: readStoredTheme(),
   sidebarOpen: true,
+  boardSidebarOpen: true,
   aiPanelOpen: false,
   citationPanelOpen: false,
   musicPanelOpen: false,
@@ -242,6 +245,7 @@ export const useAppStore = create<AppState>()((set) => ({
     }
   },
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
+  setBoardSidebarOpen: (open) => set({ boardSidebarOpen: open }),
   // AI and citation panels are mutually exclusive; opening one closes the other
   setAiPanelOpen: (open) =>
     set((s) => ({ aiPanelOpen: open, citationPanelOpen: open ? false : s.citationPanelOpen })),

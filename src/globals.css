@@ -180,6 +180,8 @@
 /* Hide Excalidraw brand references from hamburger menu, Help dialog, and library panel. */
 /* Hamburger menu "Excalidraw links" group (GitHub / Follow us / Discord). */
 .prose-excalidraw-root .dropdown-menu-group { display: none !important; }
+/* Hide the hamburger menu trigger button — actions moved to toolbar three-dots menu. */
+.prose-excalidraw-root .main-menu-trigger { display: none !important; }
 /* Help dialog external link buttons (Documentation / Blog / Issues / YouTube). */
 .prose-excalidraw-root .HelpDialog__header { display: none !important; }
 /* Library panel: Excalidraw Library heading, its items, the Browse button, and hint text. */
@@ -187,6 +189,23 @@
 .prose-excalidraw-root .library-menu-items-container__header--excal ~ * { display: none !important; }
 .prose-excalidraw-root .library-menu-browse-button { display: none !important; }
 .prose-excalidraw-root .library-menu-items__no-items__hint { display: none !important; }
+/* Board left sidebar: allow Excalidraw's native properties panel to overflow into the
+   sidebar panel area. The CSS translateX moves the panel so it renders at x=42px
+   (right of the icon rail) which is the sidebar panel area. */
+.prose-board-sidebar-open .excalidraw {
+  overflow: visible !important;
+}
+.prose-board-sidebar-open .selected-shape-actions {
+  transform: translateX(calc(26px - var(--board-sidebar-width, 270px))) !important;
+  max-width: calc(var(--board-sidebar-width, 270px) - 42px) !important;
+  margin-left: 0 !important;
+  align-self: flex-start !important;
+}
+/* Remove Island card background so properties panel blends into the sidebar. */
+.prose-board-sidebar-open .selected-shape-actions .Island {
+  background: transparent !important;
+  box-shadow: none !important;
+}
 
 .document-tab__label {
   display: flex;

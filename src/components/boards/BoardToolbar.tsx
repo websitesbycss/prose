@@ -2,10 +2,12 @@ import { useState, useRef, useEffect } from 'react'
 import {
   MousePointer2, Hand, Square, Diamond, Circle,
   ArrowRight, Minus, PenLine, Type, Eraser,
-  PlusSquare, Search,
+  PlusSquare, Search, ZoomIn, ZoomOut, ChevronDown,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import { Input } from '@/components/ui/input'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import { ToolbarRightSection } from '@/components/editor/ToolbarRightSection'
 import type { FileType } from '@/types'
@@ -147,6 +149,95 @@ function FilePickerPopover({ excalidrawAPI, onAddFileCard }: FilePickerProps): J
   )
 }
 
+// ── Board zoom controls ───────────────────────────────────────────────────────
+
+const BOARD_ZOOM_MIN = 10
+const BOARD_ZOOM_MAX = 300
+const BOARD_ZOOM_STEP = 10
+const BOARD_ZOOM_PRESETS = [25, 50, 75, 100, 125, 150, 200, 300]
+
+function BoardZoomControls({ zoom, onZoomChange }: { zoom: number; onZoomChange(z: number): void }): JSX.Element {
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState('')
+
+  function clamp(v: number): number {
+    return Math.min(BOARD_ZOOM_MAX, Math.max(BOARD_ZOOM_MIN, v))
+  }
+
+  function apply(val: string): void {
+    const n = parseInt(val)
+    if (!isNaN(n)) onZoomChange(clamp(n))
+    setOpen(false)
+  }
+
+  return (
+    <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+      <button
+        className="transition-colors hover:text-foreground"
+        onClick={() => onZoomChange(clamp(zoom - BOARD_ZOOM_STEP))}
+        title="Zoom out"
+      >
+        <ZoomOut className="h-3 w-3" />
+      </button>
+
+      <input
+        type="range"
+        min={BOARD_ZOOM_MIN}
+        max={BOARD_ZOOM_MAX}
+        step={1}
+        value={zoom}
+        onChange={(e) => onZoomChange(Number(e.target.value))}
+        className="zoom-slider w-20"
+        title={`Zoom: ${zoom}%`}
+      />
+
+      <div className="flex items-center gap-0.5">
+        <button
+          className="transition-colors hover:text-foreground"
+          onClick={() => onZoomChange(clamp(zoom + BOARD_ZOOM_STEP))}
+          title="Zoom in"
+        >
+          <ZoomIn className="h-3 w-3" />
+        </button>
+
+        <Popover open={open} onOpenChange={(o) => { setOpen(o); if (o) setDraft(String(zoom)) }}>
+          <PopoverTrigger asChild>
+            <button
+              className="flex items-center gap-0.5 tabular-nums transition-colors hover:text-foreground"
+              title="Set zoom level"
+            >
+              <span className="w-8 text-right">{zoom}%</span>
+              <ChevronDown className="h-2.5 w-2.5" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-20 p-1" side="bottom" align="end" onOpenAutoFocus={(e) => e.preventDefault()}>
+            <Input
+              className="mb-1 h-7 w-full text-center text-xs focus-visible:ring-1 focus-visible:ring-offset-0"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') apply(draft)
+                if (e.key === 'Escape') setOpen(false)
+              }}
+            />
+            <div className="flex flex-col">
+              {BOARD_ZOOM_PRESETS.map((p) => (
+                <button
+                  key={p}
+                  className="rounded px-2 py-0.5 text-right text-xs hover:bg-accent"
+                  onClick={() => { onZoomChange(p); setOpen(false) }}
+                >
+                  {p}%
+                </button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+      </div>
+    </div>
+  )
+}
+
 // ── BoardToolbar ──────────────────────────────────────────────────────────────
 
 interface BoardToolbarProps {
@@ -154,6 +245,8 @@ interface BoardToolbarProps {
   excalidrawAPI: any | null
   activeToolType: string
   documentId: string | null
+  canvasZoom: number
+  onCanvasZoomChange: (pct: number) => void
   onAddFileCard: (fileId: string, fileType: string, title: string, wordCount: number, preview: string) => void
 }
 
@@ -161,6 +254,8 @@ export function BoardToolbar({
   excalidrawAPI,
   activeToolType,
   documentId,
+  canvasZoom,
+  onCanvasZoomChange,
   onAddFileCard,
 }: BoardToolbarProps): JSX.Element {
   function setTool(type: ExcalidrawToolType) {
@@ -193,6 +288,10 @@ export function BoardToolbar({
         <Separator orientation="vertical" className="mx-0.5 h-5" />
 
         <FilePickerPopover excalidrawAPI={excalidrawAPI} onAddFileCard={onAddFileCard} />
+
+        <Separator orientation="vertical" className="mx-1.5 h-5" />
+
+        <BoardZoomControls zoom={canvasZoom} onZoomChange={onCanvasZoomChange} />
       </div>
 
       <div className="flex-1" />
@@ -201,6 +300,7 @@ export function BoardToolbar({
       <ToolbarRightSection
         fileType="board"
         documentId={documentId}
+        excalidrawAPI={excalidrawAPI}
       />
     </div>
   )
