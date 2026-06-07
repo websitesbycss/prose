@@ -556,7 +556,7 @@ export function SheetToolbar({
           {cellAddress || 'A1'}
         </span>
         <input
-          className="w-[240px] shrink-0 rounded border border-border bg-background px-2 py-0.5 font-mono text-xs text-foreground outline-none focus:ring-1 focus:ring-primary/60"
+          className="w-[340px] shrink-0 rounded border border-border bg-background px-2 py-0.5 font-mono text-xs text-foreground outline-none focus:ring-1 focus:ring-primary/60"
           value={formulaBarValue}
           onChange={(e) => onFormulaBarChange(e.target.value)}
           onKeyDown={(e) => {

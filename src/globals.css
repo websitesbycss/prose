@@ -157,12 +157,11 @@
   filter: invert(1) hue-rotate(180deg);
 }
 
-/* Counter-invert overlays so they receive CSS variable colors correctly in dark mode. */
-/* The double inversion (parent + child) is approximately identity for near-gray colors, */
-/* so CSS variables resolve to their dark-mode values and show correctly. */
-.fortune-dark .fortune-context-menu,
-.fortune-dark .fortune-modal-container,
-.fortune-dark .fortune-popover-backdrop {
+/* Counter-invert context menus only — they render INSIDE .fortune-container's filter
+   stacking context, so they need the double-inversion to restore CSS variable colors.
+   The modal-container is a SIBLING of .fortune-container (ModalProvider wraps it),
+   so it does NOT receive the parent's filter and needs no counter-inversion. */
+.fortune-dark .fortune-context-menu {
   filter: invert(1) hue-rotate(180deg);
 }
 
@@ -230,6 +229,434 @@
   color: hsl(var(--foreground)) !important;
   font-size: 0.75rem !important;
   padding: 1px 4px !important;
+}
+
+/* ── FortuneSheet modals & dialogs — match Prose design system ───────────── */
+
+/* Overlay backdrop */
+.fortune-modal-container {
+  background: rgba(0, 0, 0, 0.35) !important;
+}
+
+/* Main dialog card */
+.fortune-dialog {
+  background: hsl(var(--popover)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 0.5rem !important;
+  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.15), 0 4px 10px -6px rgba(0,0,0,0.1) !important;
+  font-family: 'Geist Sans', system-ui, sans-serif !important;
+  font-size: 0.75rem !important;
+  color: hsl(var(--foreground)) !important;
+  min-width: 340px !important;
+  overflow: visible !important;
+}
+
+/* Header with close button */
+.fortune-modal-dialog-header {
+  padding: 0.5rem 0.5rem 0 !important;
+}
+.fortune-modal-dialog-icon-close {
+  color: hsl(var(--foreground)) !important;
+  opacity: 0.6 !important;
+  border-radius: 0.25rem !important;
+  padding: 0.25rem !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 1.5rem !important;
+  height: 1.5rem !important;
+}
+.fortune-modal-dialog-icon-close:hover {
+  background: hsl(var(--accent)) !important;
+  color: hsl(var(--foreground)) !important;
+  opacity: 1 !important;
+}
+/* Force the SVG icon inside close button to be visible */
+.fortune-modal-dialog-icon-close svg {
+  width: 14px !important;
+  height: 14px !important;
+  stroke: hsl(var(--foreground)) !important;
+  fill: hsl(var(--foreground)) !important;
+}
+.fortune-modal-dialog-icon-close svg path,
+.fortune-modal-dialog-icon-close svg line,
+.fortune-modal-dialog-icon-close svg polyline {
+  stroke: currentColor !important;
+  fill: none !important;
+}
+
+/* Content padding */
+.fortune-dialog-box-content {
+  padding: 0.5rem 1rem 0.75rem !important;
+}
+
+/* ── Sort dialog ─────────────────────────────────────────────────────────── */
+
+/* Range title: "Sort range fromF7toF14" → add spaces via pseudo-content */
+.fortune-sort-title {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  font-size: 0.7rem !important;
+  font-weight: 400 !important;
+  color: hsl(var(--muted-foreground)) !important;
+  margin-bottom: 0.875rem !important;
+  padding: 0 !important;
+  background: none !important;
+  border: none !important;
+}
+
+/* Sort icon before range title text */
+.fortune-sort-title::before {
+  content: '';
+  display: inline-block;
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 6h18M7 12h10M11 18h2'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+/* Add spaces around the bare column/row text nodes next to the span labels */
+.fortune-sort-title > span > span:first-of-type::after {
+  content: '\00a0';
+}
+.fortune-sort-title > span > span:last-of-type::before {
+  content: '\00a0';
+}
+.fortune-sort-title > span > span:last-of-type::after {
+  content: '\00a0';
+}
+
+/* Sort form area */
+.fortune-sort-modal > div {
+  margin-bottom: 0.75rem !important;
+}
+
+/* Checkbox row — horizontal layout */
+.fortune-sort-modal > div:first-child {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: flex-start !important;
+  gap: 0.375rem !important;
+  flex-wrap: wrap !important;
+  margin-bottom: 0.5rem !important;
+}
+
+/* Checkbox */
+.fortune-sort-modal > div:first-child input[type="checkbox"] {
+  width: 13px !important;
+  height: 13px !important;
+  accent-color: hsl(var(--primary)) !important;
+  cursor: pointer !important;
+  margin: 0 !important;
+  flex-shrink: 0 !important;
+  margin-top: 1px !important;
+}
+.fortune-sort-modal > div:first-child > span {
+  font-size: 0.75rem !important;
+  color: hsl(var(--foreground)) !important;
+  font-weight: 500 !important;
+  line-height: 1.3 !important;
+}
+
+/* Description text injected after the checkbox row */
+.fortune-sort-modal > div:first-child::after {
+  content: 'When checked, the first row is used as column labels in Sort by.';
+  display: block !important;
+  width: 100% !important;
+  font-size: 0.65rem !important;
+  color: hsl(var(--muted-foreground)) !important;
+  line-height: 1.4 !important;
+  padding-left: 1.375rem !important;
+}
+
+/* Sort-by table */
+.fortune-sort-tablec {
+  width: 100% !important;
+}
+.fortune-sort-tablec table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+}
+.fortune-sort-tablec tr {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 1.25rem !important;
+}
+
+/* "Sort by" label + select — inline on the same line via flex-wrap */
+.fortune-sort-tablec td:first-child {
+  font-size: 0.75rem !important;
+  font-weight: 500 !important;
+  color: hsl(var(--foreground)) !important;
+  padding: 0 !important;
+  flex: 1 !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 0.25rem 0.5rem !important;
+}
+
+/* Description below (full-width flex item forces wrap) */
+.fortune-sort-tablec td:first-child::after {
+  content: 'Choose which column to sort by.';
+  display: block !important;
+  width: 100% !important;
+  font-size: 0.65rem !important;
+  font-weight: 400 !important;
+  color: hsl(var(--muted-foreground)) !important;
+  margin-top: 0.125rem !important;
+  line-height: 1.4 !important;
+}
+
+/* Select dropdown — inline next to "Sort by" text */
+.fortune-sort-tablec select {
+  flex: 1 !important;
+  min-width: 100px !important;
+  height: 1.75rem !important;
+  padding: 0 0.5rem !important;
+  font-size: 0.75rem !important;
+  font-family: 'Geist Sans', system-ui, sans-serif !important;
+  color: hsl(var(--foreground)) !important;
+  background: hsl(var(--background)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 0.25rem !important;
+  outline: none !important;
+  cursor: pointer !important;
+}
+.fortune-sort-tablec select:focus {
+  border-color: hsl(var(--ring)) !important;
+  box-shadow: 0 0 0 2px hsl(var(--ring) / 0.25) !important;
+}
+
+/* Radio button column */
+.fortune-sort-tablec td:last-child {
+  padding: 0 !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.375rem !important;
+}
+.fortune-sort-tablec td:last-child > div {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.375rem !important;
+}
+.fortune-sort-tablec td:last-child input[type="radio"] {
+  width: 13px !important;
+  height: 13px !important;
+  accent-color: hsl(var(--primary)) !important;
+  cursor: pointer !important;
+  margin: 0 !important;
+  flex-shrink: 0 !important;
+}
+.fortune-sort-tablec td:last-child span {
+  font-size: 0.75rem !important;
+  color: hsl(var(--foreground)) !important;
+  white-space: nowrap !important;
+}
+
+/* Sort confirm button */
+.fortune-sort-button {
+  margin-top: 0.5rem !important;
+  margin-bottom: 0.75rem !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+}
+.fortune-sort-button .button-basic.button-primary {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 1.75rem !important;
+  padding: 0 0.875rem !important;
+  font-size: 0.75rem !important;
+  font-family: 'Geist Sans', system-ui, sans-serif !important;
+  font-weight: 500 !important;
+  color: hsl(var(--primary-foreground)) !important;
+  background: hsl(var(--primary)) !important;
+  border-radius: 0.375rem !important;
+  border: none !important;
+  cursor: pointer !important;
+  transition: opacity 0.12s !important;
+  text-transform: capitalize !important;
+}
+.fortune-sort-button .button-basic.button-primary:hover {
+  opacity: 0.9 !important;
+}
+
+/* ── Message boxes (alerts / confirms) ───────────────────────────────────── */
+
+.fortune-message-box-button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 1.75rem !important;
+  padding: 0 0.875rem !important;
+  font-size: 0.75rem !important;
+  font-family: 'Geist Sans', system-ui, sans-serif !important;
+  font-weight: 500 !important;
+  border-radius: 0.375rem !important;
+  cursor: pointer !important;
+  border: 1px solid hsl(var(--border)) !important;
+  transition: opacity 0.12s !important;
+}
+.fortune-message-box-button.button-default {
+  color: hsl(var(--foreground)) !important;
+  background: hsl(var(--background)) !important;
+}
+.fortune-message-box-button.button-default:hover {
+  background: hsl(var(--accent)) !important;
+}
+.fortune-message-box-button.button-primary {
+  color: hsl(var(--primary-foreground)) !important;
+  background: hsl(var(--primary)) !important;
+  border-color: transparent !important;
+}
+.fortune-message-box-button.button-primary:hover {
+  opacity: 0.9 !important;
+}
+.fortune-dialog-box-button-container {
+  padding: 0.5rem 1rem 0.875rem !important;
+  gap: 0.5rem !important;
+}
+
+/* ── Link modify modal (insert hyperlink) ────────────────────────────────── */
+
+.fortune-link-modify-modal {
+  background: hsl(var(--popover)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 0.375rem !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12) !important;
+  font-family: 'Geist Sans', system-ui, sans-serif !important;
+  font-size: 0.75rem !important;
+  color: hsl(var(--foreground)) !important;
+}
+.fortune-link-modify-modal .modal-title {
+  font-size: 0.8rem !important;
+  font-weight: 600 !important;
+  color: hsl(var(--foreground)) !important;
+  margin-bottom: 0.75rem !important;
+}
+.fortune-link-modify-modal .modal-icon-close {
+  color: hsl(var(--muted-foreground)) !important;
+  cursor: pointer !important;
+}
+.fortune-link-modify-modal .modal-icon-close:hover {
+  color: hsl(var(--foreground)) !important;
+}
+.fortune-link-modify-modal input,
+.fortune-link-modify-modal .range-selection-input {
+  background: hsl(var(--background)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 0.25rem !important;
+  color: hsl(var(--foreground)) !important;
+  font-family: 'Geist Sans', system-ui, sans-serif !important;
+  font-size: 0.75rem !important;
+}
+.fortune-link-modify-modal input:focus,
+.fortune-link-modify-modal .range-selection-input:focus {
+  border-color: hsl(var(--ring)) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px hsl(var(--ring) / 0.25) !important;
+}
+.fortune-link-modify-modal .modal-footer {
+  padding: 0.5rem 0 0 !important;
+}
+.fortune-link-modify-modal .button-basic {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 1.75rem !important;
+  padding: 0 0.75rem !important;
+  font-size: 0.75rem !important;
+  font-family: 'Geist Sans', system-ui, sans-serif !important;
+  font-weight: 500 !important;
+  border-radius: 0.375rem !important;
+  cursor: pointer !important;
+  transition: opacity 0.12s !important;
+}
+.fortune-link-modify-modal .button-default {
+  color: hsl(var(--foreground)) !important;
+  background: hsl(var(--background)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+}
+.fortune-link-modify-modal .button-default:hover {
+  background: hsl(var(--accent)) !important;
+}
+.fortune-link-modify-modal .button-primary {
+  color: hsl(var(--primary-foreground)) !important;
+  background: hsl(var(--primary)) !important;
+  border: none !important;
+}
+.fortune-link-modify-modal .button-primary:hover {
+  opacity: 0.9 !important;
+}
+.fortune-link-modify-modal .fortune-link-modify-title {
+  font-size: 0.7rem !important;
+  font-weight: 500 !important;
+  color: hsl(var(--muted-foreground)) !important;
+  margin-bottom: 0.25rem !important;
+}
+.fortune-link-modify-modal .fortune-link-modify-input {
+  font-size: 0.75rem !important;
+}
+
+/* ── Search & replace dialog ─────────────────────────────────────────────── */
+
+#fortune-search-replace {
+  background: hsl(var(--popover)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 0.5rem !important;
+  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.15) !important;
+  font-family: 'Geist Sans', system-ui, sans-serif !important;
+  font-size: 0.75rem !important;
+  color: hsl(var(--foreground)) !important;
+}
+#fortune-search-replace input {
+  background: hsl(var(--background)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 0.25rem !important;
+  color: hsl(var(--foreground)) !important;
+  font-family: 'Geist Sans', system-ui, sans-serif !important;
+  font-size: 0.75rem !important;
+}
+
+/* ── Range selection dialog ───────────────────────────────────────────────── */
+
+#range-dialog {
+  background: hsl(var(--popover)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 0.5rem !important;
+  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.15) !important;
+  font-family: 'Geist Sans', system-ui, sans-serif !important;
+  font-size: 0.75rem !important;
+  color: hsl(var(--foreground)) !important;
+}
+#range-dialog .dialog-title {
+  font-size: 0.8rem !important;
+  font-weight: 600 !important;
+  color: hsl(var(--foreground)) !important;
+}
+#range-dialog input {
+  background: hsl(var(--background)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 0.25rem !important;
+  color: hsl(var(--foreground)) !important;
+  font-family: 'Geist Sans', system-ui, sans-serif !important;
+  font-size: 0.75rem !important;
+}
+#range-dialog .button-primary {
+  color: hsl(var(--primary-foreground)) !important;
+  background: hsl(var(--primary)) !important;
+  border: none !important;
+  border-radius: 0.25rem !important;
+  font-family: 'Geist Sans', system-ui, sans-serif !important;
+  font-size: 0.75rem !important;
+  cursor: pointer !important;
 }
 
 /* ── Excalidraw Board editor integration ─────────────────────────────────── */
