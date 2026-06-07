@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import {
   Sun, Moon, Sparkles, Music, MoreHorizontal,
   Search, Download, Maximize2, Settings,
-  ZoomIn, ZoomOut, RotateCcw, Trash2, HelpCircle,
+  RotateCcw, Trash2, HelpCircle,
 } from 'lucide-react'
 import { BoardExportModal } from '@/components/boards/BoardExportModal'
 import { Button } from '@/components/ui/button'
@@ -147,23 +147,14 @@ function ThreeDotsMenu({
             style={{ position: 'fixed', top: pos.top, right: pos.right, zIndex: 99999 }}
             className="min-w-[200px] rounded-lg border border-border bg-background py-1 shadow-lg"
           >
-            {fileType !== 'board' && (
-              <>
-                <MenuItem icon={ZoomIn} label="Zoom in" shortcut="Ctrl+=" onClick={() => dispatchZoom('=')} />
-                <MenuItem icon={ZoomOut} label="Zoom out" shortcut="Ctrl+-" onClick={() => dispatchZoom('-')} />
-              </>
-            )}
-            {fileType === 'board'
-              ? <MenuItem icon={RotateCcw} label="Reset zoom" shortcut="Ctrl+0" onClick={() => {
-                  setOpen(false)
-                  if (excalidrawAPI) {
-                    excalidrawAPI.updateScene({ appState: { zoom: { value: 1 } } })
-                  } else {
-                    dispatchZoom('0')
-                  }
-                }} />
-              : <MenuItem icon={RotateCcw} label="Reset zoom" shortcut="Ctrl+0" onClick={() => dispatchZoom('0')} />
-            }
+            <MenuItem icon={RotateCcw} label="Reset zoom" shortcut="Ctrl+0" onClick={() => {
+              setOpen(false)
+              if (excalidrawAPI) {
+                excalidrawAPI.updateScene({ appState: { zoom: { value: 1 } } })
+              } else {
+                dispatchZoom('0')
+              }
+            }} />
 
             <MenuSep />
 

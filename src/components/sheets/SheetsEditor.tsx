@@ -16,6 +16,8 @@ import { useAppStore } from '@/store/appStore'
 import AiPanel from '@/components/editor/AiPanel'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { useMusicContext } from '@/contexts/MusicContext'
+import { AMBIENT_LAYERS } from '@/hooks/useMusic'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -113,12 +115,21 @@ interface SheetsEditorProps {
 }
 
 export function SheetsEditor({ documentId }: SheetsEditorProps) {
-  const { document: doc } = useDocument(documentId)
+  const { document: doc, saveStatus, notifySaveStatus } = useDocument(documentId)
   const workbookRef = useRef<WorkbookInstance | null>(null)
   const aiPanelOpen = useAppStore((s) => s.aiPanelOpen)
   const theme = useAppStore((s) => s.theme)
   const setPendingAiPrompt = useAppStore((s) => s.setPendingAiPrompt)
   const setAiPanelOpen = useAppStore((s) => s.setAiPanelOpen)
+
+  // Music
+  const music = useMusicContext()
+  const activeAmbient = AMBIENT_LAYERS.filter((l) => music?.ambientEnabled[l.id])
+  const ambientPlaying =
+    activeAmbient.length === 0 ? null
+    : activeAmbient.length === 1 ? activeAmbient[0]!.label
+    : activeAmbient.length === 2 ? `${activeAmbient[0]!.label} + ${activeAmbient[1]!.label}`
+    : `${activeAmbient.length} Sounds`
 
   // Initial FortuneSheet data — computed once when doc loads, then stable
   const fsDataRef = useRef<Sheet[] | null>(null)
@@ -130,6 +141,9 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
   const tabsRef = useRef<TabInfo[]>([])
   const activeTabIdRef = useRef('')
 
+  // Zoom state (percentage, 10–400)
+  const [zoom, setZoom] = useState(100)
+
   // Toolbar + formula bar state
   const [toolbarState, setToolbarState] = useState<ToolbarState>(DEFAULT_TOOLBAR)
   const [formulaAddress, setFormulaAddress] = useState('A1')
@@ -139,26 +153,64 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
   // Auto-save
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingDataRef = useRef<Sheet[] | null>(null)
+  const zoomChangeRef = useRef(false)
 
   const flushAndSave = useCallback(async () => {
     const data = pendingDataRef.current
     if (!data) return
     const content = fsDataToSheetContent(data)
+    notifySaveStatus('saving')
     try {
       await window.prose.documents.update(documentId, { content: JSON.stringify(content) })
+      notifySaveStatus('saved')
     } catch (err) {
       console.error('[SheetsEditor] save error:', err)
+      notifySaveStatus('error')
     }
-  }, [documentId])
+  }, [documentId, notifySaveStatus])
 
   const scheduleSave = useCallback(() => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => void flushAndSave(), AUTO_SAVE_DEBOUNCE_MS)
   }, [flushAndSave])
 
+  // Set zoom via applyOp which uses Immer's applyPatches directly — no frozen-object mutation
+  const handleZoomChange = useCallback((newPct: number) => {
+    const clamped = Math.min(400, Math.max(10, Math.round(newPct / 10) * 10))
+    const wb = workbookRef.current
+    if (!wb) return
+    const sheets = wb.getAllSheets()
+    const activeSheet = sheets.find(s => s.status === 1) ?? sheets[0]
+    if (!activeSheet?.id) return
+    const ratio = parseFloat((clamped / 100).toFixed(1))
+    zoomChangeRef.current = true
+    wb.applyOp([
+      { op: 'replace', id: String(activeSheet.id), path: ['zoomRatio'], value: ratio },
+      { op: 'replace', path: ['zoomRatio'], value: ratio },
+    ])
+    setZoom(clamped)
+  }, [])
+
   useEffect(() => () => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
   }, [])
+
+  // Ctrl+S manual save + Ctrl+0 reset zoom
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === 's') {
+        e.preventDefault()
+        if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+        void flushAndSave()
+      }
+      if (e.ctrlKey && e.key === '0') {
+        e.preventDefault()
+        handleZoomChange(100)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [flushAndSave, handleZoomChange])
 
   // Load doc and compute initial FS data
   useEffect(() => {
@@ -255,7 +307,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
     wb.deleteSheet({ id: tabId })
   }, [])
 
-  // onChange: sync tab bar + schedule save
+  // onChange: sync tab bar, zoom, and schedule save
   const handleChange = useCallback((data: Sheet[]) => {
     pendingDataRef.current = data
 
@@ -275,6 +327,15 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
       setActiveTabId(newActiveId)
     }
 
+    // Sync zoom from active sheet
+    const newZoom = Math.round((active?.zoomRatio ?? 1) * 100)
+    setZoom(newZoom)
+
+    if (zoomChangeRef.current) {
+      zoomChangeRef.current = false
+      return
+    }
+
     scheduleSave()
   }, [scheduleSave])
 
@@ -288,7 +349,8 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
 
       // Formula bar
       try {
-        const formula = wb.getCellValue(r, c, { type: 'f' }) as string | undefined
+        const rawFormula = wb.getCellValue(r, c, { type: 'f' }) as string | undefined
+        const formula = rawFormula ? rawFormula.replace(/<[^>]*>/g, '') : undefined
         const value = wb.getCellValue(r, c, { type: 'v' })
         setFormulaAddress(cellAddress(r, c))
         setFormulaBarValue(formula ?? (value != null ? String(value) : ''))
@@ -386,6 +448,11 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
           onAddTab={addTab}
           onRenameTab={renameTab}
           onDeleteTab={deleteTab}
+          zoom={zoom}
+          onZoomChange={handleZoomChange}
+          saveStatus={saveStatus}
+          nowPlaying={music?.nowPlayingTitle ?? null}
+          ambientPlaying={ambientPlaying}
         />
       </div>
     </TooltipProvider>
