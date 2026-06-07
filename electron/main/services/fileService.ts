@@ -6,6 +6,7 @@ import { getSettingJson, setSetting } from './settingsDb'
 import { upsertIndex, removeFromIndex, getIndexRow, getAllIndexRows, IndexRow } from './indexDb'
 import { isSheetContent, countSheetCells, createInitialSheetContent } from '../lib/sheetContent'
 import { isBoardContent, countBoardElements, createInitialBoardContent } from '../lib/boardContent'
+import { isSlidesContent, countSlidesInContent, createInitialSlidesContent } from '../lib/slidesContent'
 
 // ── .prose file schema ────────────────────────────────────────────────────────
 
@@ -33,7 +34,7 @@ export interface ProseFileDocument {
   version: typeof PROSE_FILE_VERSION
   id: string
   title: string
-  fileType: 'document' | 'sheet' | 'board'
+  fileType: 'document' | 'sheet' | 'board' | 'slides'
   format: string
   content: unknown  // Tiptap JSONContent or Sheet/Board JSON
   headerContent: unknown | null
@@ -221,7 +222,7 @@ async function scanFolderForId(id: string): Promise<{ doc: ProseFileDocument; fi
 
 export async function createDocument(data: {
   title: string
-  fileType?: 'document' | 'sheet' | 'board'
+  fileType?: 'document' | 'sheet' | 'board' | 'slides'
   format: string
   content?: unknown
   headerContent?: unknown | null
@@ -239,6 +240,7 @@ export async function createDocument(data: {
   const defaultContent =
     fileType === 'sheet' ? createInitialSheetContent()
     : fileType === 'board' ? createInitialBoardContent()
+    : fileType === 'slides' ? createInitialSlidesContent()
     : { type: 'doc', content: [] }
   const content = data.content ?? defaultContent
 
@@ -334,7 +336,7 @@ export interface DashboardDocument {
   id: string
   title: string
   format: string
-  fileType: 'document' | 'sheet' | 'board'
+  fileType: 'document' | 'sheet' | 'board' | 'slides'
   wordCount: number
   categoryId: string | null
   createdAt: string
@@ -351,7 +353,7 @@ function rowToDashboard(row: IndexRow): DashboardDocument {
     id: row.id,
     title: row.title,
     format: row.format,
-    fileType: ft === 'sheet' || ft === 'board' ? ft : 'document',
+    fileType: (ft === 'sheet' || ft === 'board' || ft === 'slides') ? ft : 'document',
     wordCount: row.word_count,
     categoryId: row.category_id,
     createdAt: row.created_at,
@@ -639,13 +641,16 @@ export function countWordsFromContent(content: unknown): number {
   return text ? text.split(/\s+/).length : 0
 }
 
-/** Unified content unit counter — words for documents, cells for sheets, 0 for boards. */
+/** Unified content unit counter — words for documents, cells for sheets, elements for boards, slide count for slides. */
 export function countUnitsFromContent(content: unknown, fileType: string): number {
   if (fileType === 'sheet') {
     return isSheetContent(content) ? countSheetCells(content) : 0
   }
   if (fileType === 'board') {
     return isBoardContent(content) ? countBoardElements(content) : 0
+  }
+  if (fileType === 'slides') {
+    return isSlidesContent(content) ? countSlidesInContent(content) : 0
   }
   return countWordsFromContent(content)
 }

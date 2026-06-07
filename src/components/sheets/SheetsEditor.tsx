@@ -18,6 +18,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { useMusicContext } from '@/contexts/MusicContext'
 import { AMBIENT_LAYERS } from '@/hooks/useMusic'
+import { useIsActiveTab } from '@/hooks/useIsActiveTab'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -115,6 +116,7 @@ interface SheetsEditorProps {
 }
 
 export function SheetsEditor({ documentId }: SheetsEditorProps) {
+  const isActive = useIsActiveTab(documentId)
   const { document: doc, saveStatus, notifySaveStatus } = useDocument(documentId)
   const workbookRef = useRef<WorkbookInstance | null>(null)
   const aiPanelOpen = useAppStore((s) => s.aiPanelOpen)
@@ -197,6 +199,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
 
   // Ctrl+S manual save + Ctrl+0 reset zoom
   useEffect(() => {
+    if (!isActive) return
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.key === 's') {
         e.preventDefault()
@@ -210,7 +213,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [flushAndSave, handleZoomChange])
+  }, [isActive, flushAndSave, handleZoomChange])
 
   // Load doc and compute initial FS data
   useEffect(() => {
@@ -239,6 +242,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
 
   // Context menu AI events
   useEffect(() => {
+    if (!isActive) return
     const onExplain = (e: Event) => {
       const { formula } = (e as CustomEvent<{ formula: string }>).detail
       setAiPanelOpen(true)
@@ -254,7 +258,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
       window.removeEventListener('prose-sheet-explain-formula', onExplain)
       window.removeEventListener('prose-sheet-generate-formula', onGenerate)
     }
-  }, [setAiPanelOpen, setPendingAiPrompt])
+  }, [isActive, setAiPanelOpen, setPendingAiPrompt])
 
   // AI context getter
   const getSheetContext = useCallback((): string => {

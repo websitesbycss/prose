@@ -5,12 +5,21 @@ export interface PageMargins {
   left: number   // inches
 }
 
-export type FileType = 'document' | 'sheet' | 'board'
+export type FileType = 'document' | 'sheet' | 'board' | 'slides'
 
 export type { SheetContent, SheetTab, SheetCell, SheetCellFormat, SheetMergedCell } from './sheet'
 export { isSheetContent, countSheetCells, createInitialSheetContent } from './sheet'
 export type { BoardContent } from './board'
 export { isBoardContent, createInitialBoardContent, countBoardElements } from './board'
+export type {
+  SlidesContent, Slide, SlideElement, SlideBackground, SlideTransition, ElementAnimation,
+  PresentationTheme, PresentationSettings,
+  TextElement, ShapeElement, ImageElement, TableElement, EquationElement,
+  CodeBlockElement, VideoElement, AiGraphicElement,
+  ShapeType, TextAlignH, TextAlignV, TextOverflow, AspectRatio,
+  TableCell, TableCellStyle, ElementShadow, ElementBorder, Gradient,
+} from './slides'
+export { isSlidesContent, createInitialSlidesContent, countSlidesInContent, DEFAULT_THEME, DEFAULT_SETTINGS, SLIDE_BASE_WIDTH, SLIDE_BASE_HEIGHT } from './slides'
 
 export interface Document {
   id: string
@@ -119,7 +128,7 @@ export interface AiPromptPayload {
   request: string
   selectionContent?: string
   history?: Array<{ role: 'user' | 'assistant'; content: string }>
-  fileType?: 'document' | 'sheet' | 'board'
+  fileType?: 'document' | 'sheet' | 'board' | 'slides'
 }
 
 export interface Issue {
@@ -317,6 +326,19 @@ export interface ProseAPI {
     getWords(documentId: string): Promise<string[]>
     addWord(documentId: string, word: string): Promise<string[]>
     removeWord(documentId: string, word: string): Promise<string[]>
+  }
+  slides: {
+    getSlides(fileId: string): Promise<import('./slides').Slide[]>
+    updateSlides(fileId: string, slides: import('./slides').Slide[]): Promise<void>
+    addSlide(fileId: string, afterIndex: number): Promise<import('./slides').Slide>
+    deleteSlide(fileId: string, slideId: string): Promise<void>
+    duplicateSlide(fileId: string, slideId: string): Promise<import('./slides').Slide>
+    reorderSlides(fileId: string, slideIds: string[]): Promise<void>
+    updateTheme(fileId: string, theme: import('./slides').PresentationTheme): Promise<void>
+    exportPptx(fileId: string, outputPath: string): Promise<void>
+    exportPdf(fileId: string, outputPath: string): Promise<void>
+    exportPng(fileId: string, slideId: string, outputPath: string): Promise<void>
+    importPptx(sourcePath: string): Promise<string>
   }
 }
 

@@ -85,7 +85,10 @@ contextBridge.exposeInMainWorld('prose', {
       ipcRenderer.send('window:subscribeMaximize')
       const listener = (_: Electron.IpcRendererEvent, v: boolean): void => cb(v)
       ipcRenderer.on('window:maximize-change', listener)
-      return () => ipcRenderer.removeListener('window:maximize-change', listener)
+      return () => {
+        ipcRenderer.removeListener('window:maximize-change', listener)
+        ipcRenderer.send('window:unsubscribeMaximize')
+      }
     },
     startMove: (offset: { offsetX: number; offsetY: number }) =>
       ipcRenderer.send('window:startMove', offset),
@@ -183,5 +186,19 @@ contextBridge.exposeInMainWorld('prose', {
       ipcRenderer.invoke('spell:addWord', documentId, word),
     removeWord: (documentId: string, word: string): Promise<string[]> =>
       ipcRenderer.invoke('spell:removeWord', documentId, word),
+  },
+
+  slides: {
+    getSlides: (fileId: string) => ipcRenderer.invoke('slides:getSlides', fileId),
+    updateSlides: (fileId: string, slides: unknown[]) => ipcRenderer.invoke('slides:updateSlides', fileId, slides),
+    addSlide: (fileId: string, afterIndex: number) => ipcRenderer.invoke('slides:addSlide', fileId, afterIndex),
+    deleteSlide: (fileId: string, slideId: string) => ipcRenderer.invoke('slides:deleteSlide', fileId, slideId),
+    duplicateSlide: (fileId: string, slideId: string) => ipcRenderer.invoke('slides:duplicateSlide', fileId, slideId),
+    reorderSlides: (fileId: string, slideIds: string[]) => ipcRenderer.invoke('slides:reorderSlides', fileId, slideIds),
+    updateTheme: (fileId: string, theme: Record<string, unknown>) => ipcRenderer.invoke('slides:updateTheme', fileId, theme),
+    exportPptx: (fileId: string, outputPath: string) => ipcRenderer.invoke('slides:exportPptx', fileId, outputPath),
+    exportPdf: (fileId: string, outputPath: string) => ipcRenderer.invoke('slides:exportPdf', fileId, outputPath),
+    exportPng: (fileId: string, slideId: string, outputPath: string) => ipcRenderer.invoke('slides:exportPng', fileId, slideId, outputPath),
+    importPptx: (sourcePath: string) => ipcRenderer.invoke('slides:importPptx', sourcePath),
   },
 })

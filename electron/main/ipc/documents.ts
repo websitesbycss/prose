@@ -17,7 +17,7 @@ import { shell, dialog, BrowserWindow } from 'electron'
 import { validateFolderPath } from '../lib/pathValidation'
 
 const VALID_FORMATS = new Set(['none', 'mla', 'apa', 'chicago', 'ieee'])
-const VALID_FILE_TYPES = new Set(['document', 'sheet', 'board'])
+const VALID_FILE_TYPES = new Set(['document', 'sheet', 'board', 'slides'])
 
 function docToOut(doc: ProseFileDocument, filePath?: string) {
   return {
@@ -70,7 +70,7 @@ export function registerDocumentHandlers(): void {
     const d = data as Record<string, unknown>
 
     if (typeof d.title !== 'string' || !d.title.trim()) throw new Error('title is required')
-    const fileType = typeof d.fileType === 'string' && VALID_FILE_TYPES.has(d.fileType) ? (d.fileType as 'document' | 'sheet' | 'board') : 'document'
+    const fileType = typeof d.fileType === 'string' && VALID_FILE_TYPES.has(d.fileType) ? (d.fileType as 'document' | 'sheet' | 'board' | 'slides') : 'document'
     const format = typeof d.format === 'string' && VALID_FORMATS.has(d.format) ? d.format : 'none'
     const _wcg = d.wordCountGoal != null ? Number(d.wordCountGoal) : null
     const wordCountGoal = _wcg != null && isFinite(_wcg) ? Math.max(0, Math.min(999_999, Math.round(_wcg))) : null

@@ -76,6 +76,7 @@ import type { AppSettings, Document, PageMargins } from '@/types'
 import { List, Timer, BarChart2, History, ChevronLeft, ChevronRight, Settings } from 'lucide-react'
 import { AI_PANEL_WIDTH, DEFAULT_PAGE_MARGINS } from '@/constants'
 import { getDocumentScroll, setDocumentScroll } from '@/lib/documentTabCache'
+import { useIsActiveTab } from '@/hooks/useIsActiveTab'
 
 type SidebarPanel = 'outline' | 'pomodoro' | 'stats' | 'history'
 
@@ -84,6 +85,7 @@ interface EditorProps {
 }
 
 export default function Editor({ documentId }: EditorProps): JSX.Element {
+  const isActive = useIsActiveTab(documentId)
   const sidebarOpen = useAppStore((s) => s.sidebarOpen)
   const setSidebarOpen = useAppStore((s) => s.setSidebarOpen)
   const aiPanelOpen = useAppStore((s) => s.aiPanelOpen)
@@ -297,7 +299,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   }, [editor, analysis.issues, aiPanelOpen])
 
   useEffect(() => {
-    if (!editor) return
+    if (!editor || !isActive) return
     const handler = (e: KeyboardEvent): void => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault()
@@ -335,7 +337,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [editor, saveNow, setFocusModeActive])
+  }, [editor, isActive, saveNow, setFocusModeActive, analysis])
 
   useEffect(() => {
     function onMouseMove(e: MouseEvent): void {
@@ -486,13 +488,14 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   )
 
   useEffect(() => {
+    if (!isActive) return
     setSaveActiveDocument(async () => {
       if (editor && !editor.isDestroyed) {
         await flushSave(editor)
       }
     })
     return () => setSaveActiveDocument(null)
-  }, [editor, flushSave, setSaveActiveDocument])
+  }, [isActive, editor, flushSave, setSaveActiveDocument])
 
   const openMathModal = useCallback((opts?: { editPos: number; latex: string; displayMode: boolean }): void => {
     if (opts) {

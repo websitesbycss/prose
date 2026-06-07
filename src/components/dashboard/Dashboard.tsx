@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import {
   Plus, Search, Settings, X, Upload, FileText, Pin,
   Pencil, Trash2, Download, ArrowRight, ChevronRight, FolderOpen, Check,
-  Table2, Shapes,
+  Table2, Shapes, GalleryHorizontal,
 } from 'lucide-react'
 import type { FileType } from '@/types'
 import { Button } from '@/components/ui/button'
@@ -32,18 +32,21 @@ const FILE_TYPE_ICONS: Record<FileType, React.FC<{ className?: string; style?: R
   document: FileText,
   sheet: Table2,
   board: Shapes,
+  slides: GalleryHorizontal,
 }
 
 const FILE_TYPE_COUNT_LABEL: Record<FileType, string> = {
   document: 'words',
   sheet: 'cells',
   board: 'elements',
+  slides: 'slides',
 }
 
 const CONTINUE_LABEL: Record<FileType, string> = {
   document: 'Continue writing',
   sheet: 'Continue editing',
   board: 'Continue mapping',
+  slides: 'Continue presenting',
 }
 
 const CATEGORY_COLORS = [
@@ -457,7 +460,7 @@ export default function Dashboard({ embedded = false }: { embedded?: boolean }):
 
           {/* Type filter pills */}
           <div className="flex items-center rounded-md border border-border bg-muted/30 p-0.5 gap-0.5">
-            {(['all', 'document', 'sheet', 'board'] as const).map((t) => (
+            {(['all', 'document', 'sheet', 'board', 'slides'] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setTypeFilter(t)}
@@ -468,7 +471,7 @@ export default function Dashboard({ embedded = false }: { embedded?: boolean }):
                     : 'text-muted-foreground hover:text-foreground'
                 )}
               >
-                {t === 'all' ? 'All' : t === 'document' ? 'Documents' : t === 'sheet' ? 'Sheets' : 'Boards'}
+                {t === 'all' ? 'All' : t === 'document' ? 'Documents' : t === 'sheet' ? 'Sheets' : t === 'board' ? 'Boards' : 'Slides'}
               </button>
             ))}
           </div>

@@ -8,7 +8,7 @@ export interface OpenDocumentTab {
   id: string
   title: string
   format: string
-  fileType?: 'document' | 'sheet' | 'board'
+  fileType?: 'document' | 'sheet' | 'board' | 'slides'
 }
 
 function readStoredTheme(): Theme {
@@ -52,7 +52,7 @@ interface AppState {
   assignmentContext: string
   typewriterMode: boolean
   uiScale: number
-  typeFilter: 'all' | 'document' | 'sheet' | 'board'
+  typeFilter: 'all' | 'document' | 'sheet' | 'board' | 'slides'
 
   setCurrentDocumentId(id: string | null): void
   openDocumentTab(tab: OpenDocumentTab): void
@@ -119,7 +119,7 @@ export const useAppStore = create<AppState>()((set) => ({
   assignmentContext: '',
   typewriterMode: false,
   uiScale: 110,
-  typeFilter: 'all',
+  typeFilter: 'all' as 'all' | 'document' | 'sheet' | 'board' | 'slides',
 
   setCurrentDocumentId: (id) => {
     if (id === null) {

@@ -64,6 +64,22 @@ export function createProseWindow(docId?: string): BrowserWindow {
 
 let moveInterval: ReturnType<typeof setInterval> | null = null
 
+/** One maximize subscription per renderer WebContents — prevents listener leaks on tab switches. */
+const maximizeSubscriptions = new Map<
+  number,
+  { win: BrowserWindow; onMax: () => void; onUnmax: () => void }
+>()
+
+function clearMaximizeSubscription(wcId: number): void {
+  const sub = maximizeSubscriptions.get(wcId)
+  if (!sub) return
+  if (!sub.win.isDestroyed()) {
+    sub.win.removeListener('maximize', sub.onMax)
+    sub.win.removeListener('unmaximize', sub.onUnmax)
+  }
+  maximizeSubscriptions.delete(wcId)
+}
+
 export function registerWindowHandlers(): void {
   // Window control buttons
   ipcMain.on('window:minimize', (event) => {
@@ -82,17 +98,28 @@ export function registerWindowHandlers(): void {
     return BrowserWindow.fromWebContents(event.sender)?.isMaximized() ?? false
   })
   // Subscribe to maximize state changes for a specific window.
+  // Replacing an existing subscription for the same WebContents avoids
+  // accumulating BrowserWindow listeners when React remounts WindowControls.
   ipcMain.on('window:subscribeMaximize', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win) return
-    const onMax   = (): void => { event.sender.send('window:maximize-change', true) }
-    const onUnmax = (): void => { event.sender.send('window:maximize-change', false) }
+    const wcId = event.sender.id
+    clearMaximizeSubscription(wcId)
+
+    const onMax = (): void => {
+      if (!event.sender.isDestroyed()) event.sender.send('window:maximize-change', true)
+    }
+    const onUnmax = (): void => {
+      if (!event.sender.isDestroyed()) event.sender.send('window:maximize-change', false)
+    }
     win.on('maximize', onMax)
     win.on('unmaximize', onUnmax)
-    event.sender.once('destroyed', () => {
-      win.removeListener('maximize', onMax)
-      win.removeListener('unmaximize', onUnmax)
-    })
+    maximizeSubscriptions.set(wcId, { win, onMax, onUnmax })
+    event.sender.once('destroyed', () => clearMaximizeSubscription(wcId))
+  })
+
+  ipcMain.on('window:unsubscribeMaximize', (event) => {
+    clearMaximizeSubscription(event.sender.id)
   })
 
   // Single-tab window move: renderer sends offset on drag-out, main follows cursor.

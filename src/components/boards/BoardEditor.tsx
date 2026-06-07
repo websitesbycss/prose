@@ -22,6 +22,7 @@ import { AMBIENT_LAYERS } from '@/hooks/useMusic'
 import { cn } from '@/lib/utils'
 import SettingsModal from '@/components/settings/SettingsModal'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { useIsActiveTab } from '@/hooks/useIsActiveTab'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -160,6 +161,7 @@ interface BoardEditorProps {
 }
 
 export function BoardEditor({ documentId }: BoardEditorProps) {
+  const isActive = useIsActiveTab(documentId)
   const { document: doc } = useDocument(documentId)
   const excalidrawAPIRef = useRef<ExcalidrawAPI | null>(null)
   const [excalidrawAPIState, setExcalidrawAPIState] = useState<ExcalidrawAPI | null>(null)
@@ -276,6 +278,7 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
 
   // Ctrl+S / Cmd+S — flush immediately
   useEffect(() => {
+    if (!isActive) return
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === 's' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault()
@@ -284,7 +287,7 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [flushAndSave])
+  }, [isActive, flushAndSave])
 
   // Flush any pending save on unmount — prevents blank board when switching tabs
   useEffect(() => () => {

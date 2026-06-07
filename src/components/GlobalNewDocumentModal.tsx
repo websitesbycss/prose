@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { FileText, LayoutGrid, LayoutPanelLeft, X } from 'lucide-react'
+import { FileText, LayoutGrid, LayoutPanelLeft, GalleryHorizontal, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import NewDocumentModal from '@/components/dashboard/NewDocumentModal'
 import { useAppStore } from '@/store/appStore'
@@ -12,7 +12,7 @@ function SimpleNewFileModal({
   onClose,
   onCreated,
 }: {
-  fileType: 'sheet' | 'board'
+  fileType: 'sheet' | 'board' | 'slides'
   onClose: () => void
   onCreated: (doc: Document) => void
 }): JSX.Element {
@@ -20,7 +20,7 @@ function SimpleNewFileModal({
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
 
-  const label = fileType === 'sheet' ? 'Sheet' : 'Board'
+  const label = fileType === 'sheet' ? 'Sheet' : fileType === 'slides' ? 'Presentation' : 'Board'
 
   async function handleCreate(): Promise<void> {
     const t = title.trim()
@@ -76,7 +76,7 @@ function SimpleNewFileModal({
   )
 }
 
-/** First step: choose Document, Sheet, or Board. */
+/** First step: choose Document, Sheet, Board, or Slides. */
 function TypePickerModal({
   onSelect,
   onClose,
@@ -102,6 +102,12 @@ function TypePickerModal({
       Icon: LayoutPanelLeft,
       label: 'Board',
       description: 'Map your ideas, files, and notes on an infinite canvas.',
+    },
+    {
+      type: 'slides',
+      Icon: GalleryHorizontal,
+      label: 'Slides',
+      description: 'Create presentations with slides, shapes, images, and AI-generated content.',
     },
   ]
 
@@ -188,8 +194,8 @@ export function GlobalNewDocumentModal(): JSX.Element {
             />
           )}
 
-          {/* Sheet or Board: simple title-only creation */}
-          {(selectedType === 'sheet' || selectedType === 'board') && (
+          {/* Sheet, Board, or Slides: simple title-only creation */}
+          {(selectedType === 'sheet' || selectedType === 'board' || selectedType === 'slides') && (
             <SimpleNewFileModal
               fileType={selectedType}
               onClose={() => setOpen(false)}

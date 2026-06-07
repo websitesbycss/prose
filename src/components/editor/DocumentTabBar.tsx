@@ -101,7 +101,7 @@ function TabContent({
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function DocumentTabBar({
-  activeDocumentId,
+  activeDocumentId: activeDocumentIdProp,
   editingTitle,
   draftTitle,
   onDraftTitleChange,
@@ -110,6 +110,8 @@ export function DocumentTabBar({
   onCancelTitleEdit,
 }: DocumentTabBarProps): JSX.Element {
   const openTabs            = useAppStore((s) => s.openTabs)
+  const storeActiveId       = useAppStore((s) => s.activeDocumentId)
+  const activeDocumentId    = activeDocumentIdProp ?? storeActiveId
   const showDashboard       = useAppStore((s) => s.showDashboard)
   const goToDashboard       = useAppStore((s) => s.goToDashboard)
   const activateDocumentTab = useAppStore((s) => s.activateDocumentTab)
