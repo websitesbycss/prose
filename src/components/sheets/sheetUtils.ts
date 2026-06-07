@@ -1,5 +1,7 @@
-import type Handsontable from 'handsontable'
-import type { SheetTab, SheetCell, SheetCellFormat } from '@/types/sheet'
+import type { Sheet, Cell, CellWithRowAndCol, SheetConfig } from '@fortune-sheet/core'
+import type { SheetTab, SheetCell, SheetContent, SheetMergedCell } from '@/types/sheet'
+
+// ── Column/cell address helpers ───────────────────────────────────────────────
 
 export function colToLetter(col: number): string {
   let s = ''
@@ -15,156 +17,192 @@ export function cellAddress(row: number, col: number): string {
   return `${colToLetter(col)}${row + 1}`
 }
 
-export function cellsToData(tab: SheetTab): (string | number | boolean | null)[][] {
-  const data: (string | number | boolean | null)[][] = Array.from(
-    { length: tab.rowCount },
-    () => Array(tab.colCount).fill(null) as (string | number | boolean | null)[]
-  )
+// ── Alignment helpers ─────────────────────────────────────────────────────────
+
+export function htToAlign(ht?: number): 'left' | 'center' | 'right' | null {
+  if (ht === 0) return 'center'
+  if (ht === 1) return 'left'
+  if (ht === 2) return 'right'
+  return null
+}
+
+export function alignToHt(align: 'left' | 'center' | 'right' | null): number | undefined {
+  if (align === 'left') return 1
+  if (align === 'center') return 0
+  if (align === 'right') return 2
+  return undefined
+}
+
+// ── Our format → FortuneSheet ─────────────────────────────────────────────────
+
+export function sheetTabToFSSheet(tab: SheetTab, isActive: boolean, order: number): Sheet {
+  const celldata: CellWithRowAndCol[] = []
+
   for (const [key, cell] of Object.entries(tab.cells)) {
     const parts = key.split(',')
     const r = parseInt(parts[0]!, 10)
     const c = parseInt(parts[1]!, 10)
-    if (r >= 0 && r < tab.rowCount && c >= 0 && c < tab.colCount) {
-      data[r]![c] = cell.formula ?? cell.value ?? null
+    if (isNaN(r) || isNaN(c)) continue
+
+    const fsCell: Cell = {}
+
+    if (cell.formula) {
+      fsCell.f = cell.formula
+      if (cell.value !== null && cell.value !== undefined) {
+        fsCell.v = cell.value as string | number | boolean
+        fsCell.m = String(cell.value)
+      }
+    } else if (cell.value !== null && cell.value !== undefined) {
+      fsCell.v = cell.value as string | number | boolean
+      fsCell.m = String(cell.value)
+    }
+
+    const fmt = cell.format
+    if (fmt) {
+      if (fmt.bold) fsCell.bl = 1
+      if (fmt.italic) fsCell.it = 1
+      if (fmt.underline) fsCell.un = 1
+      if (fmt.fontSize) fsCell.fs = fmt.fontSize
+      if (fmt.fontFamily && fmt.fontFamily !== 'Calibri') fsCell.ff = fmt.fontFamily
+      if (fmt.textColor) fsCell.fc = fmt.textColor
+      if (fmt.bgColor) fsCell.bg = fmt.bgColor
+      const ht = alignToHt(fmt.align ?? null)
+      if (ht !== undefined) fsCell.ht = ht
+      if (fmt.wrap) fsCell.tb = '2'
+    }
+
+    if (Object.keys(fsCell).length > 0) {
+      celldata.push({ r, c, v: fsCell })
     }
   }
-  return data
+
+  // Merge config
+  const merge: SheetConfig['merge'] = {}
+  for (const mc of tab.mergedCells) {
+    merge[`${mc.row}_${mc.col}`] = { r: mc.row, c: mc.col, rs: mc.rowspan, cs: mc.colspan }
+  }
+
+  // Column/row size configs
+  const columnlen: Record<string, number> = {}
+  tab.colWidths.forEach((w, i) => { if (w) columnlen[String(i)] = w })
+
+  const rowlen: Record<string, number> = {}
+  tab.rowHeights.forEach((h, i) => { if (h) rowlen[String(i)] = h })
+
+  return {
+    id: tab.id,
+    name: tab.name,
+    status: isActive ? 1 : 0,
+    order,
+    row: tab.rowCount,
+    column: tab.colCount,
+    defaultColWidth: 100,
+    defaultRowHeight: 20,
+    celldata,
+    config: { merge, columnlen, rowlen },
+  }
 }
 
-export function serializeTab(hot: Handsontable, existingTab: SheetTab): SheetTab {
-  const sourceData = hot.getSourceData() as (string | number | boolean | null)[][]
-  const cells: Record<string, SheetCell> = {}
+// ── FortuneSheet → our format ─────────────────────────────────────────────────
 
-  for (let r = 0; r < sourceData.length; r++) {
-    const row = sourceData[r]
-    if (!row) continue
-    for (let c = 0; c < row.length; c++) {
-      const src = row[c]
-      if (src === null || src === undefined || src === '') continue
-      const meta = hot.getCellMeta(r, c) as { proseFormat?: SheetCellFormat }
-      const cell: SheetCell = {}
-      if (typeof src === 'string' && src.startsWith('=')) {
-        cell.formula = src
-        const computed = hot.getDataAtCell(r, c)
-        cell.value = computed as string | number | boolean | null
-      } else {
-        cell.value = src
-      }
-      if (meta.proseFormat && Object.keys(meta.proseFormat).length > 0) {
-        cell.format = meta.proseFormat
-      }
-      cells[`${r},${c}`] = cell
+function fsCellToSheetCell(cell: Cell): SheetCell | null {
+  const hasValue = cell.v !== undefined && cell.v !== null
+  const hasFormula = !!cell.f
+  const hasFormat = !!(cell.bl || cell.it || cell.un || cell.fs || cell.ff || cell.fc || cell.bg || cell.ht !== undefined || cell.tb)
+
+  if (!hasValue && !hasFormula && !hasFormat) return null
+
+  const sc: SheetCell = {}
+
+  if (hasFormula) {
+    sc.formula = cell.f!
+    if (hasValue) sc.value = cell.v
+  } else if (hasValue) {
+    sc.value = cell.v
+  }
+
+  if (hasFormat) {
+    sc.format = {
+      bold: cell.bl === 1 || undefined,
+      italic: cell.it === 1 || undefined,
+      underline: cell.un === 1 || undefined,
+      fontSize: cell.fs,
+      fontFamily: typeof cell.ff === 'string' ? cell.ff : undefined,
+      textColor: cell.fc,
+      bgColor: cell.bg,
+      align: htToAlign(cell.ht) ?? undefined,
+      wrap: cell.tb === '2' || undefined,
     }
-  }
-
-  // Also capture cells that only have format (no value)
-  // by checking all tracked formatted cells in the existing tab
-  for (const [key, cell] of Object.entries(existingTab.cells)) {
-    if (cells[key]) continue  // already captured
-    if (cell.format && Object.keys(cell.format).length > 0) {
-      const parts = key.split(',')
-      const r = parseInt(parts[0]!, 10)
-      const c = parseInt(parts[1]!, 10)
-      const meta = hot.getCellMeta(r, c) as { proseFormat?: SheetCellFormat }
-      if (meta.proseFormat && Object.keys(meta.proseFormat).length > 0) {
-        cells[key] = { format: meta.proseFormat }
+    // Clean up undefined values
+    Object.keys(sc.format).forEach((k) => {
+      if ((sc.format as Record<string, unknown>)[k] === undefined) {
+        delete (sc.format as Record<string, unknown>)[k]
       }
-    }
+    })
+    if (Object.keys(sc.format).length === 0) delete sc.format
   }
 
-  const mergedCells = getMergedCells(hot)
-  const colCount = hot.countCols()
-  const rowCount = hot.countRows()
-
-  const colWidths: number[] = []
-  for (let c = 0; c < colCount; c++) {
-    colWidths.push(hot.getColWidth(c) ?? 50)
-  }
-
-  const rowHeights: number[] = []
-  for (let r = 0; r < rowCount; r++) {
-    rowHeights.push(hot.getRowHeight(r) ?? 23)
-  }
-
-  return { ...existingTab, cells, rowCount, colCount, colWidths, rowHeights, mergedCells }
+  if (Object.keys(sc).length === 0) return null
+  return sc
 }
 
-function getMergedCells(hot: Handsontable) {
-  try {
-    const plugin = hot.getPlugin('mergeCells') as unknown as {
-      isEnabled(): boolean
-      mergedCellsCollection?: {
-        mergedCells: Array<{ row: number; col: number; rowspan: number; colspan: number }>
+export function fsDataToSheetContent(data: Sheet[]): SheetContent {
+  const tabs: SheetTab[] = data.map((sheet) => {
+    const cells: Record<string, SheetCell> = {}
+
+    if (sheet.data) {
+      for (let r = 0; r < sheet.data.length; r++) {
+        const row = sheet.data[r]
+        if (!row) continue
+        for (let c = 0; c < row.length; c++) {
+          const cell = row[c]
+          if (!cell) continue
+          const sc = fsCellToSheetCell(cell)
+          if (sc) cells[`${r},${c}`] = sc
+        }
+      }
+    } else if (sheet.celldata) {
+      for (const item of sheet.celldata) {
+        if (!item.v) continue
+        const sc = fsCellToSheetCell(item.v)
+        if (sc) cells[`${item.r},${item.c}`] = sc
       }
     }
-    if (!plugin.isEnabled() || !plugin.mergedCellsCollection) return []
-    return plugin.mergedCellsCollection.mergedCells.map((mc) => ({
-      row: mc.row,
-      col: mc.col,
-      rowspan: mc.rowspan,
-      colspan: mc.colspan,
+
+    const config = sheet.config ?? {}
+    const mergedCells: SheetMergedCell[] = Object.values(config.merge ?? {}).map((m) => ({
+      row: m.r,
+      col: m.c,
+      rowspan: m.rs,
+      colspan: m.cs,
     }))
-  } catch {
-    return []
-  }
-}
 
-export function getFormatAtCell(hot: Handsontable, row: number, col: number): SheetCellFormat {
-  const meta = hot.getCellMeta(row, col) as { proseFormat?: SheetCellFormat }
-  return meta.proseFormat ?? {}
-}
-
-export function applyFormatToSelection(
-  hot: Handsontable,
-  updater: (existing: SheetCellFormat) => SheetCellFormat,
-  fallbackRange?: Array<{ from: { row: number; col: number }; to: { row: number; col: number } }>,
-): void {
-  type ActiveEditor = {
-    isOpened?: () => boolean
-    row?: number
-    col?: number
-    focus?: () => void
-  }
-  const editor = hot.getActiveEditor() as ActiveEditor | undefined
-  if (editor?.isOpened?.()) {
-    const r = editor.row
-    const c = editor.col
-    if (r === undefined || c === undefined) return
-    const meta = hot.getCellMeta(r, c) as { proseFormat?: SheetCellFormat }
-    hot.setCellMeta(r, c, 'proseFormat', updater(meta.proseFormat ?? {}))
-    hot.render()
-    editor.focus?.()
-    return
-  }
-
-  let selected = hot.getSelectedRange()
-  if (!selected?.length && fallbackRange?.length) {
-    selected = fallbackRange
-  }
-  if (!selected?.length) return
-
-  for (const range of selected) {
-    const r1 = Math.min(range.from.row, range.to.row)
-    const r2 = Math.max(range.from.row, range.to.row)
-    const c1 = Math.min(range.from.col, range.to.col)
-    const c2 = Math.max(range.from.col, range.to.col)
-    for (let r = r1; r <= r2; r++) {
-      for (let c = c1; c <= c2; c++) {
-        const meta = hot.getCellMeta(r, c) as { proseFormat?: SheetCellFormat }
-        hot.setCellMeta(r, c, 'proseFormat', updater(meta.proseFormat ?? {}))
-      }
+    const colWidths: number[] = []
+    for (const [k, v] of Object.entries(config.columnlen ?? {})) {
+      const idx = parseInt(k, 10)
+      if (!isNaN(idx)) colWidths[idx] = v
     }
-  }
-  hot.render()
-  hot.listen()
-}
 
-export function restoreTabFormats(hot: Handsontable, tab: SheetTab): void {
-  for (const [key, cell] of Object.entries(tab.cells)) {
-    if (!cell.format) continue
-    const parts = key.split(',')
-    const r = parseInt(parts[0]!, 10)
-    const c = parseInt(parts[1]!, 10)
-    hot.setCellMeta(r, c, 'proseFormat', cell.format)
-  }
+    const rowHeights: number[] = []
+    for (const [k, v] of Object.entries(config.rowlen ?? {})) {
+      const idx = parseInt(k, 10)
+      if (!isNaN(idx)) rowHeights[idx] = v
+    }
+
+    return {
+      id: String(sheet.id ?? sheet.order ?? 0),
+      name: sheet.name,
+      cells,
+      rowCount: sheet.row ?? 100,
+      colCount: sheet.column ?? 26,
+      colWidths,
+      rowHeights,
+      mergedCells,
+    }
+  })
+
+  const active = data.find((s) => s.status === 1) ?? data[0]
+  const activeTabId = String(active?.id ?? tabs[0]?.id ?? '')
+
+  return { version: 1, activeTabId, tabs }
 }

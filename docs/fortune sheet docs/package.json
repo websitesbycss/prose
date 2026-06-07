@@ -1,0 +1,13 @@
+{
+  "scripts": {
+    "dev": "vuepress dev .",
+    "build": "cross-env NODE_ENV=production vuepress build ."
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "vuepress": "^1.9.7",
+    "vuepress-plugin-code-copy": "^1.0.6",
+    "vuepress-plugin-seo": "^0.2.0",
+    "vuepress-plugin-sitemap": "^2.3.1"
+  }
+}

@@ -1,10 +1,13 @@
 import { useState, useRef } from 'react'
 import { Plus, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { SheetTab } from '@/types/sheet'
+interface TabInfo {
+  id: string
+  name: string
+}
 
 interface SheetTabBarProps {
-  tabs: SheetTab[]
+  tabs: TabInfo[]
   activeTabId: string
   onTabChange: (tabId: string) => void
   onAddTab: () => void
@@ -24,7 +27,7 @@ export function SheetTabBar({
   const [editValue, setEditValue] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const startRename = (tab: SheetTab, e: React.MouseEvent) => {
+  const startRename = (tab: TabInfo, e: React.MouseEvent) => {
     e.stopPropagation()
     setEditingId(tab.id)
     setEditValue(tab.name)

@@ -1,6 +1,6 @@
 // ── Sheet data model ──────────────────────────────────────────────────────────
 // Stored as the `content` field of a .prose file when fileType === 'sheet'.
-// Handsontable is the source of truth for what these fields mean at runtime.
+// FortuneSheet is the runtime spreadsheet engine; this is the persistence model.
 
 export interface SheetCellFormat {
   bold?: boolean
@@ -36,9 +36,9 @@ export interface SheetTab {
   cells: Record<string, SheetCell>
   rowCount: number       // logical row count
   colCount: number       // logical column count
-  /** Column widths in pixels. Length ≤ colCount; missing entries use the Handsontable default. */
+  /** Column widths in pixels. Length ≤ colCount; missing entries use the FortuneSheet default. */
   colWidths: number[]
-  /** Row heights in pixels. Length ≤ rowCount; missing entries use the Handsontable default. */
+  /** Row heights in pixels. Length ≤ rowCount; missing entries use the FortuneSheet default. */
   rowHeights: number[]
   mergedCells: SheetMergedCell[]
 }

@@ -36,7 +36,8 @@
       "Bash(findstr -i \"tabler\\\\|lucide\\\\|react-icons\")",
       "Bash(Get-Content package.json)",
       "Bash(Select-String -Pattern \"tabler|lucide|react-icons\")",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(sed *)"
     ],
     "additionalDirectories": [
       "C:\\"
