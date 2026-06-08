@@ -1,4 +1,4 @@
-import { MousePointer2, Type, Shapes, Image, Table2, Sigma, Code2, Video, Palette } from 'lucide-react'
+import { MousePointer2, Type, Shapes, Image, Table2, Sigma, Code2, Video, Palette, Undo2, Redo2 } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
 import { ShapePickerPopover } from './ShapePickerPopover'
@@ -11,15 +11,39 @@ export type SlideToolMode = 'select' | 'text' | 'shape' | 'image' | 'table' | 'e
 interface Props {
   toolMode: SlideToolMode
   onToolMode(mode: SlideToolMode): void
+  canUndo: boolean
+  canRedo: boolean
+  onUndo(): void
+  onRedo(): void
   onBackground(e: React.MouseEvent): void
   onInsertShape?(shapeType: ShapeType): void
   onInsertTable?(cols: number, rows: number): void
   onInsertImage?(): void
 }
 
-export function DefaultToolbar({ toolMode, onToolMode, onBackground, onInsertShape, onInsertTable, onInsertImage }: Props): JSX.Element {
+export function DefaultToolbar({ toolMode, onToolMode, canUndo, canRedo, onUndo, onRedo, onBackground, onInsertShape, onInsertTable, onInsertImage }: Props): JSX.Element {
   return (
     <div className="flex items-center gap-0.5">
+      {/* Undo / Redo */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-7 w-7" disabled={!canUndo} onClick={onUndo}>
+            <Undo2 className="h-3.5 w-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Undo (Ctrl+Z)</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-7 w-7" disabled={!canRedo} onClick={onRedo}>
+            <Redo2 className="h-3.5 w-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Redo (Ctrl+Y)</TooltipContent>
+      </Tooltip>
+
+      <div className="mx-0.5 h-5 w-px bg-border/60" />
+
       {/* Select */}
       <Tooltip>
         <TooltipTrigger asChild>

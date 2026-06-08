@@ -115,7 +115,10 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   const [showFindBar, setShowFindBar] = useState(false)
   const [showGrid, setShowGrid] = useState(false)
   const [zoom, setZoom] = useState(0) // 0 = fit
+  const [fitZoom, setFitZoom] = useState(100) // computed fit % from canvas
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error' | 'unsaved'>('saved')
+  const [canUndo, setCanUndo] = useState(false)
+  const [canRedo, setCanRedo] = useState(false)
   const aiPanelOpen = useAppStore((s) => s.aiPanelOpen)
   const setAiPanelOpen = useAppStore((s) => s.setAiPanelOpen)
 
@@ -126,6 +129,12 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
 
   const { document: doc, notifySaveStatus } = useDocument(documentId)
   const history = useSlideHistory()
+
+  // Keep canUndo/canRedo in sync — slides changes after every mutation and after undo/redo
+  useEffect(() => {
+    setCanUndo(history.canUndo())
+    setCanRedo(history.canRedo())
+  }, [slides, history])
 
   // ── Load ─────────────────────────────────────────────────────────────────────
 
@@ -179,6 +188,16 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   }, [flushAndSave])
 
   useEffect(() => () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }, [])
+
+  const handleUndo = useCallback((): void => {
+    const prev = history.undo(slidesRef.current)
+    if (prev) { setSlides(prev); setSelectedIds([]) }
+  }, [history])
+
+  const handleRedo = useCallback((): void => {
+    const next = history.redo(slidesRef.current)
+    if (next) { setSlides(next); setSelectedIds([]) }
+  }, [history])
 
   // ── Mutation helpers ──────────────────────────────────────────────────────────
 
@@ -576,6 +595,10 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
         selectedIds={selectedIds}
         documentId={documentId}
         documentTitle={doc?.title ?? 'Presentation'}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
         onBackground={handleBackground}
         onUpdateElement={handleUpdateElement}
         onAlignElements={handleAlignElements}
@@ -636,6 +659,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
             master={master}
             showGrid={showGrid}
             zoom={zoom}
+            onFitZoomChange={setFitZoom}
           />
 
           <SpeakerNotesPanel
@@ -668,6 +692,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
         totalSlides={slides.length}
         activeSlide={activeSlide}
         zoom={zoom}
+        fitZoom={fitZoom}
         saveStatus={saveStatus}
         onZoomChange={setZoom}
       />

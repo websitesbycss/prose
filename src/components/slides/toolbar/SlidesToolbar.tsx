@@ -19,6 +19,10 @@ interface Props {
   selectedIds: string[]
   documentId: string
   documentTitle: string
+  canUndo: boolean
+  canRedo: boolean
+  onUndo(): void
+  onRedo(): void
   onBackground(e: React.MouseEvent): void
   onUpdateElement(id: string, partial: Partial<SlideElement>): void
   onAlignElements(updates: AlignUpdate[]): void
@@ -42,6 +46,7 @@ function getSelectionType(slide: Slide, selectedIds: string[]): 'none' | 'multi'
 
 export function SlidesToolbar({
   toolMode, onToolMode, slide, selectedIds, documentId, documentTitle,
+  canUndo, canRedo, onUndo, onRedo,
   onBackground, onUpdateElement, onAlignElements,
   onInsertShape, onInsertTable, onInsertImage, onPresent, onEditMaster, onExport, onFind,
   onToggleGrid, gridActive,
@@ -61,6 +66,10 @@ export function SlidesToolbar({
       <DefaultToolbar
         toolMode={toolMode}
         onToolMode={onToolMode}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onUndo={onUndo}
+        onRedo={onRedo}
         onBackground={onBackground}
         onInsertShape={onInsertShape}
         onInsertTable={onInsertTable}

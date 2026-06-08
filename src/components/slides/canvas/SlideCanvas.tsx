@@ -29,6 +29,7 @@ interface Props {
   master?: SlideMaster
   showGrid?: boolean
   zoom?: number  // 0 = fit, 25–400 = explicit %
+  onFitZoomChange?(pct: number): void
 }
 
 function getBaseSize(settings: PresentationSettings): { baseW: number; baseH: number } {
@@ -70,6 +71,7 @@ export function SlideCanvas({
   master,
   showGrid = false,
   zoom = 0,
+  onFitZoomChange,
 }: Props): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
@@ -82,6 +84,9 @@ export function SlideCanvas({
 
   const { baseW, baseH } = getBaseSize(settings)
   const scale = canvasSize.width / baseW
+
+  const onFitZoomChangeRef = useRef(onFitZoomChange)
+  useEffect(() => { onFitZoomChangeRef.current = onFitZoomChange }, [onFitZoomChange])
 
   // Fit canvas to container while maintaining aspect ratio. Zoom overrides fit.
   useEffect(() => {
@@ -102,11 +107,16 @@ export function SlideCanvas({
       const availH = Math.max(1, height - pad * 2)
       const ratio = baseW / baseH
       const byWidth = { width: availW, height: availW / ratio }
+      let fitW: number
       if (byWidth.height <= availH) {
         setCanvasSize(byWidth)
+        fitW = byWidth.width
       } else {
-        setCanvasSize({ width: availH * ratio, height: availH })
+        const size = { width: availH * ratio, height: availH }
+        setCanvasSize(size)
+        fitW = size.width
       }
+      onFitZoomChangeRef.current?.(Math.round((fitW / baseW) * 100))
     }
     update()
     if (zoom > 0) return  // no ResizeObserver needed when explicit zoom

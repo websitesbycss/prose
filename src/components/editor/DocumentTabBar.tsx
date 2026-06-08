@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Home, Plus, X, FileText, LayoutGrid, LayoutPanelLeft } from 'lucide-react'
+import { Home, Plus, X, FileText, LayoutGrid, LayoutPanelLeft, GalleryHorizontal } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -13,6 +13,7 @@ const TAB_TYPE_ICONS = {
   document: FileText,
   sheet: LayoutGrid,
   board: LayoutPanelLeft,
+  slides: GalleryHorizontal,
 } as const
 
 interface DocumentTabBarProps {
