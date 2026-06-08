@@ -1,7 +1,16 @@
+import { useState } from 'react'
 import { SlidersHorizontal, RefreshCw } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { ColorPickerPopover } from './ColorPickerPopover'
+import { Button } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { ChromeColorPicker } from '@/components/ui/ChromeColorPicker'
+import { useAppStore } from '@/store/appStore'
 import type { ImageElement, ImageFilters } from '@/types/slides'
+import {
+  BorderColorIcon, BorderWeightPicker, ColorPickerDropdown,
+  CornerRadiusIcon, OpacityIcon,
+} from './ToolbarShared'
 
 interface Props {
   element: ImageElement
@@ -38,37 +47,70 @@ function SliderRow({ label, value, min, max, step, unit = '', onChange }: Slider
 
 const DEFAULT_FILTERS: ImageFilters = { brightness: 100, contrast: 100, saturation: 100, blur: 0 }
 
+const STROKE_PALETTE = [
+  '#000000', '#374151', '#6b7280',
+  '#ef4444', '#f97316', '#eab308',
+  '#22c55e', '#06b6d4', '#3b82f6',
+  '#8b5cf6', '#7F77DD', '#ec4899',
+]
+
 export function ImageToolbar({ element, onUpdate }: Props): JSX.Element {
+  const theme = useAppStore((s) => s.theme)
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const filters = element.filters ?? DEFAULT_FILTERS
   const borderWidth = element.border?.width ?? 0
   const borderColor = element.border?.color ?? '#000000'
+  const borderStyle = element.border?.style ?? 'solid'
+  const opacity = Math.round((element.opacity ?? 1) * 100)
 
   function updateFilters(partial: Partial<ImageFilters>) {
     onUpdate({ filters: { ...filters, ...partial } })
   }
 
-  function resetFilters() {
-    onUpdate({ filters: DEFAULT_FILTERS })
-  }
+  const themedStrokePalette = STROKE_PALETTE.map((c) =>
+    theme === 'dark' && c === '#000000' ? '#ffffff' : c
+  )
 
   return (
-    <div className="flex items-center gap-2">
-      {/* Filters group */}
-      <div className="flex flex-col gap-0.5">
-        <SliderRow label="Brightness" value={filters.brightness} min={0} max={200} step={5} unit="%" onChange={(v) => updateFilters({ brightness: v })} />
-        <SliderRow label="Contrast" value={filters.contrast} min={0} max={200} step={5} unit="%" onChange={(v) => updateFilters({ contrast: v })} />
-        <SliderRow label="Saturation" value={filters.saturation} min={0} max={200} step={5} unit="%" onChange={(v) => updateFilters({ saturation: v })} />
-        <SliderRow label="Blur" value={filters.blur} min={0} max={20} step={0.5} unit="px" onChange={(v) => updateFilters({ blur: v })} />
-      </div>
+    <div className="flex items-center gap-0.5">
+      {/* Stroke color */}
+      <ColorPickerDropdown
+        tooltip="Stroke color"
+        trigger={
+          <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1">
+            <BorderColorIcon className="leading-none" />
+            <span className="mt-0.5 h-1 w-4 rounded-sm border border-border/40"
+              style={{ backgroundColor: borderWidth > 0 ? borderColor : 'transparent' }} />
+          </Button>
+        }
+      >
+        {(close) => (
+          <ChromeColorPicker
+            color={borderColor}
+            current={borderWidth > 0 ? borderColor : ''}
+            palette={themedStrokePalette}
+            onChange={(c) => onUpdate({ border: { color: c, width: borderWidth || 1, style: borderStyle } })}
+            onPaletteSelect={(c) => onUpdate({ border: { color: c, width: borderWidth || 1, style: borderStyle } })}
+            onReset={() => { onUpdate({ border: undefined }); close() }}
+            resetLabel="Remove stroke"
+          />
+        )}
+      </ColorPickerDropdown>
 
-      <div className="h-16 w-px bg-border/60" />
+      {/* Stroke weight */}
+      <BorderWeightPicker
+        currentWidth={borderWidth}
+        onApply={(w) => onUpdate({ border: w === undefined ? undefined : { color: borderColor, width: w, style: borderStyle } })}
+      />
 
-      <div className="flex flex-col gap-1">
-        {/* Border radius */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className="flex h-6 items-center gap-1">
-              <span className="text-[10px] text-muted-foreground">Radius</span>
+      <Separator orientation="vertical" className="mx-0.5 h-5" />
+
+      {/* Corner radius */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="flex h-6 items-center gap-0.5">
+            <CornerRadiusIcon />
+            <div className="flex h-6 overflow-hidden rounded border border-border/50">
               <input
                 type="number"
                 min={0}
@@ -76,66 +118,85 @@ export function ImageToolbar({ element, onUpdate }: Props): JSX.Element {
                 step={1}
                 value={element.borderRadius}
                 onChange={(e) => onUpdate({ borderRadius: Number(e.target.value) })}
-                className="h-full w-12 rounded border border-border/50 bg-background px-1 text-[11px] focus:outline-none"
+                className="h-full w-10 bg-background px-1 text-[11px] focus:outline-none"
               />
-              <span className="text-[10px] text-muted-foreground">%</span>
+              <div className="flex h-full items-center bg-muted px-1 text-[10px] text-muted-foreground select-none">
+                %
+              </div>
             </div>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="text-xs">Border radius</TooltipContent>
-        </Tooltip>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Corner radius</TooltipContent>
+      </Tooltip>
 
-        {/* Border */}
-        <div className="flex items-center gap-1">
-          <ColorPickerPopover value={borderColor} onChange={(c) => onUpdate({ border: { color: c, width: borderWidth || 1, style: 'solid' } })} label="Border color">
-            <div className="h-5 w-5 cursor-pointer rounded-sm border-2" style={{ borderColor }} />
-          </ColorPickerPopover>
-          <select
-            className="h-6 w-16 rounded border border-border/50 bg-background px-1 text-[11px] text-foreground focus:outline-none"
-            value={borderWidth}
-            onChange={(e) => {
-              const w = Number(e.target.value)
-              onUpdate({ border: w === 0 ? undefined : { color: borderColor, width: w, style: 'solid' } })
-            }}
-          >
-            {[0, 1, 2, 3, 4, 6].map((w) => <option key={w} value={w}>{w === 0 ? 'None' : `${w}px`}</option>)}
-          </select>
-        </div>
-
-        {/* Reset filters */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              className="flex h-6 items-center gap-1 rounded px-1.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
-              onClick={resetFilters}
-            >
-              <RefreshCw className="h-3 w-3" />
-              Reset filters
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="text-xs">Reset all filters to default</TooltipContent>
-        </Tooltip>
-      </div>
-
-      <div className="h-16 w-px bg-border/60" />
+      <Separator orientation="vertical" className="mx-0.5 h-5" />
 
       {/* Opacity */}
       <Tooltip>
         <TooltipTrigger asChild>
-          <div className="flex h-6 items-center gap-1">
-            <SlidersHorizontal className="h-3 w-3 text-muted-foreground" />
-            <input
-              type="number"
-              min={0}
-              max={100}
-              step={5}
-              value={Math.round((element.opacity ?? 1) * 100)}
-              onChange={(e) => onUpdate({ opacity: Number(e.target.value) / 100 })}
-              className="h-full w-12 rounded border border-border/50 bg-background px-1 text-[11px] focus:outline-none"
-            />
-            <span className="text-[10px] text-muted-foreground">%</span>
+          <div className="flex h-6 items-center gap-0.5">
+            <OpacityIcon />
+            <div className="flex h-6 overflow-hidden rounded border border-border/50">
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step={5}
+                value={opacity}
+                onChange={(e) => onUpdate({ opacity: Number(e.target.value) / 100 })}
+                className="h-full w-10 bg-background px-1 text-[11px] focus:outline-none"
+              />
+              <div className="flex h-full items-center bg-muted px-1 text-[10px] text-muted-foreground select-none">
+                %
+              </div>
+            </div>
           </div>
         </TooltipTrigger>
         <TooltipContent side="bottom" className="text-xs">Opacity</TooltipContent>
+      </Tooltip>
+
+      <Separator orientation="vertical" className="mx-0.5 h-5" />
+
+      {/* Filters popover */}
+      <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7">
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+              </Button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">Image filters</TooltipContent>
+        </Tooltip>
+        <PopoverContent
+          className="w-48 p-2"
+          side="bottom"
+          align="start"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
+          <div className="flex flex-col gap-0.5">
+            <SliderRow label="Brightness" value={filters.brightness} min={0} max={200} step={5} unit="%" onChange={(v) => updateFilters({ brightness: v })} />
+            <SliderRow label="Contrast" value={filters.contrast} min={0} max={200} step={5} unit="%" onChange={(v) => updateFilters({ contrast: v })} />
+            <SliderRow label="Saturation" value={filters.saturation} min={0} max={200} step={5} unit="%" onChange={(v) => updateFilters({ saturation: v })} />
+            <SliderRow label="Blur" value={filters.blur} min={0} max={20} step={0.5} unit="px" onChange={(v) => updateFilters({ blur: v })} />
+          </div>
+        </PopoverContent>
+      </Popover>
+
+      {/* Reset filters */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => onUpdate({ filters: DEFAULT_FILTERS })}
+          >
+            <RefreshCw className="h-3 w-3" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Reset filters</TooltipContent>
       </Tooltip>
     </div>
   )

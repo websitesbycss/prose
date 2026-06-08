@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useCallback, useMemo } from 'react'
-import type { Slide, PresentationTheme, PresentationSettings, SlideMaster } from '@/types/slides'
+import type { Slide, PresentationTheme, PresentationSettings, SlideMaster, SlideElement } from '@/types/slides'
 import { SLIDE_BASE_WIDTH, SLIDE_BASE_HEIGHT } from '@/types/slides'
 import { SlideBackground } from './SlideBackground'
 import { SlideElementWrapper } from './SlideElementWrapper'
@@ -26,6 +26,7 @@ interface Props {
   onRotateElement(rotate: ElementRotate): void
   onMarqueeSelect(ids: string[]): void
   onDrawElement?(type: CanvasToolMode, x: number, y: number, width: number, height: number): void
+  onCommitElement?(id: string, partial: Partial<SlideElement>): void
   master?: SlideMaster
   showGrid?: boolean
   zoom?: number  // 0 = fit, 25–400 = explicit %
@@ -63,6 +64,7 @@ export function SlideCanvas({
   onDoubleClickElement,
   editingElementId = null,
   onCommitText,
+  onCommitElement,
   onMoveElements,
   onResizeElement,
   onRotateElement,
@@ -81,6 +83,7 @@ export function SlideCanvas({
 
   const [canvasSize, setCanvasSize] = useState({ width: 960, height: 540 })
   const [marqueeRect, setMarqueeRect] = useState<MarqueeRect | null>(null)
+  const [ghostRect, setGhostRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null)
 
   const { baseW, baseH } = getBaseSize(settings)
   const scale = canvasSize.width / baseW
@@ -216,11 +219,23 @@ export function SlideCanvas({
       const startY = ((e.clientY - canvasRect.top) / canvasRect.height) * 100
       drawStartRef.current = { x: startX, y: startY }
 
-      function onMove() { /* ghost handled in Phase 27 */ }
+      function onMove(ev: MouseEvent) {
+        if (!drawStartRef.current || !canvasRef.current) return
+        const rect = canvasRef.current.getBoundingClientRect()
+        const endX = ((ev.clientX - rect.left) / rect.width) * 100
+        const endY = ((ev.clientY - rect.top) / rect.height) * 100
+        setGhostRect({
+          x: Math.min(drawStartRef.current.x, endX),
+          y: Math.min(drawStartRef.current.y, endY),
+          w: Math.abs(endX - drawStartRef.current.x),
+          h: Math.abs(endY - drawStartRef.current.y),
+        })
+      }
 
       function onUp(ev: MouseEvent) {
         window.removeEventListener('mousemove', onMove)
         window.removeEventListener('mouseup', onUp)
+        setGhostRect(null)
         if (!drawStartRef.current || !canvasRef.current) return
         const rect = canvasRef.current.getBoundingClientRect()
         const endX = ((ev.clientX - rect.left) / rect.width) * 100
@@ -229,12 +244,16 @@ export function SlideCanvas({
         const y = Math.min(drawStartRef.current.y, endY)
         const width = Math.abs(endX - drawStartRef.current.x)
         const height = Math.abs(endY - drawStartRef.current.y)
-        // Minimum 2% in each dimension to count as intentional draw vs click
+        // Minimum 2% in each dimension to count as intentional drag vs click
         if (width > 2 && height > 2) {
           onDrawElement(toolMode, x, y, width, height)
         } else {
-          // Treat as click: place element at cursor with default size
-          onDrawElement(toolMode, drawStartRef.current.x - 15, drawStartRef.current.y - 5, 30, 10)
+          // Click: for text, start at cursor; for others, center on cursor
+          if (toolMode === 'text') {
+            onDrawElement(toolMode, drawStartRef.current.x, drawStartRef.current.y - 2, 30, 10)
+          } else {
+            onDrawElement(toolMode, drawStartRef.current.x - 15, drawStartRef.current.y - 5, 30, 10)
+          }
         }
         drawStartRef.current = null
       }
@@ -332,6 +351,7 @@ export function SlideCanvas({
               onRotateMouseDown={handleRotateMouseDown}
               registerRef={registerRef}
               onCommitText={(id, content) => onCommitText?.(id, content)}
+              onCommitElement={(id, partial) => onCommitElement?.(id, partial)}
               onCancelEdit={() => onDoubleClickElement('')}
             />
           ))}
@@ -349,6 +369,22 @@ export function SlideCanvas({
               border: '1.5px dashed #3B82F6',
               pointerEvents: 'none',
               zIndex: 9998,
+            }}
+          />
+        )}
+
+        {ghostRect && ghostRect.w > 0.5 && ghostRect.h > 0.5 && (
+          <div
+            style={{
+              position: 'absolute',
+              left: `${ghostRect.x}%`,
+              top: `${ghostRect.y}%`,
+              width: `${ghostRect.w}%`,
+              height: `${ghostRect.h}%`,
+              border: '1.5px dashed #3B82F6',
+              backgroundColor: 'rgba(59, 130, 246, 0.06)',
+              pointerEvents: 'none',
+              zIndex: 9999,
             }}
           />
         )}

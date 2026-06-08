@@ -225,7 +225,7 @@ export function PresentationMode({ slides, theme, settings, master, startIndex, 
                   overflow: 'hidden',
                 }}
               >
-                {renderSlideElement(el, scale)}
+                {renderSlideElement(el, scale, true)}
               </div>
             ))}
           </div>

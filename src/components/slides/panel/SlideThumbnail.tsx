@@ -91,7 +91,7 @@ export const SlideThumbnail = memo(function SlideThumbnail({
                   overflow: 'hidden',
                 }}
               >
-                {renderSlideElement(el, 1)}
+                {renderSlideElement(el, 1, true)}
               </div>
             ))}
           </div>

@@ -38,7 +38,7 @@ function makeTextElement(x: number, y: number, w: number, h: number): SlideEleme
     id: crypto.randomUUID(), type: 'text',
     x, y, width: w, height: h,
     rotate: 0, opacity: 1, zIndex: Date.now(), flipH: false, flipV: false, locked: false, hidden: false,
-    content: 'Click to edit', fontFamily: 'Inter', fontSize: 32,
+    content: '', fontFamily: 'Inter', fontSize: 32,
     color: '#1a1a1a', align: 'left', verticalAlign: 'top',
     lineHeight: 1.4, letterSpacing: 0, overflow: 'auto-fit',
   }
@@ -338,7 +338,9 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   const handleDoubleClickElement = useCallback((id: string): void => {
     if (!id) { setEditingElementId(null); return }
     const el = slides[activeSlideIndex]?.elements.find((e) => e.id === id)
-    if (el?.type === 'text') setEditingElementId(id)
+    if (el && (el.type === 'text' || el.type === 'equation' || el.type === 'code' || el.type === 'table')) {
+      setEditingElementId(id)
+    }
   }, [slides, activeSlideIndex])
 
   const handleCommitText = useCallback((id: string, content: string): void => {
@@ -346,6 +348,14 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
     changeActiveSlide((s) => ({
       ...s,
       elements: s.elements.map((el) => (el.id === id ? { ...el, content } : el)),
+    }))
+  }, [changeActiveSlide])
+
+  const handleCommitElement = useCallback((id: string, partial: Partial<SlideElement>): void => {
+    setEditingElementId(null)
+    changeActiveSlide((s) => ({
+      ...s,
+      elements: s.elements.map((el) => (el.id === id ? { ...el, ...partial } : el)),
     }))
   }, [changeActiveSlide])
 
@@ -360,6 +370,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
     changeActiveSlide((s) => ({ ...s, elements: [...s.elements, el] }))
     setSelectedIds([el.id])
     setToolMode('select')
+    if (_type === 'text') setEditingElementId(el.id)
   }, [changeActiveSlide])
 
   const handleBackground = useCallback((e: React.MouseEvent): void => {
@@ -651,6 +662,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
             editingElementId={editingElementId}
             onDoubleClickElement={handleDoubleClickElement}
             onCommitText={handleCommitText}
+            onCommitElement={handleCommitElement}
             onMoveElements={handleMoveElements}
             onResizeElement={handleResizeElement}
             onRotateElement={handleRotateElement}

@@ -8,9 +8,9 @@ import { CodeBlockElementRenderer } from './CodeBlockElementRenderer'
 import { VideoElementRenderer } from './VideoElementRenderer'
 import { AiGraphicElementRenderer } from './AiGraphicElementRenderer'
 
-export function renderSlideElement(element: SlideElement, scale: number): JSX.Element {
+export function renderSlideElement(element: SlideElement, scale: number, isStatic = false): JSX.Element {
   switch (element.type) {
-    case 'text':       return <TextElementRenderer element={element} scale={scale} />
+    case 'text':       return <TextElementRenderer element={element} scale={scale} isStatic={isStatic} />
     case 'shape':      return <ShapeElementRenderer element={element} scale={scale} />
     case 'image':      return <ImageElementRenderer element={element} scale={scale} />
     case 'table':      return <TableElementRenderer element={element} scale={scale} />

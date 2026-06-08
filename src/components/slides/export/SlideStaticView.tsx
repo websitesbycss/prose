@@ -59,7 +59,7 @@ export function SlideStaticView({ slide, theme, master, width, height }: Props):
             overflow: 'hidden',
           }}
         >
-          {renderSlideElement(el, scale)}
+          {renderSlideElement(el, scale, true)}
         </div>
       ))}
     </div>

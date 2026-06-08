@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import type { TextElement } from '@/types/slides'
 
 interface Props {
@@ -9,24 +9,23 @@ interface Props {
 }
 
 // contenteditable overlay for in-place text editing.
-// Renders on top of the TextElementRenderer, accepting raw HTML content.
 // Commit on blur or Escape; the edited innerHTML becomes the new content.
 export function TextElementEditor({ element, scale, onCommit, onCancel }: Props): JSX.Element {
   const divRef = useRef<HTMLDivElement>(null)
   const committedRef = useRef(false)
+  const [isEmpty, setIsEmpty] = useState(!element.content || element.content === '' || element.content === '<br>')
 
   useEffect(() => {
     const el = divRef.current
     if (!el) return
     el.innerHTML = element.content
-    // Place cursor at end
     el.focus()
     const range = document.createRange()
     range.selectNodeContents(el)
     range.collapse(false)
     const sel = window.getSelection()
     if (sel) { sel.removeAllRanges(); sel.addRange(range) }
-  }, []) // run once on mount — intentionally no element.content dep
+  }, []) // run once on mount
 
   const commit = useCallback((): void => {
     if (committedRef.current) return
@@ -41,13 +40,18 @@ export function TextElementEditor({ element, scale, onCommit, onCancel }: Props)
       onCancel()
       return
     }
-    // Ctrl+Enter or Shift+Enter commits (Enter alone creates <br> inside the contenteditable)
     if (e.key === 'Enter' && (e.ctrlKey || e.shiftKey)) {
       e.preventDefault()
       commit()
     }
-    e.stopPropagation() // prevent slide keyboard shortcuts while editing
+    e.stopPropagation()
   }, [commit, onCancel])
+
+  const handleInput = useCallback((): void => {
+    const el = divRef.current
+    const empty = !el || !el.textContent?.trim()
+    setIsEmpty(empty)
+  }, [])
 
   const alignMap: Record<TextElement['align'], string> = {
     left: 'left', center: 'center', right: 'right', justify: 'justify',
@@ -71,27 +75,52 @@ export function TextElementEditor({ element, scale, onCommit, onCancel }: Props)
         cursor: 'text',
         zIndex: 1,
       }}
+      onMouseDown={(e) => e.stopPropagation()}
     >
-      <div
-        ref={divRef}
-        contentEditable
-        suppressContentEditableWarning
-        onBlur={commit}
-        onKeyDown={handleKeyDown}
-        style={{
-          outline: 'none',
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word',
-          fontFamily: element.fontFamily,
-          fontSize: element.fontSize * scale,
-          color: element.color,
-          textAlign: alignMap[element.align],
-          lineHeight: element.lineHeight,
-          letterSpacing: element.letterSpacing * scale,
-          minHeight: 1,
-          width: '100%',
-        }}
-      />
+      <div style={{ position: 'relative', width: '100%' }}>
+        {isEmpty && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              pointerEvents: 'none',
+              userSelect: 'none',
+              color: 'rgba(150,150,150,0.7)',
+              fontFamily: element.fontFamily,
+              fontSize: element.fontSize * scale,
+              lineHeight: element.lineHeight,
+              letterSpacing: element.letterSpacing * scale,
+              textAlign: alignMap[element.align],
+              whiteSpace: 'pre-wrap',
+              width: '100%',
+            }}
+          >
+            Enter your text here...
+          </div>
+        )}
+        <div
+          ref={divRef}
+          contentEditable
+          suppressContentEditableWarning
+          onBlur={commit}
+          onKeyDown={handleKeyDown}
+          onInput={handleInput}
+          style={{
+            outline: 'none',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            fontFamily: element.fontFamily,
+            fontSize: element.fontSize * scale,
+            color: element.color,
+            textAlign: alignMap[element.align],
+            lineHeight: element.lineHeight,
+            letterSpacing: element.letterSpacing * scale,
+            minHeight: 1,
+            width: '100%',
+          }}
+        />
+      </div>
     </div>
   )
 }
