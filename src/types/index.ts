@@ -277,6 +277,8 @@ export interface ProseAPI {
     subscribeMaximize(cb: (isMaximized: boolean) => void): () => void
     startMove(offset: { offsetX: number; offsetY: number }): void
     stopMove(): void
+    setFullscreen(fullscreen: boolean): void
+    isFullscreen(): Promise<boolean>
   }
   tabdrag: {
     detach(docId: string): void
@@ -335,10 +337,10 @@ export interface ProseAPI {
     duplicateSlide(fileId: string, slideId: string): Promise<import('./slides').Slide>
     reorderSlides(fileId: string, slideIds: string[]): Promise<void>
     updateTheme(fileId: string, theme: import('./slides').PresentationTheme): Promise<void>
-    exportPptx(fileId: string, outputPath: string): Promise<void>
-    exportPdf(fileId: string, outputPath: string): Promise<void>
-    exportPng(fileId: string, slideId: string, outputPath: string): Promise<void>
-    importPptx(sourcePath: string): Promise<string>
+    exportPptx(content: import('./slides').SlidesContent, title: string): Promise<void>
+    exportPng(content: import('./slides').SlidesContent, title: string): Promise<void>
+    saveExportBytes(base64: string, filename: string, format: string): Promise<void>
+    importPptx(): Promise<{ title: string; content: string } | null>
   }
 }
 

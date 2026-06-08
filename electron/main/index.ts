@@ -18,6 +18,8 @@ import { registerMigrationHandlers, checkAndRunMigration } from './ipc/migration
 import { registerImportHandlers } from './ipc/import'
 import { registerSpellHandlers } from './ipc/spell'
 import { registerSlidesHandlers } from './ipc/slides'
+import { registerSlidesExportHandlers } from './ipc/slidesExport'
+import { registerSlidesImportHandlers } from './ipc/slidesImport'
 import { registerFileAssociation } from './services/fileAssociation'
 import { createProseWindow, registerWindowHandlers, initPaths } from './ipc/windows'
 import { autoUpdater } from 'electron-updater'
@@ -162,6 +164,8 @@ app.whenReady().then(async () => {
     registerImportHandlers()
     registerSpellHandlers()
     registerSlidesHandlers()
+    registerSlidesExportHandlers()
+    registerSlidesImportHandlers()
     initPaths(
       join(__dirname, '../preload/index.js'),
       join(__dirname, '../renderer/index.html'),

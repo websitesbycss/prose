@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import {
   Sun, Moon, Sparkles, Music, MoreHorizontal,
   Search, Download, Maximize2, Settings,
-  RotateCcw, Trash2, HelpCircle,
+  RotateCcw, Trash2, HelpCircle, Grid3X3,
 } from 'lucide-react'
 import { BoardExportModal } from '@/components/boards/BoardExportModal'
 import { Button } from '@/components/ui/button'
@@ -55,7 +55,7 @@ function MenuSep(): JSX.Element {
 // ── Three-dots dropdown ───────────────────────────────────────────────────────
 
 interface ThreeDotsProps {
-  fileType: 'document' | 'sheet' | 'board'
+  fileType: 'document' | 'sheet' | 'board' | 'slides'
   documentId: string | null
   documentTitle?: string
   documentMargins?: PageMargins | null
@@ -63,6 +63,13 @@ interface ThreeDotsProps {
   onFocusMode?: () => void
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   excalidrawAPI?: any
+  // Slides-specific
+  onSlidesFind?: () => void
+  onSlidesExport?: () => void
+  onSlidesPresent?: () => void
+  onSlidesMaster?: () => void
+  onSlidesToggleGrid?: () => void
+  slidesGridActive?: boolean
 }
 
 function ThreeDotsMenu({
@@ -73,6 +80,12 @@ function ThreeDotsMenu({
   onFindOpen,
   onFocusMode,
   excalidrawAPI,
+  onSlidesFind,
+  onSlidesExport,
+  onSlidesPresent,
+  onSlidesMaster,
+  onSlidesToggleGrid,
+  slidesGridActive,
 }: ThreeDotsProps): JSX.Element {
   const [open, setOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
@@ -197,6 +210,26 @@ function ThreeDotsMenu({
               </>
             )}
 
+            {fileType === 'slides' && (
+              <>
+                {onSlidesFind && (
+                  <MenuItem icon={Search} label="Find in presentation" shortcut="Ctrl+F" onClick={() => { setOpen(false); onSlidesFind() }} />
+                )}
+                {onSlidesExport && (
+                  <MenuItem icon={Download} label="Export (PPTX / PDF / PNG)…" onClick={() => { setOpen(false); onSlidesExport() }} />
+                )}
+                {onSlidesPresent && (
+                  <MenuItem icon={Maximize2} label="Enter presentation mode" shortcut="F5" onClick={() => { setOpen(false); onSlidesPresent() }} />
+                )}
+                {onSlidesMaster && (
+                  <MenuItem icon={Settings} label="Edit slide master" onClick={() => { setOpen(false); onSlidesMaster() }} />
+                )}
+                {onSlidesToggleGrid && (
+                  <MenuItem icon={Grid3X3} label={slidesGridActive ? 'Hide grid' : 'Show grid'} onClick={() => { setOpen(false); onSlidesToggleGrid() }} />
+                )}
+              </>
+            )}
+
             {fileType === 'board' && (
               <>
                 <MenuItem
@@ -266,7 +299,7 @@ function ThreeDotsMenu({
 // ── Public component ─────────────────────────────────────────────────────────
 
 export interface ToolbarRightSectionProps {
-  fileType: 'document' | 'sheet' | 'board'
+  fileType: 'document' | 'sheet' | 'board' | 'slides'
   documentId: string | null
   documentTitle?: string
   documentMargins?: PageMargins | null
@@ -274,6 +307,12 @@ export interface ToolbarRightSectionProps {
   onFocusMode?: () => void
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   excalidrawAPI?: any
+  onSlidesFind?: () => void
+  onSlidesExport?: () => void
+  onSlidesPresent?: () => void
+  onSlidesMaster?: () => void
+  onSlidesToggleGrid?: () => void
+  slidesGridActive?: boolean
 }
 
 export function ToolbarRightSection({
@@ -284,6 +323,12 @@ export function ToolbarRightSection({
   onFindOpen,
   onFocusMode,
   excalidrawAPI,
+  onSlidesFind,
+  onSlidesExport,
+  onSlidesPresent,
+  onSlidesMaster,
+  onSlidesToggleGrid,
+  slidesGridActive,
 }: ToolbarRightSectionProps): JSX.Element {
   const theme = useAppStore((s) => s.theme)
   const setTheme = useAppStore((s) => s.setTheme)
@@ -362,6 +407,12 @@ export function ToolbarRightSection({
         onFindOpen={onFindOpen}
         onFocusMode={onFocusMode}
         excalidrawAPI={excalidrawAPI}
+        onSlidesFind={onSlidesFind}
+        onSlidesExport={onSlidesExport}
+        onSlidesPresent={onSlidesPresent}
+        onSlidesMaster={onSlidesMaster}
+        onSlidesToggleGrid={onSlidesToggleGrid}
+        slidesGridActive={slidesGridActive}
       />
     </div>
   )

@@ -194,23 +194,5 @@ export function registerSlidesHandlers(): void {
     await writeSlidesContent(id, { ...content, theme: validated })
   })
 
-  // Export/import handlers — stubs until Phase 30
-  ipcMain.handle('slides:exportPptx', async (_, fileId: unknown, _outputPath: unknown) => {
-    validateFileId(fileId)
-    throw new Error('PPTX export not yet implemented')
-  })
-
-  ipcMain.handle('slides:exportPdf', async (_, fileId: unknown, _outputPath: unknown) => {
-    validateFileId(fileId)
-    throw new Error('PDF export not yet implemented')
-  })
-
-  ipcMain.handle('slides:exportPng', async (_, fileId: unknown, _slideId: unknown, _outputPath: unknown) => {
-    validateFileId(fileId)
-    throw new Error('PNG export not yet implemented')
-  })
-
-  ipcMain.handle('slides:importPptx', async (_, _sourcePath: unknown) => {
-    throw new Error('PPTX import not yet implemented')
-  })
+  // Export/import handlers are registered by registerSlidesExportHandlers() and registerSlidesImportHandlers()
 }

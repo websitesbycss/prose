@@ -136,6 +136,14 @@ export function registerWindowHandlers(): void {
   ipcMain.on('window:stopMove', () => {
     if (moveInterval) { clearInterval(moveInterval); moveInterval = null }
   })
+
+  ipcMain.on('window:setFullscreen', (event, fullscreen: boolean) => {
+    BrowserWindow.fromWebContents(event.sender)?.setFullScreen(fullscreen)
+  })
+
+  ipcMain.handle('window:isFullscreen', (event) => {
+    return BrowserWindow.fromWebContents(event.sender)?.isFullScreen() ?? false
+  })
   // Renderer signals tear-off start: create a detached window and follow the cursor.
   ipcMain.on('tabdrag:detach', (event, docId: string) => {
     if (detach) return // already detaching

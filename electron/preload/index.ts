@@ -93,6 +93,8 @@ contextBridge.exposeInMainWorld('prose', {
     startMove: (offset: { offsetX: number; offsetY: number }) =>
       ipcRenderer.send('window:startMove', offset),
     stopMove: () => ipcRenderer.send('window:stopMove'),
+    setFullscreen: (fullscreen: boolean) => ipcRenderer.send('window:setFullscreen', fullscreen),
+    isFullscreen: (): Promise<boolean> => ipcRenderer.invoke('window:isFullscreen'),
   },
 
   tabdrag: {
@@ -196,9 +198,9 @@ contextBridge.exposeInMainWorld('prose', {
     duplicateSlide: (fileId: string, slideId: string) => ipcRenderer.invoke('slides:duplicateSlide', fileId, slideId),
     reorderSlides: (fileId: string, slideIds: string[]) => ipcRenderer.invoke('slides:reorderSlides', fileId, slideIds),
     updateTheme: (fileId: string, theme: Record<string, unknown>) => ipcRenderer.invoke('slides:updateTheme', fileId, theme),
-    exportPptx: (fileId: string, outputPath: string) => ipcRenderer.invoke('slides:exportPptx', fileId, outputPath),
-    exportPdf: (fileId: string, outputPath: string) => ipcRenderer.invoke('slides:exportPdf', fileId, outputPath),
-    exportPng: (fileId: string, slideId: string, outputPath: string) => ipcRenderer.invoke('slides:exportPng', fileId, slideId, outputPath),
-    importPptx: (sourcePath: string) => ipcRenderer.invoke('slides:importPptx', sourcePath),
+    exportPptx: (content: unknown, title: string) => ipcRenderer.invoke('slides:exportPptx', content, title),
+    exportPng: (content: unknown, title: string) => ipcRenderer.invoke('slides:exportPng', content, title),
+    saveExportBytes: (base64: string, filename: string, format: string) => ipcRenderer.invoke('slides:saveBytes', base64, filename, format),
+    importPptx: () => ipcRenderer.invoke('slides:importPptx'),
   },
 })

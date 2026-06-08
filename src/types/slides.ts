@@ -210,7 +210,9 @@ export interface CodeBlockElement extends BaseElement {
 export interface VideoElement extends BaseElement {
   type: 'video'
   src: string
-  autoplay: boolean
+  autoPlay: boolean
+  loop: boolean
+  muted: boolean
   poster?: string
 }
 
@@ -289,6 +291,29 @@ export interface Slide {
   animations: ElementAnimation[]
 }
 
+// ── Slide master ─────────────────────────────────────────────────────────────
+
+export interface SlideMasterElement {
+  id: string
+  type: 'logo' | 'footer'
+  x: number
+  y: number
+  width: number
+  height: number
+  // logo: src is a data URL or file path
+  src?: string
+  // footer: text content
+  content?: string
+  fontSize?: number
+  color?: string
+  align?: TextAlignH
+}
+
+export interface SlideMaster {
+  background?: SlideBackground
+  elements: SlideMasterElement[]
+}
+
 // ── Presentation content (stored in .prose file `content` field) ─────────────
 
 export interface SlidesContent {
@@ -296,6 +321,7 @@ export interface SlidesContent {
   slides: Slide[]
   theme: PresentationTheme
   settings: PresentationSettings
+  master?: SlideMaster
 }
 
 // ── Type guard ───────────────────────────────────────────────────────────────
@@ -422,7 +448,10 @@ export function deserializeSlides(raw: unknown): SlidesContent {
   const theme = deserializeTheme(c.theme)
   const settings = deserializeSettings(c.settings)
 
-  return { version: 1, slides: slides.length > 0 ? slides : createInitialSlidesContent().slides, theme, settings }
+  const master: SlideMaster | undefined = c.master && typeof c.master === 'object'
+    ? (c.master as SlideMaster)
+    : undefined
+  return { version: 1, slides: slides.length > 0 ? slides : createInitialSlidesContent().slides, theme, settings, master }
 }
 
 function deserializeSlide(raw: unknown): Slide {
