@@ -1,0 +1,377 @@
+import { Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight } from 'lucide-react'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Button } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
+import { ChromeColorPicker } from '@/components/ui/ChromeColorPicker'
+import { ColorPickerDropdown, BorderWeightPicker, BorderColorIcon } from './ToolbarShared'
+import type { TableElement, TableCellStyle } from '@/types/slides'
+
+interface Props {
+  element: TableElement
+  selectedCells: string[]
+  onUpdateElement(partial: Partial<TableElement>): void
+}
+
+// Row/col operation icons
+function InsRowAbove() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <line x1="6.5" y1="0.5" x2="6.5" y2="4.5" /><line x1="4.5" y1="2.5" x2="8.5" y2="2.5" />
+      <rect x="1" y="6.5" width="11" height="5" rx="0.5" /><line x1="1" y1="9" x2="12" y2="9" /><line x1="6.5" y1="6.5" x2="6.5" y2="11.5" />
+    </svg>
+  )
+}
+function InsRowBelow() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <rect x="1" y="1.5" width="11" height="5" rx="0.5" /><line x1="1" y1="4" x2="12" y2="4" /><line x1="6.5" y1="1.5" x2="6.5" y2="6.5" />
+      <line x1="6.5" y1="8.5" x2="6.5" y2="12.5" /><line x1="4.5" y1="10.5" x2="8.5" y2="10.5" />
+    </svg>
+  )
+}
+function InsColLeft() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <line x1="0.5" y1="6.5" x2="4.5" y2="6.5" /><line x1="2.5" y1="4.5" x2="2.5" y2="8.5" />
+      <rect x="6.5" y="1" width="5" height="11" rx="0.5" /><line x1="9" y1="1" x2="9" y2="12" /><line x1="6.5" y1="6.5" x2="11.5" y2="6.5" />
+    </svg>
+  )
+}
+function InsColRight() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <rect x="1.5" y="1" width="5" height="11" rx="0.5" /><line x1="4" y1="1" x2="4" y2="12" /><line x1="1.5" y1="6.5" x2="6.5" y2="6.5" />
+      <line x1="8.5" y1="6.5" x2="12.5" y2="6.5" /><line x1="10.5" y1="4.5" x2="10.5" y2="8.5" />
+    </svg>
+  )
+}
+function DelRow() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <rect x="1" y="4" width="11" height="5" rx="0.5" />
+      <line x1="4.5" y1="6.5" x2="8.5" y2="6.5" />
+    </svg>
+  )
+}
+function DelCol() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <rect x="4" y="1" width="5" height="11" rx="0.5" />
+      <line x1="6.5" y1="4.5" x2="6.5" y2="8.5" />
+    </svg>
+  )
+}
+
+const CELL_PALETTE = [
+  '#ffffff', '#f3f4f6', '#e5e7eb', '#d1d5db',
+  '#fef2f2', '#fef9c3', '#f0fdf4', '#eff6ff',
+  '#fee2e2', '#fef08a', '#bbf7d0', '#bfdbfe',
+  '#3b82f6', '#22c55e', '#ef4444', '#000000',
+]
+
+const BORDER_PALETTE = [
+  '#000000', '#374151', '#6b7280', '#9ca3af',
+  '#ef4444', '#f97316', '#eab308', '#22c55e',
+  '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899',
+]
+
+export function TableEditToolbar({ element, selectedCells, onUpdateElement }: Props): JSX.Element {
+  // Get first selected cell for reading current style
+  const flatCells = element.rows.flat()
+  const selectedCellObjs = flatCells.filter((c) => selectedCells.includes(c.id))
+  const cellStyle: TableCellStyle = selectedCellObjs[0]?.style ?? {}
+
+  const selectedRowIdx = element.rows.findIndex((row) => row.some((c) => selectedCells.includes(c.id)))
+  const selectedColIdx = selectedRowIdx >= 0
+    ? element.rows[selectedRowIdx].findIndex((c) => selectedCells.includes(c.id))
+    : -1
+
+  function formatCells(style: Partial<TableCellStyle>) {
+    const newRows = element.rows.map((row) =>
+      row.map((cell) =>
+        selectedCells.includes(cell.id)
+          ? { ...cell, style: { ...cell.style, ...style } }
+          : cell,
+      ),
+    )
+    onUpdateElement({ rows: newRows })
+  }
+
+  function makeCellRow(cols: number): import('@/types/slides').TableCell[] {
+    return Array.from({ length: cols }, () => ({ id: crypto.randomUUID(), content: '' }))
+  }
+
+  function insertRowAbove() {
+    if (selectedRowIdx < 0) return
+    const newRows = [
+      ...element.rows.slice(0, selectedRowIdx),
+      makeCellRow(element.colWidths.length),
+      ...element.rows.slice(selectedRowIdx),
+    ]
+    onUpdateElement({ rows: newRows })
+  }
+
+  function insertRowBelow() {
+    if (selectedRowIdx < 0) return
+    const insertAt = selectedRowIdx + 1
+    const newRows = [
+      ...element.rows.slice(0, insertAt),
+      makeCellRow(element.colWidths.length),
+      ...element.rows.slice(insertAt),
+    ]
+    onUpdateElement({ rows: newRows })
+  }
+
+  function deleteRow() {
+    if (selectedRowIdx < 0 || element.rows.length <= 1) return
+    onUpdateElement({ rows: element.rows.filter((_, i) => i !== selectedRowIdx) })
+  }
+
+  function insertColLeft() {
+    if (selectedColIdx < 0) return
+    const newRows = element.rows.map((row) => [
+      ...row.slice(0, selectedColIdx),
+      { id: crypto.randomUUID(), content: '' },
+      ...row.slice(selectedColIdx),
+    ])
+    const inserted = 100 / (element.colWidths.length + 1)
+    const existing = element.colWidths.map((w) => w * element.colWidths.length / (element.colWidths.length + 1))
+    const newColWidths = [
+      ...existing.slice(0, selectedColIdx),
+      inserted,
+      ...existing.slice(selectedColIdx),
+    ]
+    onUpdateElement({ rows: newRows, colWidths: newColWidths })
+  }
+
+  function insertColRight() {
+    if (selectedColIdx < 0) return
+    const insertAt = selectedColIdx + 1
+    const newRows = element.rows.map((row) => [
+      ...row.slice(0, insertAt),
+      { id: crypto.randomUUID(), content: '' },
+      ...row.slice(insertAt),
+    ])
+    const inserted = 100 / (element.colWidths.length + 1)
+    const existing = element.colWidths.map((w) => w * element.colWidths.length / (element.colWidths.length + 1))
+    const newColWidths = [
+      ...existing.slice(0, insertAt),
+      inserted,
+      ...existing.slice(insertAt),
+    ]
+    onUpdateElement({ rows: newRows, colWidths: newColWidths })
+  }
+
+  function deleteCol() {
+    if (selectedColIdx < 0 || element.colWidths.length <= 1) return
+    const newRows = element.rows.map((row) => row.filter((_, ci) => ci !== selectedColIdx))
+    const remaining = element.colWidths.filter((_, ci) => ci !== selectedColIdx)
+    const total = remaining.reduce((a, b) => a + b, 0)
+    onUpdateElement({ rows: newRows, colWidths: total > 0 ? remaining.map((w) => (w / total) * 100) : remaining })
+  }
+
+  const hasSel = selectedCells.length > 0
+  const borderW = cellStyle.border?.width ?? 0
+  const borderColor = cellStyle.border?.color ?? '#000000'
+  const borderLineStyle = cellStyle.border?.style ?? 'solid'
+  const fillColor = cellStyle.backgroundColor ?? 'transparent'
+
+  return (
+    <div className="flex items-center gap-0.5">
+      {/* Text formatting */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.bold ? '!text-primary' : ''}`}
+            disabled={!hasSel} onClick={() => formatCells({ bold: !cellStyle.bold })}>
+            <Bold className="h-3.5 w-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Bold</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.italic ? '!text-primary' : ''}`}
+            disabled={!hasSel} onClick={() => formatCells({ italic: !cellStyle.italic })}>
+            <Italic className="h-3.5 w-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Italic</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.underline ? '!text-primary' : ''}`}
+            disabled={!hasSel} onClick={() => formatCells({ underline: !cellStyle.underline })}>
+            <Underline className="h-3.5 w-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Underline</TooltipContent>
+      </Tooltip>
+
+      {/* Text color */}
+      <ColorPickerDropdown
+        tooltip="Text color"
+        trigger={
+          <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1" disabled={!hasSel}>
+            <span className="text-[11px] font-bold leading-none" style={{ fontFamily: 'serif' }}>A</span>
+            <span className="mt-0.5 h-1 w-4 rounded-sm" style={{ backgroundColor: cellStyle.color ?? '#1a1a1a' }} />
+          </Button>
+        }
+      >
+        {(close) => (
+          <ChromeColorPicker
+            color={cellStyle.color ?? '#1a1a1a'}
+            current={cellStyle.color ?? ''}
+            palette={BORDER_PALETTE}
+            onChange={(c) => formatCells({ color: c })}
+            onPaletteSelect={(c) => { formatCells({ color: c }); close() }}
+            onReset={() => { formatCells({ color: undefined }); close() }}
+            resetLabel="Default color"
+          />
+        )}
+      </ColorPickerDropdown>
+
+      <Separator orientation="vertical" className="mx-0.5 h-5" />
+
+      {/* Alignment */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.align === 'left' || !cellStyle.align ? '!text-primary' : ''}`}
+            disabled={!hasSel} onClick={() => formatCells({ align: 'left' })}>
+            <AlignLeft className="h-3.5 w-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Align left</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.align === 'center' ? '!text-primary' : ''}`}
+            disabled={!hasSel} onClick={() => formatCells({ align: 'center' })}>
+            <AlignCenter className="h-3.5 w-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Align center</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.align === 'right' ? '!text-primary' : ''}`}
+            disabled={!hasSel} onClick={() => formatCells({ align: 'right' })}>
+            <AlignRight className="h-3.5 w-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Align right</TooltipContent>
+      </Tooltip>
+
+      <Separator orientation="vertical" className="mx-0.5 h-5" />
+
+      {/* Cell fill color */}
+      <ColorPickerDropdown
+        tooltip="Cell fill color"
+        trigger={
+          <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1" disabled={!hasSel}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5">
+              <path d="M20 14c-.092 1.853-1.486 4.785-3.315 6.585C15.743 21.517 14.881 22 14 22s-1.743-.483-2.685-1.415C9.486 18.785 8.092 15.853 8 14c0-3.314 2.686-6 6-6s6 2.686 6 6zM16.243 5.757l-1.414-1.414-9.9 9.9 1.415 1.414zm-4.484-2.828L4.222 10.465l1.414 1.414 7.536-7.536z"/>
+            </svg>
+            <span className="mt-0.5 h-1 w-4 rounded-sm border border-border/40"
+              style={{ backgroundColor: fillColor === 'transparent' ? undefined : fillColor }} />
+          </Button>
+        }
+      >
+        {(close) => (
+          <ChromeColorPicker
+            color={fillColor === 'transparent' ? '#ffffff' : fillColor}
+            current={fillColor === 'transparent' ? '' : fillColor}
+            palette={CELL_PALETTE}
+            onChange={(c) => formatCells({ backgroundColor: c })}
+            onPaletteSelect={(c) => { formatCells({ backgroundColor: c }); close() }}
+            onReset={() => { formatCells({ backgroundColor: undefined }); close() }}
+            resetLabel="No fill"
+          />
+        )}
+      </ColorPickerDropdown>
+
+      {/* Cell border color */}
+      <ColorPickerDropdown
+        tooltip="Cell border color"
+        trigger={
+          <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1" disabled={!hasSel}>
+            <BorderColorIcon className="leading-none" />
+            <span className="mt-0.5 h-1 w-4 rounded-sm border border-border/40"
+              style={{ backgroundColor: borderW > 0 ? borderColor : 'transparent' }} />
+          </Button>
+        }
+      >
+        {(close) => (
+          <ChromeColorPicker
+            color={borderColor}
+            current={borderW > 0 ? borderColor : ''}
+            palette={BORDER_PALETTE}
+            onChange={(c) => formatCells({ border: { color: c, width: borderW || 1, style: borderLineStyle } })}
+            onPaletteSelect={(c) => { formatCells({ border: { color: c, width: borderW || 1, style: borderLineStyle } }); close() }}
+            onReset={() => { formatCells({ border: undefined }); close() }}
+            resetLabel="Remove border"
+          />
+        )}
+      </ColorPickerDropdown>
+
+      {/* Cell border weight */}
+      <BorderWeightPicker
+        currentWidth={borderW}
+        onApply={(w) => formatCells({
+          border: w === undefined ? undefined : { color: borderColor, width: w, style: borderLineStyle },
+        })}
+      />
+
+      <Separator orientation="vertical" className="mx-0.5 h-5" />
+
+      {/* Row/col operations */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-7 w-7" disabled={selectedRowIdx < 0} onClick={insertRowAbove}>
+            <InsRowAbove />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Insert row above</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-7 w-7" disabled={selectedRowIdx < 0} onClick={insertRowBelow}>
+            <InsRowBelow />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Insert row below</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-7 w-7" disabled={selectedColIdx < 0} onClick={insertColLeft}>
+            <InsColLeft />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Insert column left</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-7 w-7" disabled={selectedColIdx < 0} onClick={insertColRight}>
+            <InsColRight />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Insert column right</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-7 w-7" disabled={selectedRowIdx < 0 || element.rows.length <= 1} onClick={deleteRow}>
+            <DelRow />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Delete row</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-7 w-7" disabled={selectedColIdx < 0 || element.colWidths.length <= 1} onClick={deleteCol}>
+            <DelCol />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Delete column</TooltipContent>
+      </Tooltip>
+    </div>
+  )
+}

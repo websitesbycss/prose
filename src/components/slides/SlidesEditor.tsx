@@ -119,6 +119,9 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error' | 'unsaved'>('saved')
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
+  const [pendingShapeType, setPendingShapeType] = useState<import('@/types/slides').ShapeType | null>(null)
+  const [pendingTableConfig, setPendingTableConfig] = useState<{ cols: number; rows: number } | null>(null)
+  const [tableSelectedCells, setTableSelectedCells] = useState<string[]>([])
   const aiPanelOpen = useAppStore((s) => s.aiPanelOpen)
   const setAiPanelOpen = useAppStore((s) => s.setAiPanelOpen)
 
@@ -135,6 +138,12 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
     setCanUndo(history.canUndo())
     setCanRedo(history.canRedo())
   }, [slides, history])
+
+  // Clear pending shape/table type when tool mode changes away from that mode
+  useEffect(() => {
+    if (toolMode !== 'shape') setPendingShapeType(null)
+    if (toolMode !== 'table') setPendingTableConfig(null)
+  }, [toolMode])
 
   // ── Load ─────────────────────────────────────────────────────────────────────
 
@@ -336,7 +345,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   }, [activeSlideIndex, history, scheduleSave])
 
   const handleDoubleClickElement = useCallback((id: string): void => {
-    if (!id) { setEditingElementId(null); return }
+    if (!id) { setEditingElementId(null); setTableSelectedCells([]); return }
     const el = slides[activeSlideIndex]?.elements.find((e) => e.id === id)
     if (el && (el.type === 'text' || el.type === 'equation' || el.type === 'code' || el.type === 'table')) {
       setEditingElementId(id)
@@ -353,6 +362,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
 
   const handleCommitElement = useCallback((id: string, partial: Partial<SlideElement>): void => {
     setEditingElementId(null)
+    setTableSelectedCells([])
     changeActiveSlide((s) => ({
       ...s,
       elements: s.elements.map((el) => (el.id === id ? { ...el, ...partial } : el)),
@@ -365,13 +375,43 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   }, [activeSlideIndex, scheduleSave])
 
   const handleDrawElement = useCallback((_type: CanvasToolMode, x: number, y: number, width: number, height: number): void => {
-    const el = makeDefaultElement(_type, x, y, width, height)
+    let el: SlideElement | null = null
+    if (_type === 'shape') {
+      const shapeType = pendingShapeType ?? 'rect'
+      el = {
+        id: crypto.randomUUID(), type: 'shape',
+        x, y, width, height,
+        rotate: 0, opacity: 1, zIndex: Date.now(), flipH: false, flipV: false, locked: false, hidden: false,
+        shapeType, fill: '#3b82f6',
+        border: { color: '#2563eb', width: 2, style: 'solid' },
+      }
+      setPendingShapeType(null)
+    } else if (_type === 'table') {
+      const cfg = pendingTableConfig ?? { cols: 2, rows: 2 }
+      const colW = Math.floor(100 / cfg.cols)
+      const colWidths = Array.from({ length: cfg.cols }, (_, i) =>
+        i < cfg.cols - 1 ? colW : 100 - colW * (cfg.cols - 1)
+      )
+      const makeCell = () => ({ id: crypto.randomUUID(), content: '' })
+      const tableRows = Array.from({ length: cfg.rows }, (_, r) =>
+        Array.from({ length: cfg.cols }, () => r === 0 ? { ...makeCell(), style: { bold: true } } : makeCell())
+      )
+      el = {
+        id: crypto.randomUUID(), type: 'table',
+        x, y, width, height,
+        rotate: 0, opacity: 1, zIndex: Date.now(), flipH: false, flipV: false, locked: false, hidden: false,
+        rows: tableRows, colWidths, hasHeaderRow: true,
+      }
+      setPendingTableConfig(null)
+    } else {
+      el = makeDefaultElement(_type, x, y, width, height)
+    }
     if (!el) return
-    changeActiveSlide((s) => ({ ...s, elements: [...s.elements, el] }))
+    changeActiveSlide((s) => ({ ...s, elements: [...s.elements, el!] }))
     setSelectedIds([el.id])
     setToolMode('select')
     if (_type === 'text') setEditingElementId(el.id)
-  }, [changeActiveSlide])
+  }, [changeActiveSlide, pendingShapeType, pendingTableConfig])
 
   const handleBackground = useCallback((e: React.MouseEvent): void => {
     setThemePanelAnchor((e.currentTarget as HTMLElement).getBoundingClientRect())
@@ -418,43 +458,41 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
     scheduleSave()
   }, [activeSlideIndex, history, scheduleSave])
 
-  // Insert shape at center of slide with default size
+  // Arm shape tool — user then clicks or drags to place
   const handleInsertShape = useCallback((shapeType: import('@/types/slides').ShapeType): void => {
-    const el: SlideElement = {
-      id: crypto.randomUUID(), type: 'shape',
-      x: 35, y: 35, width: 30, height: 30,
-      rotate: 0, opacity: 1, zIndex: Date.now(), flipH: false, flipV: false, locked: false, hidden: false,
-      shapeType, fill: '#3b82f6',
-      border: { color: '#2563eb', width: 2, style: 'solid' },
-    }
-    changeActiveSlide((s) => ({ ...s, elements: [...s.elements, el] }))
-    setSelectedIds([el.id])
-  }, [changeActiveSlide])
+    setPendingShapeType(shapeType)
+    setToolMode('shape')
+  }, [])
 
+  // Arm table tool — user then clicks or drags to place
   const handleInsertTable = useCallback((cols: number, rows: number): void => {
-    const colWidth = Math.round(100 / cols)
-    const colWidths = Array(cols).fill(colWidth)
-    const makeCell = () => ({ id: crypto.randomUUID(), content: '' })
-    const tableRows = Array.from({ length: rows }, (_, r) =>
-      Array.from({ length: cols }, () => r === 0 ? { ...makeCell(), style: { bold: true } } : makeCell())
-    )
-    const el: SlideElement = {
-      id: crypto.randomUUID(), type: 'table',
-      x: 20, y: 25, width: 60, height: Math.min(50, rows * 8),
-      rotate: 0, opacity: 1, zIndex: Date.now(), flipH: false, flipV: false, locked: false, hidden: false,
-      rows: tableRows, colWidths, hasHeaderRow: true,
-    }
-    changeActiveSlide((s) => ({ ...s, elements: [...s.elements, el] }))
-    setSelectedIds([el.id])
-  }, [changeActiveSlide])
+    setPendingTableConfig({ cols, rows })
+    setToolMode('table')
+  }, [])
 
   const handleInsertImage = useCallback(async (): Promise<void> => {
     try {
       const filePath = await window.prose.dialog.openImage()
       if (!filePath) return
+
+      // Detect aspect ratio from image
+      const { w: natW, h: natH } = await new Promise<{ w: number; h: number }>((resolve) => {
+        const img = new window.Image()
+        const timer = setTimeout(() => resolve({ w: 16, h: 9 }), 2000)
+        img.onload = () => { clearTimeout(timer); resolve({ w: img.naturalWidth || 16, h: img.naturalHeight || 9 }) }
+        img.onerror = () => { clearTimeout(timer); resolve({ w: 16, h: 9 }) }
+        img.src = filePath
+      })
+      const aspect = natW / natH
+      const elemWidth = 50
+      const elemHeight = Math.min(70, elemWidth / aspect)
+      const finalWidth = elemHeight < 70 ? elemWidth : elemHeight * aspect
+
       const el: SlideElement = {
         id: crypto.randomUUID(), type: 'image',
-        x: 25, y: 20, width: 50, height: 60,
+        x: Math.max(0, (100 - finalWidth) / 2),
+        y: Math.max(0, (100 - elemHeight) / 2),
+        width: finalWidth, height: elemHeight,
         rotate: 0, opacity: 1, zIndex: Date.now(), flipH: false, flipV: false, locked: false, hidden: false,
         src: filePath, altText: '', borderRadius: 0,
         filters: { brightness: 100, contrast: 100, saturation: 100, blur: 0 },
@@ -622,6 +660,10 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
         onFind={() => setShowFindBar(true)}
         onToggleGrid={() => setShowGrid((v) => !v)}
         gridActive={showGrid}
+        pendingShapeType={pendingShapeType}
+        pendingTableConfig={pendingTableConfig}
+        editingElementId={editingElementId}
+        tableSelectedCells={tableSelectedCells}
       />
 
       {/* Main area */}
@@ -672,6 +714,9 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
             showGrid={showGrid}
             zoom={zoom}
             onFitZoomChange={setFitZoom}
+            pendingShapeType={pendingShapeType}
+            pendingTableConfig={pendingTableConfig}
+            onTableCellSelect={setTableSelectedCells}
           />
 
           <SpeakerNotesPanel

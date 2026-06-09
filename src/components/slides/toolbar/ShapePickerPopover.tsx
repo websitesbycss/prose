@@ -50,10 +50,11 @@ const ALL_SHAPES: ShapeType[] = Object.keys(SHAPE_LABELS) as ShapeType[]
 
 interface Props {
   children: React.ReactNode
+  selectedShapeType?: ShapeType | null
   onSelect(shapeType: ShapeType): void
 }
 
-export function ShapePickerPopover({ children, onSelect }: Props): JSX.Element {
+export function ShapePickerPopover({ children, selectedShapeType, onSelect }: Props): JSX.Element {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState({ top: 0, left: 0 })
   const triggerRef = useRef<HTMLDivElement>(null)
@@ -93,7 +94,11 @@ export function ShapePickerPopover({ children, onSelect }: Props): JSX.Element {
             <button
               key={shape}
               title={SHAPE_LABELS[shape]}
-              className="flex h-10 w-10 items-center justify-center rounded border border-transparent hover:border-border hover:bg-accent"
+              className="flex h-10 w-10 items-center justify-center rounded border hover:border-border hover:bg-accent"
+              style={{
+                borderColor: shape === selectedShapeType ? 'hsl(var(--primary))' : 'transparent',
+                backgroundColor: shape === selectedShapeType ? 'hsl(var(--primary)/0.12)' : undefined,
+              }}
               onClick={() => { onSelect(shape); setOpen(false) }}
             >
               <svg viewBox="0 0 48 40" width="36" height="30" fill="none" stroke="currentColor" strokeWidth="2">

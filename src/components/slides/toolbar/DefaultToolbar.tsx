@@ -19,9 +19,11 @@ interface Props {
   onInsertShape?(shapeType: ShapeType): void
   onInsertTable?(cols: number, rows: number): void
   onInsertImage?(): void
+  pendingShapeType?: ShapeType | null
+  pendingTableConfig?: { cols: number; rows: number } | null
 }
 
-export function DefaultToolbar({ toolMode, onToolMode, canUndo, canRedo, onUndo, onRedo, onBackground, onInsertShape, onInsertTable, onInsertImage }: Props): JSX.Element {
+export function DefaultToolbar({ toolMode, onToolMode, canUndo, canRedo, onUndo, onRedo, onBackground, onInsertShape, onInsertTable, onInsertImage, pendingShapeType, pendingTableConfig }: Props): JSX.Element {
   return (
     <div className="flex items-center gap-0.5">
       {/* Undo / Redo */}
@@ -65,7 +67,7 @@ export function DefaultToolbar({ toolMode, onToolMode, canUndo, canRedo, onUndo,
       </Tooltip>
 
       {/* Shape with picker */}
-      <ShapePickerPopover onSelect={(s) => { onInsertShape?.(s); onToolMode('select') }}>
+      <ShapePickerPopover selectedShapeType={pendingShapeType} onSelect={(s) => { onInsertShape?.(s) }}>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="ghost" size="icon" className={cn('h-7 w-7', toolMode === 'shape' && '!text-primary')}>
@@ -87,7 +89,7 @@ export function DefaultToolbar({ toolMode, onToolMode, canUndo, canRedo, onUndo,
       </Tooltip>
 
       {/* Table with picker */}
-      <TablePickerPopover onSelect={(cols, rows) => { onInsertTable?.(cols, rows); onToolMode('select') }}>
+      <TablePickerPopover pendingConfig={pendingTableConfig} onSelect={(cols, rows) => { onInsertTable?.(cols, rows) }}>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="ghost" size="icon" className={cn('h-7 w-7', toolMode === 'table' && '!text-primary')}>

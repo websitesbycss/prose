@@ -121,15 +121,13 @@ export function ImageToolbar({ element, onUpdate }: Props): JSX.Element {
                 className="h-full w-10 bg-background px-1 text-[11px] focus:outline-none"
               />
               <div className="flex h-full items-center bg-muted px-1 text-[10px] text-muted-foreground select-none">
-                %
+                px
               </div>
             </div>
           </div>
         </TooltipTrigger>
         <TooltipContent side="bottom" className="text-xs">Corner radius</TooltipContent>
       </Tooltip>
-
-      <Separator orientation="vertical" className="mx-0.5 h-5" />
 
       {/* Opacity */}
       <Tooltip>

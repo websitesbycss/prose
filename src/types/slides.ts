@@ -167,6 +167,7 @@ export interface TableCellStyle {
   fontFamily?: string
   align?: TextAlignH
   verticalAlign?: TextAlignV
+  border?: ElementBorder
 }
 
 export interface TableCell {
@@ -181,6 +182,7 @@ export interface TableElement extends BaseElement {
   type: 'table'
   rows: TableCell[][]
   colWidths: number[]
+  rowHeights?: number[]
   border?: ElementBorder
   hasHeaderRow: boolean
   headerColor?: string

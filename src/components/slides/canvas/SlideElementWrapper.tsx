@@ -22,6 +22,7 @@ interface Props {
   onCommitText(id: string, content: string): void
   onCommitElement?(id: string, partial: Partial<SlideElement>): void
   onCancelEdit(): void
+  onTableCellSelect?: (cellIds: string[]) => void
 }
 
 const EDITABLE_TYPES = new Set(['text', 'equation', 'code', 'table'])
@@ -40,6 +41,7 @@ export const SlideElementWrapper = memo(function SlideElementWrapper({
   onCommitText,
   onCommitElement,
   onCancelEdit,
+  onTableCellSelect,
 }: Props): JSX.Element | null {
   const ref = useRef<HTMLDivElement>(null)
 
@@ -91,6 +93,7 @@ export const SlideElementWrapper = memo(function SlideElementWrapper({
             scale={scale}
             onCommit={(partial) => onCommitElement?.(element.id, partial as Partial<SlideElement>)}
             onCancel={onCancelEdit}
+            onCellSelect={onTableCellSelect}
           />
         )
       default:

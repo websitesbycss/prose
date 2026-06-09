@@ -7,8 +7,9 @@ import { TextFormatToolbar } from './TextFormatToolbar'
 import { ShapeStyleToolbar } from './ShapeStyleToolbar'
 import { ImageToolbar } from './ImageToolbar'
 import { MultiSelectToolbar } from './MultiSelectToolbar'
+import { TableEditToolbar } from './TableEditToolbar'
 import type { SlideToolMode } from './DefaultToolbar'
-import type { Slide, SlideElement, TextElement, ShapeElement, ImageElement, ShapeType } from '@/types/slides'
+import type { Slide, SlideElement, TextElement, ShapeElement, ImageElement, TableElement, ShapeType } from '@/types/slides'
 
 interface AlignUpdate { id: string; x: number; y: number }
 
@@ -35,6 +36,10 @@ interface Props {
   onFind?(): void
   onToggleGrid?(): void
   gridActive?: boolean
+  pendingShapeType?: ShapeType | null
+  pendingTableConfig?: { cols: number; rows: number } | null
+  editingElementId?: string | null
+  tableSelectedCells?: string[]
 }
 
 function getSelectionType(slide: Slide, selectedIds: string[]): 'none' | 'multi' | SlideElement['type'] {
@@ -50,6 +55,8 @@ export function SlidesToolbar({
   onBackground, onUpdateElement, onAlignElements,
   onInsertShape, onInsertTable, onInsertImage, onPresent, onEditMaster, onExport, onFind,
   onToggleGrid, gridActive,
+  pendingShapeType, pendingTableConfig,
+  editingElementId, tableSelectedCells = [],
 }: Props): JSX.Element {
   const selType = getSelectionType(slide, selectedIds)
   const singleElement = selType !== 'none' && selType !== 'multi'
@@ -74,6 +81,8 @@ export function SlidesToolbar({
         onInsertShape={onInsertShape}
         onInsertTable={onInsertTable}
         onInsertImage={onInsertImage}
+        pendingShapeType={pendingShapeType}
+        pendingTableConfig={pendingTableConfig}
       />
 
       {/* Contextual section */}
@@ -103,6 +112,13 @@ export function SlidesToolbar({
             <ImageToolbar
               element={singleElement as ImageElement}
               onUpdate={(p) => updateEl(p as Partial<SlideElement>)}
+            />
+          )}
+          {selType === 'table' && singleElement && editingElementId === selectedIds[0] && (
+            <TableEditToolbar
+              element={singleElement as TableElement}
+              selectedCells={tableSelectedCells}
+              onUpdateElement={(p) => updateEl(p as Partial<SlideElement>)}
             />
           )}
         </>

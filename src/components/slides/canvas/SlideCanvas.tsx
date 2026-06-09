@@ -1,11 +1,12 @@
 import { useRef, useState, useEffect, useCallback, useMemo } from 'react'
-import type { Slide, PresentationTheme, PresentationSettings, SlideMaster, SlideElement } from '@/types/slides'
+import type { Slide, PresentationTheme, PresentationSettings, SlideMaster, SlideElement, ShapeElement, ShapeType } from '@/types/slides'
 import { SLIDE_BASE_WIDTH, SLIDE_BASE_HEIGHT } from '@/types/slides'
 import { SlideBackground } from './SlideBackground'
 import { SlideElementWrapper } from './SlideElementWrapper'
 import { MarqueeSelection } from './MarqueeSelection'
 import { SlideGridOverlay } from '../SlideGridOverlay'
 import { useCanvasDrag } from './useCanvasDrag'
+import { ShapeElementRenderer } from '../elements/ShapeElementRenderer'
 import type { HandleType, ElementMove, ElementResize, ElementRotate, MarqueeRect } from './types'
 
 export type CanvasToolMode = 'select' | 'text' | 'shape' | 'image' | 'table' | 'equation' | 'code' | 'video'
@@ -31,6 +32,9 @@ interface Props {
   showGrid?: boolean
   zoom?: number  // 0 = fit, 25–400 = explicit %
   onFitZoomChange?(pct: number): void
+  pendingShapeType?: ShapeType | null
+  pendingTableConfig?: { cols: number; rows: number } | null
+  onTableCellSelect?: (cellIds: string[]) => void
 }
 
 function getBaseSize(settings: PresentationSettings): { baseW: number; baseH: number } {
@@ -74,6 +78,9 @@ export function SlideCanvas({
   showGrid = false,
   zoom = 0,
   onFitZoomChange,
+  pendingShapeType,
+  pendingTableConfig,
+  onTableCellSelect,
 }: Props): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
@@ -248,11 +255,21 @@ export function SlideCanvas({
         if (width > 2 && height > 2) {
           onDrawElement(toolMode, x, y, width, height)
         } else {
-          // Click: for text, start at cursor; for others, center on cursor
+          // Click: place top-left at cursor with sensible defaults per tool
+          const cx = drawStartRef.current.x
+          const cy = drawStartRef.current.y
           if (toolMode === 'text') {
-            onDrawElement(toolMode, drawStartRef.current.x, drawStartRef.current.y - 2, 30, 10)
+            onDrawElement(toolMode, cx, cy - 2, 30, 10)
+          } else if (toolMode === 'shape') {
+            onDrawElement(toolMode, cx, cy, 15, 15)
+          } else if (toolMode === 'table') {
+            onDrawElement(toolMode, cx, cy, 35, 20)
+          } else if (toolMode === 'equation') {
+            onDrawElement(toolMode, cx, cy, 25, 12)
+          } else if (toolMode === 'code') {
+            onDrawElement(toolMode, cx, cy, 35, 20)
           } else {
-            onDrawElement(toolMode, drawStartRef.current.x - 15, drawStartRef.current.y - 5, 30, 10)
+            onDrawElement(toolMode, cx, cy, 30, 20)
           }
         }
         drawStartRef.current = null
@@ -353,6 +370,7 @@ export function SlideCanvas({
               onCommitText={(id, content) => onCommitText?.(id, content)}
               onCommitElement={(id, partial) => onCommitElement?.(id, partial)}
               onCancelEdit={() => onDoubleClickElement('')}
+              onTableCellSelect={onTableCellSelect}
             />
           ))}
         </div>
@@ -373,21 +391,59 @@ export function SlideCanvas({
           />
         )}
 
-        {ghostRect && ghostRect.w > 0.5 && ghostRect.h > 0.5 && (
-          <div
-            style={{
-              position: 'absolute',
-              left: `${ghostRect.x}%`,
-              top: `${ghostRect.y}%`,
-              width: `${ghostRect.w}%`,
-              height: `${ghostRect.h}%`,
-              border: '1.5px dashed #3B82F6',
-              backgroundColor: 'rgba(59, 130, 246, 0.06)',
-              pointerEvents: 'none',
-              zIndex: 9999,
-            }}
-          />
-        )}
+        {ghostRect && ghostRect.w > 0.5 && ghostRect.h > 0.5 && (() => {
+          const ghostStyle: React.CSSProperties = {
+            position: 'absolute',
+            left: `${ghostRect.x}%`,
+            top: `${ghostRect.y}%`,
+            width: `${ghostRect.w}%`,
+            height: `${ghostRect.h}%`,
+            pointerEvents: 'none',
+            zIndex: 9999,
+          }
+          if (toolMode === 'shape' && pendingShapeType) {
+            // Render actual shape as ghost
+            const ghostEl: ShapeElement = {
+              id: 'ghost', type: 'shape', shapeType: pendingShapeType,
+              fill: 'rgba(59,130,246,0.12)',
+              border: { color: '#3B82F6', width: 2, style: 'solid' },
+              x: 0, y: 0, width: 100, height: 100,
+              rotate: 0, opacity: 1, zIndex: 0, flipH: false, flipV: false, locked: false, hidden: false,
+            }
+            return (
+              <div style={ghostStyle}>
+                <ShapeElementRenderer element={ghostEl} scale={scale} />
+              </div>
+            )
+          }
+          if (toolMode === 'table' && pendingTableConfig) {
+            const { cols, rows } = pendingTableConfig
+            return (
+              <div style={{ ...ghostStyle, border: '1.5px solid #3B82F6', backgroundColor: 'rgba(59,130,246,0.04)' }}>
+                <svg width="100%" height="100%" style={{ display: 'block' }}>
+                  {Array.from({ length: cols - 1 }, (_, i) => {
+                    const x = ((i + 1) / cols) * 100
+                    return <line key={`c${i}`} x1={`${x}%`} y1="0" x2={`${x}%`} y2="100%" stroke="#3B82F6" strokeWidth="1" />
+                  })}
+                  {Array.from({ length: rows - 1 }, (_, i) => {
+                    const y = ((i + 1) / rows) * 100
+                    return <line key={`r${i}`} x1="0" y1={`${y}%`} x2="100%" y2={`${y}%`} stroke="#3B82F6" strokeWidth="1" />
+                  })}
+                </svg>
+              </div>
+            )
+          }
+          // Default dashed rect ghost
+          return (
+            <div
+              style={{
+                ...ghostStyle,
+                border: '1.5px dashed #3B82F6',
+                backgroundColor: 'rgba(59, 130, 246, 0.06)',
+              }}
+            />
+          )
+        })()}
 
         {marqueeRect && <MarqueeSelection rect={marqueeRect} />}
 

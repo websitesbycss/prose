@@ -6,10 +6,11 @@ const MAX_ROWS = 8
 
 interface Props {
   children: React.ReactNode
+  pendingConfig?: { cols: number; rows: number } | null
   onSelect(cols: number, rows: number): void
 }
 
-export function TablePickerPopover({ children, onSelect }: Props): JSX.Element {
+export function TablePickerPopover({ children, pendingConfig, onSelect }: Props): JSX.Element {
   const [open, setOpen] = useState(false)
   const [hover, setHover] = useState({ col: 0, row: 0 })
   const [pos, setPos] = useState({ top: 0, left: 0 })
@@ -49,22 +50,32 @@ export function TablePickerPopover({ children, onSelect }: Props): JSX.Element {
           <div className="mb-1.5 text-center text-[11px] text-muted-foreground">
             {hover.col > 0 && hover.row > 0
               ? `${hover.col} × ${hover.row} table`
-              : 'Select table size'}
+              : pendingConfig
+                ? `${pendingConfig.cols} × ${pendingConfig.rows} (armed)`
+                : 'Select table size'}
           </div>
-          <div className="grid gap-0.5" style={{ gridTemplateColumns: `repeat(${MAX_COLS}, 20px)` }}>
+          <div
+            className="grid gap-0.5"
+            style={{ gridTemplateColumns: `repeat(${MAX_COLS}, 20px)` }}
+            onMouseLeave={() => setHover({ col: 0, row: 0 })}
+          >
             {Array.from({ length: MAX_ROWS }, (_, r) =>
-              Array.from({ length: MAX_COLS }, (_, c) => (
-                <button
-                  key={`${r}-${c}`}
-                  className="h-5 w-5 rounded-[2px] border"
-                  style={{
-                    borderColor: r < hover.row && c < hover.col ? 'hsl(var(--primary))' : 'hsl(var(--border))',
-                    background: r < hover.row && c < hover.col ? 'hsl(var(--primary)/0.15)' : 'transparent',
-                  }}
-                  onMouseEnter={() => setHover({ col: c + 1, row: r + 1 })}
-                  onClick={() => { onSelect(c + 1, r + 1); setOpen(false) }}
-                />
-              ))
+              Array.from({ length: MAX_COLS }, (_, c) => {
+                const isHovered = r < hover.row && c < hover.col
+                const isPending = hover.col === 0 && hover.row === 0 && pendingConfig && r < pendingConfig.rows && c < pendingConfig.cols
+                return (
+                  <button
+                    key={`${r}-${c}`}
+                    className="h-5 w-5 rounded-[2px] border"
+                    style={{
+                      borderColor: isHovered || isPending ? 'hsl(var(--primary))' : 'hsl(var(--border))',
+                      background: isHovered || isPending ? 'hsl(var(--primary)/0.15)' : 'transparent',
+                    }}
+                    onMouseEnter={() => setHover({ col: c + 1, row: r + 1 })}
+                    onClick={() => { onSelect(c + 1, r + 1); setOpen(false) }}
+                  />
+                )
+              })
             )}
           </div>
         </div>,
