@@ -25,6 +25,8 @@ import { PresentationMode } from './presentation/PresentationMode'
 import { SlidesExportModal } from './export/SlidesExportModal'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import SettingsModal from '@/components/settings/SettingsModal'
+import { useMusicContext } from '@/contexts/MusicContext'
+import { AMBIENT_LAYERS } from '@/hooks/useMusic'
 
 interface Props {
   documentId: string
@@ -128,6 +130,16 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   const [tableSelectedCells, setTableSelectedCells] = useState<string[]>([])
   const aiPanelOpen = useAppStore((s) => s.aiPanelOpen)
   const setAiPanelOpen = useAppStore((s) => s.setAiPanelOpen)
+  const setMusicPanelOpen = useAppStore((s) => s.setMusicPanelOpen)
+  const setMusicPanelTab = useAppStore((s) => s.setMusicPanelTab)
+
+  const music = useMusicContext()
+  const activeAmbient = AMBIENT_LAYERS.filter((l) => music?.ambientEnabled[l.id])
+  const ambientPlaying =
+    activeAmbient.length === 0 ? null
+    : activeAmbient.length === 1 ? activeAmbient[0]!.label
+    : activeAmbient.length === 2 ? `${activeAmbient[0]!.label} + ${activeAmbient[1]!.label}`
+    : `${activeAmbient.length} Sounds`
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const elementClipboard = useRef<SlideElement[]>([])
@@ -949,6 +961,10 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
         fitZoom={fitZoom}
         saveStatus={saveStatus}
         onZoomChange={setZoom}
+        nowPlaying={music?.nowPlayingTitle ?? null}
+        ambientPlaying={ambientPlaying}
+        onMusicClick={() => { setMusicPanelTab('tracks'); setMusicPanelOpen(true) }}
+        onAmbientClick={() => { setMusicPanelTab('mixer'); setMusicPanelOpen(true) }}
       />
 
       {/* Theme panel */}

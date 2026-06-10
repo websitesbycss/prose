@@ -230,27 +230,41 @@ async function parsePptx(zip: JSZip, filePath: string): Promise<ParseResult> {
   return { title, content }
 }
 
+// ── Public API (also used by unified documents:importFiles) ─────────────────
+
+export async function parsePptxFile(filePath: string): Promise<ParseResult> {
+  const ext = extname(filePath).toLowerCase()
+  if (ext === '.ppt') {
+    throw new Error(
+      'Legacy .ppt files are not supported — open the file in PowerPoint and save as .pptx, then import again',
+    )
+  }
+  if (ext !== '.pptx') {
+    throw new Error(`Unsupported presentation type: ${ext}`)
+  }
+
+  const buf = await readFile(filePath)
+  if (buf.length > 50 * 1024 * 1024) throw new Error('File too large (max 50MB)')
+
+  try {
+    const zip = await JSZip.loadAsync(buf)
+    return await parsePptx(zip, filePath)
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith('Legacy')) throw err
+    throw new Error('Could not read PPTX file — it may be corrupted or use unsupported features')
+  }
+}
+
 // ── IPC handler ─────────────────────────────────────────────────────────────
 
 export function registerSlidesImportHandlers(): void {
   ipcMain.handle('slides:importPptx', async (): Promise<ParseResult | null> => {
     const result = await dialog.showOpenDialog({
       title: 'Import PowerPoint presentation',
-      filters: [{ name: 'PowerPoint Presentation', extensions: ['pptx'] }],
+      filters: [{ name: 'PowerPoint Presentation', extensions: ['pptx', 'ppt'] }],
       properties: ['openFile'],
     })
     if (result.canceled || !result.filePaths[0]) return null
-
-    const filePath = result.filePaths[0]!
-    const buf = await readFile(filePath)
-
-    if (buf.length > 50 * 1024 * 1024) throw new Error('File too large (max 50MB)')
-
-    try {
-      const zip = await JSZip.loadAsync(buf)
-      return await parsePptx(zip, filePath)
-    } catch {
-      throw new Error('Could not read PPTX file — it may be corrupted or use unsupported features')
-    }
+    return parsePptxFile(result.filePaths[0]!)
   })
 }

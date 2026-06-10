@@ -276,7 +276,7 @@ export default function Dashboard({ embedded: _embedded = false }: { embedded?: 
   const handleImportResult = useCallback((result: ImportResult) => {
     if (result.imported.length > 0) {
       setDocuments((prev) => [...result.imported as Document[], ...prev])
-      toast.success(`Imported ${result.imported.length} document${result.imported.length !== 1 ? 's' : ''}`)
+      toast.success(`Imported ${result.imported.length} file${result.imported.length !== 1 ? 's' : ''}`)
     }
     if (result.errors.length > 0)
       toast.error(`${result.errors.length} file${result.errors.length !== 1 ? 's' : ''} could not be imported`)
@@ -503,7 +503,7 @@ export default function Dashboard({ embedded: _embedded = false }: { embedded?: 
           <div className="flex flex-col gap-4 p-6">
             {dragOver && (
               <div className="rounded-xl border-2 border-dashed border-primary/40 bg-primary/5 p-5 text-center text-sm text-primary">
-                Drop .prose, .md, or .docx files to import
+                Drop files to import (.prose, .md, .docx, .xlsx, .xls, .csv, .pptx)
               </div>
             )}
 

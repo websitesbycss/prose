@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
-import { ZoomIn, ZoomOut, ChevronDown } from 'lucide-react'
+import { ZoomIn, ZoomOut, ChevronDown, Music, SlidersVertical } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
-import { useAppStore } from '@/store/appStore'
 import { cn } from '@/lib/utils'
 import type { Slide } from '@/types/slides'
 
@@ -14,6 +13,10 @@ interface Props {
   fitZoom: number   // computed fit % from canvas
   saveStatus: 'saved' | 'saving' | 'error' | 'unsaved'
   onZoomChange(zoom: number): void
+  nowPlaying?: string | null
+  ambientPlaying?: string | null
+  onMusicClick?(): void
+  onAmbientClick?(): void
 }
 
 const ZOOM_MIN = 25
@@ -132,10 +135,19 @@ function ZoomControls({ zoom, fitZoom, onZoomChange }: {
   )
 }
 
-export function SlidesStatusBar({ activeSlideIndex, totalSlides, activeSlide, zoom, fitZoom, saveStatus, onZoomChange }: Props): JSX.Element {
-  const nowPlaying = useAppStore((s) => s.nowPlaying)
-  const ambientPlaying = useAppStore((s) => s.ambientPlaying)
-
+export function SlidesStatusBar({
+  activeSlideIndex,
+  totalSlides,
+  activeSlide,
+  zoom,
+  fitZoom,
+  saveStatus,
+  onZoomChange,
+  nowPlaying,
+  ambientPlaying,
+  onMusicClick,
+  onAmbientClick,
+}: Props): JSX.Element {
   const [savedVisible, setSavedVisible] = useState(false)
   const [savedMounted, setSavedMounted] = useState(false)
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -181,13 +193,30 @@ export function SlidesStatusBar({ activeSlideIndex, totalSlides, activeSlide, zo
         )}
       </div>
 
-      {/* Right: media indicators + zoom + save */}
+      {/* Right: zoom, then music / ambient + save */}
       <div className="flex shrink-0 items-center gap-3">
-        {(nowPlaying || ambientPlaying) && (
-          <span className="text-[10px] text-primary">♫</span>
-        )}
-
         <ZoomControls zoom={zoom} fitZoom={fitZoom} onZoomChange={onZoomChange} />
+
+        {nowPlaying && (
+          <button
+            onClick={onMusicClick}
+            className="flex items-center gap-1 transition-colors hover:text-foreground"
+            title="Open music panel"
+          >
+            <Music className="h-2.5 w-2.5" />
+            {nowPlaying}
+          </button>
+        )}
+        {ambientPlaying && (
+          <button
+            onClick={onAmbientClick ?? onMusicClick}
+            className="flex items-center gap-1 transition-colors hover:text-foreground"
+            title="Open ambient mixer"
+          >
+            <SlidersVertical className="h-2.5 w-2.5" />
+            {ambientPlaying}
+          </button>
+        )}
 
         {/* Save status — only mounted while visible or fading, so it never reserves phantom space */}
         {(saveStatus === 'saving' || saveStatus === 'error' || saveStatus === 'unsaved' || savedMounted) && (

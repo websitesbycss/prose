@@ -7,6 +7,8 @@ import { upsertIndex, removeFromIndex, getIndexRow, getAllIndexRows, IndexRow } 
 import { isSheetContent, countSheetCells, createInitialSheetContent } from '../lib/sheetContent'
 import { isBoardContent, countBoardElements, createInitialBoardContent } from '../lib/boardContent'
 import { isSlidesContent, countSlidesInContent, createInitialSlidesContent } from '../lib/slidesContent'
+import { parseSpreadsheetFile } from '../lib/spreadsheetImport'
+import { parsePptxFile } from '../ipc/slidesImport'
 
 // ── .prose file schema ────────────────────────────────────────────────────────
 
@@ -615,6 +617,92 @@ export async function importDocxFile(filePath: string): Promise<ProseFileDocumen
     created_at: now,
     updated_at: now,
     file_type: 'document',
+  })
+  return doc
+}
+
+export async function importSpreadsheetFile(filePath: string): Promise<ProseFileDocument> {
+  const content = await parseSpreadsheetFile(filePath)
+  const titleFromFilename = basename(filePath, extname(filePath))
+  const id = randomUUID()
+  const now = new Date().toISOString()
+  const folder = getDocumentsFolder()
+  await mkdir(folder, { recursive: true })
+
+  let doc: ProseFileDocument = {
+    version: PROSE_FILE_VERSION,
+    id,
+    title: titleFromFilename,
+    fileType: 'sheet',
+    format: 'none',
+    content,
+    headerContent: null,
+    footerContent: null,
+    pageMargins: null,
+    wordCountGoal: null,
+    categoryId: null,
+    createdAt: now,
+    updatedAt: now,
+    citations: [],
+    snapshots: [],
+  }
+
+  const { filePath: destPath, resolvedTitle } = await generateUniqueFilePath(doc.title, folder)
+  if (resolvedTitle !== doc.title) doc = { ...doc, title: resolvedTitle }
+  await writeProseFile(destPath, doc)
+  upsertIndex({
+    id,
+    title: doc.title,
+    file_path: destPath,
+    format: doc.format,
+    word_count: countSheetCells(content),
+    category_id: null,
+    created_at: now,
+    updated_at: now,
+    file_type: 'sheet',
+  })
+  return doc
+}
+
+export async function importPptxFile(filePath: string): Promise<ProseFileDocument> {
+  const parsed = await parsePptxFile(filePath)
+  const content = JSON.parse(parsed.content) as unknown
+  const id = randomUUID()
+  const now = new Date().toISOString()
+  const folder = getDocumentsFolder()
+  await mkdir(folder, { recursive: true })
+
+  let doc: ProseFileDocument = {
+    version: PROSE_FILE_VERSION,
+    id,
+    title: parsed.title,
+    fileType: 'slides',
+    format: 'none',
+    content,
+    headerContent: null,
+    footerContent: null,
+    pageMargins: null,
+    wordCountGoal: null,
+    categoryId: null,
+    createdAt: now,
+    updatedAt: now,
+    citations: [],
+    snapshots: [],
+  }
+
+  const { filePath: destPath, resolvedTitle } = await generateUniqueFilePath(doc.title, folder)
+  if (resolvedTitle !== doc.title) doc = { ...doc, title: resolvedTitle }
+  await writeProseFile(destPath, doc)
+  upsertIndex({
+    id,
+    title: doc.title,
+    file_path: destPath,
+    format: doc.format,
+    word_count: isSlidesContent(content) ? countSlidesInContent(content) : 0,
+    category_id: null,
+    created_at: now,
+    updated_at: now,
+    file_type: 'slides',
   })
   return doc
 }

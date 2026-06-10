@@ -1,10 +1,39 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron'
 import { extname } from 'path'
-import { importProseFile, importMarkdownFile, importDocxFile, resolveDocument, type ProseFileDocument } from '../services/fileService'
+import {
+  importProseFile,
+  importMarkdownFile,
+  importDocxFile,
+  importSpreadsheetFile,
+  importPptxFile,
+  resolveDocument,
+  type ProseFileDocument,
+} from '../services/fileService'
 import { getAllIndexRows } from '../services/indexDb'
 import { validateImportFilePath } from '../lib/pathValidation'
 
-const IMPORT_EXTS = ['.prose', '.md', '.markdown', '.docx']
+const IMPORT_EXTS = [
+  '.prose',
+  '.md',
+  '.markdown',
+  '.docx',
+  '.xlsx',
+  '.xls',
+  '.csv',
+  '.pptx',
+  '.ppt',
+]
+
+const IMPORT_DIALOG_FILTERS: Electron.FileFilter[] = [
+  {
+    name: 'All supported',
+    extensions: ['prose', 'md', 'markdown', 'docx', 'xlsx', 'xls', 'csv', 'pptx', 'ppt'],
+  },
+  { name: 'Prose files', extensions: ['prose'] },
+  { name: 'Documents', extensions: ['md', 'markdown', 'docx'] },
+  { name: 'Spreadsheets', extensions: ['xlsx', 'xls', 'csv'] },
+  { name: 'Presentations', extensions: ['pptx', 'ppt'] },
+]
 
 function docToOut(doc: ProseFileDocument) {
   return {
@@ -27,6 +56,8 @@ async function importOneFile(filePath: string): Promise<ProseFileDocument> {
   if (ext === '.prose') return importProseFile(filePath)
   if (ext === '.md' || ext === '.markdown') return importMarkdownFile(filePath)
   if (ext === '.docx') return importDocxFile(filePath)
+  if (ext === '.xlsx' || ext === '.xls' || ext === '.csv') return importSpreadsheetFile(filePath)
+  if (ext === '.pptx' || ext === '.ppt') return importPptxFile(filePath)
   throw new Error(`Unsupported file type: ${ext}`)
 }
 
@@ -43,13 +74,8 @@ export function registerImportHandlers(): void {
     } else {
       const win = BrowserWindow.fromWebContents(event.sender) ?? BrowserWindow.getFocusedWindow()
       const result = await dialog.showOpenDialog(win!, {
-        title: 'Import documents',
-        filters: [
-          { name: 'Supported formats', extensions: ['prose', 'md', 'markdown', 'docx'] },
-          { name: 'Prose documents', extensions: ['prose'] },
-          { name: 'Markdown files', extensions: ['md', 'markdown'] },
-          { name: 'Word documents', extensions: ['docx'] },
-        ],
+        title: 'Import files',
+        filters: IMPORT_DIALOG_FILTERS,
         properties: ['openFile', 'multiSelections'],
       })
       if (result.canceled || !result.filePaths.length) return { imported: [], errors: [] }
