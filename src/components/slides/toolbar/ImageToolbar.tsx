@@ -79,8 +79,8 @@ export function ImageToolbar({ element, onUpdate }: Props): JSX.Element {
         trigger={
           <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1">
             <BorderColorIcon className="leading-none" />
-            <span className="mt-0.5 h-1 w-4 rounded-sm border border-border/40"
-              style={{ backgroundColor: borderWidth > 0 ? borderColor : 'transparent' }} />
+            <span className="mt-0.5 h-1 w-4 rounded-sm border border-neutral-300 dark:border-neutral-600"
+              style={{ backgroundColor: borderWidth > 0 ? borderColor : 'transparent', borderColor: borderWidth > 0 ? borderColor : undefined }} />
           </Button>
         }
       >

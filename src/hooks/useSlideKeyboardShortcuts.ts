@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import type { Slide, SlideElement } from '@/types/slides'
+import type { Slide, SlideElement, SlideMaster } from '@/types/slides'
 import type { SlideHistory } from './useSlideHistory'
 
 interface Params {
@@ -7,6 +7,8 @@ interface Params {
   activeSlideIndex: number
   selectedIds: string[]
   history: SlideHistory
+  masterRef: React.MutableRefObject<SlideMaster>
+  setMaster(m: SlideMaster): void
   elementClipboard: React.MutableRefObject<SlideElement[]>
   setSlides(slides: Slide[]): void
   setSelectedIds(ids: string[]): void
@@ -56,6 +58,8 @@ export function useSlideKeyboardShortcuts({
   activeSlideIndex,
   selectedIds,
   history,
+  masterRef,
+  setMaster,
   elementClipboard,
   setSlides,
   setSelectedIds,
@@ -64,11 +68,13 @@ export function useSlideKeyboardShortcuts({
 }: Params): void {
   const paramsRef = useRef({
     slides, activeSlideIndex, selectedIds, history,
+    masterRef, setMaster,
     elementClipboard, setSlides, setSelectedIds, scheduleSave, onSave,
   })
   useEffect(() => {
     paramsRef.current = {
       slides, activeSlideIndex, selectedIds, history,
+      masterRef, setMaster,
       elementClipboard, setSlides, setSelectedIds, scheduleSave, onSave,
     }
   })
@@ -83,21 +89,21 @@ export function useSlideKeyboardShortcuts({
       if (!slide) return
 
       const changeSlide = (updater: (s: Slide) => Slide): void => {
-        p.history.push(p.slides)
+        p.history.push(p.slides, p.masterRef.current)
         p.setSlides(updateActiveSlide(p.slides, p.activeSlideIndex, updater))
         p.scheduleSave()
       }
 
       if (e.ctrlKey && !e.shiftKey && e.key === 'z') {
         e.preventDefault()
-        const prev = p.history.undo(p.slides)
-        if (prev) { p.setSlides(prev); p.setSelectedIds([]) }
+        const prev = p.history.undo(p.slides, p.masterRef.current)
+        if (prev) { p.setSlides(prev.slides); p.setMaster(prev.master); p.setSelectedIds([]) }
         return
       }
       if (e.ctrlKey && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) {
         e.preventDefault()
-        const next = p.history.redo(p.slides)
-        if (next) { p.setSlides(next); p.setSelectedIds([]) }
+        const next = p.history.redo(p.slides, p.masterRef.current)
+        if (next) { p.setSlides(next.slides); p.setMaster(next.master); p.setSelectedIds([]) }
         return
       }
       if (e.ctrlKey && e.key === 's') {

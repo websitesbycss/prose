@@ -7,6 +7,7 @@ import { MarqueeSelection } from './MarqueeSelection'
 import { SlideGridOverlay } from '../SlideGridOverlay'
 import { useCanvasDrag } from './useCanvasDrag'
 import { ShapeElementRenderer } from '../elements/ShapeElementRenderer'
+import { renderSlideElement } from '../elements/renderSlideElement'
 import type { HandleType, ElementMove, ElementResize, ElementRotate, MarqueeRect } from './types'
 
 export type CanvasToolMode = 'select' | 'text' | 'shape' | 'image' | 'table' | 'equation' | 'code' | 'video'
@@ -323,7 +324,7 @@ export function SlideCanvas({
         }}
         onMouseDown={handleCanvasMouseDown}
       >
-        <SlideBackground background={slide.background} theme={theme} />
+        <SlideBackground background={slide.background ?? master?.background} theme={theme} />
 
         {/* Master elements (non-interactive, rendered at z=0) */}
         {master?.elements.map((mel) => (
@@ -333,23 +334,13 @@ export function SlideCanvas({
               position: 'absolute',
               left: `${mel.x}%`, top: `${mel.y}%`,
               width: `${mel.width}%`, height: `${mel.height}%`,
+              transform: `rotate(${mel.rotate ?? 0}deg) scaleX(${mel.flipH ? -1 : 1}) scaleY(${mel.flipV ? -1 : 1})`,
+              transformOrigin: 'center center',
               zIndex: 0, pointerEvents: 'none', overflow: 'hidden',
+              opacity: mel.opacity ?? 1,
             }}
           >
-            {mel.type === 'logo' && mel.src && (
-              <img src={mel.src} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-            )}
-            {mel.type === 'footer' && (
-              <div style={{
-                width: '100%', height: '100%', display: 'flex', alignItems: 'center',
-                fontSize: (mel.fontSize ?? 16) * scale,
-                color: mel.color ?? theme.textColor,
-                textAlign: mel.align ?? 'left',
-                fontFamily: 'Inter',
-              }}>
-                {mel.content}
-              </div>
-            )}
+            {renderSlideElement(mel, scale, true)}
           </div>
         ))}
 

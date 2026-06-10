@@ -701,22 +701,48 @@
 .prose-excalidraw-root .library-menu-items-container__header--excal ~ * { display: none !important; }
 .prose-excalidraw-root .library-menu-browse-button { display: none !important; }
 .prose-excalidraw-root .library-menu-items__no-items__hint { display: none !important; }
-/* Board left sidebar: allow Excalidraw's native properties panel to overflow into the
-   sidebar panel area. The CSS translateX moves the panel so it renders at x=42px
-   (right of the icon rail) which is the sidebar panel area. */
-.prose-board-sidebar-open .excalidraw {
-  overflow: visible !important;
-}
+/* Properties panel: hidden when board sidebar is closed. */
+.prose-excalidraw-root .selected-shape-actions { display: none !important; }
+/* When sidebar is open: fixed position inside the sidebar at a stable location. */
 .prose-board-sidebar-open .selected-shape-actions {
-  transform: translateX(calc(26px - var(--board-sidebar-width, 270px))) !important;
-  max-width: calc(var(--board-sidebar-width, 270px) - 42px) !important;
+  display: block !important;
+  position: fixed !important;
+  left: 44px !important;
+  top: 80px !important;
+  transform: none !important;
+  max-width: 270px !important;
   margin-left: 0 !important;
-  align-self: flex-start !important;
+  align-self: auto !important;
+  z-index: 5 !important;
+  font-family: 'Geist Sans', system-ui, sans-serif !important;
+}
+.prose-board-sidebar-open .selected-shape-actions * {
+  font-family: 'Geist Sans', system-ui, sans-serif !important;
 }
 /* Remove Island card background so properties panel blends into the sidebar. */
 .prose-board-sidebar-open .selected-shape-actions .Island {
   background: transparent !important;
   box-shadow: none !important;
+}
+
+/* Library button/panel — hide completely (library not used in Prose). */
+.prose-excalidraw-root .sidebar__dock-trigger { display: none !important; }
+.prose-excalidraw-root [data-testid="sidebar-library"] { display: none !important; }
+.prose-excalidraw-root .sidebar { display: none !important; }
+
+/* Help dialog: hide external link buttons (Documentation, Blog, Issues, YouTube). */
+.prose-excalidraw-root .HelpDialog__footer { display: none !important; }
+/* Also target the header link group that appears in some Excalidraw versions. */
+.prose-excalidraw-root .HelpDialog .help-island-button { display: none !important; }
+
+/* Help dialog: keyboard shortcut key chips — use Prose accent instead of purple. */
+.prose-excalidraw-root .HelpDialog kbd,
+.prose-excalidraw-root .HelpDialog .key,
+.prose-excalidraw-root .ShortcutsDialog kbd {
+  background-color: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+  border-color: hsl(var(--border)) !important;
+  font-family: 'Geist Sans', system-ui, sans-serif !important;
 }
 
 .document-tab__label {

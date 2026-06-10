@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Home, Plus, X, FileText, LayoutGrid, LayoutPanelLeft, GalleryHorizontal } from 'lucide-react'
+import { Home, Plus, X, FileText, Table2, Shapes, PanelLeft } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -11,10 +11,17 @@ import type { OpenDocumentTab } from '@/store/appStore'
 
 const TAB_TYPE_ICONS = {
   document: FileText,
-  sheet: LayoutGrid,
-  board: LayoutPanelLeft,
-  slides: GalleryHorizontal,
+  sheet: Table2,
+  board: Shapes,
+  slides: PanelLeft,
 } as const
+
+const TAB_TYPE_STROKE_WIDTH: Record<string, number> = {
+  document: 1.75,
+  sheet: 2.5,
+  board: 2,
+  slides: 2,
+}
 
 interface DocumentTabBarProps {
   activeDocumentId?: string | null
@@ -50,7 +57,7 @@ interface DragInfo {
 
 function TabContent({
   tab,
-  active,
+  active: _active,
   editing,
   draftTitle,
   onDraftChange,
@@ -92,7 +99,7 @@ function TabContent({
   const TypeIcon = TAB_TYPE_ICONS[fileType] ?? FileText
   return (
     <span className="document-tab__label">
-      <TypeIcon className="h-3 w-3 shrink-0 opacity-50" />
+      <TypeIcon className="h-3 w-3 shrink-0 opacity-50" strokeWidth={TAB_TYPE_STROKE_WIDTH[fileType] ?? 2} />
       <span className="document-tab__title">{tab.title}</span>
       {fileType === 'document' && formatLabel && <span className="document-tab__format">{formatLabel}</span>}
     </span>
@@ -390,7 +397,7 @@ export function DocumentTabBar({
 
           <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
             <PopoverTrigger asChild>
-              <button type="button" className="document-tab-strip__new" title="Open document">
+              <button type="button" className="document-tab-strip__new" title="Open file">
                 <Plus className="h-4 w-4" />
               </button>
             </PopoverTrigger>

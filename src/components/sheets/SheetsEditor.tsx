@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils'
 import { useMusicContext } from '@/contexts/MusicContext'
 import { AMBIENT_LAYERS } from '@/hooks/useMusic'
 import { useIsActiveTab } from '@/hooks/useIsActiveTab'
+import SettingsModal from '@/components/settings/SettingsModal'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -119,6 +120,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
   const isActive = useIsActiveTab(documentId)
   const { document: doc, saveStatus, notifySaveStatus } = useDocument(documentId)
   const workbookRef = useRef<WorkbookInstance | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const aiPanelOpen = useAppStore((s) => s.aiPanelOpen)
   const theme = useAppStore((s) => s.theme)
   const setPendingAiPrompt = useAppStore((s) => s.setPendingAiPrompt)
@@ -406,6 +408,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
           onFormulaBarCommit={commitFormulaBar}
           onFormatChange={scheduleSave}
           documentId={documentId}
+          onSettingsOpen={() => setSettingsOpen(true)}
         />
 
         {/* Grid + AI panel row */}
@@ -459,6 +462,10 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
           ambientPlaying={ambientPlaying}
         />
       </div>
+
+      {settingsOpen && (
+        <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      )}
     </TooltipProvider>
   )
 }

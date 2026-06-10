@@ -36,10 +36,13 @@ interface Props {
   onFind?(): void
   onToggleGrid?(): void
   gridActive?: boolean
+  onSettingsOpen?(): void
   pendingShapeType?: ShapeType | null
   pendingTableConfig?: { cols: number; rows: number } | null
   editingElementId?: string | null
   tableSelectedCells?: string[]
+  slideBackgroundColor?: string
+  onSlideBackground?(color: string): void
 }
 
 function getSelectionType(slide: Slide, selectedIds: string[]): 'none' | 'multi' | SlideElement['type'] {
@@ -54,9 +57,10 @@ export function SlidesToolbar({
   canUndo, canRedo, onUndo, onRedo,
   onBackground, onUpdateElement, onAlignElements,
   onInsertShape, onInsertTable, onInsertImage, onPresent, onEditMaster, onExport, onFind,
-  onToggleGrid, gridActive,
+  onToggleGrid, gridActive, onSettingsOpen,
   pendingShapeType, pendingTableConfig,
   editingElementId, tableSelectedCells = [],
+  slideBackgroundColor, onSlideBackground,
 }: Props): JSX.Element {
   const selType = getSelectionType(slide, selectedIds)
   const singleElement = selType !== 'none' && selType !== 'multi'
@@ -83,6 +87,8 @@ export function SlidesToolbar({
         onInsertImage={onInsertImage}
         pendingShapeType={pendingShapeType}
         pendingTableConfig={pendingTableConfig}
+        slideBackgroundColor={slideBackgroundColor}
+        onSlideBackground={onSlideBackground}
       />
 
       {/* Contextual section */}
@@ -151,6 +157,7 @@ export function SlidesToolbar({
         onSlidesMaster={onEditMaster}
         onSlidesToggleGrid={onToggleGrid}
         slidesGridActive={gridActive}
+        onSettingsOpen={onSettingsOpen}
       />
     </div>
   )

@@ -44,8 +44,8 @@ export const SlideThumbnail = memo(function SlideThumbnail({
   return (
     <div
       className={cn(
-        'flex cursor-pointer flex-col items-center gap-1 rounded-sm px-2 py-1.5',
-        isActive && 'bg-accent/60',
+        'flex cursor-pointer flex-col items-center gap-1 rounded-sm px-2 pt-2 pb-1',
+        isActive && 'bg-accent dark:bg-white/15',
         isDragOver && 'bg-primary/10',
       )}
       onMouseDown={onMouseDown}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { FileText, LayoutGrid, LayoutPanelLeft, GalleryHorizontal, X } from 'lucide-react'
+import { FileText, Table2, Shapes, PanelLeft, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import NewDocumentModal from '@/components/dashboard/NewDocumentModal'
 import { useAppStore } from '@/store/appStore'
@@ -93,19 +93,19 @@ function TypePickerModal({
     },
     {
       type: 'sheet',
-      Icon: LayoutGrid,
+      Icon: Table2,
       label: 'Sheet',
       description: 'Organize data, run calculations, and analyze numbers.',
     },
     {
       type: 'board',
-      Icon: LayoutPanelLeft,
+      Icon: Shapes,
       label: 'Board',
       description: 'Map your ideas, files, and notes on an infinite canvas.',
     },
     {
       type: 'slides',
-      Icon: GalleryHorizontal,
+      Icon: PanelLeft,
       label: 'Slides',
       description: 'Create presentations with slides, shapes, images, and AI-generated content.',
     },

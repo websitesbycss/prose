@@ -1,8 +1,10 @@
-import { MousePointer2, Type, Shapes, Image, Table2, Sigma, Code2, Video, Palette, Undo2, Redo2 } from 'lucide-react'
+import { MousePointer2, Type, Shapes, Image, Table2, Sigma, Code2, Video, Palette, Undo2, Redo2, PaintBucket } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
 import { ShapePickerPopover } from './ShapePickerPopover'
 import { TablePickerPopover } from './TablePickerPopover'
+import { ChromeColorPicker } from '@/components/ui/ChromeColorPicker'
+import { ColorPickerDropdown } from './ToolbarShared'
 import { cn } from '@/lib/utils'
 import type { ShapeType } from '@/types/slides'
 
@@ -21,9 +23,46 @@ interface Props {
   onInsertImage?(): void
   pendingShapeType?: ShapeType | null
   pendingTableConfig?: { cols: number; rows: number } | null
+  slideBackgroundColor?: string
+  onSlideBackground?(color: string): void
 }
 
-export function DefaultToolbar({ toolMode, onToolMode, canUndo, canRedo, onUndo, onRedo, onBackground, onInsertShape, onInsertTable, onInsertImage, pendingShapeType, pendingTableConfig }: Props): JSX.Element {
+const BG_PALETTE = [
+  '#ffffff', '#f8fafc', '#f1f5f9', '#e2e8f0',
+  '#1e293b', '#0f172a', '#18181b', '#09090b',
+  '#fef9c3', '#fce7f3', '#ede9fe', '#dcfce7',
+]
+
+function SlideBackgroundButton({ color, onChange }: { color: string; onChange: (c: string) => void }): JSX.Element {
+  return (
+    <ColorPickerDropdown
+      tooltip="Slide background"
+      trigger={
+        <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1">
+          <PaintBucket className="h-3.5 w-3.5 leading-none" />
+          <span
+            className="mt-0.5 h-1 w-4 rounded-sm border border-neutral-300 dark:border-neutral-600"
+            style={{ backgroundColor: color }}
+          />
+        </Button>
+      }
+    >
+      {(close) => (
+        <ChromeColorPicker
+          color={color}
+          current={color}
+          palette={BG_PALETTE}
+          onChange={onChange}
+          onPaletteSelect={onChange}
+          onReset={() => { onChange('#ffffff'); close() }}
+          resetLabel="Reset background"
+        />
+      )}
+    </ColorPickerDropdown>
+  )
+}
+
+export function DefaultToolbar({ toolMode, onToolMode, canUndo, canRedo, onUndo, onRedo, onBackground, onInsertShape, onInsertTable, onInsertImage, pendingShapeType, pendingTableConfig, slideBackgroundColor, onSlideBackground }: Props): JSX.Element {
   return (
     <div className="flex items-center gap-0.5">
       {/* Undo / Redo */}
@@ -140,6 +179,13 @@ export function DefaultToolbar({ toolMode, onToolMode, canUndo, canRedo, onUndo,
         </TooltipTrigger>
         <TooltipContent side="bottom" className="text-xs">Presentation theme</TooltipContent>
       </Tooltip>
+
+      {onSlideBackground && (
+        <SlideBackgroundButton
+          color={slideBackgroundColor ?? '#ffffff'}
+          onChange={onSlideBackground}
+        />
+      )}
     </div>
   )
 }

@@ -212,8 +212,8 @@ export function TableEditToolbar({ element, selectedCells, onUpdateElement }: Pr
         tooltip="Text color"
         trigger={
           <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1" disabled={!hasSel}>
-            <span className="text-[11px] font-bold leading-none" style={{ fontFamily: 'serif' }}>A</span>
-            <span className="mt-0.5 h-1 w-4 rounded-sm" style={{ backgroundColor: cellStyle.color ?? '#1a1a1a' }} />
+            <span className="text-[15px] font-normal leading-[14px] w-4 text-center" style={{ fontFamily: 'serif' }}>A</span>
+            <span className="mt-[5px] h-1 w-4 rounded-sm border border-neutral-300 dark:border-neutral-600" style={{ backgroundColor: cellStyle.color ?? '#1a1a1a', borderColor: cellStyle.color ?? '#1a1a1a' }} />
           </Button>
         }
       >
@@ -271,8 +271,8 @@ export function TableEditToolbar({ element, selectedCells, onUpdateElement }: Pr
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5">
               <path d="M20 14c-.092 1.853-1.486 4.785-3.315 6.585C15.743 21.517 14.881 22 14 22s-1.743-.483-2.685-1.415C9.486 18.785 8.092 15.853 8 14c0-3.314 2.686-6 6-6s6 2.686 6 6zM16.243 5.757l-1.414-1.414-9.9 9.9 1.415 1.414zm-4.484-2.828L4.222 10.465l1.414 1.414 7.536-7.536z"/>
             </svg>
-            <span className="mt-0.5 h-1 w-4 rounded-sm border border-border/40"
-              style={{ backgroundColor: fillColor === 'transparent' ? undefined : fillColor }} />
+            <span className="mt-0.5 h-1 w-4 rounded-sm border border-neutral-300 dark:border-neutral-600"
+              style={{ backgroundColor: fillColor === 'transparent' ? undefined : fillColor, borderColor: fillColor !== 'transparent' ? fillColor : undefined }} />
           </Button>
         }
       >
@@ -295,8 +295,8 @@ export function TableEditToolbar({ element, selectedCells, onUpdateElement }: Pr
         trigger={
           <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1" disabled={!hasSel}>
             <BorderColorIcon className="leading-none" />
-            <span className="mt-0.5 h-1 w-4 rounded-sm border border-border/40"
-              style={{ backgroundColor: borderW > 0 ? borderColor : 'transparent' }} />
+            <span className="mt-0.5 h-1 w-4 rounded-sm border border-neutral-300 dark:border-neutral-600"
+              style={{ backgroundColor: borderW > 0 ? borderColor : 'transparent', borderColor: borderW > 0 ? borderColor : undefined }} />
           </Button>
         }
       >

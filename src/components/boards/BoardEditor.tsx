@@ -172,8 +172,7 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
   const setMusicPanelTab = useAppStore((s) => s.setMusicPanelTab)
   const boardSidebarOpen = useAppStore((s) => s.boardSidebarOpen)
   const setBoardSidebarOpen = useAppStore((s) => s.setBoardSidebarOpen)
-  const settingsOpen = useAppStore((s) => s.settingsOpen)
-  const setSettingsOpen = useAppStore((s) => s.setSettingsOpen)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   // Sidebar width — persisted to localStorage
   const [boardSidebarWidth, setBoardSidebarWidth] = useState(() => {
@@ -276,7 +275,7 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
     saveTimerRef.current = setTimeout(() => void flushAndSave(), AUTO_SAVE_DEBOUNCE_MS)
   }, [flushAndSave])
 
-  // Ctrl+S / Cmd+S — flush immediately
+  // Ctrl+S / Cmd+S — flush immediately; Ctrl+F — block (disabled for boards)
   useEffect(() => {
     if (!isActive) return
     function onKeyDown(e: KeyboardEvent) {
@@ -284,9 +283,13 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
         e.preventDefault()
         void flushAndSave()
       }
+      if (e.key === 'f' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault()
+        e.stopPropagation()
+      }
     }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
+    window.addEventListener('keydown', onKeyDown, { capture: true })
+    return () => window.removeEventListener('keydown', onKeyDown, { capture: true })
   }, [isActive, flushAndSave])
 
   // Flush any pending save on unmount — prevents blank board when switching tabs
@@ -533,6 +536,7 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
           canvasZoom={canvasZoom}
           onCanvasZoomChange={handleCanvasZoomChange}
           onAddFileCard={addFileCard}
+          onSettingsOpen={() => setSettingsOpen(true)}
         />
         <div className="flex flex-1 overflow-hidden">
           {sidebar}
@@ -558,6 +562,7 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
         canvasZoom={canvasZoom}
         onCanvasZoomChange={handleCanvasZoomChange}
         onAddFileCard={addFileCard}
+        onSettingsOpen={() => setSettingsOpen(true)}
       />
 
       <div className="flex flex-1 overflow-hidden">

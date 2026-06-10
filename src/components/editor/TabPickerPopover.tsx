@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Search, Pin, FileText, Table2, Shapes, Plus, GalleryHorizontal } from 'lucide-react'
+import { Search, Pin, FileText, Table2, Shapes, Plus, PanelLeft } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { loadPinnedIds } from '@/lib/pinnedDocs'
@@ -12,7 +12,7 @@ const FILE_TYPE_ICONS: Record<FileType, React.FC<{ className?: string }>> = {
   document: FileText,
   sheet: Table2,
   board: Shapes,
-  slides: GalleryHorizontal,
+  slides: PanelLeft,
 }
 
 interface TabPickerPopoverProps {
@@ -111,7 +111,7 @@ export function TabPickerPopover({ onOpenDocument, onNewDocument }: TabPickerPop
           <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
             autoFocus
-            placeholder="Search documents…"
+            placeholder="Search files…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="h-8 pl-7 text-xs"
@@ -167,7 +167,7 @@ export function TabPickerPopover({ onOpenDocument, onNewDocument }: TabPickerPop
           onClick={onNewDocument}
         >
           <Plus className="h-3.5 w-3.5" />
-          New document
+          New file
         </button>
       </div>
     </div>

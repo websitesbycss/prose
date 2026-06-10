@@ -3,6 +3,7 @@ import {
   MousePointer2, Hand, Square, Diamond, Circle,
   ArrowRight, Minus, PenLine, Type, Eraser,
   PlusSquare, Search, ZoomIn, ZoomOut, ChevronDown,
+  FileText, Table2, Shapes, PanelLeft,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -137,16 +138,22 @@ function FilePickerPopover({ excalidrawAPI, onAddFileCard }: FilePickerProps): J
             {filtered.length === 0 && (
               <p className="px-3 py-2 text-xs text-muted-foreground">No files found</p>
             )}
-            {filtered.map((f) => (
-              <button
-                key={f.id}
-                className="w-full px-3 py-1.5 text-left text-xs hover:bg-accent"
-                onClick={() => handleSelectFile(f)}
-              >
-                <span className="font-medium">{f.title}</span>
-                <span className="ml-1.5 text-[10px] text-muted-foreground capitalize">{f.fileType}</span>
-              </button>
-            ))}
+            {filtered.map((f) => {
+              const FileIcon = f.fileType === 'sheet' ? Table2
+                : f.fileType === 'board' ? Shapes
+                : f.fileType === 'slides' ? PanelLeft
+                : FileText
+              return (
+                <button
+                  key={f.id}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-accent"
+                  onClick={() => handleSelectFile(f)}
+                >
+                  <FileIcon className="h-3 w-3 shrink-0 text-muted-foreground" />
+                  <span className="truncate font-medium">{f.title}</span>
+                </button>
+              )
+            })}
           </div>
         </div>
       )}
@@ -176,15 +183,17 @@ function BoardZoomControls({ zoom, onZoomChange }: { zoom: number; onZoomChange(
   }
 
   return (
-    <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+    <div className="flex items-center gap-0.5 text-[11px] text-muted-foreground">
       <Tooltip>
         <TooltipTrigger asChild>
-          <button
-            className="transition-colors hover:text-foreground"
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
             onClick={() => onZoomChange(clamp(zoom - BOARD_ZOOM_STEP))}
           >
-            <ZoomOut className="h-3 w-3" />
-          </button>
+            <ZoomOut className="h-3.5 w-3.5" />
+          </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom" className="text-xs">Zoom out</TooltipContent>
       </Tooltip>
@@ -203,12 +212,14 @@ function BoardZoomControls({ zoom, onZoomChange }: { zoom: number; onZoomChange(
       <div className="flex items-center gap-0.5">
         <Tooltip>
           <TooltipTrigger asChild>
-            <button
-              className="transition-colors hover:text-foreground"
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
               onClick={() => onZoomChange(clamp(zoom + BOARD_ZOOM_STEP))}
             >
-              <ZoomIn className="h-3 w-3" />
-            </button>
+              <ZoomIn className="h-3.5 w-3.5" />
+            </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom" className="text-xs">Zoom in</TooltipContent>
         </Tooltip>
@@ -264,6 +275,7 @@ interface BoardToolbarProps {
   canvasZoom: number
   onCanvasZoomChange: (pct: number) => void
   onAddFileCard: (fileId: string, fileType: string, title: string, wordCount: number, preview: string) => void
+  onSettingsOpen?: () => void
 }
 
 export function BoardToolbar({
@@ -274,6 +286,7 @@ export function BoardToolbar({
   canvasZoom,
   onCanvasZoomChange,
   onAddFileCard,
+  onSettingsOpen,
 }: BoardToolbarProps): JSX.Element {
   function setTool(type: ExcalidrawToolType) {
     if (!excalidrawAPI) return
@@ -307,9 +320,11 @@ export function BoardToolbar({
 
         <Separator orientation="vertical" className="mx-0.5 h-5" />
 
-        <FilePickerPopover excalidrawAPI={excalidrawAPI} onAddFileCard={onAddFileCard} />
+        <div className="flex items-center">
+          <FilePickerPopover excalidrawAPI={excalidrawAPI} onAddFileCard={onAddFileCard} />
+        </div>
 
-        <Separator orientation="vertical" className="mx-1.5 h-5" />
+        <Separator orientation="vertical" className="mx-0.5 h-5" />
 
         <BoardZoomControls zoom={canvasZoom} onZoomChange={onCanvasZoomChange} />
       </div>
@@ -322,6 +337,7 @@ export function BoardToolbar({
         documentId={documentId}
         documentTitle={documentTitle}
         excalidrawAPI={excalidrawAPI}
+        onSettingsOpen={onSettingsOpen}
       />
     </div>
   )

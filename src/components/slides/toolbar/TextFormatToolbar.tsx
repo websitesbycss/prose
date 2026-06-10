@@ -327,8 +327,8 @@ export function TextFormatToolbar({ element, onUpdate }: Props): JSX.Element {
         tooltip="Font color"
         trigger={
           <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1">
-            <span className="text-[11px] font-bold leading-none">A</span>
-            <span className="mt-0.5 h-1 w-4 rounded-sm" style={{ backgroundColor: element.color }} />
+            <span className="text-[15px] font-normal leading-[14px] w-4 text-center">A</span>
+            <span className="mt-[5px] h-1 w-4 rounded-sm border border-neutral-300 dark:border-neutral-600" style={{ backgroundColor: element.color, borderColor: element.color ?? undefined }} />
           </Button>
         }
       >
@@ -351,7 +351,7 @@ export function TextFormatToolbar({ element, onUpdate }: Props): JSX.Element {
         trigger={
           <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1">
             <PaintBucket className="h-3.5 w-3.5 leading-none" />
-            <span className="mt-0.5 h-1 w-4 rounded-sm border border-border/40" style={{ backgroundColor: element.fill ?? 'transparent' }} />
+            <span className="mt-0.5 h-1 w-4 rounded-sm border border-neutral-300 dark:border-neutral-600" style={{ backgroundColor: element.fill ?? 'transparent', borderColor: element.fill ?? undefined }} />
           </Button>
         }
       >
@@ -374,8 +374,8 @@ export function TextFormatToolbar({ element, onUpdate }: Props): JSX.Element {
         trigger={
           <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1">
             <BorderColorIcon className="leading-none" />
-            <span className="mt-0.5 h-1 w-4 rounded-sm border border-border/40"
-              style={{ backgroundColor: (element.border?.width ?? 0) > 0 ? (element.border?.color ?? 'transparent') : 'transparent' }} />
+            <span className="mt-0.5 h-1 w-4 rounded-sm border border-neutral-300 dark:border-neutral-600"
+              style={{ backgroundColor: (element.border?.width ?? 0) > 0 ? (element.border?.color ?? 'transparent') : 'transparent', borderColor: (element.border?.width ?? 0) > 0 ? (element.border?.color ?? undefined) : undefined }} />
           </Button>
         }
       >

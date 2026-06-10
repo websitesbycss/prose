@@ -207,8 +207,8 @@ function ColorPicker({
       tooltip="Font color"
       trigger={
         <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1">
-          <span className="text-[11px] font-bold leading-none">A</span>
-          <span className="mt-0.5 h-1 w-4 rounded-sm" style={{ backgroundColor: currentColor }} />
+          <span className="text-[15px] font-normal leading-[14px] w-4 text-center">A</span>
+          <span className="mt-[5px] h-1 w-4 rounded-sm border border-neutral-300 dark:border-neutral-600" style={{ backgroundColor: currentColor, borderColor: currentColor }} />
         </Button>
       }
     >
@@ -240,8 +240,8 @@ function HighlightPicker({
       trigger={
         <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1">
           <Highlighter className="h-3.5 w-3.5 leading-none" />
-          <span className="mt-0.5 h-1 w-4 rounded-sm border border-border/40"
-            style={{ backgroundColor: currentHighlight ?? 'transparent' }} />
+          <span className="mt-0.5 h-1 w-4 rounded-sm border border-neutral-300 dark:border-neutral-600"
+            style={{ backgroundColor: currentHighlight ?? 'transparent', borderColor: currentHighlight ?? undefined }} />
         </Button>
       }
     >
@@ -729,8 +729,8 @@ function CellFillPicker({
       trigger={
         <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1">
           <PaintBucket className="h-3.5 w-3.5 leading-none" />
-          <span className="mt-0.5 h-1 w-4 rounded-sm border border-border/40"
-            style={{ backgroundColor: currentFill ?? 'transparent' }} />
+          <span className="mt-0.5 h-1 w-4 rounded-sm border border-neutral-300 dark:border-neutral-600"
+            style={{ backgroundColor: currentFill ?? 'transparent', borderColor: currentFill ?? undefined }} />
         </Button>
       }
     >
@@ -768,8 +768,8 @@ function CellBorderColorPicker({
       trigger={
         <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1">
           <BorderColorIcon className="leading-none" />
-          <span className="mt-0.5 h-1 w-4 rounded-sm border border-border/40"
-            style={{ backgroundColor: currentColor ?? 'transparent' }} />
+          <span className="mt-0.5 h-1 w-4 rounded-sm border border-neutral-300 dark:border-neutral-600"
+            style={{ backgroundColor: currentColor ?? 'transparent', borderColor: currentColor ?? undefined }} />
         </Button>
       }
     >
@@ -907,8 +907,8 @@ function ImageBorderColorPicker({
       trigger={
         <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1">
           <BorderColorIcon className="leading-none" />
-          <span className="mt-0.5 h-1 w-4 rounded-sm border border-border/40"
-            style={{ backgroundColor: currentColor ?? 'transparent' }} />
+          <span className="mt-0.5 h-1 w-4 rounded-sm border border-neutral-300 dark:border-neutral-600"
+            style={{ backgroundColor: currentColor ?? 'transparent', borderColor: currentColor ?? undefined }} />
         </Button>
       }
     >

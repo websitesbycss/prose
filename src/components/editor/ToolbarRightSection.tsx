@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import {
   Sun, Moon, Sparkles, Music, MoreHorizontal,
   Search, Download, Maximize2, Settings,
-  RotateCcw, Trash2, HelpCircle, Grid3X3,
+  RotateCcw, Trash2, HelpCircle, Grid3X3, LayoutTemplate,
 } from 'lucide-react'
 import { BoardExportModal } from '@/components/boards/BoardExportModal'
 import { Button } from '@/components/ui/button'
@@ -61,6 +61,7 @@ interface ThreeDotsProps {
   documentMargins?: PageMargins | null
   onFindOpen?: () => void
   onFocusMode?: () => void
+  onSettingsOpen?: () => void
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   excalidrawAPI?: any
   // Slides-specific
@@ -79,6 +80,7 @@ function ThreeDotsMenu({
   documentMargins,
   onFindOpen,
   onFocusMode,
+  onSettingsOpen,
   excalidrawAPI,
   onSlidesFind,
   onSlidesExport,
@@ -204,9 +206,8 @@ function ThreeDotsMenu({
 
             {fileType === 'sheet' && (
               <>
-                <MenuItem icon={Download} label="Export as XLSX" onClick={() => setOpen(false)} />
-                <MenuItem icon={Download} label="Export as CSV" onClick={() => setOpen(false)} />
-                <MenuItem icon={Download} label="Export as PDF" onClick={() => setOpen(false)} />
+                <MenuItem icon={Download} label="Export…" onClick={() => setOpen(false)} />
+                <MenuItem icon={Settings} label="Settings" onClick={() => { setOpen(false); onSettingsOpen?.() }} />
               </>
             )}
 
@@ -216,31 +217,23 @@ function ThreeDotsMenu({
                   <MenuItem icon={Search} label="Find in presentation" shortcut="Ctrl+F" onClick={() => { setOpen(false); onSlidesFind() }} />
                 )}
                 {onSlidesExport && (
-                  <MenuItem icon={Download} label="Export (PPTX / PDF / PNG)…" onClick={() => { setOpen(false); onSlidesExport() }} />
+                  <MenuItem icon={Download} label="Export…" onClick={() => { setOpen(false); onSlidesExport() }} />
                 )}
                 {onSlidesPresent && (
                   <MenuItem icon={Maximize2} label="Enter presentation mode" shortcut="F5" onClick={() => { setOpen(false); onSlidesPresent() }} />
                 )}
                 {onSlidesMaster && (
-                  <MenuItem icon={Settings} label="Edit slide master" onClick={() => { setOpen(false); onSlidesMaster() }} />
+                  <MenuItem icon={LayoutTemplate} label="Edit slide master" onClick={() => { setOpen(false); onSlidesMaster() }} />
                 )}
                 {onSlidesToggleGrid && (
                   <MenuItem icon={Grid3X3} label={slidesGridActive ? 'Hide grid' : 'Show grid'} onClick={() => { setOpen(false); onSlidesToggleGrid() }} />
                 )}
+                <MenuItem icon={Settings} label="Settings" onClick={() => { setOpen(false); onSettingsOpen?.() }} />
               </>
             )}
 
             {fileType === 'board' && (
               <>
-                <MenuItem
-                  icon={Search}
-                  label="Find in canvas"
-                  shortcut="Ctrl+F"
-                  onClick={() => {
-                    setOpen(false)
-                    if (excalidrawAPI) excalidrawAPI.updateScene({ appState: { openDialog: { name: 'search' } } })
-                  }}
-                />
                 <MenuItem
                   icon={HelpCircle}
                   label="Keyboard shortcuts"
@@ -256,6 +249,7 @@ function ThreeDotsMenu({
                   label="Export…"
                   onClick={() => { setOpen(false); setBoardExportOpen(true) }}
                 />
+                <MenuItem icon={Settings} label="Settings" onClick={() => { setOpen(false); onSettingsOpen?.() }} />
               </>
             )}
 
@@ -305,6 +299,7 @@ export interface ToolbarRightSectionProps {
   documentMargins?: PageMargins | null
   onFindOpen?: () => void
   onFocusMode?: () => void
+  onSettingsOpen?: () => void
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   excalidrawAPI?: any
   onSlidesFind?: () => void
@@ -322,6 +317,7 @@ export function ToolbarRightSection({
   documentMargins,
   onFindOpen,
   onFocusMode,
+  onSettingsOpen,
   excalidrawAPI,
   onSlidesFind,
   onSlidesExport,
@@ -406,6 +402,7 @@ export function ToolbarRightSection({
         documentMargins={documentMargins}
         onFindOpen={onFindOpen}
         onFocusMode={onFocusMode}
+        onSettingsOpen={onSettingsOpen}
         excalidrawAPI={excalidrawAPI}
         onSlidesFind={onSlidesFind}
         onSlidesExport={onSlidesExport}

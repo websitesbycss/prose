@@ -514,7 +514,7 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
                     </span>
                   </SettingRow>
                   <Separator />
-                  <SettingRow label="Disk usage" description={storageInfo ? `${storageInfo.documentCount} document${storageInfo.documentCount !== 1 ? 's' : ''}` : undefined}>
+                  <SettingRow label="Disk usage" description={storageInfo ? `${storageInfo.documentCount} file${storageInfo.documentCount !== 1 ? 's' : ''}` : undefined}>
                     <span className="text-xs text-muted-foreground">
                       {storageInfo ? formatBytes(storageInfo.totalBytes) : '—'}
                     </span>
@@ -551,8 +551,7 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
                       <span className="text-xs text-muted-foreground">Version 0.1.0</span>
                     </div>
                     <p className="text-xs text-muted-foreground leading-relaxed">
-                      A focused, fully (ish) offline document editor for Windows with a local AI assistant.
-                      No account, no subscription, no data leaves your machine.
+                      A focused, fully offline productivity app for Windows. Write documents, crunch numbers in sheets, map ideas on boards, and build presentations. Local AI assistant included. No account, no subscription, no data leaves your machine.
                     </p>
                     <div className="flex flex-col gap-2">
                       <a
@@ -570,7 +569,7 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
                       </a>
                     </div>
                     <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                      MIT License — free to use, modify, and distribute
+                      MIT License. Free to use, modify, and distribute.
                     </div>
                   </div>
                 </>

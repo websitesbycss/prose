@@ -60,6 +60,7 @@ interface SheetToolbarProps {
   onFormulaBarCommit: () => void
   onFormatChange: () => void
   documentId: string | null
+  onSettingsOpen?: () => void
 }
 
 // ── Shared portal color picker dropdown ──────────────────────────────────────
@@ -282,6 +283,7 @@ export function SheetToolbar({
   onFormulaBarCommit,
   onFormatChange,
   documentId,
+  onSettingsOpen,
 }: SheetToolbarProps) {
   const theme = useAppStore((s) => s.theme)
   const wb = () => workbookRef.current
@@ -402,8 +404,8 @@ export function SheetToolbar({
           tooltip="Font color"
           trigger={
             <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1">
-              <span className="text-[11px] font-bold leading-none">A</span>
-              <span className="mt-0.5 h-1 w-4 rounded-sm" style={{ backgroundColor: state.textColor }} />
+              <span className="text-[15px] font-normal leading-[14px] w-4 text-center">A</span>
+              <span className="mt-[5px] h-1 w-4 rounded-sm border border-neutral-300 dark:border-neutral-600" style={{ backgroundColor: state.textColor, borderColor: state.textColor ?? undefined }} />
             </Button>
           }
         >
@@ -427,8 +429,8 @@ export function SheetToolbar({
             <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1">
               <PaintBucket className="h-3.5 w-3.5 leading-none" />
               <span
-                className="mt-0.5 h-1 w-4 rounded-sm border border-border/40"
-                style={{ backgroundColor: state.bgColor !== '#ffffff' ? state.bgColor : 'transparent' }}
+                className="mt-0.5 h-1 w-4 rounded-sm border border-neutral-300 dark:border-neutral-600"
+                style={{ backgroundColor: state.bgColor !== '#ffffff' ? state.bgColor : 'transparent', borderColor: state.bgColor !== '#ffffff' ? state.bgColor : undefined }}
               />
             </Button>
           }
@@ -581,7 +583,7 @@ export function SheetToolbar({
       </div>
 
       {/* Persistent right section */}
-      <ToolbarRightSection fileType="sheet" documentId={documentId} />
+      <ToolbarRightSection fileType="sheet" documentId={documentId} onSettingsOpen={onSettingsOpen} />
     </div>
   )
 }

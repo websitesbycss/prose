@@ -227,7 +227,7 @@ export default function App(): JSX.Element {
         <ErrorBoundary label="Dashboard">
           <div className="flex h-screen flex-col bg-background">
             <DashboardTabBar />
-            <div className="min-h-0 flex-1">
+            <div className="min-h-0 flex-1 overflow-hidden">
               <Dashboard embedded={openTabs.length > 0} />
             </div>
           </div>

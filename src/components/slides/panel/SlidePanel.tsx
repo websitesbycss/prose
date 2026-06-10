@@ -76,7 +76,7 @@ export function SlidePanel({
   return (
     <div className="flex h-full w-[180px] shrink-0 flex-col border-r border-border bg-background">
       {/* Slide list */}
-      <div ref={listRef} className="flex-1 overflow-y-auto py-2">
+      <div ref={listRef} className="flex-1 overflow-y-auto py-1">
         {slides.map((slide, idx) => (
           <div key={slide.id} data-slide-idx={idx} className="relative">
             {/* Drop indicator above */}
