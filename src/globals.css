@@ -696,39 +696,52 @@
 .prose-excalidraw-root .main-menu-trigger { display: none !important; }
 /* Help dialog external link buttons (Documentation / Blog / Issues / YouTube). */
 .prose-excalidraw-root .HelpDialog__header { display: none !important; }
+.HelpDialog__header { display: none !important; }
 /* Library panel: Excalidraw Library heading, its items, the Browse button, and hint text. */
 .prose-excalidraw-root .library-menu-items-container__header--excal { display: none !important; }
 .prose-excalidraw-root .library-menu-items-container__header--excal ~ * { display: none !important; }
 .prose-excalidraw-root .library-menu-browse-button { display: none !important; }
 .prose-excalidraw-root .library-menu-items__no-items__hint { display: none !important; }
-/* Properties panel: hidden when board sidebar is closed. */
-.prose-excalidraw-root .selected-shape-actions { display: none !important; }
-/* When sidebar is open: fixed position inside the sidebar at a stable location. */
+/* Properties panel: hidden by default. */
+.prose-excalidraw-root .selected-shape-actions {
+  display: none !important;
+}
+/* When sidebar is open: show at 2px from left edge, below title+toolbar. */
 .prose-board-sidebar-open .selected-shape-actions {
   display: block !important;
   position: fixed !important;
-  left: 44px !important;
-  top: 80px !important;
-  transform: none !important;
-  max-width: 270px !important;
-  margin-left: 0 !important;
-  align-self: auto !important;
-  z-index: 5 !important;
+  left: 2px !important;
+  top: 136px !important;
+  width: 200px !important;
+  pointer-events: auto !important;
+  z-index: 20 !important;
   font-family: 'Geist Sans', system-ui, sans-serif !important;
+}
+/* Scrollbar — match Prose's global scrollbar style. */
+.prose-board-sidebar-open .selected-shape-actions::-webkit-scrollbar { width: 6px; }
+.prose-board-sidebar-open .selected-shape-actions::-webkit-scrollbar-track { background: transparent; }
+.prose-board-sidebar-open .selected-shape-actions::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--border));
+  border-radius: 9999px;
+}
+.prose-board-sidebar-open .selected-shape-actions::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--muted-foreground) / 0.5);
 }
 .prose-board-sidebar-open .selected-shape-actions * {
   font-family: 'Geist Sans', system-ui, sans-serif !important;
 }
-/* Remove Island card background so properties panel blends into the sidebar. */
+/* Remove Island card background + strip its top padding to close the gap above "Stroke". */
 .prose-board-sidebar-open .selected-shape-actions .Island {
   background: transparent !important;
   box-shadow: none !important;
+  padding-top: 4px !important;
 }
 
 /* Library button/panel — hide completely (library not used in Prose). */
 .prose-excalidraw-root .sidebar__dock-trigger { display: none !important; }
 .prose-excalidraw-root [data-testid="sidebar-library"] { display: none !important; }
 .prose-excalidraw-root .sidebar { display: none !important; }
+.prose-excalidraw-root .layer-ui__wrapper__top-right { display: none !important; }
 
 /* Help dialog: hide external link buttons (Documentation, Blog, Issues, YouTube). */
 .prose-excalidraw-root .HelpDialog__footer { display: none !important; }
@@ -738,10 +751,13 @@
 /* Help dialog: keyboard shortcut key chips — use Prose accent instead of purple. */
 .prose-excalidraw-root .HelpDialog kbd,
 .prose-excalidraw-root .HelpDialog .key,
-.prose-excalidraw-root .ShortcutsDialog kbd {
-  background-color: hsl(var(--accent)) !important;
-  color: hsl(var(--accent-foreground)) !important;
-  border-color: hsl(var(--border)) !important;
+.prose-excalidraw-root .HelpDialog .HelpDialog__key,
+.prose-excalidraw-root .ShortcutsDialog kbd,
+.HelpDialog kbd,
+.HelpDialog .key,
+.HelpDialog .HelpDialog__key,
+.ShortcutsDialog kbd {
+  background-color: hsl(var(--primary) / 0.3) !important;
   font-family: 'Geist Sans', system-ui, sans-serif !important;
 }
 

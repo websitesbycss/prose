@@ -68,7 +68,7 @@ type PageSize    = 'Letter' | 'A4' | 'Legal'
 type Orientation = 'portrait' | 'landscape'
 type Scale       = '1' | '2' | '3'
 
-const DEFAULT_MARGINS: PageMargins = { top: 0.5, right: 0.5, bottom: 0.5, left: 0.5 }
+const DEFAULT_MARGINS: PageMargins = { top: 0, right: 0, bottom: 0, left: 0 }
 
 function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -224,7 +224,7 @@ export function BoardExportModal({
             appState:      { ...appState, exportBackground: background },
             files,
             mimeType:      'image/png',
-            getDimensions: (w, h) => ({ width: w, height: h, scale: sc }),
+            getDimensions: (w, h) => ({ width: w * sc, height: h * sc, scale: 1 }),
           })
           if (gen !== previewGenRef.current) return
           const url        = URL.createObjectURL(blob)
@@ -238,7 +238,7 @@ export function BoardExportModal({
             appState:      { ...appState, exportBackground: background },
             files,
             mimeType:      'image/png',
-            getDimensions: (w, h) => ({ width: w, height: h, scale: 3 }),
+            getDimensions: (w, h) => ({ width: w * 3, height: h * 3, scale: 1 }),
           })
           if (gen !== previewGenRef.current) return
           const dataUrl        = await blobToDataUrl(blob)
@@ -274,7 +274,7 @@ export function BoardExportModal({
           appState:      { ...appState, exportBackground: background },
           files,
           mimeType:      'image/png',
-          getDimensions: (w, h) => ({ width: w, height: h, scale: sc }),
+          getDimensions: (w, h) => ({ width: w * sc, height: h * sc, scale: 1 }),
         })
         const url = URL.createObjectURL(blob)
         const a   = document.createElement('a')
@@ -288,7 +288,7 @@ export function BoardExportModal({
           appState:      { ...appState, exportBackground: background },
           files,
           mimeType:      'image/png',
-          getDimensions: (w, h) => ({ width: w, height: h, scale: 3 }),
+          getDimensions: (w, h) => ({ width: w * 3, height: h * 3, scale: 1 }),
         })
         const dataUrl      = await blobToDataUrl(blob)
         const [imgW, imgH] = await getImageDimensions(dataUrl)

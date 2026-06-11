@@ -236,7 +236,7 @@ function BoardZoomControls({ zoom, onZoomChange }: { zoom: number; onZoomChange(
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">Set zoom level</TooltipContent>
           </Tooltip>
-          <PopoverContent className="w-20 p-1" side="bottom" align="end" onOpenAutoFocus={(e) => e.preventDefault()}>
+          <PopoverContent className="w-20 p-1" side="bottom" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
             <Input
               className="mb-1 h-7 w-full text-center text-xs focus-visible:ring-1 focus-visible:ring-offset-0"
               value={draft}
@@ -250,7 +250,7 @@ function BoardZoomControls({ zoom, onZoomChange }: { zoom: number; onZoomChange(
               {BOARD_ZOOM_PRESETS.map((p) => (
                 <button
                   key={p}
-                  className="rounded px-2 py-0.5 text-right text-xs hover:bg-accent"
+                  className="rounded px-2 py-0.5 text-left text-xs hover:bg-accent"
                   onClick={() => { onZoomChange(p); setOpen(false) }}
                 >
                   {p}%

@@ -308,6 +308,7 @@ export function SlideCanvas({
         justifyContent: zoom > 0 ? 'flex-start' : 'center',
         overflow: zoom > 0 ? 'auto' : 'hidden',
         padding: zoom > 0 ? 24 : 0,
+        backgroundColor: 'hsl(var(--editor-canvas))',
       }}
     >
       <div

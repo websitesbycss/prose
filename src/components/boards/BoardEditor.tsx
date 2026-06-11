@@ -1,5 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { Excalidraw, MainMenu } from '@excalidraw/excalidraw'
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore — no type declarations for CSS side-effect import
 import '@excalidraw/excalidraw/index.css'
 import { motion, AnimatePresence } from 'motion/react'
 import {
@@ -174,35 +176,7 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
   const setBoardSidebarOpen = useAppStore((s) => s.setBoardSidebarOpen)
   const [settingsOpen, setSettingsOpen] = useState(false)
 
-  // Sidebar width — persisted to localStorage
-  const [boardSidebarWidth, setBoardSidebarWidth] = useState(() => {
-    const v = localStorage.getItem('prose-board-sidebar-width')
-    return v ? Math.max(180, parseInt(v)) : 270
-  })
-  const boardSidebarWidthRef = useRef(boardSidebarWidth)
-  const boardSidebarDragRef = useRef<{ x: number; width: number } | null>(null)
-
-  useEffect(() => {
-    function onMouseMove(e: MouseEvent): void {
-      const d = boardSidebarDragRef.current
-      if (!d) return
-      const newW = Math.max(180, d.width + e.clientX - d.x)
-      setBoardSidebarWidth(newW)
-      boardSidebarWidthRef.current = newW
-      localStorage.setItem('prose-board-sidebar-width', String(newW))
-    }
-    function onMouseUp(): void {
-      boardSidebarDragRef.current = null
-      globalThis.document.body.style.cursor = ''
-      globalThis.document.body.style.userSelect = ''
-    }
-    globalThis.document.addEventListener('mousemove', onMouseMove)
-    globalThis.document.addEventListener('mouseup', onMouseUp)
-    return () => {
-      globalThis.document.removeEventListener('mousemove', onMouseMove)
-      globalThis.document.removeEventListener('mouseup', onMouseUp)
-    }
-  }, [])
+  const boardSidebarWidth = 240
 
   // Track active Excalidraw tool for toolbar highlighting
   const [activeToolType, setActiveToolType] = useState('selection')
@@ -299,8 +273,9 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
   }, [flushAndSave])
 
   // Parse initial board content ───────────────────────────────────────────────
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [initialData, setInitialData] = useState<{
-    elements: unknown[]
+    elements: any[]
     appState: Record<string, unknown>
   } | null>(null)
   const initialLoadedRef = useRef(false)
@@ -311,7 +286,8 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
     try {
       const raw = typeof doc.content === 'string' ? JSON.parse(doc.content) : doc.content
       if (isBoardContent(raw)) {
-        setInitialData({ elements: raw.elements ?? [], appState: raw.appState ?? {} })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setInitialData({ elements: (raw.elements ?? []) as any[], appState: raw.appState ?? {} })
       } else {
         setInitialData({ elements: [], appState: {} })
       }
@@ -453,7 +429,7 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
       {/* Panel content — empty state or transparent (native panel renders through via CSS) */}
       <div className="flex-1 overflow-hidden">
         <AnimatePresence mode="wait">
-          {boardSidebarOpen && !hasSelection && (
+          {boardSidebarOpen && !hasSelection && (activeToolType === 'selection' || activeToolType === 'hand' || activeToolType === 'eraser') && (
             <motion.div
               key="empty"
               className="flex h-full flex-col items-center justify-center gap-3 px-4 text-center"
@@ -496,17 +472,6 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
         </button>
       </div>
 
-      {/* Drag handle */}
-      {boardSidebarOpen && (
-        <div
-          className="absolute right-0 top-0 h-full w-1 cursor-col-resize transition-colors hover:bg-primary/30 z-10"
-          onMouseDown={(e) => {
-            boardSidebarDragRef.current = { x: e.clientX, width: boardSidebarWidth }
-            globalThis.document.body.style.cursor = 'col-resize'
-            globalThis.document.body.style.userSelect = 'none'
-          }}
-        />
-      )}
     </aside>
   )
 
@@ -572,7 +537,7 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
         <div
           className={cn(
             'prose-excalidraw-root flex min-h-0 flex-1',
-            boardSidebarOpen && 'prose-board-sidebar-open',
+            boardSidebarOpen && isActive && 'prose-board-sidebar-open',
           )}
           style={{ '--board-sidebar-width': `${boardSidebarWidth}px` } as React.CSSProperties}
         >
