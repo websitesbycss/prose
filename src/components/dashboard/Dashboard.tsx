@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import {
   Plus, Search, Settings, X, Upload, FileText, Pin,
   ArrowRight, FolderOpen,
-  Table2, Shapes, PanelLeft, LayoutGrid, List, MoreHorizontal, ChevronDown,
+  Table2, Shapes, GalleryVerticalEnd, LayoutGrid, List, MoreHorizontal, ChevronDown,
   Sun, Moon,
 } from 'lucide-react'
 import type { FileType } from '@/types'
@@ -72,7 +72,7 @@ const TYPE_CONFIG = {
     darkColor: '#fbbf24',
     lightBg: 'rgba(217,119,6,.09)',
     darkBg: 'rgba(251,191,36,.13)',
-    Icon: PanelLeft,
+    Icon: GalleryVerticalEnd,
     newLabel: 'New slideshow',
     newDesc: 'Presentations with slides, shapes, and images',
     continueLabel: 'Continue presenting',

@@ -3,7 +3,7 @@ import {
   MousePointer2, Hand, Square, Diamond, Circle,
   ArrowRight, Minus, PenLine, Type, Eraser,
   PlusSquare, Search, ZoomIn, ZoomOut, ChevronDown,
-  FileText, Table2, Shapes, PanelLeft,
+  FileText, Table2, Shapes, GalleryVerticalEnd,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -141,7 +141,7 @@ function FilePickerPopover({ excalidrawAPI, onAddFileCard }: FilePickerProps): J
             {filtered.map((f) => {
               const FileIcon = f.fileType === 'sheet' ? Table2
                 : f.fileType === 'board' ? Shapes
-                : f.fileType === 'slides' ? PanelLeft
+                : f.fileType === 'slides' ? GalleryVerticalEnd
                 : FileText
               return (
                 <button

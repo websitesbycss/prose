@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { FileText, Table2, Shapes, PanelLeft, X } from 'lucide-react'
+import { FileText, Table2, Shapes, GalleryVerticalEnd, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import NewDocumentModal from '@/components/dashboard/NewDocumentModal'
 import { useAppStore } from '@/store/appStore'
@@ -105,7 +105,7 @@ function TypePickerModal({
     },
     {
       type: 'slides',
-      Icon: PanelLeft,
+      Icon: GalleryVerticalEnd,
       label: 'Slides',
       description: 'Create presentations with slides, shapes, images, and AI-generated content.',
     },

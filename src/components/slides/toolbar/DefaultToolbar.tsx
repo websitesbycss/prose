@@ -1,4 +1,4 @@
-import { MousePointer2, Type, Shapes, Image, Table2, Sigma, Code2, Video, Palette, Undo2, Redo2, PaintBucket } from 'lucide-react'
+import { MousePointer2, Type, Shapes, Image, Table2, Sigma, Code2, Video, Palette, Undo2, Redo2, RectangleHorizontal } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
 import { ShapePickerPopover } from './ShapePickerPopover'
@@ -39,7 +39,7 @@ function SlideBackgroundButton({ color, onChange }: { color: string; onChange: (
       tooltip="Slide background"
       trigger={
         <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1">
-          <PaintBucket className="h-3.5 w-3.5 leading-none" />
+          <RectangleHorizontal className="h-3.5 w-3.5 leading-none" />
           <span
             className="mt-0.5 h-1 w-4 rounded-sm border border-neutral-300 dark:border-neutral-600"
             style={{ backgroundColor: color }}

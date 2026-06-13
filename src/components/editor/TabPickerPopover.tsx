@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Search, Pin, FileText, Table2, Shapes, Plus, PanelLeft } from 'lucide-react'
+import { Search, Pin, FileText, Table2, Shapes, Plus, GalleryVerticalEnd } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { loadPinnedIds } from '@/lib/pinnedDocs'
@@ -12,7 +12,7 @@ const FILE_TYPE_ICONS: Record<FileType, React.FC<{ className?: string }>> = {
   document: FileText,
   sheet: Table2,
   board: Shapes,
-  slides: PanelLeft,
+  slides: GalleryVerticalEnd,
 }
 
 interface TabPickerPopoverProps {

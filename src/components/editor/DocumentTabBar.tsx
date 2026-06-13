@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Home, Plus, X, FileText, Table2, Shapes, PanelLeft } from 'lucide-react'
+import { Home, Plus, X, FileText, Table2, Shapes, GalleryVerticalEnd } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -13,7 +13,7 @@ const TAB_TYPE_ICONS = {
   document: FileText,
   sheet: Table2,
   board: Shapes,
-  slides: PanelLeft,
+  slides: GalleryVerticalEnd,
 } as const
 
 const TAB_TYPE_STROKE_WIDTH: Record<string, number> = {
