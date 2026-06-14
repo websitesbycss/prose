@@ -19,9 +19,9 @@ import { applyAccentColors, LIGHT_PRESETS, DARK_PRESETS, DEFAULT_LIGHT_ACCENT, D
 import { ChromeColorPicker } from '@/components/ui/ChromeColorPicker'
 import type { AppSettings, StorageInfo, PageMargins } from '@/types'
 import { PAGE_MARGIN_MIN_IN, PAGE_MARGIN_MAX_IN } from '@/constants'
-import { Palette, PenLine, Sparkles, Timer, Info, ExternalLink, HardDrive, FileText, X, Plus } from 'lucide-react'
+import { Palette, PenLine, Sparkles, Timer, Info, ExternalLink, HardDrive, FileText, X, Plus, LayoutTemplate } from 'lucide-react'
 
-type Section = 'page' | 'appearance' | 'writing' | 'ai' | 'pomodoro' | 'storage' | 'about'
+type Section = 'page' | 'slides' | 'appearance' | 'writing' | 'ai' | 'pomodoro' | 'storage' | 'about'
 
 const BASE_SECTIONS: { id: Section; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'appearance', label: 'Appearance', icon: Palette },
@@ -33,8 +33,9 @@ const BASE_SECTIONS: { id: Section; label: string; icon: React.ComponentType<{ c
 ]
 
 const PAGE_SECTION = { id: 'page' as Section, label: 'Page', icon: FileText }
+const SLIDES_SECTION = { id: 'slides' as Section, label: 'Slides', icon: LayoutTemplate }
 
-const FONT_FAMILIES = ['Calibri', 'Times New Roman', 'Georgia', 'Arial', 'Helvetica', 'Courier New']
+const FONT_FAMILIES = ['Calibri', 'Times New Roman', 'Georgia', 'Arial', 'Courier New']
 const FONT_SIZES = [10, 11, 12, 14, 16, 18, 24]
 const FORMATS = [
   { value: 'none', label: 'None' },
@@ -51,6 +52,7 @@ interface SettingsModalProps {
   pageMargins?: PageMargins
   onPageMarginsChange?: (margins: PageMargins) => void
   onWordListChange?: (words: string[]) => void
+  isSlides?: boolean
 }
 
 function SettingRow({ label, description, children }: {
@@ -71,16 +73,20 @@ function SettingRow({ label, description, children }: {
   )
 }
 
-export default function SettingsModal({ open, onClose, documentId, pageMargins, onPageMarginsChange, onWordListChange }: SettingsModalProps): JSX.Element {
+export default function SettingsModal({ open, onClose, documentId, pageMargins, onPageMarginsChange, onWordListChange, isSlides }: SettingsModalProps): JSX.Element {
   const theme = useAppStore((s) => s.theme)
   const setTheme = useAppStore((s) => s.setTheme)
 
-  const sections = documentId ? [PAGE_SECTION, ...BASE_SECTIONS] : BASE_SECTIONS
-  const [section, setSection] = useState<Section>(() => documentId ? 'page' : 'appearance')
+  const sections = isSlides
+    ? [SLIDES_SECTION, ...BASE_SECTIONS]
+    : documentId
+    ? [PAGE_SECTION, ...BASE_SECTIONS]
+    : BASE_SECTIONS
+  const [section, setSection] = useState<Section>(() => isSlides ? 'slides' : documentId ? 'page' : 'appearance')
 
   useEffect(() => {
-    if (open) setSection(documentId ? 'page' : 'appearance')
-  }, [open, documentId])
+    if (open) setSection(isSlides ? 'slides' : documentId ? 'page' : 'appearance')
+  }, [open, documentId, isSlides])
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [models, setModels] = useState<string[]>([])
   const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null)
@@ -184,6 +190,63 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
                     Applies to this document only. Changes take effect immediately.
                   </p>
                   <PageMarginsEditor margins={pageMargins} onChange={onPageMarginsChange} />
+                </>
+              )}
+
+              {section === 'slides' && settings && (
+                <>
+                  <SectionTitle>Slides</SectionTitle>
+                  <p className="mb-3 text-xs text-muted-foreground">
+                    Settings for the Slides editor. Changes apply to all presentations.
+                  </p>
+                  <div className="mt-1 mb-1">
+                    <SectionTitle>Snapping</SectionTitle>
+                  </div>
+                  <SettingRow
+                    label="Enable snapping"
+                    description="Smart guides and magnetic alignment while dragging and resizing"
+                  >
+                    <Switch
+                      checked={settings.slidesSnapEnabled ?? true}
+                      onCheckedChange={(v) => void save({ slidesSnapEnabled: v })}
+                    />
+                  </SettingRow>
+                  <Separator />
+                  <SettingRow
+                    label="Snap to slide edges and center"
+                    description="Align elements to the slide boundary and its center axes"
+                  >
+                    <Switch
+                      checked={settings.slidesSnapToCanvas ?? true}
+                      onCheckedChange={(v) => void save({ slidesSnapToCanvas: v })}
+                      disabled={!(settings.slidesSnapEnabled ?? true)}
+                    />
+                  </SettingRow>
+                  <Separator />
+                  <SettingRow
+                    label="Snap to other elements"
+                    description="Align edges and centers of the dragged element to other elements on the slide"
+                  >
+                    <Switch
+                      checked={settings.slidesSnapToElements ?? true}
+                      onCheckedChange={(v) => void save({ slidesSnapToElements: v })}
+                      disabled={!(settings.slidesSnapEnabled ?? true)}
+                    />
+                  </SettingRow>
+                  <Separator />
+                  <SettingRow
+                    label="Equal spacing"
+                    description="Snap to positions that equalize gaps between elements, with spacing indicators"
+                  >
+                    <Switch
+                      checked={settings.slidesSnapEqualSpacing ?? true}
+                      onCheckedChange={(v) => void save({ slidesSnapEqualSpacing: v })}
+                      disabled={!(settings.slidesSnapEnabled ?? true)}
+                    />
+                  </SettingRow>
+                  <p className="mt-4 text-xs text-muted-foreground">
+                    Hold <kbd className="rounded border border-border bg-muted px-1 font-mono text-[10px]">Alt</kbd> while dragging to temporarily disable snapping.
+                  </p>
                 </>
               )}
 

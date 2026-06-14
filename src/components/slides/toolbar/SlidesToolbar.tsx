@@ -1,5 +1,10 @@
-import { Play } from 'lucide-react'
+import {
+  AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal,
+  AlignStartVertical, AlignCenterVertical, AlignEndVertical,
+  Play,
+} from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
+import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ToolbarRightSection } from '@/components/editor/ToolbarRightSection'
 import { DefaultToolbar } from './DefaultToolbar'
@@ -26,6 +31,7 @@ interface Props {
   onRedo(): void
   onBackground(e: React.MouseEvent): void
   onUpdateElement(id: string, partial: Partial<SlideElement>): void
+  onBatchUpdateElements(ids: string[], partial: Partial<SlideElement>): void
   onAlignElements(updates: AlignUpdate[]): void
   onInsertShape?(shapeType: ShapeType): void
   onInsertTable?(cols: number, rows: number): void
@@ -45,35 +51,71 @@ interface Props {
   onSlideBackground?(color: string): void
 }
 
-function getSelectionType(slide: Slide, selectedIds: string[]): 'none' | 'multi' | SlideElement['type'] {
-  if (selectedIds.length === 0) return 'none'
-  if (selectedIds.length > 1) return 'multi'
-  const el = slide.elements.find((e) => e.id === selectedIds[0])
-  return el?.type ?? 'none'
-}
+// Canvas alignment buttons — aligns a single element relative to the slide (0-100 coordinate space).
+const CANVAS_ALIGN_BUTTONS = [
+  { type: 'left'     as const, icon: AlignStartVertical,    label: 'Align left edge to slide' },
+  { type: 'center-h' as const, icon: AlignCenterVertical,   label: 'Center horizontally on slide' },
+  { type: 'right'    as const, icon: AlignEndVertical,      label: 'Align right edge to slide' },
+  { type: 'top'      as const, icon: AlignStartHorizontal,  label: 'Align top edge to slide' },
+  { type: 'center-v' as const, icon: AlignCenterHorizontal, label: 'Center vertically on slide' },
+  { type: 'bottom'   as const, icon: AlignEndHorizontal,    label: 'Align bottom edge to slide' },
+]
 
 export function SlidesToolbar({
   toolMode, onToolMode, slide, selectedIds, documentId, documentTitle,
   canUndo, canRedo, onUndo, onRedo,
-  onBackground, onUpdateElement, onAlignElements,
+  onBackground, onUpdateElement, onBatchUpdateElements, onAlignElements,
   onInsertShape, onInsertTable, onInsertImage, onPresent, onEditMaster, onExport, onFind,
   onToggleGrid, gridActive, onSettingsOpen,
   pendingShapeType, pendingTableConfig,
   editingElementId, tableSelectedCells = [],
   slideBackgroundColor, onSlideBackground,
 }: Props): JSX.Element {
-  const selType = getSelectionType(slide, selectedIds)
-  const singleElement = selType !== 'none' && selType !== 'multi'
-    ? slide.elements.find((e) => e.id === selectedIds[0])
-    : null
+  const selectedElements = slide.elements.filter((e) => selectedIds.includes(e.id))
+  const selCount = selectedIds.length
+  const singleElement = selCount === 1 ? selectedElements[0] : undefined
 
-  function updateEl(partial: Partial<SlideElement>) {
-    if (selectedIds[0]) onUpdateElement(selectedIds[0], partial)
+  // For multi-select: detect if all selected elements share the same type.
+  // If so, we show the corresponding style toolbar for bulk editing.
+  const multiSameType: SlideElement['type'] | null =
+    selCount >= 2 && selectedElements.every((e) => e.type === selectedElements[0]?.type)
+      ? (selectedElements[0]?.type ?? null)
+      : null
+
+  // The representative element drives the displayed values in the style toolbar.
+  // For single selection: the element itself. For same-type multi: the first selected.
+  const repElement: SlideElement | undefined = singleElement ?? (multiSameType ? selectedElements[0] : undefined)
+
+  // The element type to determine which style toolbar to render.
+  const styleType = repElement?.type ?? null
+
+  // Apply a property update to every selected element in one history entry.
+  function updateAll(partial: Partial<SlideElement>): void {
+    if (selCount === 1 && selectedIds[0]) {
+      onUpdateElement(selectedIds[0], partial)
+    } else if (selCount > 1) {
+      onBatchUpdateElements(selectedIds, partial)
+    }
+  }
+
+  // Snap a single element to one of six positions on the slide canvas.
+  function alignToCanvas(type: 'left' | 'center-h' | 'right' | 'top' | 'center-v' | 'bottom'): void {
+    const el = singleElement
+    if (!el) return
+    let x = el.x
+    let y = el.y
+    if      (type === 'left')     x = 0
+    else if (type === 'center-h') x = 50 - el.width / 2
+    else if (type === 'right')    x = 100 - el.width
+    else if (type === 'top')      y = 0
+    else if (type === 'center-v') y = 50 - el.height / 2
+    else if (type === 'bottom')   y = 100 - el.height
+    onAlignElements([{ id: el.id, x, y }])
   }
 
   return (
     <div className="flex h-10 shrink-0 items-center border-b border-border bg-background px-3 gap-2">
-      {/* Always-visible default toolbar */}
+      {/* Always-visible tool palette */}
       <DefaultToolbar
         toolMode={toolMode}
         onToolMode={onToolMode}
@@ -91,41 +133,66 @@ export function SlidesToolbar({
         onSlideBackground={onSlideBackground}
       />
 
-      {/* Contextual section */}
-      {selType !== 'none' && (
+      {selCount > 0 && (
         <>
           <Separator orientation="vertical" className="mx-0.5 h-5" />
-          {selType === 'multi' && (
+
+          {/* ── Canvas alignment (single element only) ── */}
+          {singleElement && (
+            <div className="flex items-center gap-0.5">
+              {CANVAS_ALIGN_BUTTONS.map(({ type, icon: Icon, label }) => (
+                <Tooltip key={type}>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => alignToCanvas(type)}>
+                      <Icon className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">{label}</TooltipContent>
+                </Tooltip>
+              ))}
+            </div>
+          )}
+
+          {/* ── Relative alignment + distribute (multi-select) ── */}
+          {selCount >= 2 && (
             <MultiSelectToolbar
               selectedIds={selectedIds}
               slide={slide}
               onAlignElements={onAlignElements}
             />
           )}
-          {selType === 'text' && singleElement && (
-            <TextFormatToolbar
-              element={singleElement as TextElement}
-              onUpdate={(p) => updateEl(p as Partial<SlideElement>)}
-            />
-          )}
-          {selType === 'shape' && singleElement && (
-            <ShapeStyleToolbar
-              element={singleElement as ShapeElement}
-              onUpdate={(p) => updateEl(p as Partial<SlideElement>)}
-            />
-          )}
-          {selType === 'image' && singleElement && (
-            <ImageToolbar
-              element={singleElement as ImageElement}
-              onUpdate={(p) => updateEl(p as Partial<SlideElement>)}
-            />
-          )}
-          {selType === 'table' && singleElement && editingElementId === selectedIds[0] && (
-            <TableEditToolbar
-              element={singleElement as TableElement}
-              selectedCells={tableSelectedCells}
-              onUpdateElement={(p) => updateEl(p as Partial<SlideElement>)}
-            />
+
+          {/* ── Element style toolbar (single OR same-type multi-select) ── */}
+          {styleType && repElement && (
+            <>
+              <Separator orientation="vertical" className="mx-0.5 h-5" />
+              {styleType === 'text' && (
+                <TextFormatToolbar
+                  element={repElement as TextElement}
+                  onUpdate={(p) => updateAll(p as Partial<SlideElement>)}
+                />
+              )}
+              {styleType === 'shape' && (
+                <ShapeStyleToolbar
+                  element={repElement as ShapeElement}
+                  onUpdate={(p) => updateAll(p as Partial<SlideElement>)}
+                />
+              )}
+              {styleType === 'image' && (
+                <ImageToolbar
+                  element={repElement as ImageElement}
+                  onUpdate={(p) => updateAll(p as Partial<SlideElement>)}
+                />
+              )}
+              {/* Table toolbar only when the table is actively being edited */}
+              {styleType === 'table' && singleElement && editingElementId === selectedIds[0] && (
+                <TableEditToolbar
+                  element={repElement as TableElement}
+                  selectedCells={tableSelectedCells}
+                  onUpdateElement={(p) => updateAll(p as Partial<SlideElement>)}
+                />
+              )}
+            </>
           )}
         </>
       )}

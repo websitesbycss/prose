@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
 import type { Slide } from '@/types/slides'
 
 interface Props {
@@ -68,21 +69,34 @@ export function MultiSelectToolbar({ selectedIds, slide, onAlignElements }: Prop
     onAlignElements(updates)
   }
 
-  const buttons: { type: Parameters<typeof align>[0]; icon: React.ComponentType<{ className?: string }>; label: string }[] = [
-    { type: 'left',     icon: AlignStartVertical,             label: 'Align left' },
-    { type: 'center-h', icon: AlignCenterVertical,            label: 'Align center (H)' },
-    { type: 'right',    icon: AlignEndVertical,               label: 'Align right' },
-    { type: 'top',      icon: AlignStartHorizontal,           label: 'Align top' },
-    { type: 'center-v', icon: AlignCenterHorizontal,          label: 'Align middle (V)' },
-    { type: 'bottom',   icon: AlignEndHorizontal,             label: 'Align bottom' },
-    { type: 'dist-h',   icon: AlignHorizontalDistributeCenter, label: 'Distribute horizontally' },
-    { type: 'dist-v',   icon: AlignVerticalDistributeCenter,   label: 'Distribute vertically' },
+  const alignButtons: { type: Parameters<typeof align>[0]; icon: React.ComponentType<{ className?: string }>; label: string }[] = [
+    { type: 'left',     icon: AlignStartVertical,   label: 'Align left edges' },
+    { type: 'center-h', icon: AlignCenterVertical,  label: 'Align centers (H)' },
+    { type: 'right',    icon: AlignEndVertical,     label: 'Align right edges' },
+    { type: 'top',      icon: AlignStartHorizontal, label: 'Align top edges' },
+    { type: 'center-v', icon: AlignCenterHorizontal, label: 'Align centers (V)' },
+    { type: 'bottom',   icon: AlignEndHorizontal,   label: 'Align bottom edges' },
+  ]
+  const distributeButtons: { type: Parameters<typeof align>[0]; icon: React.ComponentType<{ className?: string }>; label: string }[] = [
+    { type: 'dist-h', icon: AlignHorizontalDistributeCenter, label: 'Distribute horizontally' },
+    { type: 'dist-v', icon: AlignVerticalDistributeCenter,   label: 'Distribute vertically' },
   ]
 
   return (
     <div className="flex items-center gap-0.5">
       <span className="mr-1 text-[11px] text-muted-foreground">{selectedIds.length} selected</span>
-      {buttons.map(({ type, icon: Icon, label }) => (
+      {alignButtons.map(({ type, icon: Icon, label }) => (
+        <Tooltip key={type}>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => align(type)}>
+              <Icon className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">{label}</TooltipContent>
+        </Tooltip>
+      ))}
+      <Separator orientation="vertical" className="mx-0.5 h-5" />
+      {distributeButtons.map(({ type, icon: Icon, label }) => (
         <Tooltip key={type}>
           <TooltipTrigger asChild>
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => align(type)}>

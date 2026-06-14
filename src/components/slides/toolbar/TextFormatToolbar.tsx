@@ -15,7 +15,7 @@ import { useAppStore } from '@/store/appStore'
 import type { TextElement } from '@/types/slides'
 import { BorderColorIcon, BorderWeightPicker, ColorPickerDropdown } from './ToolbarShared'
 
-const FONT_FAMILIES = ['Inter', 'Calibri', 'Georgia', 'Times New Roman', 'Arial', 'Helvetica', 'Courier New', 'Monaco', 'Playfair Display']
+const FONT_FAMILIES = ['Calibri', 'Times New Roman', 'Georgia', 'Arial', 'Courier New']
 const FONT_SIZE_PRESETS = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72, 96]
 const LINE_HEIGHT_PRESETS = [1.0, 1.15, 1.5, 2.0]
 

@@ -51,6 +51,7 @@ export type DragState =
       centerXAbs: number  // abs px — center of element in viewport
       centerYAbs: number  // abs px
       currentAngle: number  // degrees
+      canvasRect: DOMRect   // needed for angle label positioning
     }
   | {
       type: 'marquee'

@@ -21,6 +21,8 @@ import type { Slide, SlideElement, SlidesContent, PresentationTheme, Presentatio
 import { deserializeSlides, createInitialSlidesContent, SLIDE_BASE_WIDTH, SLIDE_BASE_HEIGHT } from '@/types/slides'
 import type { ElementMove, ElementResize, ElementRotate } from './canvas/types'
 import type { CanvasToolMode } from './canvas/SlideCanvas'
+import type { SnapSettings } from './canvas/snapUtils'
+import type { AppSettings } from '@/types'
 import { PresentationMode } from './presentation/PresentationMode'
 import { SlidesExportModal } from './export/SlidesExportModal'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -122,6 +124,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   const [zoom, setZoom] = useState(0) // 0 = fit
   const [fitZoom, setFitZoom] = useState(100) // computed fit % from canvas
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [snapSettings, setSnapSettings] = useState<SnapSettings>({ enabled: true, toCanvas: true, toElements: true, equalSpacing: true })
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error' | 'unsaved'>('saved')
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
@@ -185,6 +188,22 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
     setSelectedIds([])
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc?.id])
+
+  // ── Snap settings ─────────────────────────────────────────────────────────────
+
+  const loadSnapSettings = useCallback((): void => {
+    void window.prose.settings.get().then((s) => {
+      const appSettings = s as AppSettings
+      setSnapSettings({
+        enabled: appSettings.slidesSnapEnabled ?? true,
+        toCanvas: appSettings.slidesSnapToCanvas ?? true,
+        toElements: appSettings.slidesSnapToElements ?? true,
+        equalSpacing: appSettings.slidesSnapEqualSpacing ?? true,
+      })
+    })
+  }, [])
+
+  useEffect(() => { loadSnapSettings() }, [loadSnapSettings])
 
   // ── Auto-save ─────────────────────────────────────────────────────────────────
 
@@ -360,6 +379,13 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
     }))
   }, [changeActiveSlide])
 
+  const handleBatchUpdateElements = useCallback((ids: string[], partial: Partial<SlideElement>): void => {
+    changeActiveSlide((s) => ({
+      ...s,
+      elements: s.elements.map((el) => (ids.includes(el.id) ? { ...el, ...partial } : el)),
+    }))
+  }, [changeActiveSlide])
+
   const handleAlignElements = useCallback((updates: { id: string; x: number; y: number }[]): void => {
     setSlides((prev) => {
       pushHistory(prev)
@@ -509,6 +535,13 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
     changeMaster((m) => ({
       ...m,
       elements: m.elements.map((el) => (el.id === id ? { ...el, ...partial } : el)),
+    }))
+  }, [changeMaster])
+
+  const handleMasterBatchUpdateElements = useCallback((ids: string[], partial: Partial<SlideElement>): void => {
+    changeMaster((m) => ({
+      ...m,
+      elements: m.elements.map((el) => (ids.includes(el.id) ? { ...el, ...partial } : el)),
     }))
   }, [changeMaster])
 
@@ -824,6 +857,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
         onRedo={handleRedo}
         onBackground={handleBackground}
         onUpdateElement={showMasterEditor ? handleMasterUpdateElement : handleUpdateElement}
+        onBatchUpdateElements={showMasterEditor ? handleMasterBatchUpdateElements : handleBatchUpdateElements}
         onAlignElements={showMasterEditor ? handleMasterAlignElements : handleAlignElements}
         onInsertShape={handleInsertShape}
         onInsertTable={handleInsertTable}
@@ -897,6 +931,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
             pendingShapeType={pendingShapeType}
             pendingTableConfig={pendingTableConfig}
             onTableCellSelect={setTableSelectedCells}
+            snapSettings={snapSettings}
           />
 
           <SpeakerNotesPanel
@@ -930,6 +965,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
               pendingShapeType={pendingShapeType}
               pendingTableConfig={pendingTableConfig}
               onTableCellSelect={setTableSelectedCells}
+              snapSettings={snapSettings}
             />
           )}
         </div>
@@ -998,7 +1034,11 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
       )}
 
       {settingsOpen && (
-        <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+        <SettingsModal
+          open={settingsOpen}
+          onClose={() => { setSettingsOpen(false); loadSnapSettings() }}
+          isSlides
+        />
       )}
     </div>
     </TooltipProvider>

@@ -76,6 +76,10 @@ export interface AppSettings {
   lightAccentColor?: string
   darkAccentColor?: string
   uiScale?: number
+  slidesSnapEnabled?: boolean
+  slidesSnapToCanvas?: boolean
+  slidesSnapToElements?: boolean
+  slidesSnapEqualSpacing?: boolean
 }
 
 export type OllamaStatus = 'ready' | 'loading' | 'unavailable'

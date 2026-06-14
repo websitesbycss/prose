@@ -4,6 +4,7 @@ import type { CanvasToolMode } from '../canvas/SlideCanvas'
 import type { SlideMaster, PresentationTheme, PresentationSettings, SlideElement, ShapeType } from '@/types/slides'
 import type { SlideToolMode } from '../toolbar/DefaultToolbar'
 import type { ElementMove, ElementResize, ElementRotate } from '../canvas/types'
+import type { SnapSettings } from '../canvas/snapUtils'
 
 interface Props {
   master: SlideMaster
@@ -29,6 +30,7 @@ interface Props {
   pendingShapeType?: ShapeType | null
   pendingTableConfig?: { cols: number; rows: number } | null
   onTableCellSelect?(cellIds: string[]): void
+  snapSettings?: SnapSettings
 }
 
 export function SlideMasterEditor({
@@ -40,6 +42,7 @@ export function SlideMasterEditor({
   onMarqueeSelect, onDrawElement,
   onClose, showGrid, zoom, onFitZoomChange,
   pendingShapeType, pendingTableConfig, onTableCellSelect,
+  snapSettings,
 }: Props): JSX.Element {
   // Create a fake Slide from master data so SlideCanvas can render it
   const masterSlide = {
@@ -91,6 +94,7 @@ export function SlideMasterEditor({
           pendingShapeType={pendingShapeType}
           pendingTableConfig={pendingTableConfig}
           onTableCellSelect={onTableCellSelect}
+          snapSettings={snapSettings}
         />
       </div>
     </div>

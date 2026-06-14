@@ -133,7 +133,6 @@ const FONT_FAMILIES = [
   'Times New Roman',
   'Georgia',
   'Arial',
-  'Helvetica',
   'Courier New',
 ]
 

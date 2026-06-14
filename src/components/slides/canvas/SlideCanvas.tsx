@@ -6,6 +6,10 @@ import { SlideElementWrapper } from './SlideElementWrapper'
 import { MarqueeSelection } from './MarqueeSelection'
 import { SlideGridOverlay } from '../SlideGridOverlay'
 import { useCanvasDrag } from './useCanvasDrag'
+import { SnapOverlay } from './SnapOverlay'
+import type { SnapOverlayHandle } from './SnapOverlay'
+import type { SnapHook } from './useCanvasDrag'
+import type { SnapSettings } from './snapUtils'
 import { ShapeElementRenderer } from '../elements/ShapeElementRenderer'
 import { renderSlideElement } from '../elements/renderSlideElement'
 import type { HandleType, ElementMove, ElementResize, ElementRotate, MarqueeRect } from './types'
@@ -36,6 +40,7 @@ interface Props {
   pendingShapeType?: ShapeType | null
   pendingTableConfig?: { cols: number; rows: number } | null
   onTableCellSelect?: (cellIds: string[]) => void
+  snapSettings?: SnapSettings
 }
 
 function getBaseSize(settings: PresentationSettings): { baseW: number; baseH: number } {
@@ -82,12 +87,27 @@ export function SlideCanvas({
   pendingShapeType,
   pendingTableConfig,
   onTableCellSelect,
+  snapSettings,
 }: Props): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
   const elementRefs = useRef<Map<string, HTMLDivElement>>(new Map())
   const slideRef = useRef(slide)
   useEffect(() => { slideRef.current = slide }, [slide])
+
+  // ── Snap engine ─────────────────────────────────────────────────────────────
+  const overlayRef = useRef<SnapOverlayHandle>(null)
+  const snapSelectedIdsRef = useRef(selectedIds)
+  useEffect(() => { snapSelectedIdsRef.current = selectedIds }, [selectedIds])
+  const snapSettingsRef = useRef<SnapSettings>(snapSettings ?? { enabled: true, toCanvas: true, toElements: true, equalSpacing: true })
+  useEffect(() => { snapSettingsRef.current = snapSettings ?? { enabled: true, toCanvas: true, toElements: true, equalSpacing: true } }, [snapSettings])
+
+  const snapHookRef = useRef<SnapHook>({
+    getSettings: () => snapSettingsRef.current,
+    getSlide: () => slideRef.current,
+    getSelectedIds: () => snapSelectedIdsRef.current,
+    getOverlay: () => overlayRef.current,
+  })
 
   const [canvasSize, setCanvasSize] = useState({ width: 960, height: 540 })
   const [marqueeRect, setMarqueeRect] = useState<MarqueeRect | null>(null)
@@ -149,6 +169,7 @@ export function SlideCanvas({
     onResizeElement,
     onRotateElement,
     onMarqueeSelect,
+    snapHookRef,
   })
 
   const handleElementMouseDown = useCallback((e: React.MouseEvent, id: string): void => {
@@ -164,13 +185,11 @@ export function SlideCanvas({
     const canvasRect = canvasRef.current!.getBoundingClientRect()
 
     // Build start positions for all elements that will be dragged.
-    // If shift-clicking to deselect, we won't drag. Drag only if element was already selected
-    // or becomes the sole selection.
     const dragIds = addToSelection
-      ? [id]  // only drag the newly added element on shift-click
+      ? [id]
       : selectedIds.includes(id)
-        ? selectedIds  // drag the whole multi-selection
-        : [id]         // drag just this newly selected element
+        ? selectedIds
+        : [id]
 
     const startPositions = new Map<string, { x: number; y: number; rotate: number; flipH: boolean; flipV: boolean }>()
     for (const eid of dragIds) {
@@ -209,20 +228,23 @@ export function SlideCanvas({
     const el = elementRefs.current.get(id)
     if (!el) return
     const rect = el.getBoundingClientRect()
+    const canvasRect = canvasRef.current!.getBoundingClientRect()
     const centerXAbs = rect.left + rect.width / 2
     const centerYAbs = rect.top + rect.height / 2
     const element = slideRef.current.elements.find((x) => x.id === id)
     const startAngle = element?.rotate ?? 0
-    startDrag({ type: 'rotate', elementId: id, centerXAbs, centerYAbs, currentAngle: startAngle })
+    startDrag({ type: 'rotate', elementId: id, centerXAbs, centerYAbs, currentAngle: startAngle, canvasRect })
   }, [startDrag])
 
   const drawStartRef = useRef<{ x: number; y: number } | null>(null)
 
-  const handleCanvasMouseDown = useCallback((e: React.MouseEvent): void => {
-    if (e.target !== canvasRef.current && !(e.target as HTMLElement).closest('[data-canvas-bg]')) return
+  // Handles mousedown on the entire interaction area (canvas + surrounding whitespace).
+  // Element mousedowns call stopPropagation, so this only fires for background/whitespace clicks.
+  const handleContainerMouseDown = useCallback((e: React.MouseEvent): void => {
+    if (!canvasRef.current) return
 
     if (toolMode !== 'select' && onDrawElement) {
-      const canvasRect = canvasRef.current!.getBoundingClientRect()
+      const canvasRect = canvasRef.current.getBoundingClientRect()
       const startX = ((e.clientX - canvasRect.left) / canvasRect.width) * 100
       const startY = ((e.clientY - canvasRect.top) / canvasRect.height) * 100
       drawStartRef.current = { x: startX, y: startY }
@@ -252,11 +274,9 @@ export function SlideCanvas({
         const y = Math.min(drawStartRef.current.y, endY)
         const width = Math.abs(endX - drawStartRef.current.x)
         const height = Math.abs(endY - drawStartRef.current.y)
-        // Minimum 2% in each dimension to count as intentional drag vs click
         if (width > 2 && height > 2) {
           onDrawElement(toolMode, x, y, width, height)
         } else {
-          // Click: place top-left at cursor with sensible defaults per tool
           const cx = drawStartRef.current.x
           const cy = drawStartRef.current.y
           if (toolMode === 'text') {
@@ -282,7 +302,7 @@ export function SlideCanvas({
     }
 
     onDeselectAll()
-    const canvasRect = canvasRef.current!.getBoundingClientRect()
+    const canvasRect = canvasRef.current.getBoundingClientRect()
     const startX = ((e.clientX - canvasRect.left) / canvasRect.width) * 100
     const startY = ((e.clientY - canvasRect.top) / canvasRect.height) * 100
     startDrag({ type: 'marquee', canvasRect, startX, startY })
@@ -309,7 +329,9 @@ export function SlideCanvas({
         overflow: zoom > 0 ? 'auto' : 'hidden',
         padding: zoom > 0 ? 24 : 0,
         backgroundColor: 'hsl(var(--editor-canvas))',
+        cursor: toolMode !== 'select' ? 'crosshair' : 'default',
       }}
+      onMouseDown={handleContainerMouseDown}
     >
       <div
         ref={canvasRef}
@@ -319,33 +341,36 @@ export function SlideCanvas({
           height: canvasSize.height,
           flexShrink: 0,
           boxShadow: '0 4px 32px rgba(0,0,0,0.18)',
-          overflow: 'hidden',
-          cursor: toolMode !== 'select' ? 'crosshair' : 'default',
+          // overflow: visible so elements dragged outside the slide remain visible in the
+          // surrounding grey area. The background and master layers use their own clip div.
+          overflow: 'visible',
           userSelect: 'none',
         }}
-        onMouseDown={handleCanvasMouseDown}
       >
-        <SlideBackground background={slide.background ?? master?.background} theme={theme} />
+        {/* Slide background + master elements — clipped to canvas bounds */}
+        <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', zIndex: 0, pointerEvents: 'none' }}>
+          <SlideBackground background={slide.background ?? master?.background} theme={theme} />
 
-        {/* Master elements (non-interactive, rendered at z=0) */}
-        {master?.elements.map((mel) => (
-          <div
-            key={mel.id}
-            style={{
-              position: 'absolute',
-              left: `${mel.x}%`, top: `${mel.y}%`,
-              width: `${mel.width}%`, height: `${mel.height}%`,
-              transform: `rotate(${mel.rotate ?? 0}deg) scaleX(${mel.flipH ? -1 : 1}) scaleY(${mel.flipV ? -1 : 1})`,
-              transformOrigin: 'center center',
-              zIndex: 0, pointerEvents: 'none', overflow: 'hidden',
-              opacity: mel.opacity ?? 1,
-            }}
-          >
-            {renderSlideElement(mel, scale, true)}
-          </div>
-        ))}
+          {master?.elements.map((mel) => (
+            <div
+              key={mel.id}
+              style={{
+                position: 'absolute',
+                left: `${mel.x}%`, top: `${mel.y}%`,
+                width: `${mel.width}%`, height: `${mel.height}%`,
+                transform: `rotate(${mel.rotate ?? 0}deg) scaleX(${mel.flipH ? -1 : 1}) scaleY(${mel.flipV ? -1 : 1})`,
+                transformOrigin: 'center center',
+                zIndex: 0, pointerEvents: 'none', overflow: 'hidden',
+                opacity: mel.opacity ?? 1,
+              }}
+            >
+              {renderSlideElement(mel, scale, true)}
+            </div>
+          ))}
+        </div>
 
-        <div data-canvas-bg style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
+        {/* Slide elements — overflow: visible so they render in surrounding whitespace */}
+        <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
           {sortedElements.map((element) => (
             <SlideElementWrapper
               key={element.id}
@@ -394,7 +419,6 @@ export function SlideCanvas({
             zIndex: 9999,
           }
           if (toolMode === 'shape' && pendingShapeType) {
-            // Render actual shape as ghost
             const ghostEl: ShapeElement = {
               id: 'ghost', type: 'shape', shapeType: pendingShapeType,
               fill: 'rgba(59,130,246,0.12)',
@@ -425,7 +449,6 @@ export function SlideCanvas({
               </div>
             )
           }
-          // Default dashed rect ghost
           return (
             <div
               style={{
@@ -439,8 +462,14 @@ export function SlideCanvas({
 
         {marqueeRect && <MarqueeSelection rect={marqueeRect} />}
 
+        {/* Snap guides overlay — pointer-events:none, above elements */}
+        <SnapOverlay ref={overlayRef} />
+
+        {/* Grid overlay — clipped to canvas bounds */}
         {showGrid && (
-          <SlideGridOverlay canvasWidth={canvasSize.width} canvasHeight={canvasSize.height} />
+          <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', zIndex: 10000, pointerEvents: 'none' }}>
+            <SlideGridOverlay canvasWidth={canvasSize.width} canvasHeight={canvasSize.height} />
+          </div>
         )}
       </div>
     </div>
