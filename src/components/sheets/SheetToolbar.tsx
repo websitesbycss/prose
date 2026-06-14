@@ -9,7 +9,7 @@ import {
   AlignLeft, AlignCenter, AlignRight,
   WrapText, TableCellsMerge,
   ArrowUpToLine, ArrowDownToLine, ArrowLeftToLine, ArrowRightToLine,
-  Minus, ChevronDown, PaintBucket,
+  Minus, ChevronDown, PaintBucket, BarChart3,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -63,6 +63,7 @@ interface SheetToolbarProps {
   documentId: string | null
   onSettingsOpen?: () => void
   onSheetExport?: () => void
+  onInsertChart?: () => void
 }
 
 // ── Shared portal color picker dropdown ──────────────────────────────────────
@@ -287,6 +288,7 @@ export function SheetToolbar({
   documentId,
   onSettingsOpen,
   onSheetExport,
+  onInsertChart,
 }: SheetToolbarProps) {
   const theme = useAppStore((s) => s.theme)
   const wb = () => workbookRef.current
@@ -571,6 +573,18 @@ export function SheetToolbar({
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom" className="text-xs">Delete column</TooltipContent>
+        </Tooltip>
+
+        <Separator orientation="vertical" className="mx-0.5 h-5" />
+
+        {/* Insert chart */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onInsertChart}>
+              <BarChart3 className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">Insert chart</TooltipContent>
         </Tooltip>
 
         <Separator orientation="vertical" className="mx-0.5 h-5" />

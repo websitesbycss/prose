@@ -47,6 +47,7 @@
     "@tiptap/starter-kit": "^3.23.4",
     "@types/katex": "^0.16.8",
     "better-sqlite3": "^11.1.2",
+    "chart.js": "^4.5.1",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "dictionary-en-us": "^2.2.1",

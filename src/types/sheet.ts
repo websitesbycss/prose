@@ -43,10 +43,33 @@ export interface SheetTab {
   mergedCells: SheetMergedCell[]
 }
 
+export type ChartType =
+  | 'bar'
+  | 'barHorizontal'
+  | 'line'
+  | 'area'
+  | 'pie'
+  | 'doughnut'
+  | 'scatter'
+  | 'radar'
+
+export interface ChartDef {
+  id: string
+  sheetId: string
+  type: ChartType
+  dataRange: string
+  title: string
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 export interface SheetContent {
   version: 1
   activeTabId: string
   tabs: SheetTab[]
+  charts?: ChartDef[]
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

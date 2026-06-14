@@ -5,7 +5,7 @@ import type { Sheet, Hooks, Selection } from '@fortune-sheet/core'
 import '@fortune-sheet/react/dist/index.css'
 
 import { useDocument } from '@/hooks/useDocument'
-import type { SheetContent } from '@/types/sheet'
+import type { SheetContent, ChartDef } from '@/types/sheet'
 import { isSheetContent, createInitialSheetContent } from '@/types/sheet'
 import { FileEditorTitleBar } from '@/components/editor/FileEditorTitleBar'
 import { SheetToolbar, type ToolbarState } from './SheetToolbar'
@@ -21,6 +21,8 @@ import { AMBIENT_LAYERS } from '@/hooks/useMusic'
 import { useIsActiveTab } from '@/hooks/useIsActiveTab'
 import SettingsModal from '@/components/settings/SettingsModal'
 import { SheetExportModal } from './SheetExportModal'
+import { ChartDialog } from './ChartDialog'
+import { ChartOverlay } from './ChartOverlay'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -123,6 +125,10 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
   const workbookRef = useRef<WorkbookInstance | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
+  const [chartDialogOpen, setChartDialogOpen] = useState(false)
+  const [editingChart, setEditingChart] = useState<ChartDef | undefined>(undefined)
+  const [charts, setCharts] = useState<ChartDef[]>([])
+  const chartsRef = useRef<ChartDef[]>([])
   const aiPanelOpen = useAppStore((s) => s.aiPanelOpen)
   const theme = useAppStore((s) => s.theme)
   const setPendingAiPrompt = useAppStore((s) => s.setPendingAiPrompt)
@@ -165,6 +171,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
     const data = pendingDataRef.current
     if (!data) return
     const content = fsDataToSheetContent(data)
+    content.charts = chartsRef.current
     notifySaveStatus('saving')
     try {
       await window.prose.documents.update(documentId, { content: JSON.stringify(content) })
@@ -239,6 +246,11 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
     setTabs(initialTabs)
     activeTabIdRef.current = content.activeTabId
     setActiveTabId(content.activeTabId)
+
+    const loadedCharts = content.charts ?? []
+    chartsRef.current = loadedCharts
+    setCharts(loadedCharts)
+
     setReady(true)
   // Only re-initialize when the document ID changes (opening a different file)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -314,6 +326,57 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
     const wb = workbookRef.current; if (!wb) return
     wb.deleteSheet({ id: tabId })
   }, [])
+
+  // ── Chart management ──────────────────────────────────────────────────────
+
+  const updateChartsAndSave = useCallback((updated: ChartDef[]) => {
+    chartsRef.current = updated
+    setCharts(updated)
+    scheduleSave()
+  }, [scheduleSave])
+
+  const handleInsertChart = useCallback((partial: Omit<ChartDef, 'id' | 'x' | 'y' | 'width' | 'height'>) => {
+    const offset = chartsRef.current.filter(c => c.sheetId === partial.sheetId).length * 20
+    const newChart: ChartDef = {
+      ...partial,
+      id: `chart-${Date.now()}`,
+      x: 20 + offset,
+      y: 20 + offset,
+      width: 520,
+      height: 340,
+    }
+    updateChartsAndSave([...chartsRef.current, newChart])
+  }, [updateChartsAndSave])
+
+  const handleUpdateChart = useCallback((updated: ChartDef) => {
+    updateChartsAndSave(chartsRef.current.map(c => c.id === updated.id ? updated : c))
+  }, [updateChartsAndSave])
+
+  const handleDeleteChart = useCallback((id: string) => {
+    updateChartsAndSave(chartsRef.current.filter(c => c.id !== id))
+  }, [updateChartsAndSave])
+
+  const handleEditChart = useCallback((chart: ChartDef) => {
+    setEditingChart(chart)
+    setChartDialogOpen(true)
+  }, [])
+
+  const handleOpenInsertChart = useCallback(() => {
+    setEditingChart(undefined)
+    setChartDialogOpen(true)
+  }, [])
+
+  // Get the initial range from current selection for the chart dialog
+  const getInitialChartRange = useCallback((): string => {
+    try {
+      const coords = workbookRef.current?.getSelectionCoordinates()
+      return coords?.[0] ?? ''
+    } catch {
+      return ''
+    }
+  }, [])
+
+  // ── End chart management ──────────────────────────────────────────────────
 
   // onChange: sync tab bar, zoom, and schedule save
   const handleChange = useCallback((data: Sheet[]) => {
@@ -412,6 +475,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
           documentId={documentId}
           onSettingsOpen={() => setSettingsOpen(true)}
           onSheetExport={() => setExportOpen(true)}
+          onInsertChart={handleOpenInsertChart}
         />
 
         {/* Grid + AI panel row */}
@@ -423,6 +487,14 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
               theme === 'dark' && 'fortune-dark'
             )}
           >
+            <ChartOverlay
+              charts={charts}
+              activeSheetId={activeTabId}
+              workbookRef={workbookRef}
+              onUpdateChart={handleUpdateChart}
+              onDeleteChart={handleDeleteChart}
+              onEditChart={handleEditChart}
+            />
             <Workbook
               key={documentId}
               ref={workbookRef}
@@ -475,6 +547,18 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
           onClose={() => setExportOpen(false)}
           sheetTitle={doc?.title ?? 'Sheet'}
           workbookRef={workbookRef}
+        />
+      )}
+      {chartDialogOpen && (
+        <ChartDialog
+          open={chartDialogOpen}
+          onClose={() => { setChartDialogOpen(false); setEditingChart(undefined) }}
+          workbookRef={workbookRef}
+          activeSheetId={activeTabId}
+          initialRange={editingChart ? editingChart.dataRange : getInitialChartRange()}
+          editChart={editingChart}
+          onInsert={handleInsertChart}
+          onUpdate={handleUpdateChart}
         />
       )}
     </TooltipProvider>
