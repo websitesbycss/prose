@@ -1219,21 +1219,6 @@ function ToolbarInner({
       className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto px-2"
       onMouseDown={(e) => e.preventDefault()}
     >
-      {/* Font family */}
-      <FontFamilyPicker editor={editor} fontFamily={s.fontFamily} />
-
-      {/* Font size */}
-      <FontSizeInput editor={editor} fontSize={s.fontSize} />
-
-      {/* Paragraph style */}
-      <ParagraphStylePicker
-        editor={editor}
-        paragraphStyle={s.paragraphStyle}
-        headingFontSizes={headingFontSizes}
-      />
-
-      <Sep />
-
       {/* Undo / redo */}
       <ToolbarBtn
         icon={Undo2}
@@ -1246,6 +1231,21 @@ function ToolbarInner({
         title="Redo (Ctrl+Shift+Z)"
         disabled={!s.canRedo}
         onClick={() => editor.chain().focus().redo().run()}
+      />
+
+      <Sep />
+
+      {/* Font family */}
+      <FontFamilyPicker editor={editor} fontFamily={s.fontFamily} />
+
+      {/* Font size */}
+      <FontSizeInput editor={editor} fontSize={s.fontSize} />
+
+      {/* Paragraph style */}
+      <ParagraphStylePicker
+        editor={editor}
+        paragraphStyle={s.paragraphStyle}
+        headingFontSizes={headingFontSizes}
       />
 
       <Sep />

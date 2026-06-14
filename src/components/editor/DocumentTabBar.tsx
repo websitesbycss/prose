@@ -338,7 +338,25 @@ export function DocumentTabBar({
       </Button>
 
       {openTabs.length > 0 && (
-        <div ref={tabStripRef} className="document-tab-strip min-w-0 flex-1">
+        <div
+          ref={tabStripRef}
+          className="document-tab-strip min-w-0 flex-1"
+          onPointerDown={(e) => {
+            if (e.button !== 0) return
+            // Only handle clicks in the empty space (not on tabs, close buttons, or the + button)
+            if ((e.target as HTMLElement).closest('.document-tab-item, .document-tab-strip__new')) return
+            e.preventDefault()
+            window.prose.win.startMove({
+              offsetX: e.screenX - window.screenX,
+              offsetY: e.screenY - window.screenY,
+            })
+            const onUp = (): void => {
+              window.prose.win.stopMove()
+              window.removeEventListener('pointerup', onUp)
+            }
+            window.addEventListener('pointerup', onUp)
+          }}
+        >
           <AnimatePresence initial={false} mode="popLayout">
             {displayTabs.map((tab) => {
               const isActive = !showDashboard && tab.id === activeDocumentId

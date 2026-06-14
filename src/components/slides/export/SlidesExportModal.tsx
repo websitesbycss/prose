@@ -26,8 +26,8 @@ interface FormatOption {
 const FORMATS: FormatOption[] = [
   { id: 'pptx',        label: 'PowerPoint (.pptx)',      description: 'Editable slides for PowerPoint, Keynote, and Google Slides',  icon: FileText },
   { id: 'pdf',         label: 'PDF document',            description: 'All slides as a PDF at 1920×1080 per slide',                   icon: FileText },
-  { id: 'png-current', label: 'PNG — current slide',     description: 'Current slide as a 1920×1080 PNG image',                       icon: Image    },
-  { id: 'png-all',     label: 'PNG — all slides (zip)',  description: 'Every slide as a PNG, bundled in a ZIP archive',               icon: Images   },
+  { id: 'png-current', label: 'PNG: current slide',     description: 'Current slide as a 1920×1080 PNG image',                       icon: Image    },
+  { id: 'png-all',     label: 'PNG: all slides (zip)',  description: 'Every slide as a PNG, bundled in a ZIP archive',               icon: Images   },
 ]
 
 export function SlidesExportModal({ content, title, activeSlideIndex, onClose }: Props): JSX.Element {
@@ -176,7 +176,7 @@ export function SlidesExportModal({ content, title, activeSlideIndex, onClose }:
             <p className="mb-3 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</p>
           )}
           {done && (
-            <p className="mb-3 text-center text-xs text-green-600">Export complete — file saved!</p>
+            <p className="mb-3 text-center text-xs text-green-600">Export complete: file saved!</p>
           )}
 
           <div className="flex items-center justify-between">

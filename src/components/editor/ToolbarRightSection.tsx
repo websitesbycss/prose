@@ -64,6 +64,8 @@ interface ThreeDotsProps {
   onSettingsOpen?: () => void
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   excalidrawAPI?: any
+  // Sheet-specific
+  onSheetExport?: () => void
   // Slides-specific
   onSlidesFind?: () => void
   onSlidesExport?: () => void
@@ -82,6 +84,7 @@ function ThreeDotsMenu({
   onFocusMode,
   onSettingsOpen,
   excalidrawAPI,
+  onSheetExport,
   onSlidesFind,
   onSlidesExport,
   onSlidesPresent,
@@ -206,7 +209,7 @@ function ThreeDotsMenu({
 
             {fileType === 'sheet' && (
               <>
-                <MenuItem icon={Download} label="Export…" onClick={() => setOpen(false)} />
+                <MenuItem icon={Download} label="Export…" onClick={() => { setOpen(false); onSheetExport?.() }} />
                 <MenuItem icon={Settings} label="Settings" onClick={() => { setOpen(false); onSettingsOpen?.() }} />
               </>
             )}
@@ -302,6 +305,7 @@ export interface ToolbarRightSectionProps {
   onSettingsOpen?: () => void
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   excalidrawAPI?: any
+  onSheetExport?: () => void
   onSlidesFind?: () => void
   onSlidesExport?: () => void
   onSlidesPresent?: () => void
@@ -319,6 +323,7 @@ export function ToolbarRightSection({
   onFocusMode,
   onSettingsOpen,
   excalidrawAPI,
+  onSheetExport,
   onSlidesFind,
   onSlidesExport,
   onSlidesPresent,
@@ -404,6 +409,7 @@ export function ToolbarRightSection({
         onFocusMode={onFocusMode}
         onSettingsOpen={onSettingsOpen}
         excalidrawAPI={excalidrawAPI}
+        onSheetExport={onSheetExport}
         onSlidesFind={onSlidesFind}
         onSlidesExport={onSlidesExport}
         onSlidesPresent={onSlidesPresent}

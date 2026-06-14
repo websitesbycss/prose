@@ -95,6 +95,16 @@ contextBridge.exposeInMainWorld('prose', {
     stopMove: () => ipcRenderer.send('window:stopMove'),
     setFullscreen: (fullscreen: boolean) => ipcRenderer.send('window:setFullscreen', fullscreen),
     isFullscreen: (): Promise<boolean> => ipcRenderer.invoke('window:isFullscreen'),
+    setSnapLayout: (layout: string): Promise<void> => ipcRenderer.invoke('window:setSnapLayout', layout),
+    onLeaveFullscreen: (cb: () => void): (() => void) => {
+      ipcRenderer.send('window:subscribeLeaveFullscreen')
+      const listener = (): void => cb()
+      ipcRenderer.on('window:leave-fullscreen', listener)
+      return () => {
+        ipcRenderer.removeListener('window:leave-fullscreen', listener)
+        ipcRenderer.send('window:unsubscribeLeaveFullscreen')
+      }
+    },
   },
 
   tabdrag: {

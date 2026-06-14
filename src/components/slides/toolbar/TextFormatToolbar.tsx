@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   Bold, Italic, Underline, Strikethrough,
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
-  PaintBucket, ChevronDown,
+  PaintBucket, ChevronDown, List, ListOrdered,
 } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
@@ -265,12 +265,56 @@ export function TextFormatToolbar({ element, onUpdate }: Props): JSX.Element {
   const isItalic = element.content.includes('<em>') || element.content.includes('<i>')
   const isUnderline = element.content.includes('<u>')
   const isStrike = element.content.includes('<s>') || element.content.includes('<del>')
+  // Check anywhere in content (mixed-content boxes can have partial lists)
+  const isBulletList = /<ul[\s>]/i.test(element.content)
+  const isOrderedList = /<ol[\s>]/i.test(element.content)
 
   function wrapToggle(tag: string, openTag: string, closeTag: string, test: boolean) {
     if (test) {
       onUpdate({ content: element.content.replace(new RegExp(`<${tag}>|<\/${tag}>`, 'gi'), '') })
     } else {
       onUpdate({ content: `<${openTag}>${element.content}</${closeTag}>` })
+    }
+  }
+
+  // Fallback for when no editor is focused: toggle the entire content
+  function toggleListContent(listTag: 'ul' | 'ol') {
+    const otherTag = listTag === 'ul' ? 'ol' : 'ul'
+    const isCurrent = listTag === 'ul' ? isBulletList : isOrderedList
+    const isOther = listTag === 'ul' ? isOrderedList : isBulletList
+
+    if (isCurrent) {
+      const items: string[] = []
+      const re = /<li[^>]*>([\s\S]*?)<\/li>/gi
+      let m: RegExpExecArray | null
+      while ((m = re.exec(element.content)) !== null) {
+        const stripped = m[1].replace(/<(ul|ol)[^>]*>[\s\S]*?<\/(ul|ol)>/gi, '').trim()
+        if (stripped) items.push(stripped)
+      }
+      onUpdate({ content: items.join('<br>') || '' })
+    } else if (isOther) {
+      onUpdate({
+        content: element.content
+          .replace(new RegExp(`<${otherTag}`, 'gi'), `<${listTag}`)
+          .replace(new RegExp(`<\\/${otherTag}>`, 'gi'), `</${listTag}>`),
+      })
+    } else {
+      const lines = element.content.split(/<br\s*\/?>/i).map((l) => l.trim()).filter(Boolean)
+      const items = (lines.length > 0 ? lines : [element.content || '']).map((l) => `<li>${l}</li>`)
+      onUpdate({ content: `<${listTag}>${items.join('')}</${listTag}>` })
+    }
+  }
+
+  function handleListMouseDown(listTag: 'ul' | 'ol', e: React.MouseEvent) {
+    const active = document.activeElement as HTMLElement
+    if (active?.isContentEditable && active.classList.contains('slide-text-content')) {
+      // Editor is focused — keep focus and apply list toggle at the cursor position
+      e.preventDefault()
+      document.execCommand(listTag === 'ul' ? 'insertUnorderedList' : 'insertOrderedList')
+      onUpdate({ content: active.innerHTML })
+    } else {
+      // No active editor — apply to whole content
+      toggleListContent(listTag)
     }
   }
 
@@ -419,8 +463,24 @@ export function TextFormatToolbar({ element, onUpdate }: Props): JSX.Element {
 
       <Separator orientation="vertical" className="mx-0.5 h-5" />
 
-      {/* Line height */}
+      {/* Line height + List */}
       <LineHeightPicker lineHeight={element.lineHeight} onChange={(v) => onUpdate({ lineHeight: v })} />
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" className={cn('h-7 w-7', isBulletList && '!text-primary')} onMouseDown={(e) => handleListMouseDown('ul', e)}>
+            <List className="h-3.5 w-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Bullet list</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" className={cn('h-7 w-7', isOrderedList && '!text-primary')} onMouseDown={(e) => handleListMouseDown('ol', e)}>
+            <ListOrdered className="h-3.5 w-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Numbered list</TooltipContent>
+      </Tooltip>
     </div>
   )
 }

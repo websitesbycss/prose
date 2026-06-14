@@ -745,15 +745,27 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
       const reader = new FileReader()
       reader.onload = () => {
         const src = reader.result as string
-        const el: SlideElement = {
-          id: crypto.randomUUID(), type: 'image',
-          x: 25, y: 20, width: 50, height: 56,
-          rotate: 0, opacity: 1, zIndex: Date.now(), flipH: false, flipV: false, locked: false, hidden: false,
-          src, altText: 'Pasted image', borderRadius: 0,
-          filters: { brightness: 100, contrast: 100, saturation: 100, blur: 0 },
+        const img = new window.Image()
+        const finish = (natW: number, natH: number) => {
+          const aspect = natW / natH
+          const elemWidth = 50
+          const elemHeight = Math.min(70, elemWidth / aspect)
+          const finalWidth = elemHeight < 70 ? elemWidth : elemHeight * aspect
+          const el: SlideElement = {
+            id: crypto.randomUUID(), type: 'image',
+            x: Math.max(0, (100 - finalWidth) / 2),
+            y: Math.max(0, (100 - elemHeight) / 2),
+            width: finalWidth, height: elemHeight,
+            rotate: 0, opacity: 1, zIndex: Date.now(), flipH: false, flipV: false, locked: false, hidden: false,
+            src, altText: 'Pasted image', borderRadius: 0,
+            filters: { brightness: 100, contrast: 100, saturation: 100, blur: 0 },
+          }
+          changeActiveSlideRef.current((s) => ({ ...s, elements: [...s.elements, el] }))
+          setSelectedIds([el.id])
         }
-        changeActiveSlideRef.current((s) => ({ ...s, elements: [...s.elements, el] }))
-        setSelectedIds([el.id])
+        img.onload = () => finish(img.naturalWidth || 16, img.naturalHeight || 9)
+        img.onerror = () => finish(16, 9)
+        img.src = src
       }
       reader.readAsDataURL(blob)
     }

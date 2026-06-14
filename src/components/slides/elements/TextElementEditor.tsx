@@ -40,9 +40,48 @@ export function TextElementEditor({ element, scale, onCommit, onCancel }: Props)
       onCancel()
       return
     }
-    if (e.key === 'Enter' && (e.ctrlKey || e.shiftKey)) {
+    if (e.key === 'Enter' && e.ctrlKey) {
       e.preventDefault()
       commit()
+      e.stopPropagation()
+      return
+    }
+    if (e.key === 'Enter' && e.shiftKey) {
+      // In a list item: insert a plain line break instead of a new bullet
+      const sel = window.getSelection()
+      let inListItem = false
+      if (sel && sel.rangeCount > 0) {
+        let node: Node | null = sel.anchorNode
+        while (node && node !== divRef.current) {
+          if (node.nodeName === 'LI') { inListItem = true; break }
+          node = node.parentNode
+        }
+      }
+      e.preventDefault()
+      if (inListItem) {
+        document.execCommand('insertLineBreak')
+      } else {
+        commit()
+      }
+      e.stopPropagation()
+      return
+    }
+    if (e.key === 'Tab') {
+      e.preventDefault()
+      // Indent/outdent only when cursor is inside a list item
+      const sel = window.getSelection()
+      if (sel && sel.rangeCount > 0) {
+        let node: Node | null = sel.anchorNode
+        while (node && node !== divRef.current) {
+          if (node.nodeName === 'LI') {
+            document.execCommand(e.shiftKey ? 'outdent' : 'indent')
+            break
+          }
+          node = node.parentNode
+        }
+      }
+      e.stopPropagation()
+      return
     }
     e.stopPropagation()
   }, [commit, onCancel])
@@ -101,6 +140,7 @@ export function TextElementEditor({ element, scale, onCommit, onCancel }: Props)
         )}
         <div
           ref={divRef}
+          className="slide-text-content"
           contentEditable
           suppressContentEditableWarning
           onBlur={commit}

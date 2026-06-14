@@ -20,6 +20,7 @@ import { useMusicContext } from '@/contexts/MusicContext'
 import { AMBIENT_LAYERS } from '@/hooks/useMusic'
 import { useIsActiveTab } from '@/hooks/useIsActiveTab'
 import SettingsModal from '@/components/settings/SettingsModal'
+import { SheetExportModal } from './SheetExportModal'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -121,6 +122,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
   const { document: doc, saveStatus, notifySaveStatus } = useDocument(documentId)
   const workbookRef = useRef<WorkbookInstance | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
   const aiPanelOpen = useAppStore((s) => s.aiPanelOpen)
   const theme = useAppStore((s) => s.theme)
   const setPendingAiPrompt = useAppStore((s) => s.setPendingAiPrompt)
@@ -409,6 +411,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
           onFormatChange={scheduleSave}
           documentId={documentId}
           onSettingsOpen={() => setSettingsOpen(true)}
+          onSheetExport={() => setExportOpen(true)}
         />
 
         {/* Grid + AI panel row */}
@@ -465,6 +468,14 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
 
       {settingsOpen && (
         <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      )}
+      {exportOpen && (
+        <SheetExportModal
+          open={exportOpen}
+          onClose={() => setExportOpen(false)}
+          sheetTitle={doc?.title ?? 'Sheet'}
+          workbookRef={workbookRef}
+        />
       )}
     </TooltipProvider>
   )

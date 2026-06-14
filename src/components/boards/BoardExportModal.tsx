@@ -313,7 +313,7 @@ export function BoardExportModal({
       <DialogContent className="flex h-[720px] max-h-[90vh] w-[1060px] max-w-[96vw] flex-col gap-0 p-0">
         <DialogHeader className="shrink-0 border-b border-border px-5 py-3.5">
           <DialogTitle className="text-sm font-semibold">
-            Export — <span className="font-normal text-muted-foreground">{boardTitle}</span>
+            Export: <span className="font-normal text-muted-foreground">{boardTitle}</span>
           </DialogTitle>
         </DialogHeader>
 

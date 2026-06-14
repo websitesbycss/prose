@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'motion/react'
 import type { RefObject } from 'react'
 import type { WorkbookInstance } from '@fortune-sheet/react'
 import {
+  Undo2, Redo2,
   Bold, Italic, Underline,
   AlignLeft, AlignCenter, AlignRight,
   WrapText, TableCellsMerge,
@@ -61,6 +62,7 @@ interface SheetToolbarProps {
   onFormatChange: () => void
   documentId: string | null
   onSettingsOpen?: () => void
+  onSheetExport?: () => void
 }
 
 // ── Shared portal color picker dropdown ──────────────────────────────────────
@@ -284,6 +286,7 @@ export function SheetToolbar({
   onFormatChange,
   documentId,
   onSettingsOpen,
+  onSheetExport,
 }: SheetToolbarProps) {
   const theme = useAppStore((s) => s.theme)
   const wb = () => workbookRef.current
@@ -364,6 +367,28 @@ export function SheetToolbar({
     <div className="flex h-10 shrink-0 items-center border-b border-border bg-background">
       {/* Scrollable formatting controls */}
       <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto px-2 py-1">
+
+        {/* Undo / Redo */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-7 w-7"
+              onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }))}>
+              <Undo2 className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">Undo (Ctrl+Z)</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-7 w-7"
+              onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'y', ctrlKey: true, bubbles: true }))}>
+              <Redo2 className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">Redo (Ctrl+Y)</TooltipContent>
+        </Tooltip>
+
+        <Separator orientation="vertical" className="mx-0.5 h-5" />
 
         {/* Font family */}
         <FontFamilyPicker fontFamily={state.fontFamily} onApply={applyFontFamily} />
@@ -583,7 +608,7 @@ export function SheetToolbar({
       </div>
 
       {/* Persistent right section */}
-      <ToolbarRightSection fileType="sheet" documentId={documentId} onSettingsOpen={onSettingsOpen} />
+      <ToolbarRightSection fileType="sheet" documentId={documentId} onSettingsOpen={onSettingsOpen} onSheetExport={onSheetExport} />
     </div>
   )
 }

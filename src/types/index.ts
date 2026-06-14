@@ -283,6 +283,8 @@ export interface ProseAPI {
     stopMove(): void
     setFullscreen(fullscreen: boolean): void
     isFullscreen(): Promise<boolean>
+    setSnapLayout(layout: string): Promise<void>
+    onLeaveFullscreen(cb: () => void): () => void
   }
   tabdrag: {
     detach(docId: string): void

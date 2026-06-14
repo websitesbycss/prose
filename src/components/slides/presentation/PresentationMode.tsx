@@ -78,6 +78,13 @@ export function PresentationMode({ slides, theme, settings, master, startIndex, 
     })
   }, [slides.length])
 
+  // Exit when the OS/Electron exits fullscreen natively (e.g. Escape intercepted on Windows)
+  const exitRef = useRef<() => void>(() => {})
+  useEffect(() => { exitRef.current = () => onExit(currentIndex) }, [currentIndex, onExit])
+  useEffect(() => {
+    return window.prose.win.onLeaveFullscreen?.(() => exitRef.current())
+  }, [])
+
   // Keyboard handler
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
@@ -85,17 +92,20 @@ export function PresentationMode({ slides, theme, settings, master, startIndex, 
 
       switch (e.key) {
         case 'ArrowRight':
+        case 'ArrowDown':
         case 'PageDown':
         case ' ':
           e.preventDefault()
           goNext()
           break
         case 'ArrowLeft':
+        case 'ArrowUp':
         case 'PageUp':
           e.preventDefault()
           goPrev()
           break
         case 'Escape':
+        case 'F5':
           e.preventDefault()
           onExit(currentIndex)
           break

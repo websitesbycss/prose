@@ -38,7 +38,7 @@ export const SnapOverlay = forwardRef<SnapOverlayHandle>(function SnapOverlay(_,
       // ── Guide lines ────────────────────────────────────────────────────────
       for (const g of guides) {
         const line = document.createElementNS(NS, 'line')
-        line.setAttribute('stroke-width', '1')
+        line.setAttribute('stroke-width', '2')
         line.setAttribute('vector-effect', 'non-scaling-stroke')
         line.style.stroke = GUIDE_COLOR
         if (g.type === 'v') {
@@ -59,7 +59,7 @@ export const SnapOverlay = forwardRef<SnapOverlayHandle>(function SnapOverlay(_,
       for (const s of spacing) {
         // Gap line
         const line = document.createElementNS(NS, 'line')
-        line.setAttribute('stroke-width', '1')
+        line.setAttribute('stroke-width', '2')
         line.setAttribute('vector-effect', 'non-scaling-stroke')
         line.style.stroke = GUIDE_COLOR
         if (s.type === 'h') {
@@ -78,7 +78,7 @@ export const SnapOverlay = forwardRef<SnapOverlayHandle>(function SnapOverlay(_,
         // Tick marks at each end of the gap (perpendicular to the gap line)
         for (const endVal of [s.start, s.end]) {
           const tick = document.createElementNS(NS, 'line')
-          tick.setAttribute('stroke-width', '1')
+          tick.setAttribute('stroke-width', '2')
           tick.setAttribute('vector-effect', 'non-scaling-stroke')
           tick.style.stroke = GUIDE_COLOR
           if (s.type === 'h') {

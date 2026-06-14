@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import {
+  Undo2, Redo2,
   MousePointer2, Hand, Square, Diamond, Circle,
   ArrowRight, Minus, PenLine, Type, Eraser,
   PlusSquare, Search, ZoomIn, ZoomOut, ChevronDown,
@@ -299,6 +300,28 @@ export function BoardToolbar({
     <div className="flex h-10 shrink-0 items-center border-b border-border bg-background">
       {/* Tool buttons */}
       <div className="flex items-center gap-0.5 px-2">
+        {/* Undo / Redo */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-7 w-7"
+              onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }))}>
+              <Undo2 className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">Undo (Ctrl+Z)</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-7 w-7"
+              onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'y', ctrlKey: true, bubbles: true }))}>
+              <Redo2 className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">Redo (Ctrl+Y)</TooltipContent>
+        </Tooltip>
+
+        <Separator orientation="vertical" className="mx-0.5 h-5" />
+
         {EXCALIDRAW_TOOLS.map(({ type, icon: Icon, title }) => (
           <Tooltip key={type}>
             <TooltipTrigger asChild>

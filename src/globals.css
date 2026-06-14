@@ -16,6 +16,14 @@
 /* Window-control close button: red on hover. */
 .win-close:hover { background-color: #e81123 !important; color: #fff !important; }
 
+/* ── Slide text element lists ────────────────────────────────────────────── */
+/* Tailwind's preflight resets ul/ol list-style to none; restore inside slide text boxes. */
+.slide-text-content ul { list-style-type: disc; padding-left: 1.5em; margin: 0; }
+.slide-text-content ol { list-style-type: decimal; padding-left: 1.5em; margin: 0; }
+.slide-text-content li { margin: 0; }
+.slide-text-content ul ul { list-style-type: circle; }
+.slide-text-content ul ul ul { list-style-type: square; }
+
 @layer base {
   :root {
     --background: 0 0% 100%;

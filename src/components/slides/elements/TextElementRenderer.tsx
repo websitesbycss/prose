@@ -56,6 +56,7 @@ export const TextElementRenderer = memo(function TextElementRenderer({ element, 
         </div>
       ) : (
         <div
+          className="slide-text-content"
           style={{
             width: '100%',
             fontFamily,

@@ -141,8 +141,69 @@ export function registerWindowHandlers(): void {
     BrowserWindow.fromWebContents(event.sender)?.setFullScreen(fullscreen)
   })
 
+  ipcMain.handle('window:setSnapLayout', (event, layout: unknown) => {
+    if (typeof layout !== 'string') return
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return
+    if (layout === 'maximize') { win.maximize(); return }
+    const display = screen.getDisplayMatching(win.getBounds())
+    const { x: wx, y: wy, width: ww, height: wh } = display.workArea
+    const h1 = Math.round(ww / 2), h2 = ww - h1
+    const t1 = Math.round(ww / 3), t2 = ww - 2 * t1
+    const q1 = Math.round(ww / 4)
+    const snap: Record<string, { x: number; y: number; width: number; height: number }> = {
+      'left-half':        { x: wx,          y: wy, width: h1,         height: wh },
+      'right-half':       { x: wx + h1,     y: wy, width: h2,         height: wh },
+      'left-two-thirds':  { x: wx,          y: wy, width: t1 * 2,     height: wh },
+      'center-half':      { x: wx + q1,     y: wy, width: h1,         height: wh },
+      'right-two-thirds': { x: wx + t1,     y: wy, width: t1 + t2,    height: wh },
+      'left-third':       { x: wx,          y: wy, width: t1,         height: wh },
+      'center-third':     { x: wx + t1,     y: wy, width: t1,         height: wh },
+      'right-third':      { x: wx + t1 * 2, y: wy, width: t2,         height: wh },
+    }
+    const b = snap[layout]
+    if (!b) return
+    if (win.isMaximized()) win.unmaximize()
+    win.setBounds(b, true)
+  })
+
   ipcMain.handle('window:isFullscreen', (event) => {
     return BrowserWindow.fromWebContents(event.sender)?.isFullScreen() ?? false
+  })
+
+  // Notify renderer when the OS/Electron exits fullscreen natively (e.g. Escape on Windows).
+  // Gate: only fire after enter-full-screen has been confirmed, to avoid spurious leave events
+  // that can occur during the transition when the window un-maximizes before going fullscreen.
+  const leaveFullscreenSubs = new Map<number, { enter: () => void; leave: () => void }>()
+  ipcMain.on('window:subscribeLeaveFullscreen', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return
+    const wcId = event.sender.id
+    const existing = leaveFullscreenSubs.get(wcId)
+    if (existing && !win.isDestroyed()) {
+      win.off('enter-full-screen', existing.enter)
+      win.off('leave-full-screen', existing.leave)
+    }
+    let entered = false
+    const enter = (): void => { entered = true }
+    const leave = (): void => {
+      if (!entered) return
+      entered = false
+      if (!event.sender.isDestroyed()) event.sender.send('window:leave-fullscreen')
+    }
+    win.on('enter-full-screen', enter)
+    win.on('leave-full-screen', leave)
+    leaveFullscreenSubs.set(wcId, { enter, leave })
+    event.sender.once('destroyed', () => {
+      if (!win.isDestroyed()) { win.off('enter-full-screen', enter); win.off('leave-full-screen', leave) }
+      leaveFullscreenSubs.delete(wcId)
+    })
+  })
+  ipcMain.on('window:unsubscribeLeaveFullscreen', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const sub = leaveFullscreenSubs.get(event.sender.id)
+    if (win && sub) { win.off('enter-full-screen', sub.enter); win.off('leave-full-screen', sub.leave) }
+    leaveFullscreenSubs.delete(event.sender.id)
   })
   // Renderer signals tear-off start: create a detached window and follow the cursor.
   ipcMain.on('tabdrag:detach', (event, docId: string) => {

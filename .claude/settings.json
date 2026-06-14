@@ -39,7 +39,9 @@
       "Bash(node *)",
       "Bash(sed *)",
       "Bash(grep *)",
-      "Bash(npx *)"
+      "Bash(npx *)",
+      "Bash(ls *)",
+      "Bash(cd *)"
     ],
     "additionalDirectories": [
       "C:\\"

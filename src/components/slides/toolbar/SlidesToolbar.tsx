@@ -114,7 +114,7 @@ export function SlidesToolbar({
   }
 
   return (
-    <div className="flex h-10 shrink-0 items-center border-b border-border bg-background px-3 gap-2">
+    <div className="flex h-10 shrink-0 items-center border-b border-border bg-background px-2 gap-0.5">
       {/* Always-visible tool palette */}
       <DefaultToolbar
         toolMode={toolMode}

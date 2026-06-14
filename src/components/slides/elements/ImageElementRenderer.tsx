@@ -54,7 +54,7 @@ export const ImageElementRenderer = memo(function ImageElementRenderer({ element
 
   return (
     <div style={containerStyle}>
-      <img src={src} alt={altText} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: filterStr, display: 'block' }} draggable={false} />
+      <img src={src} alt={altText} style={{ width: '100%', height: '100%', objectFit: 'fill', filter: filterStr, display: 'block' }} draggable={false} />
     </div>
   )
 })
