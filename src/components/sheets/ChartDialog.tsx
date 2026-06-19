@@ -174,12 +174,19 @@ function ChartPreview({
 
     const config = buildChartConfig(mockChart, extracted, isDark)
 
+    // Defensive: clear any orphaned Chart.js instance on this canvas
+    const orphan = Chart.getChart(canvas)
+    if (orphan) orphan.destroy()
+
     if (chartRef.current) {
       chartRef.current.destroy()
       chartRef.current = null
     }
 
     chartRef.current = new Chart(canvas, config)
+
+    // Force a resize on the next frame so Chart.js measures the settled layout
+    requestAnimationFrame(() => { chartRef.current?.resize() })
   }, [chartType, dataRange, title, workbookRef, activeSheetId, isDark])
 
   useEffect(() => {
@@ -196,7 +203,7 @@ function ChartPreview({
   }, [])
 
   return (
-    <div className="relative w-full flex-1 min-h-0 rounded-lg border border-border bg-muted/30">
+    <div className="relative flex-1 min-h-0 rounded-lg border border-border bg-muted/30" style={{ minHeight: 280 }}>
       <div className="absolute inset-0 p-2">
         <canvas ref={canvasRef} style={{ display: 'block', width: '100%', height: '100%' }} />
       </div>

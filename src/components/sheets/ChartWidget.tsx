@@ -31,22 +31,30 @@ export function ChartWidget({
   const isDark = useAppStore((s) => s.theme) === 'dark'
   const [hovered, setHovered] = useState(false)
 
-  // Build / refresh the Chart.js instance whenever relevant props change
+  // Extract only data-relevant fields so position/size changes don't rebuild the chart
+  const { id: chartId, sheetId, type: chartType, dataRange, title: chartTitle } = chart
+
+  // Build / refresh the Chart.js instance only when data-relevant props change
   const rebuildChart = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
 
-    const rng = parseRange(chart.dataRange)
+    const rng = parseRange(dataRange)
     const sheets = workbookRef.current?.getAllSheets()
-    const activeSheet = sheets?.find(s => String(s.id) === chart.sheetId) ?? sheets?.[0]
+    const activeSheet = sheets?.find(s => String(s.id) === sheetId) ?? sheets?.[0]
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sheetData = activeSheet?.data as any
 
     const extracted = rng && sheetData
-      ? extractChartData(sheetData, rng, chart.type)
+      ? extractChartData(sheetData, rng, chartType)
       : { labels: [], datasets: [] }
 
-    const config = buildChartConfig(chart, extracted, isDark)
+    const mockChart = { id: chartId, sheetId, type: chartType, dataRange, title: chartTitle, x: 0, y: 0, width: 0, height: 0 }
+    const config = buildChartConfig(mockChart, extracted, isDark)
+
+    // Defensive: clear any orphaned Chart.js instance on this canvas before creating a new one
+    const orphan = Chart.getChart(canvas)
+    if (orphan) orphan.destroy()
 
     if (chartRef.current) {
       chartRef.current.destroy()
@@ -54,7 +62,7 @@ export function ChartWidget({
     }
 
     chartRef.current = new Chart(canvas, config)
-  }, [chart, workbookRef, isDark])
+  }, [chartId, sheetId, chartType, dataRange, chartTitle, workbookRef, isDark])
 
   useEffect(() => {
     rebuildChart()
