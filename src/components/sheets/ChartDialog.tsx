@@ -11,7 +11,6 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store/appStore'
 import type { ChartType, ChartDef } from '@/types/sheet'
@@ -297,7 +296,7 @@ export function ChartDialog({
             {/* Config fields */}
             <div className="flex gap-3">
               <div className="flex-1 min-w-0">
-                <Label className="text-xs mb-1.5 block text-muted-foreground">Data range</Label>
+                <p className="text-xs mb-1.5 text-muted-foreground">Data range</p>
                 <Input
                   className={cn(
                     'h-7 font-mono text-xs',
@@ -312,7 +311,7 @@ export function ChartDialog({
                 )}
               </div>
               <div className="w-48 shrink-0">
-                <Label className="text-xs mb-1.5 block text-muted-foreground">Chart title (optional)</Label>
+                <p className="text-xs mb-1.5 text-muted-foreground">Chart title (optional)</p>
                 <Input
                   className="h-7 text-xs"
                   value={title}
