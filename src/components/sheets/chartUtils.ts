@@ -320,7 +320,7 @@ export function buildChartConfig(
   })
 
   return {
-    type: 'bar',
+    type: isLine ? 'line' : 'bar',
     data: { labels, datasets: linearDatasets },
     options: {
       ...commonOptions,
