@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { Chart } from 'chart.js'
+import { ChevronDown } from 'lucide-react'
 import type { RefObject } from 'react'
 import type { WorkbookInstance } from '@fortune-sheet/react'
 import {
@@ -11,10 +12,13 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
+import { ChromeColorPicker } from '@/components/ui/ChromeColorPicker'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store/appStore'
 import type { ChartType, ChartDef } from '@/types/sheet'
-import { parseRange, extractChartData, buildChartConfig } from './chartUtils'
+import { parseRange, extractChartData, buildChartConfig, getLegendLabels, getColorHex } from './chartUtils'
 
 // ── Chart type definitions ────────────────────────────────────────────────────
 
@@ -130,18 +134,66 @@ const CHART_TYPES: ChartTypeDef[] = [
   { id: 'radar',         label: 'Radar',            icon: <RadarIcon /> },
 ]
 
+// ── Shared "advanced options" shape used by both the preview and the form ─────
+
+interface ChartAdvancedOptions {
+  xAxisLabel: string
+  yAxisLabel: string
+  showXAxisLabels: boolean
+  showYAxisLabels: boolean
+  showLegend: boolean
+  colors: string[]
+  doughnutCutout: number
+  straightLines: boolean
+}
+
+function defaultAdvanced(editChart?: ChartDef): ChartAdvancedOptions {
+  return {
+    xAxisLabel: editChart?.xAxisLabel ?? '',
+    yAxisLabel: editChart?.yAxisLabel ?? '',
+    showXAxisLabels: editChart?.showXAxisLabels ?? true,
+    showYAxisLabels: editChart?.showYAxisLabels ?? true,
+    showLegend: editChart?.showLegend ?? true,
+    colors: editChart?.colors ?? [],
+    doughnutCutout: editChart?.doughnutCutout ?? 50,
+    straightLines: editChart?.straightLines ?? false,
+  }
+}
+
+// ── Color swatch (no label) — opens the shared Chrome-style color picker ──────
+
+function ColorSwatch({ hex, onChange }: { hex: string; onChange: (hex: string) => void }): JSX.Element {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="h-7 w-7 shrink-0 rounded-md border border-border/60 shadow-sm transition-transform hover:scale-105"
+          style={{ backgroundColor: hex }}
+          title={hex}
+        />
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-auto border-none bg-transparent p-0 shadow-none">
+        <ChromeColorPicker color={hex} current={hex} onChange={onChange} />
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 // ── Preview canvas ────────────────────────────────────────────────────────────
 
 function ChartPreview({
   chartType,
   dataRange,
   title,
+  advanced,
   workbookRef,
   activeSheetId,
 }: {
   chartType: ChartType
   dataRange: string
   title: string
+  advanced: ChartAdvancedOptions
   workbookRef: RefObject<WorkbookInstance | null>
   activeSheetId: string
 }): JSX.Element {
@@ -166,6 +218,14 @@ function ChartPreview({
       dataRange,
       title,
       x: 0, y: 0, width: 0, height: 0,
+      xAxisLabel: advanced.xAxisLabel,
+      yAxisLabel: advanced.yAxisLabel,
+      showXAxisLabels: advanced.showXAxisLabels,
+      showYAxisLabels: advanced.showYAxisLabels,
+      showLegend: advanced.showLegend,
+      colors: advanced.colors,
+      doughnutCutout: advanced.doughnutCutout,
+      straightLines: advanced.straightLines,
     }
 
     const extracted = rng && sheetData
@@ -187,7 +247,7 @@ function ChartPreview({
 
     // Force a resize on the next frame so Chart.js measures the settled layout
     requestAnimationFrame(() => { chartRef.current?.resize() })
-  }, [chartType, dataRange, title, workbookRef, activeSheetId, isDark])
+  }, [chartType, dataRange, title, advanced, workbookRef, activeSheetId, isDark])
 
   useEffect(() => {
     const timer = setTimeout(rebuild, 150)
@@ -203,7 +263,7 @@ function ChartPreview({
   }, [])
 
   return (
-    <div className="relative flex-1 min-h-0 rounded-lg border border-border bg-muted/30" style={{ minHeight: 280 }}>
+    <div className="relative rounded-lg border border-border bg-muted/30" style={{ height: 260 }}>
       <div className="absolute inset-0 p-2">
         <canvas ref={canvasRef} style={{ display: 'block', width: '100%', height: '100%' }} />
       </div>
@@ -237,23 +297,61 @@ export function ChartDialog({
   const [chartType, setChartType] = useState<ChartType>(editChart?.type ?? 'bar')
   const [dataRange, setDataRange] = useState(editChart?.dataRange ?? initialRange)
   const [title, setTitle] = useState(editChart?.title ?? '')
+  const [advancedOpen, setAdvancedOpen] = useState(false)
+  const [advanced, setAdvanced] = useState<ChartAdvancedOptions>(() => defaultAdvanced(editChart))
 
   useEffect(() => {
     if (open) {
       setChartType(editChart?.type ?? 'bar')
       setDataRange(editChart?.dataRange ?? initialRange)
       setTitle(editChart?.title ?? '')
+      setAdvanced(defaultAdvanced(editChart))
+      setAdvancedOpen(false)
     }
   }, [open, editChart, initialRange])
 
   const isEditing = !!editChart
 
-  function handleSubmit() {
+  // Legend entries the "Custom colors" swatches should map to — categories for
+  // pie/doughnut, series for everything else — derived from the live range.
+  const legendLabels = useMemo(() => {
+    const rng = parseRange(dataRange)
+    const sheets = workbookRef.current?.getAllSheets()
+    const activeSheet = sheets?.find(s => String(s.id) === activeSheetId) ?? sheets?.[0]
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sheetData = activeSheet?.data as any
+    const extracted = rng && sheetData
+      ? extractChartData(sheetData, rng, chartType)
+      : { labels: ['A', 'B', 'C', 'D'], datasets: [{ label: 'Series 1', data: [4, 7, 3, 9] }] }
+    return getLegendLabels(chartType, extracted)
+  }, [dataRange, chartType, workbookRef, activeSheetId])
+
+  function setColorAt(i: number, hex: string): void {
+    setAdvanced((prev) => {
+      const next = legendLabels.map((_, idx) => getColorHex(prev.colors, idx))
+      next[i] = hex
+      return { ...prev, colors: next }
+    })
+  }
+
+  function resetColors(): void {
+    setAdvanced((prev) => ({ ...prev, colors: [] }))
+  }
+
+  function handleSubmit(): void {
     const payload = {
       sheetId: activeSheetId,
       type: chartType,
       dataRange: dataRange.trim() || 'A1:B10',
       title: title.trim(),
+      xAxisLabel: advanced.xAxisLabel.trim(),
+      yAxisLabel: advanced.yAxisLabel.trim(),
+      showXAxisLabels: advanced.showXAxisLabels,
+      showYAxisLabels: advanced.showYAxisLabels,
+      showLegend: advanced.showLegend,
+      colors: advanced.colors.length > 0 ? advanced.colors : undefined,
+      doughnutCutout: advanced.doughnutCutout,
+      straightLines: advanced.straightLines,
     }
     if (isEditing && onUpdate && editChart) {
       onUpdate({ ...editChart, ...payload })
@@ -264,17 +362,20 @@ export function ChartDialog({
   }
 
   const rangeValid = !dataRange.trim() || !!parseRange(dataRange.trim())
+  const showAxisOptions = chartType === 'bar' || chartType === 'barHorizontal' || chartType === 'line' || chartType === 'area' || chartType === 'scatter'
+  const showLineOptions = chartType === 'line' || chartType === 'area'
+  const showDoughnutOptions = chartType === 'doughnut'
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden">
+      <DialogContent className="max-w-3xl p-0 gap-0 overflow-hidden">
         <DialogHeader className="px-5 pt-5 pb-3 border-b border-border">
           <DialogTitle className="text-sm font-semibold">
             {isEditing ? 'Edit chart' : 'Insert chart'}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex min-h-0" style={{ height: 460 }}>
+        <div className="flex min-h-0" style={{ height: 560 }}>
           {/* Left: chart type list */}
           <div className="w-44 shrink-0 border-r border-border overflow-y-auto py-1.5">
             {CHART_TYPES.map((ct) => (
@@ -298,34 +399,153 @@ export function ChartDialog({
             ))}
           </div>
 
-          {/* Right: config + preview */}
+          {/* Right: config + advanced + preview */}
           <div className="flex flex-1 min-w-0 flex-col gap-3 p-4">
-            {/* Config fields */}
-            <div className="flex gap-3">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs mb-1.5 text-muted-foreground">Data range</p>
-                <Input
-                  className={cn(
-                    'h-7 font-mono text-xs',
-                    !rangeValid && dataRange.trim() && 'border-destructive focus-visible:ring-destructive/40',
+            {/* Scrollable: data range / title / advanced */}
+            <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+              {/* Config fields */}
+              <div className="flex gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs mb-1.5 text-muted-foreground">Data range</p>
+                  <Input
+                    className={cn(
+                      'h-7 font-mono text-xs',
+                      !rangeValid && dataRange.trim() && 'border-destructive focus-visible:ring-destructive/40',
+                    )}
+                    value={dataRange}
+                    onChange={(e) => setDataRange(e.target.value)}
+                    placeholder="A1:C10"
+                  />
+                  {!rangeValid && dataRange.trim() && (
+                    <p className="mt-1 text-[11px] text-destructive">Invalid range format (use e.g. A1:C10)</p>
                   )}
-                  value={dataRange}
-                  onChange={(e) => setDataRange(e.target.value)}
-                  placeholder="A1:C10"
-                />
-                {!rangeValid && dataRange.trim() && (
-                  <p className="mt-1 text-[11px] text-destructive">Invalid range format (use e.g. A1:C10)</p>
-                )}
+                </div>
+                <div className="w-48 shrink-0">
+                  <p className="text-xs mb-1.5 text-muted-foreground">Chart title (optional)</p>
+                  <Input
+                    className="h-7 text-xs"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Untitled chart"
+                  />
+                </div>
               </div>
-              <div className="w-48 shrink-0">
-                <p className="text-xs mb-1.5 text-muted-foreground">Chart title (optional)</p>
-                <Input
-                  className="h-7 text-xs"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Untitled chart"
-                />
-              </div>
+
+              {/* Advanced toggle */}
+              <button
+                type="button"
+                className="mt-3 flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                onClick={() => setAdvancedOpen((o) => !o)}
+              >
+                <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', advancedOpen && 'rotate-180')} />
+                Advanced
+              </button>
+
+              {advancedOpen && (
+                <div className="mt-2.5 flex flex-col gap-3 rounded-lg border border-border bg-muted/20 p-3">
+                  {/* Legend */}
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-muted-foreground">Show legend</p>
+                    <Switch
+                      checked={advanced.showLegend}
+                      onCheckedChange={(v) => setAdvanced((p) => ({ ...p, showLegend: v }))}
+                    />
+                  </div>
+
+                  {/* Axis options */}
+                  {showAxisOptions && (
+                    <>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-xs mb-1.5 text-muted-foreground">X axis label</p>
+                          <Input
+                            className="h-7 text-xs"
+                            value={advanced.xAxisLabel}
+                            onChange={(e) => setAdvanced((p) => ({ ...p, xAxisLabel: e.target.value }))}
+                            placeholder="Optional"
+                          />
+                        </div>
+                        <div>
+                          <p className="text-xs mb-1.5 text-muted-foreground">Y axis label</p>
+                          <Input
+                            className="h-7 text-xs"
+                            value={advanced.yAxisLabel}
+                            onChange={(e) => setAdvanced((p) => ({ ...p, yAxisLabel: e.target.value }))}
+                            placeholder="Optional"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs text-muted-foreground">Show X axis value labels (e.g. 0, 1, 2…)</p>
+                        <Switch
+                          checked={advanced.showXAxisLabels}
+                          onCheckedChange={(v) => setAdvanced((p) => ({ ...p, showXAxisLabels: v }))}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs text-muted-foreground">Show Y axis value labels (e.g. 0, 1, 2…)</p>
+                        <Switch
+                          checked={advanced.showYAxisLabels}
+                          onCheckedChange={(v) => setAdvanced((p) => ({ ...p, showYAxisLabels: v }))}
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {/* Doughnut hole size */}
+                  {showDoughnutOptions && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <p className="text-xs text-muted-foreground">Hole size</p>
+                        <span className="text-[11px] text-muted-foreground">{advanced.doughnutCutout}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={90}
+                        step={5}
+                        value={advanced.doughnutCutout}
+                        onChange={(e) => setAdvanced((p) => ({ ...p, doughnutCutout: Number(e.target.value) }))}
+                        className="w-full accent-primary"
+                      />
+                    </div>
+                  )}
+
+                  {/* Straight lines */}
+                  {showLineOptions && (
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-muted-foreground">Straight lines (instead of curved)</p>
+                      <Switch
+                        checked={advanced.straightLines}
+                        onCheckedChange={(v) => setAdvanced((p) => ({ ...p, straightLines: v }))}
+                      />
+                    </div>
+                  )}
+
+                  {/* Custom colors */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="text-xs text-muted-foreground">Custom colors</p>
+                      <button
+                        type="button"
+                        className="text-[11px] text-muted-foreground transition-colors hover:text-foreground hover:underline"
+                        onClick={resetColors}
+                      >
+                        Reset
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {legendLabels.map((label, i) => (
+                        <ColorSwatch
+                          key={`${label}-${i}`}
+                          hex={getColorHex(advanced.colors, i)}
+                          onChange={(hex) => setColorAt(i, hex)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Live preview */}
@@ -333,6 +553,7 @@ export function ChartDialog({
               chartType={chartType}
               dataRange={dataRange}
               title={title}
+              advanced={advanced}
               workbookRef={workbookRef}
               activeSheetId={activeSheetId}
             />

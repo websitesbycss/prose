@@ -32,7 +32,12 @@ export function ChartWidget({
   const [hovered, setHovered] = useState(false)
 
   // Extract only data-relevant fields so position/size changes don't rebuild the chart
-  const { id: chartId, sheetId, type: chartType, dataRange, title: chartTitle } = chart
+  const {
+    id: chartId, sheetId, type: chartType, dataRange, title: chartTitle,
+    xAxisLabel, yAxisLabel, showXAxisLabels, showYAxisLabels, showLegend,
+    colors, doughnutCutout, straightLines,
+  } = chart
+  const colorsKey = colors?.join(',') ?? ''
 
   // Build / refresh the Chart.js instance only when data-relevant props change
   const rebuildChart = useCallback(() => {
@@ -49,7 +54,12 @@ export function ChartWidget({
       ? extractChartData(sheetData, rng, chartType)
       : { labels: [], datasets: [] }
 
-    const mockChart = { id: chartId, sheetId, type: chartType, dataRange, title: chartTitle, x: 0, y: 0, width: 0, height: 0 }
+    const mockChart = {
+      id: chartId, sheetId, type: chartType, dataRange, title: chartTitle,
+      x: 0, y: 0, width: 0, height: 0,
+      xAxisLabel, yAxisLabel, showXAxisLabels, showYAxisLabels, showLegend,
+      colors, doughnutCutout, straightLines,
+    }
     const config = buildChartConfig(mockChart, extracted, isDark)
 
     // Defensive: clear any orphaned Chart.js instance on this canvas before creating a new one
@@ -62,7 +72,12 @@ export function ChartWidget({
     }
 
     chartRef.current = new Chart(canvas, config)
-  }, [chartId, sheetId, chartType, dataRange, chartTitle, workbookRef, isDark])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    chartId, sheetId, chartType, dataRange, chartTitle, workbookRef, isDark,
+    xAxisLabel, yAxisLabel, showXAxisLabels, showYAxisLabels, showLegend,
+    colorsKey, doughnutCutout, straightLines,
+  ])
 
   useEffect(() => {
     rebuildChart()

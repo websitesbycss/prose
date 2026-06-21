@@ -44,16 +44,40 @@ Chart.register(
 
 // ── Colors ────────────────────────────────────────────────────────────────────
 
-export const CHART_COLORS = [
-  { bg: 'rgba(99, 102, 241, 0.75)',  border: 'rgb(99, 102, 241)'  },  // indigo
-  { bg: 'rgba(236, 72, 153, 0.75)', border: 'rgb(236, 72, 153)'  },  // pink
-  { bg: 'rgba(16, 185, 129, 0.75)', border: 'rgb(16, 185, 129)'  },  // emerald
-  { bg: 'rgba(245, 158, 11, 0.75)', border: 'rgb(245, 158, 11)'  },  // amber
-  { bg: 'rgba(59, 130, 246, 0.75)', border: 'rgb(59, 130, 246)'  },  // blue
-  { bg: 'rgba(239, 68, 68, 0.75)',  border: 'rgb(239, 68, 68)'   },  // red
-  { bg: 'rgba(20, 184, 166, 0.75)', border: 'rgb(20, 184, 166)'  },  // teal
-  { bg: 'rgba(168, 85, 247, 0.75)', border: 'rgb(168, 85, 247)'  },  // purple
+export const CHART_COLOR_HEX = [
+  '#6366f1', // indigo
+  '#ec4899', // pink
+  '#10b981', // emerald
+  '#f59e0b', // amber
+  '#3b82f6', // blue
+  '#ef4444', // red
+  '#14b8a6', // teal
+  '#a855f7', // purple
 ]
+
+export function hexToRgba(hex: string, alpha: number): string {
+  const h = hex.replace('#', '')
+  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h
+  const r = parseInt(full.slice(0, 2), 16) || 0
+  const g = parseInt(full.slice(2, 4), 16) || 0
+  const b = parseInt(full.slice(4, 6), 16) || 0
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+/** Default Prose color for legend item `i`, or the user's override if present. */
+export function getColorHex(customColors: string[] | undefined, i: number): string {
+  return customColors?.[i] || CHART_COLOR_HEX[i % CHART_COLOR_HEX.length]!
+}
+
+/**
+ * The labels a "Custom colors" picker should show swatches for — one per legend
+ * entry. Pie/doughnut legend items are the categories (slices); every other
+ * chart type's legend items are the series (datasets).
+ */
+export function getLegendLabels(type: ChartType, extracted: ExtractedChartData): string[] {
+  const isPie = type === 'pie' || type === 'doughnut'
+  return isPie ? extracted.labels : extracted.datasets.map((d) => d.label)
+}
 
 // ── Range parsing ─────────────────────────────────────────────────────────────
 
@@ -197,13 +221,18 @@ export function buildChartConfig(
   const isPie = type === 'pie' || type === 'doughnut'
   const isRadar = type === 'radar'
   const titleText = chart.title.trim() || undefined
+  const showLegend = chart.showLegend ?? true
+  const showXAxisLabels = chart.showXAxisLabels ?? true
+  const showYAxisLabels = chart.showYAxisLabels ?? true
+  const xAxisLabel = chart.xAxisLabel?.trim()
+  const yAxisLabel = chart.yAxisLabel?.trim()
 
   const commonPlugins = {
     title: titleText
       ? { display: true, text: titleText, color: textColor, font: { size: 13, weight: 'normal' as const } }
       : { display: false },
     legend: {
-      display: datasets.length > 0,
+      display: showLegend && (datasets.length > 0 || labels.length > 0),
       position: 'bottom' as const,
       labels: { color: textColor, boxWidth: 12, padding: 10, font: { size: 11 } },
     },
@@ -217,34 +246,44 @@ export function buildChartConfig(
     plugins: commonPlugins,
   }
 
+  function axisTitle(text: string | undefined): { display: boolean; text?: string; color?: string; font?: { size: number } } {
+    return text
+      ? { display: true, text, color: textColor, font: { size: 11 } }
+      : { display: false }
+  }
+
   if (isPie) {
     const pieDatasets = datasets.map((ds) => {
       const count = (ds.data as (number | null)[]).length
       return {
         label: ds.label,
         data: ds.data as (number | null)[],
-        backgroundColor: Array.from({ length: count }, (_, i) => CHART_COLORS[i % CHART_COLORS.length]!.bg),
-        borderColor: Array.from({ length: count }, (_, i) => CHART_COLORS[i % CHART_COLORS.length]!.border),
+        backgroundColor: Array.from({ length: count }, (_, i) => hexToRgba(getColorHex(chart.colors, i), 0.75)),
+        borderColor: Array.from({ length: count }, (_, i) => getColorHex(chart.colors, i)),
         borderWidth: 1.5,
       }
     })
     return {
       type: type === 'doughnut' ? 'doughnut' : 'pie',
       data: { labels, datasets: pieDatasets },
-      options: { ...commonOptions },
+      options: {
+        ...commonOptions,
+        cutout: type === 'doughnut' ? `${chart.doughnutCutout ?? 50}%` : 0,
+      },
     } as ChartConfiguration
   }
 
   if (isRadar) {
     const radarDatasets = datasets.map((ds, i) => {
-      const color = CHART_COLORS[i % CHART_COLORS.length]!
+      const hex = getColorHex(chart.colors, i)
       return {
         label: ds.label,
         data: ds.data as (number | null)[],
-        backgroundColor: color.bg,
-        borderColor: color.border,
-        borderWidth: 2,
+        backgroundColor: hexToRgba(hex, 0.32),
+        borderColor: hex,
+        borderWidth: 2.5,
         pointRadius: 3,
+        pointBackgroundColor: hex,
       }
     })
     return {
@@ -266,12 +305,12 @@ export function buildChartConfig(
 
   if (type === 'scatter') {
     const scatterDatasets = datasets.map((ds, i) => {
-      const color = CHART_COLORS[i % CHART_COLORS.length]!
+      const hex = getColorHex(chart.colors, i)
       return {
         label: ds.label,
         data: ds.data as { x: number; y: number }[],
-        backgroundColor: color.bg,
-        borderColor: color.border,
+        backgroundColor: hexToRgba(hex, 0.75),
+        borderColor: hex,
         borderWidth: 1.5,
         pointRadius: 5,
       }
@@ -282,8 +321,17 @@ export function buildChartConfig(
       options: {
         ...commonOptions,
         scales: {
-          x: { ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor } },
-          y: { ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor }, beginAtZero: false },
+          x: {
+            title: axisTitle(xAxisLabel),
+            ticks: { color: textColor, font: { size: 10 }, display: showXAxisLabels },
+            grid: { color: gridColor },
+          },
+          y: {
+            title: axisTitle(yAxisLabel),
+            ticks: { color: textColor, font: { size: 10 }, display: showYAxisLabels },
+            grid: { color: gridColor },
+            beginAtZero: false,
+          },
         },
       },
     } as ChartConfiguration
@@ -293,27 +341,29 @@ export function buildChartConfig(
   const isHorizontal = type === 'barHorizontal'
   const isLine = type === 'line' || type === 'area'
   const isArea = type === 'area'
+  const tension = chart.straightLines ? 0 : 0.35
 
   const linearDatasets = datasets.map((ds, i) => {
-    const color = CHART_COLORS[i % CHART_COLORS.length]!
+    const hex = getColorHex(chart.colors, i)
     if (isLine) {
       return {
         label: ds.label,
         data: ds.data as (number | null)[],
-        backgroundColor: isArea ? color.bg : color.border,
-        borderColor: color.border,
-        borderWidth: 2,
+        backgroundColor: isArea ? hexToRgba(hex, 0.38) : hex,
+        borderColor: hex,
+        borderWidth: 2.5,
         fill: isArea,
-        tension: 0.35,
+        tension,
         pointRadius: 3,
         pointHoverRadius: 5,
+        pointBackgroundColor: hex,
       }
     }
     return {
       label: ds.label,
       data: ds.data as (number | null)[],
-      backgroundColor: color.bg,
-      borderColor: color.border,
+      backgroundColor: hexToRgba(hex, 0.75),
+      borderColor: hex,
       borderWidth: 1.5,
       borderRadius: 3,
     }
@@ -326,9 +376,14 @@ export function buildChartConfig(
       ...commonOptions,
       indexAxis: isHorizontal ? 'y' : 'x',
       scales: {
-        x: { ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor } },
+        x: {
+          title: axisTitle(xAxisLabel),
+          ticks: { color: textColor, font: { size: 10 }, display: showXAxisLabels },
+          grid: { color: gridColor },
+        },
         y: {
-          ticks: { color: textColor, font: { size: 10 } },
+          title: axisTitle(yAxisLabel),
+          ticks: { color: textColor, font: { size: 10 }, display: showYAxisLabels },
           grid: { color: gridColor },
           beginAtZero: !isHorizontal,
           stacked: false,

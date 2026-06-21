@@ -63,6 +63,15 @@ export interface ChartDef {
   y: number
   width: number
   height: number
+  // Advanced options — all optional; absence preserves prior default behavior
+  xAxisLabel?: string
+  yAxisLabel?: string
+  showXAxisLabels?: boolean   // default true
+  showYAxisLabels?: boolean   // default true
+  showLegend?: boolean        // default true
+  colors?: string[]           // hex overrides, indexed by legend item (dataset, or slice for pie/doughnut)
+  doughnutCutout?: number     // percentage 0-90, doughnut only
+  straightLines?: boolean     // line/area only — disables curve tension
 }
 
 export interface SheetContent {
