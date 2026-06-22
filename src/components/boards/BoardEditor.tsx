@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils'
 import SettingsModal from '@/components/settings/SettingsModal'
 import { ChartPickerDialog } from '@/components/shared/ChartPickerDialog'
 import type { ChartSnapshot } from '@/lib/chartSnapshot'
+import { dispatchUndoRedoKey } from '@/lib/simulateUndoRedo'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useIsActiveTab } from '@/hooks/useIsActiveTab'
 
@@ -169,6 +170,7 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
   const { document: doc } = useDocument(documentId)
   const excalidrawAPIRef = useRef<ExcalidrawAPI | null>(null)
   const [excalidrawAPIState, setExcalidrawAPIState] = useState<ExcalidrawAPI | null>(null)
+  const excalidrawWrapperRef = useRef<HTMLDivElement>(null)
   const aiPanelOpen = useAppStore((s) => s.aiPanelOpen)
   const theme = useAppStore((s) => s.theme)
   const openDocumentTab = useAppStore((s) => s.openDocumentTab)
@@ -457,6 +459,19 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
     [scheduleSave],
   )
 
+  // Excalidraw has no public undo()/redo() API — it only responds to a real
+  // keydown on its own root container (.excalidraw-container), so locate that
+  // element within this board's own wrapper and dispatch there.
+  const handleUndo = useCallback(() => {
+    const root = excalidrawWrapperRef.current?.querySelector('.excalidraw-container')
+    dispatchUndoRedoKey(root, 'undo')
+  }, [])
+
+  const handleRedo = useCallback(() => {
+    const root = excalidrawWrapperRef.current?.querySelector('.excalidraw-container')
+    dispatchUndoRedoKey(root, 'redo')
+  }, [])
+
   // ── Sidebar ────────────────────────────────────────────────────────────────
 
   const sidebarWidth = boardSidebarOpen ? boardSidebarWidth : 42
@@ -580,6 +595,8 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
         onAddFileCard={addFileCard}
         onInsertChart={() => setChartPickerOpen(true)}
         onSettingsOpen={() => setSettingsOpen(true)}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -593,7 +610,7 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
           )}
           style={{ '--board-sidebar-width': `${boardSidebarWidth}px` } as React.CSSProperties}
         >
-          <div className="min-h-0 min-w-0 flex-1">
+          <div className="min-h-0 min-w-0 flex-1" ref={excalidrawWrapperRef}>
             <Excalidraw
               excalidrawAPI={(api) => { excalidrawAPIRef.current = api; setExcalidrawAPIState(api) }}
               initialData={initialData}

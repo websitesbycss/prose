@@ -232,6 +232,7 @@ export function buildChartConfig(
   chart: ChartDef,
   extracted: ExtractedChartData,
   isDark: boolean,
+  fontScale = 1,
 ): ChartConfiguration {
   const textColor = isDark ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.75)'
   const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'
@@ -246,14 +247,16 @@ export function buildChartConfig(
   const xAxisLabel = chart.xAxisLabel?.trim()
   const yAxisLabel = chart.yAxisLabel?.trim()
 
+  const fz = (base: number): number => Math.round(base * fontScale)
+
   const commonPlugins = {
     title: titleText
-      ? { display: true, text: titleText, color: textColor, font: { size: 13, weight: 'normal' as const } }
+      ? { display: true, text: titleText, color: textColor, font: { size: fz(13), weight: 'normal' as const } }
       : { display: false },
     legend: {
       display: showLegend && (datasets.length > 0 || labels.length > 0),
       position: 'bottom' as const,
-      labels: { color: textColor, boxWidth: 12, padding: 10, font: { size: 11 } },
+      labels: { color: textColor, boxWidth: fz(12), padding: fz(10), font: { size: fz(11) } },
     },
     tooltip: { enabled: true },
   }
@@ -267,7 +270,7 @@ export function buildChartConfig(
 
   function axisTitle(text: string | undefined): { display: boolean; text?: string; color?: string; font?: { size: number } } {
     return text
-      ? { display: true, text, color: textColor, font: { size: 11 } }
+      ? { display: true, text, color: textColor, font: { size: fz(11) } }
       : { display: false }
   }
 
@@ -312,9 +315,9 @@ export function buildChartConfig(
         ...commonOptions,
         scales: {
           r: {
-            ticks: { color: textColor, backdropColor: 'transparent', font: { size: 10 } },
+            ticks: { color: textColor, backdropColor: 'transparent', font: { size: fz(10) } },
             grid: { color: gridColor },
-            pointLabels: { color: textColor, font: { size: 11 } },
+            pointLabels: { color: textColor, font: { size: fz(11) } },
             angleLines: { color: gridColor },
           },
         },
@@ -342,12 +345,12 @@ export function buildChartConfig(
         scales: {
           x: {
             title: axisTitle(xAxisLabel),
-            ticks: { color: textColor, font: { size: 10 }, display: showXAxisLabels },
+            ticks: { color: textColor, font: { size: fz(10) }, display: showXAxisLabels },
             grid: { color: gridColor },
           },
           y: {
             title: axisTitle(yAxisLabel),
-            ticks: { color: textColor, font: { size: 10 }, display: showYAxisLabels },
+            ticks: { color: textColor, font: { size: fz(10) }, display: showYAxisLabels },
             grid: { color: gridColor },
             beginAtZero: false,
           },
@@ -397,12 +400,12 @@ export function buildChartConfig(
       scales: {
         x: {
           title: axisTitle(xAxisLabel),
-          ticks: { color: textColor, font: { size: 10 }, display: showXAxisLabels },
+          ticks: { color: textColor, font: { size: fz(10) }, display: showXAxisLabels },
           grid: { color: gridColor },
         },
         y: {
           title: axisTitle(yAxisLabel),
-          ticks: { color: textColor, font: { size: 10 }, display: showYAxisLabels },
+          ticks: { color: textColor, font: { size: fz(10) }, display: showYAxisLabels },
           grid: { color: gridColor },
           beginAtZero: !isHorizontal,
           stacked: false,

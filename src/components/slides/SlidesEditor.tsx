@@ -714,16 +714,24 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   const [chartPickerOpen, setChartPickerOpen] = useState(false)
 
   const handleChartSnapshotSelected = useCallback((snapshot: ChartSnapshot): void => {
-    const aspect = snapshot.width / snapshot.height
-    const elemWidth = 50
-    const elemHeight = Math.min(70, elemWidth / aspect)
-    const finalWidth = elemHeight < 70 ? elemWidth : elemHeight * aspect
+    // Slide x/y/width/height are percentages of SLIDE_BASE_WIDTH and
+    // SLIDE_BASE_HEIGHT independently — those aren't equal (16:9), so the chart's
+    // true pixel aspect ratio must be corrected by the slide's aspect ratio,
+    // not applied directly to the width%/height% pair.
+    const imgAspect = snapshot.width / snapshot.height
+    const slideAspect = SLIDE_BASE_WIDTH / SLIDE_BASE_HEIGHT
+    let elemWidth = 50
+    let elemHeight = (elemWidth * slideAspect) / imgAspect
+    if (elemHeight > 70) {
+      elemHeight = 70
+      elemWidth = (elemHeight * imgAspect) / slideAspect
+    }
 
     const el: SlideElement = {
       id: crypto.randomUUID(), type: 'image',
-      x: Math.max(0, (100 - finalWidth) / 2),
+      x: Math.max(0, (100 - elemWidth) / 2),
       y: Math.max(0, (100 - elemHeight) / 2),
-      width: finalWidth, height: elemHeight,
+      width: elemWidth, height: elemHeight,
       rotate: 0, opacity: 1, zIndex: Date.now(), flipH: false, flipV: false, locked: false, hidden: false,
       src: snapshot.dataUrl, altText: '', borderRadius: 0,
       filters: { brightness: 100, contrast: 100, saturation: 100, blur: 0 },

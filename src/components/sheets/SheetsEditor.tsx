@@ -23,6 +23,7 @@ import SettingsModal from '@/components/settings/SettingsModal'
 import { SheetExportModal } from './SheetExportModal'
 import { ChartDialog } from './ChartDialog'
 import { ChartOverlay } from './ChartOverlay'
+import { dispatchUndoRedoKey } from '@/lib/simulateUndoRedo'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -123,6 +124,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
   const isActive = useIsActiveTab(documentId)
   const { document: doc, saveStatus, notifySaveStatus } = useDocument(documentId)
   const workbookRef = useRef<WorkbookInstance | null>(null)
+  const workbookWrapperRef = useRef<HTMLDivElement>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   const [chartDialogOpen, setChartDialogOpen] = useState(false)
@@ -309,11 +311,39 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
   const switchTab = useCallback((tabId: string) => {
     const wb = workbookRef.current; if (!wb) return
     wb.activateSheet({ id: tabId })
+    // FortuneSheet's onChange doesn't reliably fire on a pure activation (no data
+    // mutation), so update the tab bar's active state immediately rather than
+    // waiting for handleChange to notice the new status:1 sheet.
+    activeTabIdRef.current = tabId
+    setActiveTabId(tabId)
+  }, [])
+
+  // FortuneSheet has no public undo()/redo() API — it only responds to a real
+  // keydown on its hidden cell-editor element, so locate that within this
+  // sheet's own wrapper and dispatch there.
+  const handleUndo = useCallback(() => {
+    const target = workbookWrapperRef.current?.querySelector('.luckysheet-cell-input')
+    dispatchUndoRedoKey(target, 'undo')
+  }, [])
+
+  const handleRedo = useCallback(() => {
+    const target = workbookWrapperRef.current?.querySelector('.luckysheet-cell-input')
+    dispatchUndoRedoKey(target, 'redo')
   }, [])
 
   const addTab = useCallback(() => {
     const wb = workbookRef.current; if (!wb) return
     wb.addSheet()
+    // addSheet() activates the new sheet internally (changeSheet sets
+    // ctx.currentSheetId synchronously) but doesn't reliably trigger onChange —
+    // same gap as switchTab, so read the now-active sheet back directly.
+    const sheets = wb.getAllSheets()
+    const active = sheets.find(s => s.status === 1) ?? sheets[sheets.length - 1]
+    const newId = active?.id !== undefined ? String(active.id) : ''
+    if (newId) {
+      activeTabIdRef.current = newId
+      setActiveTabId(newId)
+    }
   }, [])
 
   const renameTab = useCallback((tabId: string, name: string) => {
@@ -476,12 +506,15 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
           onSettingsOpen={() => setSettingsOpen(true)}
           onSheetExport={() => setExportOpen(true)}
           onInsertChart={handleOpenInsertChart}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
         />
 
         {/* Grid + AI panel row */}
         <div className="flex min-h-0 flex-1">
           {/* FortuneSheet container */}
           <div
+            ref={workbookWrapperRef}
             className={cn(
               'relative flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden',
               theme === 'dark' && 'fortune-dark'

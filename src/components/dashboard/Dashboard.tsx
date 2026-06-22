@@ -18,6 +18,9 @@ import { DocContextMenu } from './DocContextMenu'
 import SettingsModal from '@/components/settings/SettingsModal'
 import ExportModal from '@/components/editor/ExportModal'
 import type { Document, ImportResult } from '@/types'
+import { isSheetContent, countSheetCells } from '@/types/sheet'
+import { isBoardContent, countBoardElements } from '@/types/board'
+import { isSlidesContent, countSlidesInContent } from '@/types/slides'
 import { useAppStore } from '@/store/appStore'
 import { formatRelativeTime, extractWordCount, cn } from '@/lib/utils'
 import { loadPinnedIds, savePinnedIds } from '@/lib/pinnedDocs'
@@ -86,15 +89,35 @@ const TYPE_CONFIG = {
 }>
 
 
+function parseContent(content: string): unknown {
+  try {
+    return JSON.parse(content)
+  } catch {
+    return null
+  }
+}
+
 function fileMeta(doc: Document): string {
   const ft: FileType = doc.fileType ?? 'document'
   if (ft === 'document') {
     const wc = doc.wordCount ?? extractWordCount(doc.content)
     return `${wc.toLocaleString()} words`
   }
-  if (ft === 'sheet') return 'Sheet'
-  if (ft === 'board') return 'Board'
-  if (ft === 'slides') return 'Slideshow'
+  if (ft === 'sheet') {
+    const parsed = parseContent(doc.content)
+    const count = doc.wordCount ?? (isSheetContent(parsed) ? countSheetCells(parsed) : 0)
+    return `${count.toLocaleString()} cells`
+  }
+  if (ft === 'board') {
+    const parsed = parseContent(doc.content)
+    const count = doc.wordCount ?? (isBoardContent(parsed) ? countBoardElements(parsed) : 0)
+    return `${count.toLocaleString()} shapes`
+  }
+  if (ft === 'slides') {
+    const parsed = parseContent(doc.content)
+    const count = doc.wordCount ?? (isSlidesContent(parsed) ? countSlidesInContent(parsed) : 0)
+    return `${count.toLocaleString()} slides`
+  }
   return ''
 }
 

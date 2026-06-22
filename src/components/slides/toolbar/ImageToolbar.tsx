@@ -1,12 +1,9 @@
-import { useState } from 'react'
-import { SlidersHorizontal, RefreshCw } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ChromeColorPicker } from '@/components/ui/ChromeColorPicker'
 import { useAppStore } from '@/store/appStore'
-import type { ImageElement, ImageFilters } from '@/types/slides'
+import type { ImageElement } from '@/types/slides'
 import {
   BorderColorIcon, BorderWeightPicker, ColorPickerDropdown,
   CornerRadiusIcon, OpacityIcon,
@@ -17,36 +14,6 @@ interface Props {
   onUpdate(partial: Partial<ImageElement>): void
 }
 
-interface SliderRowProps {
-  label: string
-  value: number
-  min: number
-  max: number
-  step: number
-  unit?: string
-  onChange(v: number): void
-}
-
-function SliderRow({ label, value, min, max, step, unit = '', onChange }: SliderRowProps): JSX.Element {
-  return (
-    <div className="flex h-6 items-center gap-1.5">
-      <span className="w-16 shrink-0 text-[10px] text-muted-foreground">{label}</span>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="h-1 w-20 accent-primary"
-      />
-      <span className="w-8 text-right text-[10px] text-muted-foreground tabular-nums">{value}{unit}</span>
-    </div>
-  )
-}
-
-const DEFAULT_FILTERS: ImageFilters = { brightness: 100, contrast: 100, saturation: 100, blur: 0 }
-
 const STROKE_PALETTE = [
   '#000000', '#374151', '#6b7280',
   '#ef4444', '#f97316', '#eab308',
@@ -56,16 +23,10 @@ const STROKE_PALETTE = [
 
 export function ImageToolbar({ element, onUpdate }: Props): JSX.Element {
   const theme = useAppStore((s) => s.theme)
-  const [filtersOpen, setFiltersOpen] = useState(false)
-  const filters = element.filters ?? DEFAULT_FILTERS
   const borderWidth = element.border?.width ?? 0
   const borderColor = element.border?.color ?? '#000000'
   const borderStyle = element.border?.style ?? 'solid'
   const opacity = Math.round((element.opacity ?? 1) * 100)
-
-  function updateFilters(partial: Partial<ImageFilters>) {
-    onUpdate({ filters: { ...filters, ...partial } })
-  }
 
   const themedStrokePalette = STROKE_PALETTE.map((c) =>
     theme === 'dark' && c === '#000000' ? '#ffffff' : c
@@ -151,50 +112,6 @@ export function ImageToolbar({ element, onUpdate }: Props): JSX.Element {
           </div>
         </TooltipTrigger>
         <TooltipContent side="bottom" className="text-xs">Opacity</TooltipContent>
-      </Tooltip>
-
-      <Separator orientation="vertical" className="mx-0.5 h-5" />
-
-      {/* Filters popover */}
-      <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7">
-                <SlidersHorizontal className="h-3.5 w-3.5" />
-              </Button>
-            </PopoverTrigger>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="text-xs">Image filters</TooltipContent>
-        </Tooltip>
-        <PopoverContent
-          className="w-48 p-2"
-          side="bottom"
-          align="start"
-          onOpenAutoFocus={(e) => e.preventDefault()}
-        >
-          <div className="flex flex-col gap-0.5">
-            <SliderRow label="Brightness" value={filters.brightness} min={0} max={200} step={5} unit="%" onChange={(v) => updateFilters({ brightness: v })} />
-            <SliderRow label="Contrast" value={filters.contrast} min={0} max={200} step={5} unit="%" onChange={(v) => updateFilters({ contrast: v })} />
-            <SliderRow label="Saturation" value={filters.saturation} min={0} max={200} step={5} unit="%" onChange={(v) => updateFilters({ saturation: v })} />
-            <SliderRow label="Blur" value={filters.blur} min={0} max={20} step={0.5} unit="px" onChange={(v) => updateFilters({ blur: v })} />
-          </div>
-        </PopoverContent>
-      </Popover>
-
-      {/* Reset filters */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => onUpdate({ filters: DEFAULT_FILTERS })}
-          >
-            <RefreshCw className="h-3 w-3" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">Reset filters</TooltipContent>
       </Tooltip>
     </div>
   )

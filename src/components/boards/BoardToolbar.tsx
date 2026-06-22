@@ -278,6 +278,8 @@ interface BoardToolbarProps {
   onAddFileCard: (fileId: string, fileType: string, title: string, wordCount: number, preview: string) => void
   onInsertChart?: () => void
   onSettingsOpen?: () => void
+  onUndo?: () => void
+  onRedo?: () => void
 }
 
 export function BoardToolbar({
@@ -290,6 +292,8 @@ export function BoardToolbar({
   onAddFileCard,
   onInsertChart,
   onSettingsOpen,
+  onUndo,
+  onRedo,
 }: BoardToolbarProps): JSX.Element {
   function setTool(type: ExcalidrawToolType) {
     if (!excalidrawAPI) return
@@ -305,8 +309,7 @@ export function BoardToolbar({
         {/* Undo / Redo */}
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7"
-              onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }))}>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onUndo?.()}>
               <Undo2 className="h-3.5 w-3.5" />
             </Button>
           </TooltipTrigger>
@@ -314,8 +317,7 @@ export function BoardToolbar({
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7"
-              onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'y', ctrlKey: true, bubbles: true }))}>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onRedo?.()}>
               <Redo2 className="h-3.5 w-3.5" />
             </Button>
           </TooltipTrigger>

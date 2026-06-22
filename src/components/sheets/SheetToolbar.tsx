@@ -64,6 +64,8 @@ interface SheetToolbarProps {
   onSettingsOpen?: () => void
   onSheetExport?: () => void
   onInsertChart?: () => void
+  onUndo?: () => void
+  onRedo?: () => void
 }
 
 // ── Shared portal color picker dropdown ──────────────────────────────────────
@@ -289,6 +291,8 @@ export function SheetToolbar({
   onSettingsOpen,
   onSheetExport,
   onInsertChart,
+  onUndo,
+  onRedo,
 }: SheetToolbarProps) {
   const theme = useAppStore((s) => s.theme)
   const wb = () => workbookRef.current
@@ -373,8 +377,7 @@ export function SheetToolbar({
         {/* Undo / Redo */}
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7"
-              onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }))}>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onUndo?.()}>
               <Undo2 className="h-3.5 w-3.5" />
             </Button>
           </TooltipTrigger>
@@ -382,8 +385,7 @@ export function SheetToolbar({
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7"
-              onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'y', ctrlKey: true, bubbles: true }))}>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onRedo?.()}>
               <Redo2 className="h-3.5 w-3.5" />
             </Button>
           </TooltipTrigger>
