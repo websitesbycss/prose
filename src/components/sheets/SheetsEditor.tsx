@@ -181,6 +181,10 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
   const [canRedo, setCanRedo] = useState(false)
 
   const flushAndSave = useCallback(async () => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = null
+    }
     const data = pendingDataRef.current
     if (!data) return
     const content = fsDataToSheetContent(data)
@@ -200,6 +204,14 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
     saveTimerRef.current = setTimeout(() => void flushAndSave(), AUTO_SAVE_DEBOUNCE_MS)
   }, [flushAndSave])
 
+  const setSaveActiveDocument = useAppStore((s) => s.setSaveActiveDocument)
+
+  useEffect(() => {
+    if (!isActive) return
+    setSaveActiveDocument(async () => { await flushAndSave() })
+    return () => setSaveActiveDocument(null)
+  }, [isActive, flushAndSave, setSaveActiveDocument])
+
   // Set zoom via applyOp which uses Immer's applyPatches directly — no frozen-object mutation
   const handleZoomChange = useCallback((newPct: number) => {
     const clamped = Math.min(400, Math.max(10, Math.round(newPct / 10) * 10))
@@ -218,8 +230,8 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
   }, [])
 
   useEffect(() => () => {
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-  }, [])
+    if (saveTimerRef.current) void flushAndSave()
+  }, [flushAndSave])
 
   // Ctrl+S manual save + Ctrl+0 reset zoom
   useEffect(() => {

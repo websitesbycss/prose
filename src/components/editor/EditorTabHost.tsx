@@ -1,13 +1,21 @@
-import { useRef, type ReactNode } from 'react'
+import { lazy, Suspense, useRef, type ReactNode } from 'react'
 import { AlertCircle } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
-import Editor from '@/components/editor/Editor'
-import { SheetsEditor } from '@/components/sheets/SheetsEditor'
-import { BoardEditor } from '@/components/boards/BoardEditor'
-import { SlidesEditor } from '@/components/slides/SlidesEditor'
+import { LoadingScreen } from '@/components/LoadingScreen'
 import { cn } from '@/lib/utils'
 import type { FileType } from '@/types'
+
+// Code-split each heavy editor runtime (Tiptap, FortuneSheet, Excalidraw, the
+// Slides canvas) so opening the app doesn't have to download/parse/execute
+// all four upfront — only the file types actually opened get fetched.
+const Editor = lazy(() => import('@/components/editor/Editor'))
+const SheetsEditor = lazy(() =>
+  import('@/components/sheets/SheetsEditor').then((m) => ({ default: m.SheetsEditor })))
+const BoardEditor = lazy(() =>
+  import('@/components/boards/BoardEditor').then((m) => ({ default: m.BoardEditor })))
+const SlidesEditor = lazy(() =>
+  import('@/components/slides/SlidesEditor').then((m) => ({ default: m.SlidesEditor })))
 
 function FileTypePlaceholder({ fileType }: { fileType: FileType }): JSX.Element {
   return (
@@ -84,7 +92,9 @@ export function EditorTabHost(): JSX.Element | null {
       {documentTabs.length > 0 && (
         <HiddenTabPane active={activeFileType === 'document'}>
           <ErrorBoundary label="Editor">
-            <Editor documentId={editorDocumentId} />
+            <Suspense fallback={<LoadingScreen />}>
+              <Editor documentId={editorDocumentId} />
+            </Suspense>
           </ErrorBoundary>
         </HiddenTabPane>
       )}
@@ -92,7 +102,9 @@ export function EditorTabHost(): JSX.Element | null {
       {sheetTabs.map((tab) => (
         <HiddenTabPane key={tab.id} active={tab.id === activeDocumentId}>
           <ErrorBoundary label="SheetsEditor">
-            <SheetsEditor documentId={tab.id} />
+            <Suspense fallback={<LoadingScreen />}>
+              <SheetsEditor documentId={tab.id} />
+            </Suspense>
           </ErrorBoundary>
         </HiddenTabPane>
       ))}
@@ -100,7 +112,9 @@ export function EditorTabHost(): JSX.Element | null {
       {boardTabs.map((tab) => (
         <HiddenTabPane key={tab.id} active={tab.id === activeDocumentId}>
           <ErrorBoundary label="BoardEditor">
-            <BoardEditor documentId={tab.id} />
+            <Suspense fallback={<LoadingScreen />}>
+              <BoardEditor documentId={tab.id} />
+            </Suspense>
           </ErrorBoundary>
         </HiddenTabPane>
       ))}
@@ -108,7 +122,9 @@ export function EditorTabHost(): JSX.Element | null {
       {slidesTabs.map((tab) => (
         <HiddenTabPane key={tab.id} active={tab.id === activeDocumentId}>
           <ErrorBoundary label="SlidesEditor">
-            <SlidesEditor documentId={tab.id} />
+            <Suspense fallback={<LoadingScreen />}>
+              <SlidesEditor documentId={tab.id} />
+            </Suspense>
           </ErrorBoundary>
         </HiddenTabPane>
       ))}

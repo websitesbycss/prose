@@ -265,6 +265,14 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
     saveTimerRef.current = setTimeout(() => void flushAndSave(), AUTO_SAVE_DEBOUNCE_MS)
   }, [flushAndSave])
 
+  const setSaveActiveDocument = useAppStore((s) => s.setSaveActiveDocument)
+
+  useEffect(() => {
+    if (!isActive) return
+    setSaveActiveDocument(async () => { await flushAndSave() })
+    return () => setSaveActiveDocument(null)
+  }, [isActive, flushAndSave, setSaveActiveDocument])
+
   // Ctrl+S / Cmd+S — flush immediately; Ctrl+F — block (disabled for boards)
   useEffect(() => {
     if (!isActive) return

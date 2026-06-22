@@ -140,7 +140,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
     }, 200)
   }
 
-  const { document: doc, saveStatus, saveNow, flushSave, onEditorUpdate, updateTitle, patchDocument, notifySaveStatus } =
+  const { document: doc, saveStatus, saveNow, flushSave, cancelPendingSave, onEditorUpdate, updateTitle, patchDocument, notifySaveStatus } =
     useDocument(documentId)
 
   const [settings, setSettings] = useState<Pick<AppSettings, 'wordCountExcludesHeader'>>({
@@ -687,9 +687,11 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                           documentId={documentId}
                           editor={editor}
                           format={format}
+                          pageMargins={pageMargins}
                           pollSnapshots={activePanel === 'history'}
+                          onBeforeRestore={cancelPendingSave}
                           onRestore={(hc, fc, content) => {
-                            patchDocument({ headerContent: hc, footerContent: fc, content })
+                            patchDocument({ headerContent: hc, footerContent: fc, content, updatedAt: new Date().toISOString() })
                             setHeaderContentKey(crypto.randomUUID())
                             setFooterContentKey(crypto.randomUUID())
                           }}

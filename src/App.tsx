@@ -11,6 +11,7 @@ import OllamaInstall from '@/components/onboarding/OllamaInstall'
 import ModelDownload from '@/components/onboarding/ModelDownload'
 import MigrationOverlay from '@/components/migration/MigrationOverlay'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { LoadingScreen } from '@/components/LoadingScreen'
 import { EditorTabHost } from '@/components/editor/EditorTabHost'
 import { useMusic } from '@/hooks/useMusic'
 import MusicPanel from '@/components/editor/MusicPanel'
@@ -54,6 +55,10 @@ export default function App(): JSX.Element {
   }, [])
 
   useEffect(() => {
+    // Independent of the Ollama checks below — fire it concurrently instead of
+    // waiting on them first.
+    void window.prose.documents.getStorageInfo().then((info) => setDefaultFolder(info.folder))
+
     async function checkSetup(): Promise<void> {
       const installed = await window.prose.ollama.checkInstalled()
       setOllamaInstalled(installed)
@@ -61,8 +66,6 @@ export default function App(): JSX.Element {
         const status = await window.prose.ollama.getDownloadStatus()
         setDownloadStatus(status as DownloadStatus)
       }
-      const info = await window.prose.documents.getStorageInfo()
-      setDefaultFolder(info.folder)
     }
     void checkSetup()
   }, [])
@@ -147,7 +150,7 @@ export default function App(): JSX.Element {
 
   // Still checking
   if (ollamaInstalled === null) {
-    return <div className="flex h-screen items-center justify-center bg-background" />
+    return <LoadingScreen />
   }
 
   const showMigration =
@@ -189,7 +192,7 @@ export default function App(): JSX.Element {
   }
 
   if (downloadStatus === null) {
-    return <div className="flex h-screen items-center justify-center bg-background" />
+    return <LoadingScreen />
   }
 
   if (!downloadStatus.downloaded) {

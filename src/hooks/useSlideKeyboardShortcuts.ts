@@ -97,13 +97,13 @@ export function useSlideKeyboardShortcuts({
       if (e.ctrlKey && !e.shiftKey && e.key === 'z') {
         e.preventDefault()
         const prev = p.history.undo(p.slides, p.masterRef.current)
-        if (prev) { p.setSlides(prev.slides); p.setMaster(prev.master); p.setSelectedIds([]) }
+        if (prev) { p.setSlides(prev.slides); p.setMaster(prev.master); p.setSelectedIds([]); p.scheduleSave() }
         return
       }
       if (e.ctrlKey && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) {
         e.preventDefault()
         const next = p.history.redo(p.slides, p.masterRef.current)
-        if (next) { p.setSlides(next.slides); p.setMaster(next.master); p.setSelectedIds([]) }
+        if (next) { p.setSlides(next.slides); p.setMaster(next.master); p.setSelectedIds([]); p.scheduleSave() }
         return
       }
       if (e.ctrlKey && e.key === 's') {

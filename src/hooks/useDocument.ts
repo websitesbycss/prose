@@ -12,6 +12,7 @@ interface UseDocumentReturn {
   saveStatus: SaveStatus
   saveNow: (editor: Editor) => Promise<void>
   flushSave: (editor: Editor) => Promise<void>
+  cancelPendingSave: () => void
   onEditorUpdate: (editor: Editor) => void
   updateTitle: (title: string) => Promise<void>
   patchDocument: (updates: Partial<Document>) => void
@@ -105,6 +106,11 @@ export function useDocument(id: string): UseDocumentReturn {
     [persistContent]
   )
 
+  const cancelPendingSave = useCallback((): void => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current)
+    saveGenRef.current += 1
+  }, [])
+
   const onEditorUpdate = useCallback(
     (editor: Editor): void => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current)
@@ -150,5 +156,5 @@ export function useDocument(id: string): UseDocumentReturn {
     }
   }, [])
 
-  return { document, saveStatus, saveNow, flushSave, onEditorUpdate, updateTitle, patchDocument, notifySaveStatus }
+  return { document, saveStatus, saveNow, flushSave, cancelPendingSave, onEditorUpdate, updateTitle, patchDocument, notifySaveStatus }
 }

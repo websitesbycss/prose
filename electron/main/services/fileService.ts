@@ -304,7 +304,7 @@ export async function updateDocument(
       snapshots: doc.snapshots,
     }
 
-    if (options?.snapshot && 'content' in patch) {
+    if (options?.snapshot && 'content' in patch && (updated.fileType ?? 'document') === 'document') {
       updated = tryAddSnapshot(updated, updated.content, options.snapshot)
     }
 
@@ -780,6 +780,46 @@ export function tryAddSnapshot(
   }
 
   return { ...doc, snapshots }
+}
+
+export async function restoreDocumentSnapshot(snapshotId: string): Promise<{ documentId: string }> {
+  if (typeof snapshotId !== 'string' || !snapshotId) throw new Error('Invalid snapshotId')
+
+  for (const row of getAllIndexRows()) {
+    const resolved = await resolveDocument(row.id)
+    if (!resolved) continue
+    if (!resolved.doc.snapshots.some((s) => s.id === snapshotId)) continue
+
+    await withDocumentUpdateLock(row.id, async () => {
+      const fresh = await resolveDocument(row.id)
+      if (!fresh) throw new Error('Document not found')
+      const snap = fresh.doc.snapshots.find((s) => s.id === snapshotId)
+      if (!snap) throw new Error('Snapshot not found')
+
+      const now = new Date().toISOString()
+      const updated: ProseFileDocument = {
+        ...fresh.doc,
+        content: snap.content,
+        headerContent: 'headerContent' in snap ? snap.headerContent : fresh.doc.headerContent,
+        footerContent: 'footerContent' in snap ? snap.footerContent : fresh.doc.footerContent,
+        updatedAt: now,
+      }
+      await writeProseFile(fresh.filePath, updated)
+
+      const indexRow = getIndexRow(row.id)
+      if (indexRow) {
+        upsertIndex({
+          ...indexRow,
+          word_count: countUnitsFromContent(snap.content, fresh.doc.fileType ?? 'document'),
+          updated_at: now,
+        })
+      }
+    })
+
+    return { documentId: row.id }
+  }
+
+  throw new Error('Snapshot not found')
 }
 
 // ── Markdown → Tiptap ─────────────────────────────────────────────────────────

@@ -3,21 +3,42 @@ import { createWriteStream, existsSync } from 'fs'
 import { unlink } from 'fs/promises'
 import { join } from 'path'
 import { tmpdir } from 'os'
-import { spawnSync, spawn } from 'child_process'
+import { spawn } from 'child_process'
 
 const INSTALLER_URL =
   'https://github.com/ollama/ollama/releases/download/v0.6.5/OllamaSetup.exe'
 const MIN_INSTALLER_BYTES = 50 * 1024 * 1024
 
-export function isOllamaInstalled(): boolean {
+export function isOllamaInstalled(): Promise<boolean> {
   const localAppData = process.env['LOCALAPPDATA'] ?? ''
-  if (existsSync(join(localAppData, 'Programs', 'Ollama', 'ollama.exe'))) return true
-  try {
-    const result = spawnSync('where', ['ollama'], { timeout: 2000 })
-    return result.status === 0
-  } catch {
-    return false
-  }
+  if (existsSync(join(localAppData, 'Programs', 'Ollama', 'ollama.exe'))) return Promise.resolve(true)
+
+  // spawnSync blocks the main process's event loop — on a fresh machine
+  // (Ollama not on PATH) `where` can take the full timeout, freezing the
+  // entire app (including window paint) for up to 2s on every launch.
+  // spawn + a manual timeout keeps this off the main thread.
+  return new Promise<boolean>((resolve) => {
+    let settled = false
+    const child = spawn('where', ['ollama'])
+    const timer = setTimeout(() => {
+      if (settled) return
+      settled = true
+      child.kill()
+      resolve(false)
+    }, 2000)
+    child.on('exit', (code) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve(code === 0)
+    })
+    child.on('error', () => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve(false)
+    })
+  })
 }
 
 function sendToRenderer(channel: string, data: unknown): void {

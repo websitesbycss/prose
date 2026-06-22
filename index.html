@@ -26,9 +26,63 @@
     <title>Prose</title>
     <!-- Theme init runs before React to prevent dark/light flash; external file keeps script-src 'self' valid -->
     <script src="/src/theme-init.js"></script>
+    <style>
+      /* Static loading screen — shown the instant the window paints, before the
+         JS bundle has even downloaded. React's first render replaces #root's
+         contents, which clears this automatically; no JS needed to remove it.
+         Colors are hardcoded copies of globals.css's --background/--foreground/
+         --primary tokens since this runs before that stylesheet loads. */
+      html.dark #boot-splash { background: hsl(240 10% 3.9%); color: hsl(0 0% 98%); }
+      html:not(.dark) #boot-splash { background: hsl(0 0% 100%); color: hsl(240 10% 3.9%); }
+      #boot-splash {
+        position: fixed; inset: 0;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 16px;
+        font-family: 'Geist Sans', system-ui, sans-serif;
+      }
+      #boot-splash .mark {
+        display: flex; align-items: center; justify-content: center;
+        width: 56px; height: 56px;
+        border-radius: 16px;
+        background: hsl(221 83% 53% / 0.12);
+        animation: boot-pulse 1.8s ease-in-out infinite;
+      }
+      html.dark #boot-splash .mark { background: hsl(213 94% 68% / 0.14); }
+      #boot-splash .mark svg { width: 28px; height: 28px; stroke: hsl(221 83% 53%); }
+      html.dark #boot-splash .mark svg { stroke: hsl(213 94% 68%); }
+      #boot-splash .word { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+      #boot-splash .dots { display: flex; gap: 5px; }
+      #boot-splash .dots span {
+        width: 5px; height: 5px; border-radius: 50%;
+        background: currentColor; opacity: 0.35;
+        animation: boot-dot 1.2s ease-in-out infinite;
+      }
+      #boot-splash .dots span:nth-child(2) { animation-delay: 0.15s; }
+      #boot-splash .dots span:nth-child(3) { animation-delay: 0.3s; }
+      @keyframes boot-pulse {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.06); opacity: 0.85; }
+      }
+      @keyframes boot-dot {
+        0%, 100% { opacity: 0.25; transform: translateY(0); }
+        50% { opacity: 1; transform: translateY(-2px); }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Placeholder brand mark — swap for the real Prose logo once it's added to public/. -->
+      <div id="boot-splash">
+        <div class="mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+          </svg>
+        </div>
+        <div class="word">Prose</div>
+        <div class="dots"><span></span><span></span><span></span></div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

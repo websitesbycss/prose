@@ -35,10 +35,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { PAGE_MARGIN_X_PX, PAGE_MARGIN_Y_PX } from '@/constants'
+import { DEFAULT_PAGE_MARGINS } from '@/constants'
 
 const PAGE_WIDTH_PX = 816   // 8.5" at 96 dpi
-const PAGE_HEIGHT_PX = 1056 // 11" at 96 dpi
 
 // ---------------------------------------------------------------------------
 // Utilities
@@ -124,8 +123,8 @@ function ZonePreview({ content, fontFamily, fontSize }: {
       editor={zoneEditor}
       className="header-footer-editor pb-1.5 outline-none pointer-events-none"
       style={{
-        paddingLeft: 'var(--page-margin-x)',
-        paddingRight: 'var(--page-margin-x)',
+        paddingLeft: 'var(--page-margin-left, var(--page-margin-x, 96px))',
+        paddingRight: 'var(--page-margin-right, var(--page-margin-x, 96px))',
         '--prose-editor-font-family': fontFamily,
         '--prose-editor-font-size': `${fontSize}pt`,
       } as React.CSSProperties}
@@ -140,6 +139,7 @@ function SnapshotPreviewEditor({
   fontSize,
   headerContent,
   footerContent,
+  pageMargins = DEFAULT_PAGE_MARGINS,
 }: {
   content: string
   format: string
@@ -147,6 +147,7 @@ function SnapshotPreviewEditor({
   fontSize: number
   headerContent: string | null
   footerContent: string | null
+  pageMargins?: { top: number; right: number; bottom: number; left: number }
 }): JSX.Element {
   const parsed = (() => {
     try { return JSON.parse(content) as object } catch { return '' }
@@ -186,36 +187,46 @@ function SnapshotPreviewEditor({
   const showHeader = hasZoneContent(headerContent)
   const showFooter = hasZoneContent(footerContent)
 
+  const marginStyle = {
+    '--page-margin-left': `${Math.round(pageMargins.left * 96)}px`,
+    '--page-margin-right': `${Math.round(pageMargins.right * 96)}px`,
+    '--page-margin-top': `${Math.round(pageMargins.top * 96)}px`,
+    '--page-margin-bottom': `${Math.round(pageMargins.bottom * 96)}px`,
+  } as React.CSSProperties
+
   return (
     <div
-      className={cn('editor-page bg-editor-page', formatClass)}
-      style={{
-        '--page-margin-x': `${PAGE_MARGIN_X_PX}px`,
-        '--page-margin-y': `${PAGE_MARGIN_Y_PX}px`,
-        minHeight: PAGE_HEIGHT_PX,
-      } as React.CSSProperties}
+      className={cn('editor-page relative bg-editor-page', formatClass)}
+      style={marginStyle}
     >
       {showHeader && (
-        <div style={{ paddingTop: Math.round(PAGE_MARGIN_Y_PX / 2) }}>
-          <ZonePreview content={headerContent} fontFamily={fontFamily} fontSize={fontSize} />
-        </div>
+        <>
+          <div style={{ paddingTop: Math.round(pageMargins.top * 96 / 2) }}>
+            <ZonePreview content={headerContent} fontFamily={fontFamily} fontSize={fontSize} />
+          </div>
+          <div className="border-b border-editor-zone-divider" />
+        </>
       )}
       <div
+        className="min-h-[900px]"
         style={{
-          paddingLeft: 'var(--page-margin-x)',
-          paddingRight: 'var(--page-margin-x)',
-          paddingTop: showHeader ? Math.round(PAGE_MARGIN_Y_PX / 2) : PAGE_MARGIN_Y_PX,
-          paddingBottom: showFooter ? Math.round(PAGE_MARGIN_Y_PX / 2) : PAGE_MARGIN_Y_PX,
+          paddingLeft: 'var(--page-margin-left)',
+          paddingRight: 'var(--page-margin-right)',
+          paddingTop: showHeader ? Math.round(pageMargins.top * 96 / 2) : 'var(--page-margin-top)',
+          paddingBottom: showFooter ? Math.round(pageMargins.bottom * 96 / 2) : 'var(--page-margin-bottom)',
           '--prose-editor-font-family': fontFamily,
           '--prose-editor-font-size': `${fontSize}pt`,
         } as React.CSSProperties}
       >
-        <EditorContent editor={previewEditor} className="prose-editor outline-none" />
+        <EditorContent editor={previewEditor} className="prose-editor min-h-full outline-none pointer-events-none" />
       </div>
       {showFooter && (
-        <div style={{ paddingBottom: Math.round(PAGE_MARGIN_Y_PX / 2) }}>
-          <ZonePreview content={footerContent} fontFamily={fontFamily} fontSize={fontSize} />
-        </div>
+        <>
+          <div className="border-t border-editor-zone-divider" />
+          <div style={{ paddingBottom: Math.round(pageMargins.bottom * 96 / 2) }}>
+            <ZonePreview content={footerContent} fontFamily={fontFamily} fontSize={fontSize} />
+          </div>
+        </>
       )}
     </div>
   )
@@ -229,11 +240,13 @@ interface HistoryPanelProps {
   documentId: string
   editor: Editor | null
   format?: string
+  pageMargins?: { top: number; right: number; bottom: number; left: number }
   pollSnapshots?: boolean
+  onBeforeRestore?: () => void
   onRestore?: (headerContent: string | null, footerContent: string | null, content: string) => void
 }
 
-export function HistoryPanel({ documentId, editor, format = 'none', pollSnapshots = true, onRestore }: HistoryPanelProps): JSX.Element {
+export function HistoryPanel({ documentId, editor, format = 'none', pageMargins = DEFAULT_PAGE_MARGINS, pollSnapshots = true, onBeforeRestore, onRestore }: HistoryPanelProps): JSX.Element {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -248,7 +261,7 @@ export function HistoryPanel({ documentId, editor, format = 'none', pollSnapshot
   const previewContainerRef = useRef<HTMLDivElement>(null)
   const [previewScale, setPreviewScale] = useState(1)
 
-  // Load settings and compute preview scale when the preview dialog opens
+  // Fit preview to dialog width (not page height) so the full document scrolls naturally
   useEffect(() => {
     if (!previewOpen) return
     void window.prose.settings.get().then((s) => {
@@ -259,7 +272,7 @@ export function HistoryPanel({ documentId, editor, format = 'none', pollSnapshot
     const el = previewContainerRef.current
     if (!el) return
     const compute = (): void => {
-      setPreviewScale(Math.min(el.clientHeight / PAGE_HEIGHT_PX, 1))
+      setPreviewScale(Math.min((el.clientWidth - 64) / PAGE_WIDTH_PX, 1))
     }
     compute()
     const ro = new ResizeObserver(compute)
@@ -339,6 +352,7 @@ export function HistoryPanel({ documentId, editor, format = 'none', pollSnapshot
     const snapshot = selected
     setConfirmRestore(false)
     setPreviewOpen(false)
+    onBeforeRestore?.()
 
     void window.prose.snapshots.restore(snapshot.id)
       .then(() => {
@@ -368,6 +382,8 @@ export function HistoryPanel({ documentId, editor, format = 'none', pollSnapshot
       await window.prose.snapshots.deleteAll(documentId)
       setSnapshots([])
       setSelectedId(null)
+      setCurrentSnapshotId(null)
+      pinnedCurrentIdRef.current = null
       setConfirmClear(false)
     } catch {
       toast.error('Failed to clear history')
@@ -548,7 +564,7 @@ export function HistoryPanel({ documentId, editor, format = 'none', pollSnapshot
 
       {/* ── Full preview modal ── */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="flex max-h-[90vh] w-[900px] max-w-[95vw] flex-col gap-3 p-0">
+        <DialogContent className="flex h-[90vh] max-h-[90vh] w-[900px] max-w-[95vw] flex-col gap-0 overflow-hidden p-0">
           <DialogHeader className="shrink-0 border-b border-border px-5 py-4">
             <DialogTitle className="text-sm font-medium">
               {selected ? relativeTime(selected.createdAt) : 'Preview'}
@@ -562,9 +578,12 @@ export function HistoryPanel({ documentId, editor, format = 'none', pollSnapshot
 
           <div
             ref={previewContainerRef}
-            className="min-h-0 flex-1 overflow-auto bg-editor-canvas flex justify-center"
+            className="min-h-0 flex-1 overflow-auto bg-editor-canvas"
           >
-            <div style={{ zoom: previewScale, width: PAGE_WIDTH_PX }}>
+            <div
+              className="mx-auto my-8 w-[816px]"
+              style={{ zoom: previewScale }}
+            >
               {selected && (
                 <SnapshotPreviewEditor
                   key={selected.id}
@@ -574,6 +593,7 @@ export function HistoryPanel({ documentId, editor, format = 'none', pollSnapshot
                   fontSize={previewFontSize}
                   headerContent={selected.headerContent}
                   footerContent={selected.footerContent}
+                  pageMargins={pageMargins}
                 />
               )}
             </div>

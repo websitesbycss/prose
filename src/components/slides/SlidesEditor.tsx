@@ -29,6 +29,8 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import SettingsModal from '@/components/settings/SettingsModal'
 import { useMusicContext } from '@/contexts/MusicContext'
 import { AMBIENT_LAYERS } from '@/hooks/useMusic'
+import { useIsActiveTab } from '@/hooks/useIsActiveTab'
+import { AUTO_SAVE_DEBOUNCE_MS } from '@/constants'
 import { ChartPickerDialog } from '@/components/shared/ChartPickerDialog'
 import type { ChartSnapshot } from '@/lib/chartSnapshot'
 
@@ -104,6 +106,8 @@ function makeDefaultElement(type: CanvasToolMode, x: number, y: number, w: numbe
 }
 
 export function SlidesEditor({ documentId }: Props): JSX.Element {
+  const isActive = useIsActiveTab(documentId)
+  const setSaveActiveDocument = useAppStore((s) => s.setSaveActiveDocument)
   const [slides, setSlides] = useState<Slide[]>([])
   const [theme, setTheme] = useState<PresentationTheme>(createInitialSlidesContent().theme)
   const [settings, setSettings] = useState<PresentationSettings>(createInitialSlidesContent().settings)
@@ -152,6 +156,10 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   useEffect(() => { slidesRef.current = slides }, [slides])
   const masterRef = useRef<SlideMaster>(master)
   useEffect(() => { masterRef.current = master }, [master])
+  const themeRef = useRef(theme)
+  useEffect(() => { themeRef.current = theme }, [theme])
+  const settingsRef = useRef(settings)
+  useEffect(() => { settingsRef.current = settings }, [settings])
 
   const { document: doc, notifySaveStatus } = useDocument(documentId)
   const history = useSlideHistory()
@@ -209,17 +217,18 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
 
   // ── Auto-save ─────────────────────────────────────────────────────────────────
 
-  const scheduleSave = useCallback((): void => {
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-    saveTimerRef.current = setTimeout(() => void flushAndSave(), 1000)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
   const flushAndSave = useCallback(async (): Promise<void> => {
     if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null }
     notifySaveStatus('saving')
     setSaveStatus('saving')
     try {
-      const content: SlidesContent = { version: 1, slides: slidesRef.current, theme, settings, master }
+      const content: SlidesContent = {
+        version: 1,
+        slides: slidesRef.current,
+        theme: themeRef.current,
+        settings: settingsRef.current,
+        master: masterRef.current,
+      }
       await window.prose.documents.update(documentId, { content: JSON.stringify(content) })
       notifySaveStatus('saved')
       setSaveStatus('saved')
@@ -227,25 +236,42 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
       notifySaveStatus('error')
       setSaveStatus('error')
     }
-  }, [documentId, theme, settings, notifySaveStatus])
+  }, [documentId, notifySaveStatus])
 
-  useEffect(() => {
-    const setSave = useAppStore.getState().setSaveActiveDocument
-    setSave(() => flushAndSave())
-    return () => setSave(null)
+  const scheduleSave = useCallback((): void => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(() => void flushAndSave(), AUTO_SAVE_DEBOUNCE_MS)
   }, [flushAndSave])
 
-  useEffect(() => () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }, [])
+  useEffect(() => {
+    if (!isActive) return
+    setSaveActiveDocument(async () => { await flushAndSave() })
+    return () => setSaveActiveDocument(null)
+  }, [isActive, flushAndSave, setSaveActiveDocument])
+
+  useEffect(() => () => {
+    if (saveTimerRef.current) void flushAndSave()
+  }, [flushAndSave])
 
   const handleUndo = useCallback((): void => {
     const prev = history.undo(slidesRef.current, masterRef.current)
-    if (prev) { setSlides(prev.slides); setMaster(prev.master); setSelectedIds([]) }
-  }, [history])
+    if (prev) {
+      setSlides(prev.slides)
+      setMaster(prev.master)
+      setSelectedIds([])
+      scheduleSave()
+    }
+  }, [history, scheduleSave])
 
   const handleRedo = useCallback((): void => {
     const next = history.redo(slidesRef.current, masterRef.current)
-    if (next) { setSlides(next.slides); setMaster(next.master); setSelectedIds([]) }
-  }, [history])
+    if (next) {
+      setSlides(next.slides)
+      setMaster(next.master)
+      setSelectedIds([])
+      scheduleSave()
+    }
+  }, [history, scheduleSave])
 
   // ── Mutation helpers ──────────────────────────────────────────────────────────
 

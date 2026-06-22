@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
-import { resolveDocument, writeProseFile, countWordsFromContent } from '../services/fileService'
-import { upsertIndex, getIndexRow, getAllIndexRows } from '../services/indexDb'
+import { resolveDocument, writeProseFile, restoreDocumentSnapshot } from '../services/fileService'
+import { getAllIndexRows } from '../services/indexDb'
 
 interface SnapshotOut {
   id: string
@@ -20,7 +20,7 @@ export function registerSnapshotHandlers(): void {
     if (!resolved) return []
     return resolved.doc.snapshots
       .slice()
-      .reverse()  // newest first
+      .reverse()
       .map((s) => ({
         id: s.id,
         documentId,
@@ -35,31 +35,7 @@ export function registerSnapshotHandlers(): void {
 
   ipcMain.handle('snapshots:restore', async (_, snapshotId: unknown): Promise<void> => {
     if (typeof snapshotId !== 'string' || !snapshotId) throw new Error('Invalid snapshotId')
-
-    // Find document containing this snapshot
-    for (const row of getAllIndexRows()) {
-      const resolved = await resolveDocument(row.id)
-      if (!resolved) continue
-      const snap = resolved.doc.snapshots.find((s) => s.id === snapshotId)
-      if (!snap) continue
-
-      const now = new Date().toISOString()
-      const updated = {
-        ...resolved.doc,
-        content: snap.content,
-        headerContent: 'headerContent' in snap ? snap.headerContent : resolved.doc.headerContent,
-        footerContent: 'footerContent' in snap ? snap.footerContent : resolved.doc.footerContent,
-        updatedAt: now,
-      }
-      await writeProseFile(resolved.filePath, updated)
-
-      const indexRow = getIndexRow(row.id)
-      if (indexRow) {
-        upsertIndex({ ...indexRow, word_count: countWordsFromContent(snap.content), updated_at: now })
-      }
-      return
-    }
-    throw new Error('Snapshot not found')
+    await restoreDocumentSnapshot(snapshotId)
   })
 
   ipcMain.handle('snapshots:delete', async (_, snapshotId: unknown): Promise<void> => {
