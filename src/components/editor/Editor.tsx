@@ -71,6 +71,8 @@ import { HistoryPanel } from './HistoryPanel'
 import { EditorContextMenu } from './EditorContextMenu'
 import { SpellTooltip } from './SpellTooltip'
 import MathModal from './MathModal'
+import { ChartPickerDialog } from '@/components/shared/ChartPickerDialog'
+import type { ChartSnapshot } from '@/lib/chartSnapshot'
 import SettingsModal from '@/components/settings/SettingsModal'
 import type { AppSettings, Document, PageMargins } from '@/types'
 import { List, Timer, BarChart2, History, ChevronLeft, ChevronRight, Settings } from 'lucide-react'
@@ -522,6 +524,17 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
     setMathModal({ open: true, editPos: null, initialLatex: '', initialDisplayMode: false })
   }, [editor, zoneEditor])
 
+  const [chartPickerOpen, setChartPickerOpen] = useState(false)
+
+  const handleChartInsert = useCallback((snapshot: ChartSnapshot): void => {
+    const ed = zoneEditor ?? editor
+    if (!ed) return
+    ed.chain().focus().insertContent({
+      type: 'image',
+      attrs: { src: snapshot.dataUrl, width: snapshot.width, height: snapshot.height },
+    }).run()
+  }, [editor, zoneEditor])
+
   const handleMathInsert = useCallback((latex: string, displayMode: boolean): void => {
     const ed = zoneEditor ?? editor
     if (!ed) return
@@ -592,6 +605,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                 defaultFontFamily={editorFontFamily}
                 defaultFontSize={editorFontSize}
                 onOpenMathModal={() => openMathModal()}
+                onOpenChartPicker={() => setChartPickerOpen(true)}
                 onFindOpen={() => setFindOpen(true)}
                 onFocusMode={() => setFocusModeActive(true)}
                 documentMargins={doc?.pageMargins}
@@ -872,6 +886,14 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
         onClose={() => setMathModal((s) => ({ ...s, open: false }))}
         onInsert={handleMathInsert}
       />
+
+      {chartPickerOpen && (
+        <ChartPickerDialog
+          open={chartPickerOpen}
+          onClose={() => setChartPickerOpen(false)}
+          onSelect={handleChartInsert}
+        />
+      )}
 
       <FormatModal
         open={formatModalTarget !== null}

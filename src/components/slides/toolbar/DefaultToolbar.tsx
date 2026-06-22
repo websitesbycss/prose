@@ -1,4 +1,4 @@
-import { MousePointer2, Type, Shapes, Image, Table2, Sigma, Code2, Video, Palette, Undo2, Redo2, RectangleHorizontal } from 'lucide-react'
+import { MousePointer2, Type, Shapes, Image, Table2, Sigma, Code2, Video, Palette, Undo2, Redo2, RectangleHorizontal, BarChart3 } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
 import { ShapePickerPopover } from './ShapePickerPopover'
@@ -21,6 +21,7 @@ interface Props {
   onInsertShape?(shapeType: ShapeType): void
   onInsertTable?(cols: number, rows: number): void
   onInsertImage?(): void
+  onInsertChart?(): void
   pendingShapeType?: ShapeType | null
   pendingTableConfig?: { cols: number; rows: number } | null
   slideBackgroundColor?: string
@@ -62,7 +63,7 @@ function SlideBackgroundButton({ color, onChange }: { color: string; onChange: (
   )
 }
 
-export function DefaultToolbar({ toolMode, onToolMode, canUndo, canRedo, onUndo, onRedo, onBackground, onInsertShape, onInsertTable, onInsertImage, pendingShapeType, pendingTableConfig, slideBackgroundColor, onSlideBackground }: Props): JSX.Element {
+export function DefaultToolbar({ toolMode, onToolMode, canUndo, canRedo, onUndo, onRedo, onBackground, onInsertShape, onInsertTable, onInsertImage, onInsertChart, pendingShapeType, pendingTableConfig, slideBackgroundColor, onSlideBackground }: Props): JSX.Element {
   return (
     <div className="flex items-center gap-0.5">
       {/* Undo / Redo */}
@@ -167,6 +168,16 @@ export function DefaultToolbar({ toolMode, onToolMode, canUndo, canRedo, onUndo,
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom" className="text-xs">Video</TooltipContent>
+      </Tooltip>
+
+      {/* Chart */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onInsertChart?.()}>
+            <BarChart3 className="h-3.5 w-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">Insert chart</TooltipContent>
       </Tooltip>
 
       <div className="mx-0.5 h-5 w-px bg-border/60" />

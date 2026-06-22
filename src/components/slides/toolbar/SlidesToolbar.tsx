@@ -36,6 +36,7 @@ interface Props {
   onInsertShape?(shapeType: ShapeType): void
   onInsertTable?(cols: number, rows: number): void
   onInsertImage?(): void
+  onInsertChart?(): void
   onPresent?(): void
   onEditMaster?(): void
   onExport?(): void
@@ -65,7 +66,7 @@ export function SlidesToolbar({
   toolMode, onToolMode, slide, selectedIds, documentId, documentTitle,
   canUndo, canRedo, onUndo, onRedo,
   onBackground, onUpdateElement, onBatchUpdateElements, onAlignElements,
-  onInsertShape, onInsertTable, onInsertImage, onPresent, onEditMaster, onExport, onFind,
+  onInsertShape, onInsertTable, onInsertImage, onInsertChart, onPresent, onEditMaster, onExport, onFind,
   onToggleGrid, gridActive, onSettingsOpen,
   pendingShapeType, pendingTableConfig,
   editingElementId, tableSelectedCells = [],
@@ -127,6 +128,7 @@ export function SlidesToolbar({
         onInsertShape={onInsertShape}
         onInsertTable={onInsertTable}
         onInsertImage={onInsertImage}
+        onInsertChart={onInsertChart}
         pendingShapeType={pendingShapeType}
         pendingTableConfig={pendingTableConfig}
         slideBackgroundColor={slideBackgroundColor}

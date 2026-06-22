@@ -162,6 +162,14 @@ function defaultAdvanced(editChart?: ChartDef): ChartAdvancedOptions {
 
 // ── Color swatch (no label) — opens the shared Chrome-style color picker ──────
 
+// Curated, chart-friendly palette — saturated and mutually distinguishable; includes
+// the 8 Prose chart defaults so picking a default-matching color never reads as "custom".
+const CHART_PALETTE = [
+  '#6366f1', '#ec4899', '#10b981', '#f59e0b',
+  '#3b82f6', '#ef4444', '#14b8a6', '#a855f7',
+  '#84cc16', '#f97316', '#06b6d4', '#f43f5e',
+]
+
 function ColorSwatch({ hex, onChange }: { hex: string; onChange: (hex: string) => void }): JSX.Element {
   return (
     <Popover>
@@ -174,7 +182,12 @@ function ColorSwatch({ hex, onChange }: { hex: string; onChange: (hex: string) =
         />
       </PopoverTrigger>
       <PopoverContent align="start" className="w-auto border-none bg-transparent p-0 shadow-none">
-        <ChromeColorPicker color={hex} current={hex} onChange={onChange} />
+        <ChromeColorPicker
+          color={hex}
+          palette={CHART_PALETTE}
+          onChange={onChange}
+          onPaletteSelect={onChange}
+        />
       </PopoverContent>
     </Popover>
   )
@@ -263,7 +276,7 @@ function ChartPreview({
   }, [])
 
   return (
-    <div className="relative rounded-lg border border-border bg-muted/30" style={{ height: 260 }}>
+    <div className="relative shrink-0 rounded-lg border border-border bg-muted/30" style={{ height: 456 }}>
       <div className="absolute inset-0 p-2">
         <canvas ref={canvasRef} style={{ display: 'block', width: '100%', height: '100%' }} />
       </div>
@@ -375,7 +388,7 @@ export function ChartDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex min-h-0" style={{ height: 560 }}>
+        <div className="flex min-h-0" style={{ height: 600 }}>
           {/* Left: chart type list */}
           <div className="w-44 shrink-0 border-r border-border overflow-y-auto py-1.5">
             {CHART_TYPES.map((ct) => (
@@ -399,12 +412,14 @@ export function ChartDialog({
             ))}
           </div>
 
-          {/* Right: config + advanced + preview */}
-          <div className="flex flex-1 min-w-0 flex-col gap-3 p-4">
-            {/* Scrollable: data range / title / advanced */}
-            <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+          {/* Right: config + preview + advanced — one scrollable column.
+              No right padding on this wrapper so the scrollbar sits flush against
+              the dialog's edge; right breathing room comes from pr-4 on the
+              scrollable element itself, inside its own padding box. */}
+          <div className="flex flex-1 min-w-0 flex-col py-4 pl-4">
+            <div className="flex flex-1 min-h-0 flex-col gap-3 overflow-y-auto pr-4">
               {/* Config fields */}
-              <div className="flex gap-3">
+              <div className="flex gap-3 shrink-0">
                 <div className="flex-1 min-w-0">
                   <p className="text-xs mb-1.5 text-muted-foreground">Data range</p>
                   <Input
@@ -431,10 +446,20 @@ export function ChartDialog({
                 </div>
               </div>
 
+              {/* Live preview */}
+              <ChartPreview
+                chartType={chartType}
+                dataRange={dataRange}
+                title={title}
+                advanced={advanced}
+                workbookRef={workbookRef}
+                activeSheetId={activeSheetId}
+              />
+
               {/* Advanced toggle */}
               <button
                 type="button"
-                className="mt-3 flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                className="flex shrink-0 items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
                 onClick={() => setAdvancedOpen((o) => !o)}
               >
                 <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', advancedOpen && 'rotate-180')} />
@@ -442,7 +467,7 @@ export function ChartDialog({
               </button>
 
               {advancedOpen && (
-                <div className="mt-2.5 flex flex-col gap-3 rounded-lg border border-border bg-muted/20 p-3">
+                <div className="flex flex-col gap-3 shrink-0">
                   {/* Legend */}
                   <div className="flex items-center justify-between">
                     <p className="text-xs text-muted-foreground">Show legend</p>
@@ -547,16 +572,6 @@ export function ChartDialog({
                 </div>
               )}
             </div>
-
-            {/* Live preview */}
-            <ChartPreview
-              chartType={chartType}
-              dataRange={dataRange}
-              title={title}
-              advanced={advanced}
-              workbookRef={workbookRef}
-              activeSheetId={activeSheetId}
-            />
           </div>
         </div>
 

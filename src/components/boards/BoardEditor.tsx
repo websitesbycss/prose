@@ -23,6 +23,8 @@ import { useMusicContext } from '@/contexts/MusicContext'
 import { AMBIENT_LAYERS } from '@/hooks/useMusic'
 import { cn } from '@/lib/utils'
 import SettingsModal from '@/components/settings/SettingsModal'
+import { ChartPickerDialog } from '@/components/shared/ChartPickerDialog'
+import type { ChartSnapshot } from '@/lib/chartSnapshot'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useIsActiveTab } from '@/hooks/useIsActiveTab'
 
@@ -406,6 +408,55 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
     [scheduleSave],
   )
 
+  // Insert a static chart snapshot as a native Excalidraw image element — moves,
+  // resizes, and rotates just like any other board element, and does not
+  // live-update if the source sheet's chart changes later.
+  const [chartPickerOpen, setChartPickerOpen] = useState(false)
+
+  const addChartElement = useCallback(
+    (snapshot: ChartSnapshot) => {
+      const api = excalidrawAPIRef.current
+      if (!api) return
+
+      const appState = api.getAppState()
+      const elements = api.getSceneElements()
+
+      const maxWidth = 480
+      const scale = snapshot.width > maxWidth ? maxWidth / snapshot.width : 1
+      const width = Math.round(snapshot.width * scale)
+      const height = Math.round(snapshot.height * scale)
+
+      const x = -appState.scrollX + (appState.width ?? 800) / 2 / appState.zoom.value - width / 2
+      const y = -appState.scrollY + (appState.height ?? 600) / 2 / appState.zoom.value - height / 2
+
+      const fileId = crypto.randomUUID()
+      api.addFiles([{
+        id: fileId,
+        dataURL: snapshot.dataUrl,
+        mimeType: 'image/png',
+        created: Date.now(),
+      }])
+
+      const newElement = {
+        type: 'image',
+        id: crypto.randomUUID(),
+        x, y, width, height, angle: 0,
+        strokeColor: 'transparent', backgroundColor: 'transparent',
+        fillStyle: 'solid', strokeWidth: 1, strokeStyle: 'solid',
+        roundness: null, roughness: 0, opacity: 100,
+        groupIds: [], frameId: null, boundElements: null,
+        updated: Date.now(), isDeleted: false, link: null, locked: false,
+        seed: Math.floor(Math.random() * 2 ** 31),
+        version: 1, versionNonce: Math.floor(Math.random() * 2 ** 31), index: null,
+        fileId, status: 'saved', scale: [1, 1], crop: null,
+      }
+
+      api.updateScene({ elements: [...elements, newElement] })
+      scheduleSave()
+    },
+    [scheduleSave],
+  )
+
   // ── Sidebar ────────────────────────────────────────────────────────────────
 
   const sidebarWidth = boardSidebarOpen ? boardSidebarWidth : 42
@@ -527,6 +578,7 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
         canvasZoom={canvasZoom}
         onCanvasZoomChange={handleCanvasZoomChange}
         onAddFileCard={addFileCard}
+        onInsertChart={() => setChartPickerOpen(true)}
         onSettingsOpen={() => setSettingsOpen(true)}
       />
 
@@ -587,6 +639,14 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
         <SettingsModal
           open={settingsOpen}
           onClose={() => setSettingsOpen(false)}
+        />
+      )}
+
+      {chartPickerOpen && (
+        <ChartPickerDialog
+          open={chartPickerOpen}
+          onClose={() => setChartPickerOpen(false)}
+          onSelect={addChartElement}
         />
       )}
     </div>

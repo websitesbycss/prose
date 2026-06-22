@@ -19,7 +19,7 @@ import {
   Title,
 } from 'chart.js'
 import type { ChartConfiguration } from 'chart.js'
-import type { ChartType, ChartDef } from '@/types/sheet'
+import type { ChartType, ChartDef, SheetTab } from '@/types/sheet'
 
 // Register Chart.js components once
 Chart.register(
@@ -111,6 +111,25 @@ export function parseRange(range: string): { r1: number; c1: number; r2: number;
 // ── Data extraction from FortuneSheet raw data ────────────────────────────────
 
 type CellLike = { v?: unknown; m?: unknown; f?: string } | null | undefined
+
+/**
+ * Converts a Prose SheetTab's sparse cell store into the 2D `data[r][c]` grid shape
+ * `extractChartData` expects — used to render a chart's data outside of a live
+ * FortuneSheet Workbook (e.g. when snapshotting a chart for insertion elsewhere).
+ */
+export function sheetTabToCellGrid(tab: SheetTab): CellLike[][] {
+  const grid: CellLike[][] = []
+  for (const [key, cell] of Object.entries(tab.cells)) {
+    const [rs, cs] = key.split(',')
+    const r = parseInt(rs ?? '', 10)
+    const c = parseInt(cs ?? '', 10)
+    if (isNaN(r) || isNaN(c)) continue
+    if (cell.value === null || cell.value === undefined) continue
+    if (!grid[r]) grid[r] = []
+    grid[r]![c] = { v: cell.value, m: String(cell.value), f: cell.formula }
+  }
+  return grid
+}
 
 function getCellRaw(data: CellLike[][] | undefined, r: number, c: number): string | number | null {
   const cell = data?.[r]?.[c]

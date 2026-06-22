@@ -11,7 +11,7 @@ import {
   List, ListOrdered, IndentIcon, Outdent,
   Subscript, Superscript, Sigma,
   Image, Link2, Table2, BookOpen, Hash, SeparatorHorizontal,
-  ChevronDown, Undo2, Redo2, Highlighter, PaintBucket,
+  ChevronDown, Undo2, Redo2, Highlighter, PaintBucket, BarChart3,
 } from 'lucide-react'
 import type { DocumentFormat } from '@/types'
 import { Button } from '@/components/ui/button'
@@ -123,6 +123,7 @@ interface ToolbarProps {
   defaultFontFamily?: string
   defaultFontSize?: number
   onOpenMathModal?: () => void
+  onOpenChartPicker?: () => void
   onFindOpen?: () => void
   onFocusMode?: () => void
   documentMargins?: PageMargins | null
@@ -1090,6 +1091,7 @@ function ToolbarInner({
   defaultFontFamily = 'Calibri',
   defaultFontSize = 12,
   onOpenMathModal,
+  onOpenChartPicker,
   onFindOpen,
   onFocusMode,
   documentMargins,
@@ -1102,6 +1104,7 @@ function ToolbarInner({
   defaultFontFamily?: string
   defaultFontSize?: number
   onOpenMathModal?: () => void
+  onOpenChartPicker?: () => void
   onFindOpen?: () => void
   onFocusMode?: () => void
   documentMargins?: PageMargins | null
@@ -1390,6 +1393,13 @@ function ToolbarInner({
           onClick={() => editor.chain().focus().insertPageBreak().run()}
         />
       )}
+      {!isZoneEditor && (
+        <ToolbarBtn
+          icon={BarChart3}
+          title="Insert chart"
+          onClick={() => onOpenChartPicker?.()}
+        />
+      )}
 
       {/* Image border tools — only visible when an image is selected */}
       {s.isOnImage && !isZoneEditor && (
@@ -1480,6 +1490,7 @@ export default function Toolbar({
   defaultFontFamily,
   defaultFontSize,
   onOpenMathModal,
+  onOpenChartPicker,
   onFindOpen,
   onFocusMode,
   documentMargins,
@@ -1502,6 +1513,7 @@ export default function Toolbar({
       defaultFontFamily={defaultFontFamily}
       defaultFontSize={defaultFontSize}
       onOpenMathModal={onOpenMathModal}
+      onOpenChartPicker={onOpenChartPicker}
       onFindOpen={onFindOpen}
       onFocusMode={onFocusMode}
       documentMargins={documentMargins}

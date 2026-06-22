@@ -29,6 +29,8 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import SettingsModal from '@/components/settings/SettingsModal'
 import { useMusicContext } from '@/contexts/MusicContext'
 import { AMBIENT_LAYERS } from '@/hooks/useMusic'
+import { ChartPickerDialog } from '@/components/shared/ChartPickerDialog'
+import type { ChartSnapshot } from '@/lib/chartSnapshot'
 
 interface Props {
   documentId: string
@@ -709,6 +711,27 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
     }
   }, [changeActiveSlide])
 
+  const [chartPickerOpen, setChartPickerOpen] = useState(false)
+
+  const handleChartSnapshotSelected = useCallback((snapshot: ChartSnapshot): void => {
+    const aspect = snapshot.width / snapshot.height
+    const elemWidth = 50
+    const elemHeight = Math.min(70, elemWidth / aspect)
+    const finalWidth = elemHeight < 70 ? elemWidth : elemHeight * aspect
+
+    const el: SlideElement = {
+      id: crypto.randomUUID(), type: 'image',
+      x: Math.max(0, (100 - finalWidth) / 2),
+      y: Math.max(0, (100 - elemHeight) / 2),
+      width: finalWidth, height: elemHeight,
+      rotate: 0, opacity: 1, zIndex: Date.now(), flipH: false, flipV: false, locked: false, hidden: false,
+      src: snapshot.dataUrl, altText: '', borderRadius: 0,
+      filters: { brightness: 100, contrast: 100, saturation: 100, blur: 0 },
+    }
+    changeActiveSlide((s) => ({ ...s, elements: [...s.elements, el] }))
+    setSelectedIds([el.id])
+  }, [changeActiveSlide])
+
   // ── Keyboard shortcuts ────────────────────────────────────────────────────────
 
   useSlideKeyboardShortcuts({
@@ -874,6 +897,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
         onInsertShape={handleInsertShape}
         onInsertTable={handleInsertTable}
         onInsertImage={showMasterEditor ? () => void handleMasterInsertImage() : () => void handleInsertImage()}
+        onInsertChart={showMasterEditor ? undefined : () => setChartPickerOpen(true)}
         onPresent={showMasterEditor ? undefined : enterPresentation}
         onEditMaster={showMasterEditor ? undefined : () => setShowMasterEditor(true)}
         onExport={showMasterEditor ? undefined : () => setShowExportModal(true)}
@@ -1042,6 +1066,14 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
           title={doc?.title ?? 'Presentation'}
           activeSlideIndex={activeSlideIndex}
           onClose={() => setShowExportModal(false)}
+        />
+      )}
+
+      {chartPickerOpen && (
+        <ChartPickerDialog
+          open={chartPickerOpen}
+          onClose={() => setChartPickerOpen(false)}
+          onSelect={handleChartSnapshotSelected}
         />
       )}
 

@@ -4,7 +4,7 @@ import {
   MousePointer2, Hand, Square, Diamond, Circle,
   ArrowRight, Minus, PenLine, Type, Eraser,
   PlusSquare, Search, ZoomIn, ZoomOut, ChevronDown,
-  FileText, Table2, Shapes, GalleryVerticalEnd,
+  FileText, Table2, Shapes, GalleryVerticalEnd, BarChart3,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -276,6 +276,7 @@ interface BoardToolbarProps {
   canvasZoom: number
   onCanvasZoomChange: (pct: number) => void
   onAddFileCard: (fileId: string, fileType: string, title: string, wordCount: number, preview: string) => void
+  onInsertChart?: () => void
   onSettingsOpen?: () => void
 }
 
@@ -287,6 +288,7 @@ export function BoardToolbar({
   canvasZoom,
   onCanvasZoomChange,
   onAddFileCard,
+  onInsertChart,
   onSettingsOpen,
 }: BoardToolbarProps): JSX.Element {
   function setTool(type: ExcalidrawToolType) {
@@ -346,6 +348,15 @@ export function BoardToolbar({
         <div className="flex items-center">
           <FilePickerPopover excalidrawAPI={excalidrawAPI} onAddFileCard={onAddFileCard} />
         </div>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onInsertChart?.()}>
+              <BarChart3 className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">Insert chart</TooltipContent>
+        </Tooltip>
 
         <Separator orientation="vertical" className="mx-0.5 h-5" />
 
