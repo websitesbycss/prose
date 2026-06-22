@@ -25,7 +25,7 @@ export function ChartOverlay({
   return (
     <div
       className="pointer-events-none absolute inset-0"
-      style={{ zIndex: 5 }}
+      style={{ zIndex: 30 }}
     >
       {visible.map((chart) => (
         <div key={chart.id} className="pointer-events-auto">

@@ -72,6 +72,7 @@ export interface ChartDef {
   colors?: string[]           // hex overrides, indexed by legend item (dataset, or slice for pie/doughnut)
   doughnutCutout?: number     // percentage 0-90, doughnut only
   straightLines?: boolean     // line/area only — disables curve tension
+  textScale?: number          // multiplier applied to all chart text sizes; default 1.25
 }
 
 export interface SheetContent {

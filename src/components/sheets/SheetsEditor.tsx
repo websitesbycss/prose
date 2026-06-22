@@ -169,6 +169,17 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
   const pendingDataRef = useRef<Sheet[] | null>(null)
   const zoomChangeRef = useRef(false)
 
+  // Undo/redo enabled state — FortuneSheet keeps its undo stack entirely
+  // internal (no public API to query it), so we mirror its depth ourselves:
+  // genuine edits push, our own Undo/Redo button clicks pop/push between the
+  // two stacks the same way FortuneSheet's internal handleUndo/handleRedo do.
+  const undoDepthRef = useRef(0)
+  const redoDepthRef = useRef(0)
+  const pendingUndoRedoRef = useRef<'undo' | 'redo' | null>(null)
+  const undoCountTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [canUndo, setCanUndo] = useState(false)
+  const [canRedo, setCanRedo] = useState(false)
+
   const flushAndSave = useCallback(async () => {
     const data = pendingDataRef.current
     if (!data) return
@@ -242,6 +253,11 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
     fsDataRef.current = content.tabs.map((tab, i) =>
       sheetTabToFSSheet(tab, tab.id === content.activeTabId, i)
     )
+    // Seed the autosave baseline immediately — pendingDataRef otherwise stays
+    // null until FortuneSheet's onChange fires, so a chart inserted before any
+    // cell edit would never trigger a save (flushAndSave bails on null data).
+    // fsDataToSheetContent already handles the celldata-only shape this carries.
+    pendingDataRef.current = fsDataRef.current
 
     const initialTabs = content.tabs.map((t) => ({ id: t.id, name: t.name }))
     tabsRef.current = initialTabs
@@ -252,6 +268,15 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
     const loadedCharts = content.charts ?? []
     chartsRef.current = loadedCharts
     setCharts(loadedCharts)
+
+    // Fresh Workbook instance (key={documentId} below) means FortuneSheet's own
+    // undo/redo stack also starts empty — reset our mirrored depth tracking too.
+    undoDepthRef.current = 0
+    redoDepthRef.current = 0
+    pendingUndoRedoRef.current = null
+    if (undoCountTimerRef.current) { clearTimeout(undoCountTimerRef.current); undoCountTimerRef.current = null }
+    setCanUndo(false)
+    setCanRedo(false)
 
     setReady(true)
   // Only re-initialize when the document ID changes (opening a different file)
@@ -322,11 +347,17 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
   // keydown on its hidden cell-editor element, so locate that within this
   // sheet's own wrapper and dispatch there.
   const handleUndo = useCallback(() => {
+    if (undoDepthRef.current === 0) return
+    if (undoCountTimerRef.current) { clearTimeout(undoCountTimerRef.current); undoCountTimerRef.current = null }
+    pendingUndoRedoRef.current = 'undo'
     const target = workbookWrapperRef.current?.querySelector('.luckysheet-cell-input')
     dispatchUndoRedoKey(target, 'undo')
   }, [])
 
   const handleRedo = useCallback(() => {
+    if (redoDepthRef.current === 0) return
+    if (undoCountTimerRef.current) { clearTimeout(undoCountTimerRef.current); undoCountTimerRef.current = null }
+    pendingUndoRedoRef.current = 'redo'
     const target = workbookWrapperRef.current?.querySelector('.luckysheet-cell-input')
     dispatchUndoRedoKey(target, 'redo')
   }, [])
@@ -438,6 +469,33 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
     }
 
     scheduleSave()
+
+    // Undo/redo depth tracking — see comment near the refs' declaration.
+    if (pendingUndoRedoRef.current === 'undo') {
+      undoDepthRef.current = Math.max(0, undoDepthRef.current - 1)
+      redoDepthRef.current += 1
+      pendingUndoRedoRef.current = null
+      setCanUndo(undoDepthRef.current > 0)
+      setCanRedo(true)
+    } else if (pendingUndoRedoRef.current === 'redo') {
+      redoDepthRef.current = Math.max(0, redoDepthRef.current - 1)
+      undoDepthRef.current += 1
+      pendingUndoRedoRef.current = null
+      setCanUndo(true)
+      setCanRedo(redoDepthRef.current > 0)
+    } else {
+      // A genuine edit. Debounce briefly so a continuous drag (range fill,
+      // multi-cell paste) collapses into one counted undo step instead of one
+      // per onChange firing, without delaying the button's enabled state by
+      // the (much longer) save debounce.
+      if (undoCountTimerRef.current) clearTimeout(undoCountTimerRef.current)
+      undoCountTimerRef.current = setTimeout(() => {
+        undoDepthRef.current += 1
+        redoDepthRef.current = 0
+        setCanUndo(true)
+        setCanRedo(false)
+      }, 300)
+    }
   }, [scheduleSave])
 
   // Stable hooks object — closures use refs so hooks object never changes
@@ -508,6 +566,8 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
           onInsertChart={handleOpenInsertChart}
           onUndo={handleUndo}
           onRedo={handleRedo}
+          canUndo={canUndo}
+          canRedo={canRedo}
         />
 
         {/* Grid + AI panel row */}

@@ -18,7 +18,7 @@ import { ChromeColorPicker } from '@/components/ui/ChromeColorPicker'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store/appStore'
 import type { ChartType, ChartDef } from '@/types/sheet'
-import { parseRange, extractChartData, buildChartConfig, getLegendLabels, getColorHex } from './chartUtils'
+import { parseRange, extractChartData, buildChartConfig, getLegendLabels, getColorHex, DEFAULT_CHART_TEXT_SCALE } from './chartUtils'
 
 // ── Chart type definitions ────────────────────────────────────────────────────
 
@@ -145,6 +145,7 @@ interface ChartAdvancedOptions {
   colors: string[]
   doughnutCutout: number
   straightLines: boolean
+  textScale: number
 }
 
 function defaultAdvanced(editChart?: ChartDef): ChartAdvancedOptions {
@@ -157,6 +158,7 @@ function defaultAdvanced(editChart?: ChartDef): ChartAdvancedOptions {
     colors: editChart?.colors ?? [],
     doughnutCutout: editChart?.doughnutCutout ?? 50,
     straightLines: editChart?.straightLines ?? false,
+    textScale: editChart?.textScale ?? DEFAULT_CHART_TEXT_SCALE,
   }
 }
 
@@ -239,6 +241,7 @@ function ChartPreview({
       colors: advanced.colors,
       doughnutCutout: advanced.doughnutCutout,
       straightLines: advanced.straightLines,
+      textScale: advanced.textScale,
     }
 
     const extracted = rng && sheetData
@@ -365,6 +368,7 @@ export function ChartDialog({
       colors: advanced.colors.length > 0 ? advanced.colors : undefined,
       doughnutCutout: advanced.doughnutCutout,
       straightLines: advanced.straightLines,
+      textScale: advanced.textScale,
     }
     if (isEditing && onUpdate && editChart) {
       onUpdate({ ...editChart, ...payload })
@@ -546,6 +550,23 @@ export function ChartDialog({
                       />
                     </div>
                   )}
+
+                  {/* Text scale — applies to title, legend, axis labels, and tick values */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="text-xs text-muted-foreground">Text scale</p>
+                      <span className="text-[11px] text-muted-foreground">{Math.round(advanced.textScale * 100)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={50}
+                      max={200}
+                      step={5}
+                      value={Math.round(advanced.textScale * 100)}
+                      onChange={(e) => setAdvanced((p) => ({ ...p, textScale: Number(e.target.value) / 100 }))}
+                      className="w-full accent-primary"
+                    />
+                  </div>
 
                   {/* Custom colors */}
                   <div>

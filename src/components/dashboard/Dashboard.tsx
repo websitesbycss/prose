@@ -5,11 +5,12 @@ import {
   Plus, Search, Settings, X, Upload, FileText, Pin,
   ArrowRight, FolderOpen,
   Table2, Shapes, GalleryVerticalEnd, LayoutGrid, List, MoreHorizontal, ChevronDown,
-  Sun, Moon,
+  Sun, Moon, Check, ArrowUp, ArrowDown,
 } from 'lucide-react'
 import type { FileType } from '@/types'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -18,16 +19,14 @@ import { DocContextMenu } from './DocContextMenu'
 import SettingsModal from '@/components/settings/SettingsModal'
 import ExportModal from '@/components/editor/ExportModal'
 import type { Document, ImportResult } from '@/types'
-import { isSheetContent, countSheetCells } from '@/types/sheet'
-import { isBoardContent, countBoardElements } from '@/types/board'
-import { isSlidesContent, countSlidesInContent } from '@/types/slides'
 import { useAppStore } from '@/store/appStore'
-import { formatRelativeTime, extractWordCount, cn } from '@/lib/utils'
+import { formatRelativeTime, cn } from '@/lib/utils'
 import { loadPinnedIds, savePinnedIds } from '@/lib/pinnedDocs'
 
 type NavKey = 'all' | 'recent' | 'pinned' | FileType
 type ViewMode = 'grid' | 'list'
 type SortBy = 'recent' | 'name'
+type SortDir = 'asc' | 'desc'
 
 // ── Type configuration ────────────────────────────────────────────────────────
 
@@ -89,43 +88,13 @@ const TYPE_CONFIG = {
 }>
 
 
-function parseContent(content: string): unknown {
-  try {
-    return JSON.parse(content)
-  } catch {
-    return null
-  }
-}
-
-function fileMeta(doc: Document): string {
-  const ft: FileType = doc.fileType ?? 'document'
-  if (ft === 'document') {
-    const wc = doc.wordCount ?? extractWordCount(doc.content)
-    return `${wc.toLocaleString()} words`
-  }
-  if (ft === 'sheet') {
-    const parsed = parseContent(doc.content)
-    const count = doc.wordCount ?? (isSheetContent(parsed) ? countSheetCells(parsed) : 0)
-    return `${count.toLocaleString()} cells`
-  }
-  if (ft === 'board') {
-    const parsed = parseContent(doc.content)
-    const count = doc.wordCount ?? (isBoardContent(parsed) ? countBoardElements(parsed) : 0)
-    return `${count.toLocaleString()} shapes`
-  }
-  if (ft === 'slides') {
-    const parsed = parseContent(doc.content)
-    const count = doc.wordCount ?? (isSlidesContent(parsed) ? countSlidesInContent(parsed) : 0)
-    return `${count.toLocaleString()} slides`
-  }
-  return ''
-}
-
-function sortedDocs(docs: Document[], sortBy: SortBy): Document[] {
-  return [...docs].sort((a, b) => {
+function sortedDocs(docs: Document[], sortBy: SortBy, sortDir: SortDir): Document[] {
+  const sorted = [...docs].sort((a, b) => {
     if (sortBy === 'name') return a.title.localeCompare(b.title)
-    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    return new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()
   })
+  if (sortDir === 'desc') sorted.reverse()
+  return sorted
 }
 
 // ── Static thumbnail previews ─────────────────────────────────────────────────
@@ -265,6 +234,7 @@ export default function Dashboard({ embedded: _embedded = false }: { embedded?: 
   const [navActive, setNavActive] = useState<NavKey>('all')
   const [view, setView] = useState<ViewMode>('grid')
   const [sortBy, setSortBy] = useState<SortBy>('recent')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [search, setSearch] = useState('')
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(loadPinnedIds)
   const [deleteTarget, setDeleteTarget] = useState<Document | null>(null)
@@ -385,10 +355,10 @@ export default function Dashboard({ embedded: _embedded = false }: { embedded?: 
     else if (navActive === 'recent') list = list.slice()
     else if (navActive !== 'all') list = list.filter((d) => (d.fileType ?? 'document') === navActive)
     if (search) list = list.filter((d) => d.title.toLowerCase().includes(search.toLowerCase()))
-    const pinned = sortedDocs(list.filter((d) => pinnedIds.has(d.id)), sortBy)
-    const unpinned = sortedDocs(list.filter((d) => !pinnedIds.has(d.id)), sortBy)
+    const pinned = sortedDocs(list.filter((d) => pinnedIds.has(d.id)), sortBy, sortDir)
+    const unpinned = sortedDocs(list.filter((d) => !pinnedIds.has(d.id)), sortBy, sortDir)
     return [...pinned, ...unpinned]
-  }, [documents, navActive, pinnedIds, search, sortBy])
+  }, [documents, navActive, pinnedIds, search, sortBy, sortDir])
 
   const featuredFile = useMemo(() => {
     if (navActive !== 'all' || search || documents.length === 0) return null
@@ -574,13 +544,35 @@ export default function Dashboard({ embedded: _embedded = false }: { embedded?: 
               </div>
 
               {/* Sort */}
-              <button
-                className="flex h-7 items-center gap-1 rounded-md px-2.5 text-[12px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
-                onClick={() => setSortBy(s => s === 'recent' ? 'name' : 'recent')}
-              >
-                {sortBy === 'recent' ? 'Modified' : 'Name'}
-                <ChevronDown className="h-3 w-3 opacity-60" />
-              </button>
+              <div className="flex items-center gap-0.5">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className="flex h-7 items-center gap-1 rounded-md px-2.5 text-[12px] font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors">
+                      {sortBy === 'recent' ? 'Modified' : 'Name'}
+                      <ChevronDown className="h-3 w-3 opacity-60" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-36 p-1">
+                    {([['recent', 'Modified'], ['name', 'Name']] as const).map(([key, label]) => (
+                      <button
+                        key={key}
+                        className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-[12.5px] hover:bg-muted/60"
+                        onClick={() => setSortBy(key)}
+                      >
+                        <Check className={cn('h-3 w-3', sortBy !== key && 'opacity-0')} />
+                        {label}
+                      </button>
+                    ))}
+                  </PopoverContent>
+                </Popover>
+                <button
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
+                  title={sortDir === 'asc' ? 'Ascending' : 'Descending'}
+                  onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
+                >
+                  {sortDir === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
+                </button>
+              </div>
             </div>
 
             {/* File content */}
@@ -784,7 +776,6 @@ function FeaturedCard({ file, isDark, onOpen, onContextMenu }: {
         <div className="flex items-center gap-2 flex-wrap">
           <TypeBadge type={ft} isDark={isDark} />
           <span className="text-[12px] text-muted-foreground">{formatRelativeTime(file.updatedAt)}</span>
-          <span className="text-[12px] text-muted-foreground">{fileMeta(file)}</span>
         </div>
         <button
           className="flex items-center gap-1.5 self-start text-[13px] font-semibold text-primary transition-all hover:gap-2.5"
@@ -870,12 +861,11 @@ function ListView({ files, pinnedIds, renamingId, isDark, onOpen, onPin, onRenam
     <div className="flex flex-col rounded-[10px] border border-border overflow-hidden">
       {/* Header */}
       <div className="grid items-center border-b border-border bg-muted/30 px-3 py-2"
-        style={{ gridTemplateColumns: '32px 1fr 100px 120px 120px 60px', gap: '0 12px' }}>
+        style={{ gridTemplateColumns: '32px 1fr 100px 120px 52px', gap: '0 12px' }}>
         <span />
         <span className="text-[10.5px] font-semibold uppercase tracking-widest text-muted-foreground/40">Name</span>
         <span className="text-[10.5px] font-semibold uppercase tracking-widest text-muted-foreground/40">Type</span>
         <span className="text-[10.5px] font-semibold uppercase tracking-widest text-muted-foreground/40">Modified</span>
-        <span className="text-[10.5px] font-semibold uppercase tracking-widest text-muted-foreground/40">Size</span>
         <span />
       </div>
       {files.map((f) => (
@@ -928,7 +918,7 @@ function ListRow({ file, pinned, startEditing, isDark, onOpen, onPin, onRename, 
   return (
     <div
       className="group grid items-center border-b border-border last:border-b-0 px-3 cursor-pointer transition-colors hover:bg-muted/30"
-      style={{ gridTemplateColumns: '32px 1fr 100px 120px 120px 52px', gap: '0 12px', height: 52 }}
+      style={{ gridTemplateColumns: '32px 1fr 100px 120px 52px', gap: '0 12px', height: 52 }}
       onClick={() => { if (!editing) onOpen() }}
       onContextMenu={onContextMenu}
     >
@@ -962,9 +952,6 @@ function ListRow({ file, pinned, startEditing, isDark, onOpen, onPin, onRename, 
 
       {/* Modified */}
       <span className="text-[12.5px] text-muted-foreground">{formatRelativeTime(file.updatedAt)}</span>
-
-      {/* Size */}
-      <span className="font-mono text-[12px] text-muted-foreground/60">{fileMeta(file)}</span>
 
       {/* Actions */}
       <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>

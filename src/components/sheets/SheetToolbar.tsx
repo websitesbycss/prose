@@ -66,6 +66,8 @@ interface SheetToolbarProps {
   onInsertChart?: () => void
   onUndo?: () => void
   onRedo?: () => void
+  canUndo?: boolean
+  canRedo?: boolean
 }
 
 // ── Shared portal color picker dropdown ──────────────────────────────────────
@@ -293,6 +295,8 @@ export function SheetToolbar({
   onInsertChart,
   onUndo,
   onRedo,
+  canUndo,
+  canRedo,
 }: SheetToolbarProps) {
   const theme = useAppStore((s) => s.theme)
   const wb = () => workbookRef.current
@@ -377,7 +381,7 @@ export function SheetToolbar({
         {/* Undo / Redo */}
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onUndo?.()}>
+            <Button variant="ghost" size="icon" className="h-7 w-7" disabled={!canUndo} onClick={() => onUndo?.()}>
               <Undo2 className="h-3.5 w-3.5" />
             </Button>
           </TooltipTrigger>
@@ -385,7 +389,7 @@ export function SheetToolbar({
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onRedo?.()}>
+            <Button variant="ghost" size="icon" className="h-7 w-7" disabled={!canRedo} onClick={() => onRedo?.()}>
               <Redo2 className="h-3.5 w-3.5" />
             </Button>
           </TooltipTrigger>

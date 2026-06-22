@@ -14,15 +14,11 @@ export interface ChartSnapshot {
 // canvas size, shrinking text relative to the chart once displayed back down).
 const SNAPSHOT_SCALE = 2
 
-// Inserted charts are viewed at arm's length in a Document/Slide/Board rather than
-// in the tight Sheets widget, so render their text noticeably larger than the
-// in-sheet default.
-const SNAPSHOT_FONT_SCALE = 1.25
-
 /**
  * Renders a chart to a static PNG data URL. Used when inserting a Sheets chart
  * into a Document, Slide, or Board — the result is a frozen snapshot that does
- * not live-update if the source sheet later changes.
+ * not live-update if the source sheet later changes. Text size matches the
+ * chart's own textScale (same default/override used in the Sheets widget).
  */
 export function renderChartSnapshot(chart: ChartDef, sheetContent: SheetContent, isDark: boolean): ChartSnapshot {
   const tab = sheetContent.tabs.find((t) => t.id === chart.sheetId)
@@ -30,7 +26,7 @@ export function renderChartSnapshot(chart: ChartDef, sheetContent: SheetContent,
   const rng = parseRange(chart.dataRange)
   const extracted = rng ? extractChartData(grid, rng, chart.type) : { labels: [], datasets: [] }
 
-  const config = buildChartConfig(chart, extracted, isDark, SNAPSHOT_FONT_SCALE)
+  const config = buildChartConfig(chart, extracted, isDark)
   config.options = {
     ...config.options,
     responsive: false,

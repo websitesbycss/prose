@@ -35,7 +35,7 @@ export function ChartWidget({
   const {
     id: chartId, sheetId, type: chartType, dataRange, title: chartTitle,
     xAxisLabel, yAxisLabel, showXAxisLabels, showYAxisLabels, showLegend,
-    colors, doughnutCutout, straightLines,
+    colors, doughnutCutout, straightLines, textScale,
   } = chart
   const colorsKey = colors?.join(',') ?? ''
 
@@ -58,7 +58,7 @@ export function ChartWidget({
       id: chartId, sheetId, type: chartType, dataRange, title: chartTitle,
       x: 0, y: 0, width: 0, height: 0,
       xAxisLabel, yAxisLabel, showXAxisLabels, showYAxisLabels, showLegend,
-      colors, doughnutCutout, straightLines,
+      colors, doughnutCutout, straightLines, textScale,
     }
     const config = buildChartConfig(mockChart, extracted, isDark)
 
@@ -76,7 +76,7 @@ export function ChartWidget({
   }, [
     chartId, sheetId, chartType, dataRange, chartTitle, workbookRef, isDark,
     xAxisLabel, yAxisLabel, showXAxisLabels, showYAxisLabels, showLegend,
-    colorsKey, doughnutCutout, straightLines,
+    colorsKey, doughnutCutout, straightLines, textScale,
   ])
 
   useEffect(() => {

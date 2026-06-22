@@ -280,6 +280,8 @@ interface BoardToolbarProps {
   onSettingsOpen?: () => void
   onUndo?: () => void
   onRedo?: () => void
+  canUndo?: boolean
+  canRedo?: boolean
 }
 
 export function BoardToolbar({
@@ -294,6 +296,8 @@ export function BoardToolbar({
   onSettingsOpen,
   onUndo,
   onRedo,
+  canUndo,
+  canRedo,
 }: BoardToolbarProps): JSX.Element {
   function setTool(type: ExcalidrawToolType) {
     if (!excalidrawAPI) return
@@ -309,7 +313,7 @@ export function BoardToolbar({
         {/* Undo / Redo */}
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onUndo?.()}>
+            <Button variant="ghost" size="icon" className="h-7 w-7" disabled={!canUndo} onClick={() => onUndo?.()}>
               <Undo2 className="h-3.5 w-3.5" />
             </Button>
           </TooltipTrigger>
@@ -317,7 +321,7 @@ export function BoardToolbar({
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onRedo?.()}>
+            <Button variant="ghost" size="icon" className="h-7 w-7" disabled={!canRedo} onClick={() => onRedo?.()}>
               <Redo2 className="h-3.5 w-3.5" />
             </Button>
           </TooltipTrigger>

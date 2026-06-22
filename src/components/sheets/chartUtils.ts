@@ -228,11 +228,15 @@ export function extractChartData(
 
 // ── Chart.js config builder ───────────────────────────────────────────────────
 
+// Default text scale for all charts — noticeably larger than Chart.js's own
+// defaults so charts stay legible both in the Sheets widget and once inserted
+// elsewhere. Adjustable per-chart via the Advanced "Text scale" slider.
+export const DEFAULT_CHART_TEXT_SCALE = 1.25
+
 export function buildChartConfig(
   chart: ChartDef,
   extracted: ExtractedChartData,
   isDark: boolean,
-  fontScale = 1,
 ): ChartConfiguration {
   const textColor = isDark ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.75)'
   const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'
@@ -246,6 +250,7 @@ export function buildChartConfig(
   const showYAxisLabels = chart.showYAxisLabels ?? true
   const xAxisLabel = chart.xAxisLabel?.trim()
   const yAxisLabel = chart.yAxisLabel?.trim()
+  const fontScale = chart.textScale ?? DEFAULT_CHART_TEXT_SCALE
 
   const fz = (base: number): number => Math.round(base * fontScale)
 

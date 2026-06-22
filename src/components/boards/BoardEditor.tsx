@@ -217,6 +217,18 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
     zoom: number
   } | null>(null)
 
+  // Undo/redo enabled state — Excalidraw keeps its undo stack entirely internal
+  // (the public API only exposes history.clear(), no isUndoStackEmpty), so we
+  // mirror its depth ourselves: genuine edits push, our own Undo/Redo button
+  // clicks pop/push between the two stacks the same way Excalidraw's internal
+  // undo/redo actions do.
+  const undoDepthRef = useRef(0)
+  const redoDepthRef = useRef(0)
+  const pendingUndoRedoRef = useRef<'undo' | 'redo' | null>(null)
+  const undoCountTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [canUndo, setCanUndo] = useState(false)
+  const [canRedo, setCanRedo] = useState(false)
+
   const flushAndSave = useCallback(async () => {
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current)
@@ -327,6 +339,36 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
         || scrollX !== last.scrollX
         || scrollY !== last.scrollY
         || zoom !== last.zoom
+
+      // Undo/redo depth tracking — gated on the elements array specifically
+      // (not scroll/zoom) since panning/zooming isn't part of Excalidraw's
+      // undo history. `last !== null` excludes the initial onChange the
+      // library fires on mount, which isn't a user edit.
+      if (last !== null && elements !== last.elements) {
+        if (pendingUndoRedoRef.current === 'undo') {
+          undoDepthRef.current = Math.max(0, undoDepthRef.current - 1)
+          redoDepthRef.current += 1
+          pendingUndoRedoRef.current = null
+          setCanUndo(undoDepthRef.current > 0)
+          setCanRedo(true)
+        } else if (pendingUndoRedoRef.current === 'redo') {
+          redoDepthRef.current = Math.max(0, redoDepthRef.current - 1)
+          undoDepthRef.current += 1
+          pendingUndoRedoRef.current = null
+          setCanUndo(true)
+          setCanRedo(redoDepthRef.current > 0)
+        } else {
+          // Debounce briefly so a continuous drag collapses into one counted
+          // undo step instead of one per onChange firing.
+          if (undoCountTimerRef.current) clearTimeout(undoCountTimerRef.current)
+          undoCountTimerRef.current = setTimeout(() => {
+            undoDepthRef.current += 1
+            redoDepthRef.current = 0
+            setCanUndo(true)
+            setCanRedo(false)
+          }, 300)
+        }
+      }
 
       if (changed) {
         lastScheduledRef.current = { elements, scrollX, scrollY, zoom }
@@ -463,11 +505,17 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
   // keydown on its own root container (.excalidraw-container), so locate that
   // element within this board's own wrapper and dispatch there.
   const handleUndo = useCallback(() => {
+    if (undoDepthRef.current === 0) return
+    if (undoCountTimerRef.current) { clearTimeout(undoCountTimerRef.current); undoCountTimerRef.current = null }
+    pendingUndoRedoRef.current = 'undo'
     const root = excalidrawWrapperRef.current?.querySelector('.excalidraw-container')
     dispatchUndoRedoKey(root, 'undo')
   }, [])
 
   const handleRedo = useCallback(() => {
+    if (redoDepthRef.current === 0) return
+    if (undoCountTimerRef.current) { clearTimeout(undoCountTimerRef.current); undoCountTimerRef.current = null }
+    pendingUndoRedoRef.current = 'redo'
     const root = excalidrawWrapperRef.current?.querySelector('.excalidraw-container')
     dispatchUndoRedoKey(root, 'redo')
   }, [])
@@ -597,6 +645,8 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
         onSettingsOpen={() => setSettingsOpen(true)}
         onUndo={handleUndo}
         onRedo={handleRedo}
+        canUndo={canUndo}
+        canRedo={canRedo}
       />
 
       <div className="flex flex-1 overflow-hidden">
