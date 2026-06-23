@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { Slide, SlideElement, SlideMaster } from '@/types/slides'
 import type { SlideHistory } from './useSlideHistory'
+import { bumpZIndex } from '@/components/slides/slideElementOps'
 
 interface Params {
   slides: Slide[]
@@ -25,32 +26,6 @@ function nudgeElements(elements: SlideElement[], ids: string[], dx: number, dy: 
     if (!ids.includes(el.id)) return el
     return { ...el, x: el.x + dx, y: el.y + dy }
   })
-}
-
-function bumpZIndex(elements: SlideElement[], ids: string[], direction: 'forward' | 'back' | 'front' | 'back-all'): SlideElement[] {
-  const sorted = [...elements].sort((a, b) => a.zIndex - b.zIndex)
-  if (direction === 'front') {
-    const maxZ = Math.max(...sorted.map((e) => e.zIndex))
-    return elements.map((el) => (ids.includes(el.id) ? { ...el, zIndex: maxZ + 1 } : el))
-  }
-  if (direction === 'back-all') {
-    const minZ = Math.min(...sorted.map((e) => e.zIndex))
-    return elements.map((el) => (ids.includes(el.id) ? { ...el, zIndex: minZ - 1 } : el))
-  }
-  const result = sorted.map((el) => ({ ...el }))
-  for (let i = 0; i < result.length; i++) {
-    if (!ids.includes(result[i]!.id)) continue
-    if (direction === 'forward' && i < result.length - 1) {
-      const tmp = result[i]!.zIndex
-      result[i]!.zIndex = result[i + 1]!.zIndex
-      result[i + 1]!.zIndex = tmp
-    } else if (direction === 'back' && i > 0) {
-      const tmp = result[i]!.zIndex
-      result[i]!.zIndex = result[i - 1]!.zIndex
-      result[i - 1]!.zIndex = tmp
-    }
-  }
-  return result
 }
 
 export function useSlideKeyboardShortcuts({

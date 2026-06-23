@@ -33,6 +33,8 @@ interface Props {
   onMarqueeSelect(ids: string[]): void
   onDrawElement?(type: CanvasToolMode, x: number, y: number, width: number, height: number): void
   onCommitElement?(id: string, partial: Partial<SlideElement>): void
+  onElementContextMenu?(e: React.MouseEvent, id: string): void
+  onCanvasContextMenu?(e: React.MouseEvent): void
   master?: SlideMaster
   showGrid?: boolean
   zoom?: number  // 0 = fit, 25–400 = explicit %
@@ -80,6 +82,8 @@ export function SlideCanvas({
   onRotateElement,
   onMarqueeSelect,
   onDrawElement,
+  onElementContextMenu,
+  onCanvasContextMenu,
   master,
   showGrid = false,
   zoom = 0,
@@ -241,6 +245,7 @@ export function SlideCanvas({
   // Handles mousedown on the entire interaction area (canvas + surrounding whitespace).
   // Element mousedowns call stopPropagation, so this only fires for background/whitespace clicks.
   const handleContainerMouseDown = useCallback((e: React.MouseEvent): void => {
+    if (e.button !== 0) return  // only left-click draws/marquee-selects; right-click opens the context menu
     if (!canvasRef.current) return
 
     if (toolMode !== 'select' && onDrawElement) {
@@ -332,6 +337,7 @@ export function SlideCanvas({
         cursor: toolMode !== 'select' ? 'crosshair' : 'default',
       }}
       onMouseDown={handleContainerMouseDown}
+      onContextMenu={(e) => { e.preventDefault(); onCanvasContextMenu?.(e) }}
     >
       <div
         ref={canvasRef}
@@ -383,6 +389,7 @@ export function SlideCanvas({
               onElementDoubleClick={(e, id) => { e.stopPropagation(); onDoubleClickElement(id) }}
               onResizeMouseDown={handleResizeMouseDown}
               onRotateMouseDown={handleRotateMouseDown}
+              onElementContextMenu={(e, id) => onElementContextMenu?.(e, id)}
               registerRef={registerRef}
               onCommitText={(id, content) => onCommitText?.(id, content)}
               onCommitElement={(id, partial) => onCommitElement?.(id, partial)}

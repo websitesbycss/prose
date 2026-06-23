@@ -10,6 +10,11 @@ interface ChartOverlayProps {
   onUpdateChart: (chart: ChartDef) => void
   onDeleteChart: (id: string) => void
   onEditChart: (chart: ChartDef) => void
+  /** Current FortuneSheet grid scroll offset — charts are stored in unscrolled
+   * content coordinates, so this shifts them to track the grid instead of
+   * sitting fixed on top of it. */
+  scrollX: number
+  scrollY: number
 }
 
 export function ChartOverlay({
@@ -19,13 +24,15 @@ export function ChartOverlay({
   onUpdateChart,
   onDeleteChart,
   onEditChart,
+  scrollX,
+  scrollY,
 }: ChartOverlayProps): JSX.Element {
   const visible = charts.filter(c => c.sheetId === activeSheetId)
 
   return (
     <div
       className="pointer-events-none absolute inset-0"
-      style={{ zIndex: 30 }}
+      style={{ zIndex: 30, transform: `translate(${-scrollX}px, ${-scrollY}px)` }}
     >
       {visible.map((chart) => (
         <div key={chart.id} className="pointer-events-auto">

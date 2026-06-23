@@ -1,9 +1,13 @@
 import { motion } from 'motion/react'
 import { BookOpen } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 interface LoadingScreenProps {
   /** Optional status line under the wordmark (e.g. "Checking for AI model…"). */
   label?: string
+  /** False to fill the parent's height instead of the full viewport — used when
+   * a persistent chrome (e.g. the editor tab bar) stays mounted above this. */
+  fullScreen?: boolean
 }
 
 /**
@@ -15,9 +19,12 @@ interface LoadingScreenProps {
  * The icon mark is a placeholder — swap for the real Prose logo once it's
  * added to public/.
  */
-export function LoadingScreen({ label }: LoadingScreenProps): JSX.Element {
+export function LoadingScreen({ label, fullScreen = true }: LoadingScreenProps): JSX.Element {
   return (
-    <div className="flex h-screen flex-col items-center justify-center gap-4 bg-background text-foreground">
+    <div className={cn(
+      'flex flex-col items-center justify-center gap-4 bg-background text-foreground',
+      fullScreen ? 'h-screen' : 'h-full',
+    )}>
       <motion.div
         initial={{ opacity: 0, scale: 0.94 }}
         animate={{ opacity: 1, scale: 1 }}

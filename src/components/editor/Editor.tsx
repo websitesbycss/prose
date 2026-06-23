@@ -792,6 +792,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                   <EditorContextMenu
                     editor={editor}
                     documentId={documentId}
+                    isActive={isActive}
                     onEditMath={(pos, latex, displayMode) => openMathModal({ editPos: pos, latex, displayMode })}
                   />
                   <SpellTooltip editor={editor} documentId={documentId} />

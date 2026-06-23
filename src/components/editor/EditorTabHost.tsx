@@ -3,6 +3,8 @@ import { AlertCircle } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { LoadingScreen } from '@/components/LoadingScreen'
+import { DocumentTabBar } from '@/components/editor/DocumentTabBar'
+import { WindowControls } from '@/components/WindowControls'
 import { cn } from '@/lib/utils'
 import type { FileType } from '@/types'
 
@@ -29,6 +31,23 @@ function FileTypePlaceholder({ fileType }: { fileType: FileType }): JSX.Element 
           This file could not be loaded. Try reopening it from the dashboard.
         </p>
       </div>
+    </div>
+  )
+}
+
+/**
+ * Suspense fallback for a not-yet-loaded editor chunk. Keeps the real tab bar
+ * (so a newly created tab appears instantly) visible while only the body
+ * below it shows a loading state, instead of replacing the whole window.
+ */
+function EditorChromeFallback(): JSX.Element {
+  return (
+    <div className="flex h-full flex-col bg-background">
+      <div className="title-bar flex h-10 shrink-0 items-center border-b border-border pl-3 text-foreground">
+        <DocumentTabBar />
+        <WindowControls />
+      </div>
+      <LoadingScreen fullScreen={false} />
     </div>
   )
 }
@@ -92,7 +111,7 @@ export function EditorTabHost(): JSX.Element | null {
       {documentTabs.length > 0 && (
         <HiddenTabPane active={activeFileType === 'document'}>
           <ErrorBoundary label="Editor">
-            <Suspense fallback={<LoadingScreen />}>
+            <Suspense fallback={<EditorChromeFallback />}>
               <Editor documentId={editorDocumentId} />
             </Suspense>
           </ErrorBoundary>
@@ -102,7 +121,7 @@ export function EditorTabHost(): JSX.Element | null {
       {sheetTabs.map((tab) => (
         <HiddenTabPane key={tab.id} active={tab.id === activeDocumentId}>
           <ErrorBoundary label="SheetsEditor">
-            <Suspense fallback={<LoadingScreen />}>
+            <Suspense fallback={<EditorChromeFallback />}>
               <SheetsEditor documentId={tab.id} />
             </Suspense>
           </ErrorBoundary>
@@ -112,7 +131,7 @@ export function EditorTabHost(): JSX.Element | null {
       {boardTabs.map((tab) => (
         <HiddenTabPane key={tab.id} active={tab.id === activeDocumentId}>
           <ErrorBoundary label="BoardEditor">
-            <Suspense fallback={<LoadingScreen />}>
+            <Suspense fallback={<EditorChromeFallback />}>
               <BoardEditor documentId={tab.id} />
             </Suspense>
           </ErrorBoundary>
@@ -122,7 +141,7 @@ export function EditorTabHost(): JSX.Element | null {
       {slidesTabs.map((tab) => (
         <HiddenTabPane key={tab.id} active={tab.id === activeDocumentId}>
           <ErrorBoundary label="SlidesEditor">
-            <Suspense fallback={<LoadingScreen />}>
+            <Suspense fallback={<EditorChromeFallback />}>
               <SlidesEditor documentId={tab.id} />
             </Suspense>
           </ErrorBoundary>

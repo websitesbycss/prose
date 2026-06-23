@@ -37,7 +37,7 @@ export function SelectionHandles({ onResizeMouseDown, onRotateMouseDown }: Props
         <div
           key={id}
           style={{ ...HANDLE_BASE, ...style, cursor }}
-          onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onResizeMouseDown(e, id) }}
+          onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onResizeMouseDown(e, id) }}
         />
       ))}
 
@@ -69,7 +69,7 @@ export function SelectionHandles({ onResizeMouseDown, onRotateMouseDown }: Props
           cursor: 'grab',
           zIndex: 10001,
         }}
-        onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onRotateMouseDown(e) }}
+        onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onRotateMouseDown(e) }}
       />
     </>
   )

@@ -131,6 +131,13 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
   const [editingChart, setEditingChart] = useState<ChartDef | undefined>(undefined)
   const [charts, setCharts] = useState<ChartDef[]>([])
   const chartsRef = useRef<ChartDef[]>([])
+  // Charts are positioned in unscrolled grid-content coordinates, so the
+  // overlay needs the live scroll offset to track the grid instead of
+  // floating fixed over it. FortuneSheet's grid scrolling isn't exposed via
+  // its public API — but it does drive two real (invisible) native scroll
+  // elements internally, .luckysheet-scrollbar-x/-y, so we read scroll
+  // position directly from those.
+  const [gridScroll, setGridScroll] = useState({ x: 0, y: 0 })
   const aiPanelOpen = useAppStore((s) => s.aiPanelOpen)
   const theme = useAppStore((s) => s.theme)
   const setPendingAiPrompt = useAppStore((s) => s.setPendingAiPrompt)
@@ -232,6 +239,28 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
   useEffect(() => () => {
     if (saveTimerRef.current) void flushAndSave()
   }, [flushAndSave])
+
+  // Track the grid's scroll offset so the chart overlay can follow it — see
+  // the comment on gridScroll's declaration for why we read these elements
+  // directly instead of going through FortuneSheet's API.
+  useEffect(() => {
+    if (!ready) return
+    const wrapper = workbookWrapperRef.current
+    if (!wrapper) return
+
+    const scrollerX = wrapper.querySelector('.luckysheet-scrollbar-x')
+    const scrollerY = wrapper.querySelector('.luckysheet-scrollbar-y')
+    if (!scrollerX || !scrollerY) return
+
+    const onScrollX = (): void => setGridScroll((s) => ({ ...s, x: scrollerX.scrollLeft }))
+    const onScrollY = (): void => setGridScroll((s) => ({ ...s, y: scrollerY.scrollTop }))
+    scrollerX.addEventListener('scroll', onScrollX)
+    scrollerY.addEventListener('scroll', onScrollY)
+    return () => {
+      scrollerX.removeEventListener('scroll', onScrollX)
+      scrollerY.removeEventListener('scroll', onScrollY)
+    }
+  }, [ready])
 
   // Ctrl+S manual save + Ctrl+0 reset zoom
   useEffect(() => {
@@ -599,6 +628,8 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
               onUpdateChart={handleUpdateChart}
               onDeleteChart={handleDeleteChart}
               onEditChart={handleEditChart}
+              scrollX={gridScroll.x}
+              scrollY={gridScroll.y}
             />
             <Workbook
               key={documentId}

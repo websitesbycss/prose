@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { toast } from 'sonner'
 import { DashboardTabBar } from '@/components/editor/DashboardTabBar'
 import { useDocument } from '@/hooks/useDocument'
 import { useAppStore } from '@/store/appStore'
@@ -33,6 +34,10 @@ import { useIsActiveTab } from '@/hooks/useIsActiveTab'
 import { AUTO_SAVE_DEBOUNCE_MS } from '@/constants'
 import { ChartPickerDialog } from '@/components/shared/ChartPickerDialog'
 import type { ChartSnapshot } from '@/lib/chartSnapshot'
+import { SlidesContextMenu } from './SlidesContextMenu'
+import type { SlideContextMenuCtx, AlignKind } from './SlidesContextMenu'
+import { bumpZIndex, rotateElementsBy, flipElements, setLocked, groupElements, ungroupElements } from './slideElementOps'
+import type { OrderDirection } from './slideElementOps'
 
 interface Props {
   documentId: string
@@ -496,6 +501,180 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
     setToolMode('select')
     if (_type === 'text') setEditingElementId(el.id)
   }, [changeActiveSlide, pendingShapeType, pendingTableConfig])
+
+  // ── Context menu ──────────────────────────────────────────────────────────────
+
+  const [slideCtxMenu, setSlideCtxMenu] = useState<SlideContextMenuCtx | null>(null)
+
+  // Each slide tab keeps its own mounted SlidesEditor (hidden via CSS, not
+  // unmounted) — but the context menu portals straight to document.body, which
+  // escapes that hidden ancestor. Without this it would stay visible, floating
+  // over whatever tab you switch to.
+  useEffect(() => { if (!isActive) setSlideCtxMenu(null) }, [isActive])
+
+  const handleElementContextMenu = useCallback((e: React.MouseEvent, id: string): void => {
+    const slide = slidesRef.current[activeSlideIndex]
+    const el = slide?.elements.find((x) => x.id === id)
+    if (slide && el) {
+      if (el.groupId) {
+        setSelectedIds(slide.elements.filter((x) => x.groupId === el.groupId).map((x) => x.id))
+      } else if (!(selectedIds.includes(id) && selectedIds.length > 1)) {
+        setSelectedIds([id])
+      }
+    }
+    setSlideCtxMenu({ x: e.clientX, y: e.clientY, targetKind: 'element' })
+  }, [activeSlideIndex, selectedIds])
+
+  const handleCanvasContextMenu = useCallback((e: React.MouseEvent): void => {
+    setSelectedIds([])
+    setSlideCtxMenu({ x: e.clientX, y: e.clientY, targetKind: 'canvas' })
+  }, [])
+
+  const handleSelectAllElements = useCallback((): void => {
+    const slide = slidesRef.current[activeSlideIndex]
+    if (!slide) return
+    setSelectedIds(slide.elements.filter((el) => !el.locked && !el.hidden).map((el) => el.id))
+  }, [activeSlideIndex])
+
+  const handleCopySelected = useCallback((): void => {
+    const slide = slidesRef.current[activeSlideIndex]
+    if (!slide) return
+    elementClipboard.current = slide.elements.filter((el) => selectedIds.includes(el.id)).map((el) => ({ ...el }))
+  }, [activeSlideIndex, selectedIds])
+
+  const handleCutSelected = useCallback((): void => {
+    handleCopySelected()
+    changeActiveSlide((s) => ({ ...s, elements: s.elements.filter((el) => !selectedIds.includes(el.id)) }))
+    setSelectedIds([])
+  }, [handleCopySelected, changeActiveSlide, selectedIds])
+
+  const handlePasteClipboard = useCallback((): void => {
+    if (elementClipboard.current.length === 0) return
+    const pasted = elementClipboard.current.map((el) => ({ ...el, id: crypto.randomUUID(), x: el.x + 2, y: el.y + 2, zIndex: el.zIndex + 1 }))
+    changeActiveSlide((s) => ({ ...s, elements: [...s.elements, ...pasted] }))
+    setSelectedIds(pasted.map((el) => el.id))
+  }, [changeActiveSlide])
+
+  const handlePasteWithoutFormatting = useCallback(async (): Promise<void> => {
+    try {
+      const text = await navigator.clipboard.readText()
+      if (!text) return
+      const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')
+      const el = makeTextElement(10, 10, 50, 20)
+      el.content = escaped
+      changeActiveSlide((s) => ({ ...s, elements: [...s.elements, el] }))
+      setSelectedIds([el.id])
+    } catch {
+      toast.error('Cannot read clipboard')
+    }
+  }, [changeActiveSlide])
+
+  const handleDuplicateSelected = useCallback((): void => {
+    const slide = slidesRef.current[activeSlideIndex]
+    if (!slide) return
+    const duped = slide.elements
+      .filter((el) => selectedIds.includes(el.id))
+      .map((el) => ({ ...el, id: crypto.randomUUID(), x: el.x + 2, y: el.y + 2, zIndex: el.zIndex + 1 }))
+    changeActiveSlide((s) => ({ ...s, elements: [...s.elements, ...duped] }))
+    setSelectedIds(duped.map((el) => el.id))
+  }, [activeSlideIndex, selectedIds, changeActiveSlide])
+
+  const handleDeleteSelected = useCallback((): void => {
+    changeActiveSlide((s) => ({ ...s, elements: s.elements.filter((el) => !selectedIds.includes(el.id)) }))
+    setSelectedIds([])
+  }, [changeActiveSlide, selectedIds])
+
+  const handleToggleLockSelected = useCallback((): void => {
+    const slide = slidesRef.current[activeSlideIndex]
+    if (!slide) return
+    const els = slide.elements.filter((el) => selectedIds.includes(el.id))
+    const allLocked = els.length > 0 && els.every((el) => el.locked)
+    changeActiveSlide((s) => ({ ...s, elements: setLocked(s.elements, selectedIds, !allLocked) }))
+  }, [activeSlideIndex, selectedIds, changeActiveSlide])
+
+  const handleGroupSelected = useCallback((): void => {
+    changeActiveSlide((s) => ({ ...s, elements: groupElements(s.elements, selectedIds) }))
+  }, [changeActiveSlide, selectedIds])
+
+  const handleUngroupSelected = useCallback((): void => {
+    changeActiveSlide((s) => ({ ...s, elements: ungroupElements(s.elements, selectedIds) }))
+  }, [changeActiveSlide, selectedIds])
+
+  const handleOrderSelected = useCallback((direction: OrderDirection): void => {
+    changeActiveSlide((s) => ({ ...s, elements: bumpZIndex(s.elements, selectedIds, direction) }))
+  }, [changeActiveSlide, selectedIds])
+
+  const handleRotateSelectedBy = useCallback((deg: number): void => {
+    changeActiveSlide((s) => ({ ...s, elements: rotateElementsBy(s.elements, selectedIds, deg) }))
+  }, [changeActiveSlide, selectedIds])
+
+  const handleFlipSelected = useCallback((axis: 'h' | 'v'): void => {
+    changeActiveSlide((s) => ({ ...s, elements: flipElements(s.elements, selectedIds, axis) }))
+  }, [changeActiveSlide, selectedIds])
+
+  const handleContextAlign = useCallback((type: AlignKind): void => {
+    const slide = slidesRef.current[activeSlideIndex]
+    if (!slide) return
+    const els = slide.elements.filter((e) => selectedIds.includes(e.id))
+    if (els.length === 0) return
+    const allSameGroup = els.length > 1 && els.every((e) => e.groupId && e.groupId === els[0]!.groupId)
+
+    if (els.length === 1 || allSameGroup) {
+      const minX = Math.min(...els.map((e) => e.x))
+      const maxX = Math.max(...els.map((e) => e.x + e.width))
+      const minY = Math.min(...els.map((e) => e.y))
+      const maxY = Math.max(...els.map((e) => e.y + e.height))
+      const w = maxX - minX
+      const h = maxY - minY
+      let targetX = minX
+      let targetY = minY
+      if (type === 'left') targetX = 0
+      else if (type === 'center-h') targetX = 50 - w / 2
+      else if (type === 'right') targetX = 100 - w
+      else if (type === 'top') targetY = 0
+      else if (type === 'center-v') targetY = 50 - h / 2
+      else if (type === 'bottom') targetY = 100 - h
+      const dx = targetX - minX
+      const dy = targetY - minY
+      handleAlignElements(els.map((e) => ({ id: e.id, x: e.x + dx, y: e.y + dy })))
+      return
+    }
+
+    // Multiple ungrouped elements: align relative to the selection's bounding box, or distribute.
+    const minX = Math.min(...els.map((e) => e.x))
+    const maxX = Math.max(...els.map((e) => e.x + e.width))
+    const minY = Math.min(...els.map((e) => e.y))
+    const maxY = Math.max(...els.map((e) => e.y + e.height))
+
+    if (type === 'dist-h') {
+      const sorted = [...els].sort((a, b) => a.x - b.x)
+      const totalW = sorted.reduce((s, e) => s + e.width, 0)
+      const gap = (maxX - minX - totalW) / (sorted.length - 1)
+      let cursor = minX
+      const updates = sorted.map((e) => { const u = { id: e.id, x: cursor, y: e.y }; cursor += e.width + gap; return u })
+      handleAlignElements(updates)
+      return
+    }
+    if (type === 'dist-v') {
+      const sorted = [...els].sort((a, b) => a.y - b.y)
+      const totalH = sorted.reduce((s, e) => s + e.height, 0)
+      const gap = (maxY - minY - totalH) / (sorted.length - 1)
+      let cursor = minY
+      const updates = sorted.map((e) => { const u = { id: e.id, x: e.x, y: cursor }; cursor += e.height + gap; return u })
+      handleAlignElements(updates)
+      return
+    }
+
+    const updates = els.map((e) => {
+      if (type === 'left') return { id: e.id, x: minX, y: e.y }
+      if (type === 'center-h') return { id: e.id, x: (minX + maxX) / 2 - e.width / 2, y: e.y }
+      if (type === 'right') return { id: e.id, x: maxX - e.width, y: e.y }
+      if (type === 'top') return { id: e.id, x: e.x, y: minY }
+      if (type === 'center-v') return { id: e.id, x: e.x, y: (minY + maxY) / 2 - e.height / 2 }
+      return { id: e.id, x: e.x, y: maxY - e.height } // bottom
+    })
+    handleAlignElements(updates)
+  }, [activeSlideIndex, selectedIds, handleAlignElements])
 
   const handleBackground = useCallback((e: React.MouseEvent): void => {
     setThemePanelAnchor((e.currentTarget as HTMLElement).getBoundingClientRect())
@@ -994,6 +1173,8 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
             onRotateElement={handleRotateElement}
             onMarqueeSelect={setSelectedIds}
             onDrawElement={handleDrawElement}
+            onElementContextMenu={handleElementContextMenu}
+            onCanvasContextMenu={handleCanvasContextMenu}
             master={master}
             showGrid={showGrid}
             zoom={zoom}
@@ -1116,6 +1297,33 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
           open={settingsOpen}
           onClose={() => { setSettingsOpen(false); loadSnapSettings() }}
           isSlides
+        />
+      )}
+
+      {!showMasterEditor && (
+        <SlidesContextMenu
+          ctx={slideCtxMenu}
+          onDismiss={() => setSlideCtxMenu(null)}
+          elements={activeSlide.elements}
+          selectedIds={selectedIds}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          onSelectAll={handleSelectAllElements}
+          onPaste={handlePasteClipboard}
+          onPasteWithoutFormatting={() => void handlePasteWithoutFormatting()}
+          onCut={handleCutSelected}
+          onCopy={handleCopySelected}
+          onDuplicate={handleDuplicateSelected}
+          onDelete={handleDeleteSelected}
+          onAlign={handleContextAlign}
+          onOrder={handleOrderSelected}
+          onRotateBy={handleRotateSelectedBy}
+          onFlip={handleFlipSelected}
+          onToggleLock={handleToggleLockSelected}
+          onGroup={handleGroupSelected}
+          onUngroup={handleUngroupSelected}
         />
       )}
     </div>

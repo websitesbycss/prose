@@ -947,6 +947,14 @@
   background-color: hsl(var(--muted-foreground) / 0.5) !important;
 }
 
+/* The scrollbar elements render INSIDE .fortune-container's dark-mode invert
+   filter (see "FortuneSheet dark mode" above), which would otherwise mangle
+   the colors set above — same double-inversion issue already solved for
+   .fortune-context-menu, fixed here the same way. */
+.fortune-dark .luckysheet-scrollbar-ltr {
+  filter: invert(1) hue-rotate(180deg);
+}
+
 /* ── Page visual ───────────────────────────────────────────────── */
 
 /* Subtle shadow on the white page to make it feel like a real sheet */

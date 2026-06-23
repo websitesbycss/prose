@@ -18,6 +18,7 @@ interface Props {
   onElementDoubleClick(e: React.MouseEvent, id: string): void
   onResizeMouseDown(e: React.MouseEvent, id: string, handle: HandleType): void
   onRotateMouseDown(e: React.MouseEvent, id: string): void
+  onElementContextMenu(e: React.MouseEvent, id: string): void
   registerRef(id: string, el: HTMLDivElement | null): void
   onCommitText(id: string, content: string): void
   onCommitElement?(id: string, partial: Partial<SlideElement>): void
@@ -37,6 +38,7 @@ export const SlideElementWrapper = memo(function SlideElementWrapper({
   onElementDoubleClick,
   onResizeMouseDown,
   onRotateMouseDown,
+  onElementContextMenu,
   registerRef,
   onCommitText,
   onCommitElement,
@@ -53,7 +55,7 @@ export const SlideElementWrapper = memo(function SlideElementWrapper({
   if (element.hidden) return null
 
   const isEditing = editingElementId === element.id && EDITABLE_TYPES.has(element.type)
-  const showHandles = selected && !isMultiSelected && !isEditing
+  const showHandles = selected && !isMultiSelected && !isEditing && !element.locked
   const flip = `scaleX(${element.flipH ? -1 : 1}) scaleY(${element.flipV ? -1 : 1})`
 
   function renderEditor(): JSX.Element | null {
@@ -116,11 +118,19 @@ export const SlideElementWrapper = memo(function SlideElementWrapper({
         opacity: element.opacity,
         zIndex: element.zIndex,
         cursor: element.locked ? 'default' : 'move',
-        outline: selected ? '2px solid #3B82F6' : 'none',
-        outlineOffset: selected ? '1px' : '0',
-        ...(element.locked && selected ? { outlineStyle: 'dashed' } : {}),
+        // Explicit longhand props (not the `outline` shorthand) so every render
+        // writes a deterministic outline-style value. Mixing the shorthand with
+        // a conditionally-present outlineStyle override caused React to skip
+        // re-applying the shorthand when its string was unchanged across a
+        // locked/selected toggle, leaving outline-style stuck at its CSS
+        // default ('none') until something else forced a full style refresh.
+        outlineWidth: selected ? 2 : 0,
+        outlineColor: '#3B82F6',
+        outlineStyle: !selected ? 'none' : element.locked ? 'dashed' : 'solid',
+        outlineOffset: selected ? 1 : 0,
       }}
       onMouseDown={(e) => {
+        if (e.button !== 0) return  // only left-click starts a drag; right-click opens the context menu
         if (element.locked) return
         if (isEditing) return  // don't start move drag while editing
         onElementMouseDown(e, element.id)
@@ -129,6 +139,7 @@ export const SlideElementWrapper = memo(function SlideElementWrapper({
         if (element.locked) return
         onElementDoubleClick(e, element.id)
       }}
+      onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onElementContextMenu(e, element.id) }}
     >
       {isEditing ? renderEditor() : renderSlideElement(element, scale)}
 

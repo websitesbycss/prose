@@ -49,10 +49,11 @@ type MenuItem =
 interface EditorContextMenuProps {
   editor: Editor | null
   documentId: string
+  isActive: boolean
   onEditMath?: (pos: number, latex: string, displayMode: boolean) => void
 }
 
-export function EditorContextMenu({ editor, documentId, onEditMath }: EditorContextMenuProps): JSX.Element | null {
+export function EditorContextMenu({ editor, documentId, isActive, onEditMath }: EditorContextMenuProps): JSX.Element | null {
   const [ctx, setCtx] = useState<MenuCtx | null>(null)
   const [linkMode, setLinkMode] = useState(false)
   const [linkDraft, setLinkDraft] = useState('')
@@ -72,6 +73,14 @@ export function EditorContextMenu({ editor, documentId, onEditMath }: EditorCont
     setLinkDraft('')
     setSpellWord(null)
   }, [])
+
+  // Document tabs share one Editor instance, so switching tabs doesn't remount
+  // this component — without these the menu (portaled to document.body) would
+  // stay open, floating over whatever tab you switch to. Two separate guards:
+  // documentId catches switching between two document tabs; isActive catches
+  // switching to a non-document tab (documentId stays the same in that case).
+  useEffect(() => { dismiss() }, [documentId, dismiss])
+  useEffect(() => { if (!isActive) dismiss() }, [isActive, dismiss])
 
   // Live corner radius value for the context-menu slider (separate from ctx snapshot)
   const [liveRadius, setLiveRadius] = useState(0)
@@ -232,11 +241,15 @@ export function EditorContextMenu({ editor, documentId, onEditMath }: EditorCont
     }
 
     document.addEventListener('keydown', onKeyDown)
-    document.addEventListener('mousedown', onMouseDown)
+    // Capture phase: ProseMirror's own mousedown handling (and other UI like
+    // the tab bar) can stop propagation before it bubbles up to a listener
+    // registered here, which would otherwise prevent this from ever seeing
+    // those clicks. Capture fires first, before anything can stop it.
+    document.addEventListener('mousedown', onMouseDown, true)
     window.addEventListener('blur', onBlur)
     return () => {
       document.removeEventListener('keydown', onKeyDown)
-      document.removeEventListener('mousedown', onMouseDown)
+      document.removeEventListener('mousedown', onMouseDown, true)
       window.removeEventListener('blur', onBlur)
     }
   }, [ctx, dismiss])
