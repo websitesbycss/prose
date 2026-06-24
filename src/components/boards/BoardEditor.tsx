@@ -7,6 +7,8 @@ import { motion, AnimatePresence } from 'motion/react'
 import {
   Settings, ChevronLeft, ChevronRight,
   PanelLeft, Square, Circle, ArrowRight,
+  Scissors, Copy, Clipboard, Trash2, CopyPlus,
+  Group, Ungroup, SendToBack, BringToFront, Link2,
 } from 'lucide-react'
 
 import { useDocument } from '@/hooks/useDocument'
@@ -28,6 +30,25 @@ import type { ChartSnapshot } from '@/lib/chartSnapshot'
 import { dispatchUndoRedoKey } from '@/lib/simulateUndoRedo'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useIsActiveTab } from '@/hooks/useIsActiveTab'
+import { useContextMenuIcons } from '@/hooks/useContextMenuIcons'
+
+// Excalidraw's native right-click menu has no per-item class/data-attribute to
+// target — only the rendered (English) label identifies each action. This is
+// a best-effort match against its default English labels; unmapped items are
+// simply left without an icon.
+const EXCALIDRAW_CONTEXT_MENU_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  Cut: Scissors,
+  Copy,
+  Paste: Clipboard,
+  Delete: Trash2,
+  Duplicate: CopyPlus,
+  'Group selection': Group,
+  'Ungroup selection': Ungroup,
+  'Send to back': SendToBack,
+  'Bring to front': BringToFront,
+  Link: Link2,
+  'Create link': Link2,
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -166,6 +187,7 @@ interface BoardEditorProps {
 }
 
 export function BoardEditor({ documentId }: BoardEditorProps) {
+  useContextMenuIcons('.context-menu-item__label', EXCALIDRAW_CONTEXT_MENU_ICONS)
   const isActive = useIsActiveTab(documentId)
   const { document: doc } = useDocument(documentId)
   const excalidrawAPIRef = useRef<ExcalidrawAPI | null>(null)

@@ -1,4 +1,8 @@
 import { useRef, useState, useMemo, useCallback, useEffect } from 'react'
+import {
+  Copy, Clipboard, Trash2, EyeOff, Eye, Eraser,
+  ArrowUpAZ, ArrowDownAZ, Filter, Image as ImageIcon, Link2,
+} from 'lucide-react'
 import { Workbook } from '@fortune-sheet/react'
 import type { WorkbookInstance } from '@fortune-sheet/react'
 import type { Sheet, Hooks, Selection } from '@fortune-sheet/core'
@@ -24,8 +28,30 @@ import { SheetExportModal } from './SheetExportModal'
 import { ChartDialog } from './ChartDialog'
 import { ChartOverlay } from './ChartOverlay'
 import { dispatchUndoRedoKey } from '@/lib/simulateUndoRedo'
+import { useContextMenuIcons } from '@/hooks/useContextMenuIcons'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+// FortuneSheet's native right-click menu has no per-item class/data-attribute
+// to target — only the rendered (English) label text identifies each action.
+// Unmapped labels (e.g. "Insert N rows/columns", which embed a live input and
+// vary their text) are simply left without an icon.
+const FORTUNE_CONTEXT_MENU_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  Copy,
+  Paste: Clipboard,
+  'Delete selected Row': Trash2,
+  'Delete selected Column': Trash2,
+  'Hide selected Row': EyeOff,
+  'Hide selected Column': EyeOff,
+  'Show hidden Row': Eye,
+  'Show hidden Column': Eye,
+  'Clear content': Eraser,
+  'Ascending sort': ArrowUpAZ,
+  'Descending sort': ArrowDownAZ,
+  Filter,
+  'Insert image': ImageIcon,
+  'Insert link': Link2,
+}
 
 function parseSheetContent(raw: unknown): SheetContent {
   if (isSheetContent(raw)) return raw
@@ -121,6 +147,7 @@ interface SheetsEditorProps {
 }
 
 export function SheetsEditor({ documentId }: SheetsEditorProps) {
+  useContextMenuIcons('.fortune-menuitem-row, .luckysheet-cols-menuitem-content', FORTUNE_CONTEXT_MENU_ICONS)
   const isActive = useIsActiveTab(documentId)
   const { document: doc, saveStatus, notifySaveStatus } = useDocument(documentId)
   const workbookRef = useRef<WorkbookInstance | null>(null)
