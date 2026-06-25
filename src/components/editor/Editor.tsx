@@ -38,6 +38,7 @@ import { ParagraphRole } from '@/extensions/paragraphRole'
 import { FindExtension } from '@/extensions/findExtension'
 import { InlineMath, BlockMath } from '@/extensions/mathExtension'
 import { useDocument } from '@/hooks/useDocument'
+import { runThumbnailGenerationOnce, clampRectToViewport } from '@/lib/thumbnailGeneration'
 import { useAnalysis } from '@/hooks/useAnalysis'
 import { useWordCount } from '@/hooks/useWordCount'
 import { useSelectionWordCount } from '@/hooks/useSelectionWordCount'
@@ -101,6 +102,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   const setSaveActiveDocument = useAppStore((s) => s.setSaveActiveDocument)
 
   const editorScrollRef = useRef<HTMLDivElement>(null)
+  const editorPageRef = useRef<HTMLDivElement>(null)
   const loadedContentKeyRef = useRef<string | null>(null)
   const typewriterMode = useAppStore((s) => s.typewriterMode)
   const setTypewriterMode = useAppStore((s) => s.setTypewriterMode)
@@ -246,6 +248,26 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
       },
     },
   })
+
+  // Thumbnail generation — fired by the main process after every successful
+  // content auto-save (see documents:update). Captures the rendered page (not
+  // the full editor chrome/sidebar/toolbar) and hands it to the main process,
+  // which resizes it to the standard 560x315 thumbnail before writing to disk.
+  useEffect(() => {
+    return window.prose.thumbnails.onGenerate((fileId) => {
+      if (fileId !== documentId) return
+      void runThumbnailGenerationOnce(fileId, async () => {
+        if (!editor || editor.isEmpty) return
+        const pageEl = editorPageRef.current
+        if (!pageEl) return
+        const pageRect = pageEl.getBoundingClientRect()
+        const rect = clampRectToViewport({ x: pageRect.left, y: pageRect.top, width: pageRect.width, height: pageRect.height })
+        if (!rect) return
+        const base64 = await window.prose.thumbnails.captureRegion(rect)
+        await window.prose.thumbnails.save(fileId, base64)
+      })
+    })
+  }, [documentId, editor])
 
   useEffect(() => {
     if (!editor || !doc) return
@@ -751,6 +773,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
               style={{ zoom: editorZoom / 100 }}
             >
               <div
+                ref={editorPageRef}
                 className={cn('editor-page relative bg-editor-page', formatClass)}
                 style={{
                   '--page-margin-left': `${Math.round(pageMargins.left * 96)}px`,

@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
 import { Plus } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { SlideThumbnail } from './SlideThumbnail'
@@ -12,6 +12,7 @@ interface Props {
   activeIndex: number
   onNavigate(index: number): void
   onAddSlide(): void
+  onInsertBlankSlide(afterIndex: number): void
   onDeleteSlide(index: number): void
   onDuplicateSlide(index: number): void
   onReorderSlides(fromIdx: number, toIdx: number): void
@@ -21,7 +22,7 @@ interface ContextMenu { index: number; x: number; y: number }
 
 export function SlidePanel({
   slides, theme, settings, activeIndex,
-  onNavigate, onAddSlide, onDeleteSlide, onDuplicateSlide, onReorderSlides,
+  onNavigate, onAddSlide, onInsertBlankSlide, onDeleteSlide, onDuplicateSlide, onReorderSlides,
 }: Props): JSX.Element {
   const listRef = useRef<HTMLDivElement>(null)
   const [dragFromIdx, setDragFromIdx] = useState<number | null>(null)
@@ -69,9 +70,18 @@ export function SlidePanel({
   const handleContextMenu = useCallback((e: React.MouseEvent, idx: number): void => {
     e.preventDefault()
     setCtxMenu({ index: idx, x: e.clientX, y: e.clientY })
-    function dismiss() { setCtxMenu(null); window.removeEventListener('mousedown', dismiss) }
-    window.addEventListener('mousedown', dismiss)
   }, [])
+
+  // Dismiss on outside pointer — menu stops propagation so item clicks work
+  useEffect(() => {
+    if (!ctxMenu) return
+    function dismiss(e: PointerEvent): void {
+      if ((e.target as HTMLElement).closest('[data-slide-ctx-menu]')) return
+      setCtxMenu(null)
+    }
+    window.addEventListener('pointerdown', dismiss, true)
+    return () => window.removeEventListener('pointerdown', dismiss, true)
+  }, [ctxMenu])
 
   return (
     <div className="flex h-full w-[180px] shrink-0 flex-col border-r border-border bg-background">
@@ -108,7 +118,7 @@ export function SlidePanel({
           <TooltipTrigger asChild>
             <button
               className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border/60 py-1.5 text-[11px] text-muted-foreground transition-colors hover:border-primary/40 hover:bg-accent hover:text-foreground"
-              onClick={onAddSlide}
+              onClick={() => onAddSlide()}
             >
               <Plus className="h-3 w-3" />
               Add slide
@@ -121,11 +131,13 @@ export function SlidePanel({
       {/* Context menu */}
       {ctxMenu && (
         <div
+          data-slide-ctx-menu
           className="fixed z-[99999] min-w-[160px] rounded-lg border border-border bg-background py-1 shadow-lg"
           style={{ top: ctxMenu.y, left: ctxMenu.x }}
+          onPointerDown={(e) => e.stopPropagation()}
         >
           {[
-            { label: 'Add slide after', action: () => { onAddSlide(); setCtxMenu(null) } },
+            { label: 'Add slide after', action: () => { onInsertBlankSlide(ctxMenu.index); setCtxMenu(null) } },
             { label: 'Duplicate slide', action: () => { onDuplicateSlide(ctxMenu.index); setCtxMenu(null) } },
             null,
             { label: 'Delete slide', action: () => { onDeleteSlide(ctxMenu.index); setCtxMenu(null) }, danger: true },

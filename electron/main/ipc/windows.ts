@@ -1,6 +1,7 @@
 import { ipcMain, BrowserWindow, screen } from 'electron'
 import { existsSync } from 'fs'
 import { join } from 'path'
+import { resolveDocument } from '../services/fileService'
 
 const APP_ICON = join(__dirname, '../../../resources/icons/prose.ico')
 
@@ -14,12 +15,24 @@ export function initPaths(preloadPath: string, rendererPath: string, devUrl?: st
   _devUrl = devUrl
 }
 
-// Detach state for the Chrome-style tear-off
+interface TabBarRect {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+const tabBarBounds = new Map<number, TabBarRect>()
+
 let detach: {
   docId: string
   sourceWinId: number
+  sourceWcId: number
   win: BrowserWindow
+  preview: BrowserWindow | null
   interval: ReturnType<typeof setInterval>
+  tabTitle: string
+  hoverWcId: number | null
 } | null = null
 
 export function createProseWindow(docId?: string): BrowserWindow {
@@ -64,7 +77,6 @@ export function createProseWindow(docId?: string): BrowserWindow {
 
 let moveInterval: ReturnType<typeof setInterval> | null = null
 
-/** One maximize subscription per renderer WebContents — prevents listener leaks on tab switches. */
 const maximizeSubscriptions = new Map<
   number,
   { win: BrowserWindow; onMax: () => void; onUnmax: () => void }
@@ -80,8 +92,56 @@ function clearMaximizeSubscription(wcId: number): void {
   maximizeSubscriptions.delete(wcId)
 }
 
+function createDragPreview(title: string): BrowserWindow {
+  const preview = new BrowserWindow({
+    width: 240,
+    height: 40,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    focusable: false,
+    show: false,
+    webPreferences: { contextIsolation: true },
+  })
+  preview.setIgnoreMouseEvents(true)
+  const safe = title.replace(/[<>&"']/g, '')
+  void preview.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(
+    `<body style="margin:0;font:12px system-ui;background:rgba(30,30,30,.92);color:#fff;border-radius:8px;padding:10px 12px;box-shadow:0 4px 16px rgba(0,0,0,.35);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${safe}</body>`,
+  )}`)
+  return preview
+}
+
+function expandedRect(r: TabBarRect, pad: number): TabBarRect {
+  return { x: r.x - pad, y: r.y - pad, width: r.width + pad * 2, height: r.height + pad * 2 }
+}
+
+function pointInRect(x: number, y: number, r: TabBarRect): boolean {
+  return x >= r.x && x <= r.x + r.width && y >= r.y && y <= r.y + r.height
+}
+
+function findTabBarAtPoint(x: number, y: number, excludeWcId?: number): { wcId: number; rect: TabBarRect } | null {
+  for (const [wcId, rect] of tabBarBounds) {
+    if (wcId === excludeWcId) continue
+    if (pointInRect(x, y, rect)) return { wcId, rect }
+  }
+  return null
+}
+
+function stopDetach(): void {
+  if (!detach) return
+  clearInterval(detach.interval)
+  if (detach.hoverWcId !== null) {
+    const prevWin = BrowserWindow.getAllWindows().find((w) => w.webContents.id === detach!.hoverWcId)
+    prevWin?.webContents.send('tabdrag:dropHover', { active: false })
+  }
+  if (!detach.win.isDestroyed()) detach.win.close()
+  if (detach.preview && !detach.preview.isDestroyed()) detach.preview.close()
+  detach = null
+}
+
 export function registerWindowHandlers(): void {
-  // Window control buttons
   ipcMain.on('window:minimize', (event) => {
     BrowserWindow.fromWebContents(event.sender)?.minimize()
   })
@@ -97,9 +157,7 @@ export function registerWindowHandlers(): void {
   ipcMain.handle('window:isMaximized', (event) => {
     return BrowserWindow.fromWebContents(event.sender)?.isMaximized() ?? false
   })
-  // Subscribe to maximize state changes for a specific window.
-  // Replacing an existing subscription for the same WebContents avoids
-  // accumulating BrowserWindow listeners when React remounts WindowControls.
+
   ipcMain.on('window:subscribeMaximize', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win) return
@@ -122,7 +180,6 @@ export function registerWindowHandlers(): void {
     clearMaximizeSubscription(event.sender.id)
   })
 
-  // Single-tab window move: renderer sends offset on drag-out, main follows cursor.
   ipcMain.on('window:startMove', (event, { offsetX, offsetY }: { offsetX: number; offsetY: number }) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win) return
@@ -171,9 +228,6 @@ export function registerWindowHandlers(): void {
     return BrowserWindow.fromWebContents(event.sender)?.isFullScreen() ?? false
   })
 
-  // Notify renderer when the OS/Electron exits fullscreen natively (e.g. Escape on Windows).
-  // Gate: only fire after enter-full-screen has been confirmed, to avoid spurious leave events
-  // that can occur during the transition when the window un-maximizes before going fullscreen.
   const leaveFullscreenSubs = new Map<number, { enter: () => void; leave: () => void }>()
   ipcMain.on('window:subscribeLeaveFullscreen', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)
@@ -197,6 +251,7 @@ export function registerWindowHandlers(): void {
     event.sender.once('destroyed', () => {
       if (!win.isDestroyed()) { win.off('enter-full-screen', enter); win.off('leave-full-screen', leave) }
       leaveFullscreenSubs.delete(wcId)
+      tabBarBounds.delete(wcId)
     })
   })
   ipcMain.on('window:unsubscribeLeaveFullscreen', (event) => {
@@ -205,71 +260,131 @@ export function registerWindowHandlers(): void {
     if (win && sub) { win.off('enter-full-screen', sub.enter); win.off('leave-full-screen', sub.leave) }
     leaveFullscreenSubs.delete(event.sender.id)
   })
-  // Renderer signals tear-off start: create a detached window and follow the cursor.
+
+  ipcMain.on('tabdrag:registerTabBarBounds', (event, rect: TabBarRect) => {
+    if (!rect || typeof rect.x !== 'number') return
+    tabBarBounds.set(event.sender.id, rect)
+  })
+
   ipcMain.on('tabdrag:detach', (event, docId: string) => {
-    if (detach) return // already detaching
+    if (typeof docId !== 'string' || !docId || detach) return
     const sourceWin = BrowserWindow.fromWebContents(event.sender)
     if (!sourceWin) return
 
-    const cursor = screen.getCursorScreenPoint()
-    const win = createProseWindow(docId)
+    void resolveDocument(docId).then((resolved) => {
+      if (!resolved || detach) return
+      const tabTitle = resolved.doc.title || 'Untitled'
 
-    win.once('ready-to-show', () => {
-      if (!win || win.isDestroyed()) return
-      const [w] = win.getSize()
-      win.setPosition(Math.max(0, cursor.x - Math.floor(w / 2)), Math.max(0, cursor.y - 20))
-      win.show()
-    })
+      const cursor = screen.getCursorScreenPoint()
+      const win = createProseWindow(docId)
+      const preview = createDragPreview(tabTitle)
 
-    // Tab-bar area of the source window: approx top 50px of the window.
-    // If the cursor returns there, cancel the tear-off and send tabdrag:return.
-    const TAB_BAR_HEIGHT = 50
+      preview.once('ready-to-show', () => {
+        if (!preview.isDestroyed()) preview.show()
+      })
 
-    const interval = setInterval(() => {
-      if (!detach || win.isDestroyed()) { stopDetach(); return }
+      win.once('ready-to-show', () => {
+        if (win.isDestroyed()) return
+        const [w] = win.getSize()
+        win.setPosition(Math.max(0, cursor.x - Math.floor(w / 2)), Math.max(0, cursor.y - 20))
+        win.hide()
+      })
 
-      const pos = screen.getCursorScreenPoint()
+      const SNAP_PAD = 50
+      const sourceBounds = tabBarBounds.get(event.sender.id)
+      let hoverWcId: number | null = null
 
-      // Move detached window so it follows the cursor (tab bar under cursor).
-      const [w] = win.getSize()
-      win.setPosition(Math.max(0, pos.x - Math.floor(w / 2)), Math.max(0, pos.y - 20))
+      const interval = setInterval(() => {
+        if (!detach || win.isDestroyed()) { stopDetach(); return }
 
-      // If cursor returned to the source window's tab-bar area, auto-cancel.
-      if (!sourceWin.isDestroyed()) {
-        const sb = sourceWin.getBounds()
-        const inTabBar =
-          pos.x >= sb.x && pos.x <= sb.x + sb.width &&
-          pos.y >= sb.y && pos.y <= sb.y + TAB_BAR_HEIGHT
-        if (inTabBar) {
-          win.close()
-          clearInterval(interval)
-          if (detach?.win === win) detach = null
-          sourceWin.webContents.send('tabdrag:return', { screenX: pos.x })
+        const pos = screen.getCursorScreenPoint()
+
+        if (detach.preview && !detach.preview.isDestroyed()) {
+          detach.preview.setPosition(Math.max(0, pos.x - 20), Math.max(0, pos.y - 12))
         }
-      }
-    }, 16)
 
-    detach = { docId, sourceWinId: sourceWin.id, win, interval }
+        const mergeTarget = findTabBarAtPoint(pos.x, pos.y, detach.sourceWcId)
+        if (mergeTarget) {
+          if (hoverWcId !== mergeTarget.wcId) {
+            if (hoverWcId !== null) {
+              const prevWin = BrowserWindow.getAllWindows().find((w) => w.webContents.id === hoverWcId)
+              prevWin?.webContents.send('tabdrag:dropHover', { active: false })
+            }
+            hoverWcId = mergeTarget.wcId
+            detach.hoverWcId = hoverWcId
+          }
+          const targetWin = BrowserWindow.getAllWindows().find((w) => w.webContents.id === mergeTarget.wcId)
+          targetWin?.webContents.send('tabdrag:dropHover', { active: true, screenX: pos.x })
+        } else if (hoverWcId !== null) {
+          const prevWin = BrowserWindow.getAllWindows().find((w) => w.webContents.id === hoverWcId)
+          prevWin?.webContents.send('tabdrag:dropHover', { active: false })
+          hoverWcId = null
+          detach.hoverWcId = null
+        }
+
+        if (!sourceWin.isDestroyed() && sourceBounds) {
+          const snapZone = expandedRect(sourceBounds, SNAP_PAD)
+          if (pointInRect(pos.x, pos.y, snapZone)) {
+            win.hide()
+            sourceWin.webContents.send('tabdrag:return', { screenX: pos.x })
+          }
+        }
+      }, 16)
+
+      detach = {
+        docId,
+        sourceWinId: sourceWin.id,
+        sourceWcId: event.sender.id,
+        win,
+        preview,
+        interval,
+        tabTitle,
+        hoverWcId: null,
+      }
+    })
   })
 
-  // Renderer signals cancel (cursor returned to source strip via pointer events).
   ipcMain.on('tabdrag:cancel', () => {
     stopDetach()
   })
 
-  // Renderer signals finalise: keep the new window, remove source tab.
-  ipcMain.on('tabdrag:finalize', (event) => {
+  ipcMain.on('tabdrag:finalize', (event, pos?: { screenX?: number; screenY?: number }) => {
     if (!detach) return
     clearInterval(detach.interval)
-    // Send tabdrag:detached to source so it removes the tab.
-    event.sender.send('tabdrag:detached', { docId: detach.docId })
-    detach = null // window lives on
-  })
-}
 
-function stopDetach(): void {
-  if (!detach) return
-  clearInterval(detach.interval)
-  if (!detach.win.isDestroyed()) detach.win.close()
-  detach = null
+    const x = typeof pos?.screenX === 'number' ? pos.screenX : screen.getCursorScreenPoint().x
+    const y = typeof pos?.screenY === 'number' ? pos.screenY : screen.getCursorScreenPoint().y
+
+    const mergeTarget = findTabBarAtPoint(x, y, detach.sourceWcId)
+    const sourceBounds = tabBarBounds.get(detach.sourceWcId)
+    const inSnapBack = sourceBounds && pointInRect(x, y, expandedRect(sourceBounds, 50))
+
+    if (mergeTarget) {
+      if (detach.hoverWcId !== null) {
+        const hoverWin = BrowserWindow.getAllWindows().find((w) => w.webContents.id === detach!.hoverWcId)
+        hoverWin?.webContents.send('tabdrag:dropHover', { active: false })
+      }
+      const targetWin = BrowserWindow.getAllWindows().find((w) => w.webContents.id === mergeTarget.wcId)
+      targetWin?.webContents.send('tabdrag:merge', { docId: detach.docId, screenX: x })
+      if (!detach.win.isDestroyed()) detach.win.close()
+      if (detach.preview && !detach.preview.isDestroyed()) detach.preview.close()
+      event.sender.send('tabdrag:detached', { docId: detach.docId })
+      detach = null
+      return
+    }
+
+    if (inSnapBack) {
+      stopDetach()
+      event.sender.send('tabdrag:return', { screenX: x })
+      return
+    }
+
+    if (!detach.win.isDestroyed()) {
+      detach.win.show()
+      detach.win.setPosition(Math.max(0, x - 200), Math.max(0, y - 20))
+    }
+    if (detach.preview && !detach.preview.isDestroyed()) detach.preview.close()
+    event.sender.send('tabdrag:detached', { docId: detach.docId })
+    detach = null
+  })
 }

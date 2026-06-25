@@ -260,7 +260,7 @@ export type SlideBackground = SolidBackground | GradientBackground | ImageBackgr
 
 // ── Transitions ──────────────────────────────────────────────────────────────
 
-export type TransitionType = 'none' | 'fade' | 'slide' | 'zoom' | 'flip'
+export type TransitionType = 'none' | 'fade' | 'slide' | 'push' | 'zoom' | 'flip' | 'dissolve'
 export type TransitionDirection = 'left' | 'right' | 'up' | 'down'
 
 export interface SlideTransition {
@@ -271,15 +271,29 @@ export interface SlideTransition {
 
 // ── Animations ───────────────────────────────────────────────────────────────
 
-export type AnimationTrigger = 'click' | 'auto'
+export type AnimationCategory = 'entrance' | 'emphasis' | 'exit'
+export type AnimationEffect =
+  | 'appear'
+  | 'fade-in'
+  | 'fade-out'
+  | 'fly-in'
+  | 'fly-out'
+  | 'zoom-in'
+  | 'zoom-out'
+  | 'bounce-in'
+  | 'bounce-out'
+  | 'wipe'
+export type AnimationTriggerMode = 'click' | 'with-previous' | 'after-previous'
 
 export interface ElementAnimation {
   id: string
   elementId: string
-  type: string
+  category: AnimationCategory
+  effect: AnimationEffect
+  direction?: TransitionDirection
   duration: number
   delay: number
-  trigger: AnimationTrigger
+  trigger: AnimationTriggerMode
 }
 
 // ── Slide ────────────────────────────────────────────────────────────────────
@@ -466,8 +480,8 @@ function deserializeSlide(raw: unknown): Slide {
     elements: Array.isArray(s.elements) ? (s.elements as unknown[]).filter(isValidElement) as SlideElement[] : [],
     background: isValidBackground(s.background) ? (s.background as SlideBackground) : undefined,
     notes: typeof s.notes === 'string' ? s.notes : '',
-    transition: isValidTransition(s.transition) ? (s.transition as SlideTransition) : undefined,
-    animations: Array.isArray(s.animations) ? s.animations as ElementAnimation[] : [],
+    transition: deserializeTransition(s.transition),
+    animations: Array.isArray(s.animations) ? (s.animations as unknown[]).map(normalizeAnimation) : [],
   }
 }
 
@@ -521,10 +535,104 @@ function isValidBackground(raw: unknown): raw is SlideBackground {
   return typeof b.type === 'string'
 }
 
-function isValidTransition(raw: unknown): raw is SlideTransition {
-  if (!raw || typeof raw !== 'object') return false
+function deserializeTransition(raw: unknown): SlideTransition | undefined {
+  if (!raw || typeof raw !== 'object') return undefined
   const t = raw as Record<string, unknown>
-  return typeof t.type === 'string'
+  const validTypes: TransitionType[] = ['none', 'fade', 'slide', 'push', 'zoom', 'flip', 'dissolve']
+  const type = validTypes.includes(t.type as TransitionType) ? (t.type as TransitionType) : undefined
+  if (!type) return undefined
+  const validDirections: TransitionDirection[] = ['left', 'right', 'up', 'down']
+  const direction = validDirections.includes(t.direction as TransitionDirection)
+    ? (t.direction as TransitionDirection)
+    : undefined
+  return {
+    type,
+    direction,
+    duration: clampTransitionDuration(t.duration),
+  }
+}
+
+export function clampAnimationDuration(duration: unknown): number {
+  if (typeof duration !== 'number' || !Number.isFinite(duration)) return 500
+  return Math.max(0, Math.min(10000, Math.round(duration)))
+}
+
+export function clampAnimationDelay(delay: unknown): number {
+  if (typeof delay !== 'number' || !Number.isFinite(delay)) return 0
+  return Math.max(0, Math.min(10000, Math.round(delay)))
+}
+
+function clampTransitionDuration(duration: unknown): number {
+  if (typeof duration !== 'number' || !Number.isFinite(duration)) return 500
+  return Math.max(100, Math.min(2000, Math.round(duration)))
+}
+
+const VALID_ANIMATION_CATEGORIES: AnimationCategory[] = ['entrance', 'emphasis', 'exit']
+const VALID_ANIMATION_EFFECTS: AnimationEffect[] = [
+  'appear',
+  'fade-in',
+  'fade-out',
+  'fly-in',
+  'fly-out',
+  'zoom-in',
+  'zoom-out',
+  'bounce-in',
+  'bounce-out',
+  'wipe',
+]
+const VALID_ANIMATION_DIRECTIONS: TransitionDirection[] = ['left', 'right', 'up', 'down']
+const VALID_ANIMATION_TRIGGERS: AnimationTriggerMode[] = ['click', 'with-previous', 'after-previous']
+
+function inferCategoryFromEffect(effect: AnimationEffect): AnimationCategory {
+  switch (effect) {
+    case 'fade-out':
+    case 'fly-out':
+    case 'zoom-out':
+    case 'bounce-out':
+      return 'exit'
+    case 'fade-in':
+    case 'fly-in':
+    case 'zoom-in':
+    case 'bounce-in':
+    case 'appear':
+    case 'wipe':
+    default:
+      return 'entrance'
+  }
+}
+
+function normalizeLegacyDirection(raw: unknown): TransitionDirection | undefined {
+  if (raw === 'top') return 'up'
+  if (raw === 'bottom') return 'down'
+  return VALID_ANIMATION_DIRECTIONS.includes(raw as TransitionDirection)
+    ? (raw as TransitionDirection)
+    : undefined
+}
+
+export function normalizeAnimation(raw: unknown): ElementAnimation {
+  const a = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
+  const effect = VALID_ANIMATION_EFFECTS.includes(a.effect as AnimationEffect)
+    ? (a.effect as AnimationEffect)
+    : VALID_ANIMATION_EFFECTS.includes(a.type as AnimationEffect)
+      ? (a.type as AnimationEffect)
+      : 'fade-in'
+  const category = VALID_ANIMATION_CATEGORIES.includes(a.category as AnimationCategory)
+    ? (a.category as AnimationCategory)
+    : inferCategoryFromEffect(effect)
+  const triggerRaw = a.trigger === 'auto' ? 'after-previous' : a.trigger
+  const trigger = VALID_ANIMATION_TRIGGERS.includes(triggerRaw as AnimationTriggerMode)
+    ? (triggerRaw as AnimationTriggerMode)
+    : 'click'
+  return {
+    id: typeof a.id === 'string' && a.id ? a.id : crypto.randomUUID(),
+    elementId: typeof a.elementId === 'string' ? a.elementId : '',
+    category,
+    effect,
+    direction: normalizeLegacyDirection(a.direction),
+    duration: clampAnimationDuration(a.duration),
+    delay: clampAnimationDelay(a.delay),
+    trigger,
+  }
 }
 
 function deserializeTheme(raw: unknown): PresentationTheme {

@@ -41,16 +41,21 @@ interface DragInfo {
   startX: number
   startY: number
   hasMoved: boolean
-  // Which of the three drag modes we're in:
-  mode: 'strip'       // reordering within the tab bar
-       | 'detached'   // tear-off to a new window (multi-tab)
-       | 'windowMove' // dragging moves the current window (single-tab)
-  // Snapshot taken on pointerdown so insert-index is computed from stable
-  // values rather than mid-animation DOM positions.
-  tabWidths: Map<string, number>  // id → pixel width of each tab item
-  tabGap: number                  // pixel gap between consecutive tab items
-  stripLeft: number               // left edge of the tab strip element
-  insertIdx: number               // current computed insert index into "others"
+  mode: 'strip' | 'detached' | 'windowMove'
+  tabWidths: Map<string, number>
+  tabGap: number
+  stripLeft: number
+  originIdx: number
+  visualInsertIdx: number
+}
+
+function tabShiftOffset(tabIndex: number, fromIdx: number, insertIdx: number, slot: number): number {
+  if (fromIdx < insertIdx) {
+    if (tabIndex > fromIdx && tabIndex < insertIdx) return -slot
+  } else if (fromIdx > insertIdx) {
+    if (tabIndex >= insertIdx && tabIndex < fromIdx) return slot
+  }
+  return 0
 }
 
 // ── Tab content (label + format badge, or rename input) ──────────────────────
@@ -124,6 +129,7 @@ export function DocumentTabBar({
   const goToDashboard       = useAppStore((s) => s.goToDashboard)
   const activateDocumentTab = useAppStore((s) => s.activateDocumentTab)
   const closeDocumentTab    = useAppStore((s) => s.closeDocumentTab)
+  const insertDocumentTab   = useAppStore((s) => s.insertDocumentTab)
   const setTabOrder         = useAppStore((s) => s.setTabOrder)
   const saveActiveDocument  = useAppStore((s) => s.saveActiveDocument)
   const setNewDocumentModalOpen = useAppStore((s) => s.setNewDocumentModalOpen)
@@ -134,13 +140,109 @@ export function DocumentTabBar({
   const [localTabs, setLocalTabs] = useState<OpenDocumentTab[] | null>(null)
   // Which tab is currently being dragged (for opacity fade-out when detached).
   const [draggingId, setDraggingId] = useState<string | null>(null)
-  // Whether we're in tear-off (detach) mode.
   const [isDetached, setIsDetached] = useState(false)
+  const [dragDeltaX, setDragDeltaX] = useState(0)
+  const [visualInsertIdx, setVisualInsertIdx] = useState<number | null>(null)
+  const [externalDropIdx, setExternalDropIdx] = useState<number | null>(null)
+  const [dropIndicatorLeft, setDropIndicatorLeft] = useState(0)
 
   const tabStripRef = useRef<HTMLDivElement>(null)
   const dragRef     = useRef<DragInfo | null>(null)
 
   const displayTabs = localTabs ?? openTabs
+  const isDragging = draggingId !== null
+
+  // Report tab-bar screen bounds for cross-window merge during tear-off
+  useEffect(() => {
+    const el = tabStripRef.current
+    if (!el || !window.prose.tabdrag?.registerTabBarBounds) return
+    const report = (): void => {
+      const r = el.getBoundingClientRect()
+      window.prose.tabdrag.registerTabBarBounds({
+        x: Math.round(r.left + window.screenX),
+        y: Math.round(r.top + window.screenY),
+        width: Math.round(r.width),
+        height: Math.round(r.height),
+      })
+    }
+    report()
+    window.addEventListener('resize', report)
+    const ro = new ResizeObserver(report)
+    ro.observe(el)
+    return () => {
+      window.removeEventListener('resize', report)
+      ro.disconnect()
+    }
+  }, [openTabs.length, displayTabs.length])
+
+  useEffect(() => {
+    if (!window.prose.tabdrag?.onMerge) return
+    return window.prose.tabdrag.onMerge(({ docId, screenX }) => {
+      const insertIdx =
+        typeof screenX === 'number'
+          ? computeInsertIdxFromClientX(screenX - window.screenX)
+          : openTabs.length
+      void window.prose.documents.getById(docId).then((doc) => {
+        if (!doc) return
+        insertDocumentTab({
+          id: doc.id,
+          title: doc.title,
+          format: doc.format,
+          fileType: (doc as { fileType?: string }).fileType as import('@/types').FileType | undefined ?? 'document',
+        }, insertIdx)
+      })
+    })
+  }, [insertDocumentTab, openTabs.length])
+
+  useEffect(() => {
+    if (!window.prose.tabdrag?.onDropHover) return
+    return window.prose.tabdrag.onDropHover(({ active, screenX }) => {
+      if (!active) {
+        setExternalDropIdx(null)
+        return
+      }
+      if (typeof screenX === 'number') {
+        const idx = computeInsertIdxFromClientX(screenX - window.screenX)
+        setExternalDropIdx(idx)
+        updateDropIndicator(idx)
+      }
+    })
+  }, [openTabs.length])
+
+  function computeInsertIdxFromClientX(clientX: number): number {
+    const items = Array.from(
+      tabStripRef.current?.querySelectorAll<HTMLElement>('.document-tab-item') ?? [],
+    )
+    if (items.length === 0) return 0
+    let x = items[0]!.getBoundingClientRect().left
+    const gap =
+      items.length >= 2
+        ? items[1]!.getBoundingClientRect().left -
+          (items[0]!.getBoundingClientRect().left + items[0]!.getBoundingClientRect().width)
+        : 4
+    for (let i = 0; i < items.length; i++) {
+      const w = items[i]!.getBoundingClientRect().width
+      if (clientX < x + w / 2) return i
+      x += w + Math.max(gap, 0)
+    }
+    return items.length
+  }
+
+  function updateDropIndicator(insertIdx: number): void {
+    const strip = tabStripRef.current
+    const items = Array.from(strip?.querySelectorAll<HTMLElement>('.document-tab-item') ?? [])
+    if (!strip || items.length === 0) {
+      setDropIndicatorLeft(0)
+      return
+    }
+    const stripLeft = strip.getBoundingClientRect().left
+    if (insertIdx >= items.length) {
+      const last = items[items.length - 1]!
+      setDropIndicatorLeft(last.getBoundingClientRect().right - stripLeft)
+    } else {
+      setDropIndicatorLeft(items[insertIdx]!.getBoundingClientRect().left - stripLeft)
+    }
+  }
 
   // ── Insert-index computation ────────────────────────────────────────────
   // Uses snapshotted widths + gap so it never reads mid-animation DOM state.
@@ -157,15 +259,12 @@ export function DocumentTabBar({
     return others.length
   }
 
-  // Apply a new insert index → rebuild localTabs with the dragging tab inserted there.
-  function applyInsertIdx(newIdx: number, d: DragInfo): void {
-    if (newIdx === d.insertIdx) return
-    d.insertIdx = newIdx
-    const base = localTabs ?? openTabs
-    const others = base.filter((t) => t.id !== d.tabId)
-    const dragging = base.find((t) => t.id === d.tabId)!
-    const next = [...others.slice(0, newIdx), dragging, ...others.slice(newIdx)]
-    setLocalTabs(next)
+  function commitReorder(d: DragInfo): void {
+    const others = openTabs.filter((t) => t.id !== d.tabId)
+    const moved = openTabs[d.originIdx]
+    if (!moved) return
+    const next = [...others.slice(0, d.visualInsertIdx), moved, ...others.slice(d.visualInsertIdx)]
+    setTabOrder(next.map((t) => t.id))
   }
 
   // ── Pointer handlers ────────────────────────────────────────────────────
@@ -192,7 +291,7 @@ export function DocumentTabBar({
           (items[0]!.getBoundingClientRect().left + (tabWidths.get(openTabs[0]!.id) ?? 100))
         : 4
     const stripLeft = items[0]?.getBoundingClientRect().left ?? 0
-    const insertIdx = openTabs.findIndex((t) => t.id === tab.id)
+    const originIdx = openTabs.findIndex((t) => t.id === tab.id)
 
     dragRef.current = {
       tabId: tab.id,
@@ -204,10 +303,14 @@ export function DocumentTabBar({
       tabWidths,
       tabGap: Math.max(tabGap, 0),
       stripLeft,
-      insertIdx,
+      originIdx,
+      visualInsertIdx: originIdx,
     }
     setLocalTabs([...openTabs])
     setDraggingId(tab.id)
+    setDragDeltaX(0)
+    setVisualInsertIdx(originIdx)
+    document.body.style.userSelect = 'none'
   }
 
   function handlePointerMove(tabId: string, e: React.PointerEvent): void {
@@ -248,8 +351,23 @@ export function DocumentTabBar({
     }
 
     if (d.mode === 'strip') {
-      applyInsertIdx(computeInsertIdx(e.clientX, d), d)
+      setDragDeltaX(e.clientX - d.startX)
+      const idx = computeInsertIdx(e.clientX, d)
+      if (idx !== d.visualInsertIdx) {
+        d.visualInsertIdx = idx
+        setVisualInsertIdx(idx)
+      }
     }
+  }
+
+  function endDrag(): void {
+    document.body.style.userSelect = ''
+    dragRef.current = null
+    setDraggingId(null)
+    setIsDetached(false)
+    setLocalTabs(null)
+    setDragDeltaX(0)
+    setVisualInsertIdx(null)
   }
 
   function handlePointerUp(tabId: string, e: React.PointerEvent): void {
@@ -258,19 +376,21 @@ export function DocumentTabBar({
 
     if (!d.hasMoved) {
       void handleSelectTab(tabId)
-    } else if (d.mode === 'windowMove') {
-      window.prose.win.stopMove()
-    } else if (d.mode === 'detached') {
-      window.prose.tabdrag.finalize()
-      closeDocumentTab(tabId)
-    } else {
-      if (localTabs) setTabOrder(localTabs.map((t) => t.id))
+      endDrag()
+      return
     }
-
-    dragRef.current = null
-    setDraggingId(null)
-    setIsDetached(false)
-    setLocalTabs(null)
+    if (d.mode === 'windowMove') {
+      window.prose.win.stopMove()
+      endDrag()
+      return
+    }
+    if (d.mode === 'detached') {
+      window.prose.tabdrag.finalize({ screenX: e.screenX, screenY: e.screenY })
+      endDrag()
+      return
+    }
+    commitReorder(d)
+    endDrag()
   }
 
   function handlePointerCancel(tabId: string, e: React.PointerEvent): void {
@@ -278,10 +398,7 @@ export function DocumentTabBar({
     if (!d || d.tabId !== tabId || d.pointerId !== e.pointerId) return
     if (d.mode === 'detached') window.prose.tabdrag.cancel()
     if (d.mode === 'windowMove') window.prose.win.stopMove()
-    dragRef.current = null
-    setDraggingId(null)
-    setIsDetached(false)
-    setLocalTabs(null)
+    endDrag()
   }
 
   // ── IPC listeners ────────────────────────────────────────────────────────
@@ -292,11 +409,16 @@ export function DocumentTabBar({
       if (!d || d.mode !== 'detached') return
       d.mode = 'strip'
       setIsDetached(false)
-      // Re-enter strip mode: compute insert position from returned cursor X.
-      applyInsertIdx(computeInsertIdx(screenX - window.screenX, d), d)
+      const idx = computeInsertIdx(screenX - window.screenX, d)
+      d.visualInsertIdx = idx
+      setVisualInsertIdx(idx)
+      setDragDeltaX(screenX - window.screenX - d.startX)
     })
     const unsubDetached = window.prose.tabdrag.onDetached(({ docId }) => {
+      const tabs = useAppStore.getState().openTabs
+      const wasLastTab = tabs.length === 1 && tabs[0]?.id === docId
       closeDocumentTab(docId)
+      if (wasLastTab) void window.prose.win.close()
     })
     return () => { unsubReturn(); unsubDetached() }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -340,7 +462,7 @@ export function DocumentTabBar({
       {openTabs.length > 0 && (
         <div
           ref={tabStripRef}
-          className="document-tab-strip min-w-0 flex-1"
+          className="document-tab-strip relative min-w-0 flex-1"
           onPointerDown={(e) => {
             if (e.button !== 0) return
             // Only handle clicks in the empty space (not on tabs, close buttons, or the + button)
@@ -357,26 +479,42 @@ export function DocumentTabBar({
             window.addEventListener('pointerup', onUp)
           }}
         >
+          {externalDropIdx !== null && (
+            <div
+              className="pointer-events-none absolute bottom-1 top-1 z-40 w-0.5 rounded-full bg-primary"
+              style={{ left: dropIndicatorLeft }}
+            />
+          )}
           <AnimatePresence initial={false} mode="popLayout">
-            {displayTabs.map((tab) => {
+            {displayTabs.map((tab, tabIndex) => {
               const isActive = !showDashboard && tab.id === activeDocumentId
               const isDraggingThis = tab.id === draggingId
+              const d = dragRef.current
+              const slot = d ? (d.tabWidths.get(tab.id) ?? 100) + d.tabGap : 0
+              const originIdx = d?.originIdx ?? tabIndex
+              const insertIdx = visualInsertIdx ?? originIdx
+              const shift = isDragging && !isDraggingThis
+                ? tabShiftOffset(tabIndex, originIdx, insertIdx, slot)
+                : 0
+              const translateX = isDraggingThis ? dragDeltaX : shift
 
               return (
                 <motion.div
                   key={tab.id}
-                  layout
+                  layout={!isDragging}
                   className="document-tab-item"
-                  style={{ originX: 0 }}
-                  // Layout animation gives the smooth "tabs slide to make room"
-                  // effect.  We keep it at a short fixed duration so other tabs
-                  // animate in during the drag but the response still feels snappy.
+                  style={{
+                    transform: isDragging ? `translateX(${translateX}px)` : undefined,
+                    transition: isDraggingThis ? 'none' : 'transform 180ms cubic-bezier(0,0,0.2,1)',
+                    zIndex: isDraggingThis ? 30 : undefined,
+                    position: 'relative',
+                  }}
                   transition={{ duration: 0.13, ease: [0.25, 0.1, 0.25, 1] }}
-                  initial={{ opacity: 0, scale: 0.88, x: -6 }}
+                  initial={isDragging ? false : { opacity: 0, scale: 0.88, x: -6 }}
                   animate={{
                     opacity: isDraggingThis && isDetached ? 0 : 1,
                     scale: 1,
-                    x: 0,
+                    x: isDragging ? 0 : 0,
                   }}
                   exit={{ opacity: 0, scale: 0.88, x: -6 }}
                   onPointerDown={(e) => handlePointerDown(tab, e)}

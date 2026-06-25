@@ -1623,6 +1623,10 @@
   from { opacity: 0; }
   to   { opacity: 1; }
 }
+@keyframes slide-transition-dissolve {
+  from { opacity: 0; filter: blur(4px); }
+  to   { opacity: 1; filter: blur(0); }
+}
 @keyframes slide-transition-zoom {
   from { opacity: 0; transform: scale(0.88); }
   to   { opacity: 1; transform: scale(1); }
@@ -1650,4 +1654,148 @@
 @keyframes slide-transition-flip-in-rev {
   from { opacity: 0; transform: perspective(1200px) rotateY(90deg); }
   to   { opacity: 1; transform: perspective(1200px) rotateY(0deg); }
+}
+@keyframes slide-transition-push-from-right {
+  from { transform: translate3d(100%, 0, 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+@keyframes slide-transition-push-from-left {
+  from { transform: translate3d(-100%, 0, 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+@keyframes slide-transition-push-from-bottom {
+  from { transform: translate3d(0, 100%, 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+@keyframes slide-transition-push-from-top {
+  from { transform: translate3d(0, -100%, 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+
+/* ── Slide element animations ──────────────────────────────────────────────── */
+.slide-anim-appear {
+  animation: slide-anim-appear var(--anim-duration, 0ms) linear var(--anim-delay, 0ms) both;
+}
+.slide-anim-fade-in,
+.slide-anim-fade-out,
+.slide-anim-zoom-in,
+.slide-anim-zoom-out,
+.slide-anim-bounce-in,
+.slide-anim-bounce-out,
+.slide-anim-fly-in-left,
+.slide-anim-fly-in-right,
+.slide-anim-fly-in-up,
+.slide-anim-fly-in-down,
+.slide-anim-fly-out-left,
+.slide-anim-fly-out-right,
+.slide-anim-fly-out-up,
+.slide-anim-fly-out-down,
+.slide-anim-wipe-left,
+.slide-anim-wipe-right,
+.slide-anim-wipe-up,
+.slide-anim-wipe-down {
+  animation-duration: var(--anim-duration, 500ms);
+  animation-delay: var(--anim-delay, 0ms);
+  animation-fill-mode: both;
+  animation-timing-function: cubic-bezier(0.2, 0.9, 0.25, 1);
+  will-change: transform, opacity, clip-path;
+  backface-visibility: hidden;
+}
+.slide-anim-fade-in { animation-name: slide-anim-fade-in; }
+.slide-anim-fade-out { animation-name: slide-anim-fade-out; }
+.slide-anim-zoom-in { animation-name: slide-anim-zoom-in; }
+.slide-anim-zoom-out { animation-name: slide-anim-zoom-out; }
+.slide-anim-bounce-in { animation-name: slide-anim-bounce-in; }
+.slide-anim-bounce-out { animation-name: slide-anim-bounce-out; }
+.slide-anim-fly-in-left { animation-name: slide-anim-fly-in-left; }
+.slide-anim-fly-in-right { animation-name: slide-anim-fly-in-right; }
+.slide-anim-fly-in-up { animation-name: slide-anim-fly-in-up; }
+.slide-anim-fly-in-down { animation-name: slide-anim-fly-in-down; }
+.slide-anim-fly-out-left { animation-name: slide-anim-fly-out-left; }
+.slide-anim-fly-out-right { animation-name: slide-anim-fly-out-right; }
+.slide-anim-fly-out-up { animation-name: slide-anim-fly-out-up; }
+.slide-anim-fly-out-down { animation-name: slide-anim-fly-out-down; }
+.slide-anim-wipe-left { animation-name: slide-anim-wipe-left; }
+.slide-anim-wipe-right { animation-name: slide-anim-wipe-right; }
+.slide-anim-wipe-up { animation-name: slide-anim-wipe-up; }
+.slide-anim-wipe-down { animation-name: slide-anim-wipe-down; }
+
+@keyframes slide-anim-appear {
+  from { opacity: 1; }
+  to { opacity: 1; }
+}
+@keyframes slide-anim-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slide-anim-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes slide-anim-zoom-in {
+  from { opacity: 0; transform: scale(0.5); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes slide-anim-zoom-out {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.4); }
+}
+@keyframes slide-anim-bounce-in {
+  0% { opacity: 0; transform: scale(0.35); }
+  60% { opacity: 1; transform: scale(1.08); }
+  80% { transform: scale(0.96); }
+  100% { transform: scale(1); }
+}
+@keyframes slide-anim-bounce-out {
+  0% { opacity: 1; transform: scale(1); }
+  20% { transform: scale(1.06); }
+  100% { opacity: 0; transform: scale(0.4); }
+}
+@keyframes slide-anim-fly-in-left {
+  from { opacity: 0; transform: translate3d(-18%, 0, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes slide-anim-fly-in-right {
+  from { opacity: 0; transform: translate3d(18%, 0, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes slide-anim-fly-in-up {
+  from { opacity: 0; transform: translate3d(0, -18%, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes slide-anim-fly-in-down {
+  from { opacity: 0; transform: translate3d(0, 18%, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes slide-anim-fly-out-left {
+  from { opacity: 1; transform: translate3d(0, 0, 0); }
+  to { opacity: 0; transform: translate3d(-18%, 0, 0); }
+}
+@keyframes slide-anim-fly-out-right {
+  from { opacity: 1; transform: translate3d(0, 0, 0); }
+  to { opacity: 0; transform: translate3d(18%, 0, 0); }
+}
+@keyframes slide-anim-fly-out-up {
+  from { opacity: 1; transform: translate3d(0, 0, 0); }
+  to { opacity: 0; transform: translate3d(0, -18%, 0); }
+}
+@keyframes slide-anim-fly-out-down {
+  from { opacity: 1; transform: translate3d(0, 0, 0); }
+  to { opacity: 0; transform: translate3d(0, 18%, 0); }
+}
+@keyframes slide-anim-wipe-left {
+  from { clip-path: inset(0 0 0 100%); opacity: 0.5; }
+  to { clip-path: inset(0 0 0 0); opacity: 1; }
+}
+@keyframes slide-anim-wipe-right {
+  from { clip-path: inset(0 100% 0 0); opacity: 0.5; }
+  to { clip-path: inset(0 0 0 0); opacity: 1; }
+}
+@keyframes slide-anim-wipe-up {
+  from { clip-path: inset(100% 0 0 0); opacity: 0.5; }
+  to { clip-path: inset(0 0 0 0); opacity: 1; }
+}
+@keyframes slide-anim-wipe-down {
+  from { clip-path: inset(0 0 100% 0); opacity: 0.5; }
+  to { clip-path: inset(0 0 0 0); opacity: 1; }
 }

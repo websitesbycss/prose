@@ -29,6 +29,7 @@ import { ChartDialog } from './ChartDialog'
 import { ChartOverlay } from './ChartOverlay'
 import { dispatchUndoRedoKey } from '@/lib/simulateUndoRedo'
 import { useContextMenuIcons } from '@/hooks/useContextMenuIcons'
+import { runThumbnailGenerationOnce, clampRectToViewport } from '@/lib/thumbnailGeneration'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -266,6 +267,37 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
   useEffect(() => () => {
     if (saveTimerRef.current) void flushAndSave()
   }, [flushAndSave])
+
+  // Thumbnail generation — fired by the main process after every successful
+  // content auto-save. Crops to roughly the first 12 rows / 8 columns instead
+  // of the full grid container, using the same column/row sizes configured on
+  // the <Workbook> below (defaultColWidth/defaultRowHeight) plus FortuneSheet's
+  // standard row/column header sizes, then hands the region off to the main
+  // process for the actual 560x315 resize.
+  useEffect(() => {
+    return window.prose.thumbnails.onGenerate((fileId) => {
+      if (fileId !== documentId) return
+      void runThumbnailGenerationOnce(fileId, async () => {
+        if (!ready) return
+        const wrapper = workbookWrapperRef.current
+        if (!wrapper) return
+        const gridRect = wrapper.getBoundingClientRect()
+        if (gridRect.width <= 0 || gridRect.height <= 0) return
+
+        const ROW_HEADER_WIDTH = 46
+        const COL_HEADER_HEIGHT = 20
+        const COL_WIDTH = 100
+        const ROW_HEIGHT = 20
+        const cropWidth = Math.min(gridRect.width, ROW_HEADER_WIDTH + 8 * COL_WIDTH)
+        const cropHeight = Math.min(gridRect.height, COL_HEADER_HEIGHT + 12 * ROW_HEIGHT)
+
+        const rect = clampRectToViewport({ x: gridRect.left, y: gridRect.top, width: cropWidth, height: cropHeight })
+        if (!rect) return
+        const base64 = await window.prose.thumbnails.captureRegion(rect)
+        await window.prose.thumbnails.save(fileId, base64)
+      })
+    })
+  }, [documentId, ready])
 
   // Track the grid's scroll offset so the chart overlay can follow it — see
   // the comment on gridScroll's declaration for why we read these elements

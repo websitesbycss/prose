@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { Excalidraw, MainMenu } from '@excalidraw/excalidraw'
+import { Excalidraw, MainMenu, exportToBlob } from '@excalidraw/excalidraw'
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore — no type declarations for CSS side-effect import
 import '@excalidraw/excalidraw/index.css'
@@ -31,6 +31,7 @@ import { dispatchUndoRedoKey } from '@/lib/simulateUndoRedo'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useIsActiveTab } from '@/hooks/useIsActiveTab'
 import { useContextMenuIcons } from '@/hooks/useContextMenuIcons'
+import { runThumbnailGenerationOnce, blobToDataUrl, downscaleToThumbnail } from '@/lib/thumbnailGeneration'
 
 // Excalidraw's native right-click menu has no per-item class/data-attribute to
 // target — only the rendered (English) label identifies each action. This is
@@ -203,6 +204,34 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   const boardSidebarWidth = 240
+
+  // Thumbnail generation — fired by the main process after every successful
+  // content auto-save. Unlike Documents/Sheets this never goes through
+  // captureRegion — Excalidraw renders its own export via exportToBlob, which
+  // we then downscale to the standard 560x315 thumbnail size client-side.
+  useEffect(() => {
+    return window.prose.thumbnails.onGenerate((fileId) => {
+      if (fileId !== documentId) return
+      void runThumbnailGenerationOnce(fileId, async () => {
+        const api = excalidrawAPIRef.current
+        if (!api) return
+        const elements = api.getSceneElements()
+        if (!elements || elements.length === 0) return // retain prior has_thumbnail state, don't touch it
+
+        // exportToBlob is a standalone function from the package, not a method
+        // on the imperative API ref — it needs the scene handed to it explicitly.
+        const blob = await exportToBlob({
+          elements,
+          appState: { ...api.getAppState(), exportBackground: true, exportWithDarkMode: false },
+          files: api.getFiles(),
+          mimeType: 'image/png',
+        })
+        const dataUrl = await blobToDataUrl(blob)
+        const base64 = await downscaleToThumbnail(dataUrl)
+        await window.prose.thumbnails.save(fileId, base64)
+      })
+    })
+  }, [documentId])
 
   // Track active Excalidraw tool for toolbar highlighting
   const [activeToolType, setActiveToolType] = useState('selection')

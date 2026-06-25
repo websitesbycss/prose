@@ -16,7 +16,8 @@ const SCHEMA = `
     category_id TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
-    file_type TEXT NOT NULL DEFAULT 'document'
+    file_type TEXT NOT NULL DEFAULT 'document',
+    has_thumbnail INTEGER NOT NULL DEFAULT 0
   );
 
   CREATE INDEX IF NOT EXISTS idx_documents_updated ON documents(updated_at DESC);
@@ -38,6 +39,8 @@ export function initIndexDb(): void {
   db.exec(SCHEMA)
   // Migration: add file_type column to existing databases (ALTER TABLE fails silently if already present)
   try { db.exec(`ALTER TABLE documents ADD COLUMN file_type TEXT NOT NULL DEFAULT 'document'`) } catch { /* already exists */ }
+  // Migration: add has_thumbnail column to existing databases
+  try { db.exec(`ALTER TABLE documents ADD COLUMN has_thumbnail INTEGER NOT NULL DEFAULT 0`) } catch { /* already exists */ }
 }
 
 export function getIndexDb(): Database.Database {
@@ -60,6 +63,11 @@ export interface IndexRow {
   created_at: string
   updated_at: string
   file_type: string
+  // Only ever written via setHasThumbnail() below — upsertIndex() never
+  // touches it, so callers building a fresh row for create/update don't need
+  // to supply it (it just keeps whatever value the column already has, or
+  // defaults to 0 for a brand-new row).
+  has_thumbnail?: number
 }
 
 export function upsertIndex(row: IndexRow): void {
@@ -89,4 +97,8 @@ export function getAllIndexRows(): IndexRow[] {
   return getIndexDb()
     .prepare('SELECT * FROM documents ORDER BY updated_at DESC')
     .all() as IndexRow[]
+}
+
+export function setHasThumbnail(id: string, value: boolean): void {
+  getIndexDb().prepare('UPDATE documents SET has_thumbnail = ? WHERE id = ?').run(value ? 1 : 0, id)
 }

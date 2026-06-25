@@ -37,6 +37,7 @@ interface AppState {
   sidebarOpen: boolean
   boardSidebarOpen: boolean
   aiPanelOpen: boolean
+  slidesAnimationsPanelOpen: boolean
   citationPanelOpen: boolean
   musicPanelOpen: boolean
   musicPanelTab: 'tracks' | 'mixer'
@@ -69,6 +70,7 @@ interface AppState {
   setSidebarOpen(open: boolean): void
   setBoardSidebarOpen(open: boolean): void
   setAiPanelOpen(open: boolean): void
+  setSlidesAnimationsPanelOpen(open: boolean): void
   setCitationPanelOpen(open: boolean): void
   setMusicPanelOpen(open: boolean): void
   setMusicPanelTab(tab: 'tracks' | 'mixer'): void
@@ -104,6 +106,7 @@ export const useAppStore = create<AppState>()((set) => ({
   sidebarOpen: true,
   boardSidebarOpen: true,
   aiPanelOpen: false,
+  slidesAnimationsPanelOpen: false,
   citationPanelOpen: false,
   musicPanelOpen: false,
   musicPanelTab: 'tracks',
@@ -229,7 +232,9 @@ export const useAppStore = create<AppState>()((set) => ({
   setTheme: (theme) => {
     try {
       localStorage.setItem('prose-theme', theme)
-    } catch (_) {}
+    } catch {
+      // Ignore storage write failures (private mode, restricted profiles).
+    }
     const apply = (): void => {
       document.documentElement.classList.toggle('dark', theme === 'dark')
       flushSync(() => set({ theme }))
@@ -245,7 +250,16 @@ export const useAppStore = create<AppState>()((set) => ({
   setBoardSidebarOpen: (open) => set({ boardSidebarOpen: open }),
   // AI and citation panels are mutually exclusive; opening one closes the other
   setAiPanelOpen: (open) =>
-    set((s) => ({ aiPanelOpen: open, citationPanelOpen: open ? false : s.citationPanelOpen })),
+    set((s) => ({
+      aiPanelOpen: open,
+      slidesAnimationsPanelOpen: open ? false : s.slidesAnimationsPanelOpen,
+      citationPanelOpen: open ? false : s.citationPanelOpen,
+    })),
+  setSlidesAnimationsPanelOpen: (open) =>
+    set((s) => ({
+      slidesAnimationsPanelOpen: open,
+      aiPanelOpen: open ? false : s.aiPanelOpen,
+    })),
   setCitationPanelOpen: (open) =>
     set((s) => ({ citationPanelOpen: open, aiPanelOpen: open ? false : s.aiPanelOpen })),
   setMusicPanelOpen: (open) => set({ musicPanelOpen: open }),

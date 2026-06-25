@@ -18,6 +18,7 @@ export type {
   CodeBlockElement, VideoElement, AiGraphicElement,
   ShapeType, TextAlignH, TextAlignV, TextOverflow, AspectRatio,
   TableCell, TableCellStyle, ElementShadow, ElementBorder, Gradient,
+  AnimationCategory, AnimationEffect, AnimationTriggerMode, TransitionType, TransitionDirection,
 } from './slides'
 export { isSlidesContent, createInitialSlidesContent, countSlidesInContent, DEFAULT_THEME, DEFAULT_SETTINGS, SLIDE_BASE_WIDTH, SLIDE_BASE_HEIGHT } from './slides'
 
@@ -36,6 +37,7 @@ export interface Document {
   pageMargins: PageMargins | null
   // Present on dashboard listing (pre-computed from index)
   wordCount?: number
+  hasThumbnail?: boolean
 }
 
 export interface Category {
@@ -80,6 +82,7 @@ export interface AppSettings {
   slidesSnapToCanvas?: boolean
   slidesSnapToElements?: boolean
   slidesSnapEqualSpacing?: boolean
+  slidesRightPanelWidth?: number
 }
 
 export type OllamaStatus = 'ready' | 'loading' | 'unavailable'
@@ -289,9 +292,12 @@ export interface ProseAPI {
   tabdrag: {
     detach(docId: string): void
     cancel(): void
-    finalize(): void
+    finalize(pos?: { screenX: number; screenY: number }): void
+    registerTabBarBounds(rect: { x: number; y: number; width: number; height: number }): void
     onDetached(cb: (data: { docId: string }) => void): () => void
     onReturn(cb: (data: { screenX: number }) => void): () => void
+    onMerge(cb: (data: { docId: string; screenX?: number }) => void): () => void
+    onDropHover(cb: (data: { active: boolean; screenX?: number }) => void): () => void
   }
   citations: {
     getByDocument(documentId: string): Promise<Citation[]>
@@ -327,6 +333,14 @@ export interface ProseAPI {
   }
   app: {
     onOpenFile(callback: (filePath: string) => void): () => void
+  }
+  thumbnails: {
+    getPath(fileId: string): Promise<string>
+    save(fileId: string, pngBase64: string): Promise<{ ok: boolean; error?: string }>
+    delete(fileId: string): Promise<void>
+    captureRegion(rect: { x: number; y: number; width: number; height: number }): Promise<string>
+    onGenerate(callback: (fileId: string) => void): () => void
+    onReady(callback: (fileId: string) => void): () => void
   }
   spell: {
     check(word: string): Promise<{ correct: boolean; suggestions: string[] }>

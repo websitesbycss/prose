@@ -343,6 +343,7 @@ export interface DashboardDocument {
   categoryId: string | null
   createdAt: string
   updatedAt: string
+  hasThumbnail: boolean
 }
 
 export function getAllDocumentsFromIndex(): DashboardDocument[] {
@@ -360,6 +361,7 @@ function rowToDashboard(row: IndexRow): DashboardDocument {
     categoryId: row.category_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    hasThumbnail: !!row.has_thumbnail,
   }
 }
 

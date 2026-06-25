@@ -17,6 +17,7 @@ function getAnimationName(
 ): string {
   switch (type) {
     case 'fade': return 'slide-transition-fade'
+    case 'dissolve': return 'slide-transition-dissolve'
     case 'zoom': return 'slide-transition-zoom'
     case 'flip': return navDir === 'forward' ? 'slide-transition-flip-in' : 'slide-transition-flip-in-rev'
     case 'slide': {
@@ -26,6 +27,17 @@ function getAnimationName(
         case 'right': return 'slide-transition-from-left'
         case 'up':    return 'slide-transition-from-bottom'
         case 'down':  return 'slide-transition-from-top'
+        default: return ''
+      }
+    }
+    case 'push': {
+      const dir = transitionDir ?? (navDir === 'forward' ? 'left' : 'right')
+      switch (dir) {
+        case 'left': return 'slide-transition-push-from-right'
+        case 'right': return 'slide-transition-push-from-left'
+        case 'up': return 'slide-transition-push-from-bottom'
+        case 'down': return 'slide-transition-push-from-top'
+        default: return ''
       }
     }
     // fall through to none

@@ -7,6 +7,8 @@ import { SlideTransition } from './SlideTransition'
 import { PresentationToolbar } from './PresentationToolbar'
 import { SlideGridOverview } from './SlideGridOverview'
 import { SpeakerNotesOverlay } from './SpeakerNotesOverlay'
+import { AnimatedSlideElements } from '../animations/AnimatedSlideElements'
+import { useSlideAnimationPlayback } from '@/lib/slideAnimationPlayback'
 
 interface Props {
   slides: Slide[]
@@ -78,17 +80,27 @@ export function PresentationMode({ slides, theme, settings, master, startIndex, 
     })
   }, [slides.length])
 
-  // Exit when the OS/Electron exits fullscreen natively (e.g. Escape intercepted on Windows)
-  const exitRef = useRef<() => void>(() => {})
-  useEffect(() => { exitRef.current = () => onExit(currentIndex) }, [currentIndex, onExit])
+  const exitPresentation = useCallback((): void => {
+    void window.prose.win.setFullscreen(false)
+    onExit(currentIndex)
+  }, [currentIndex, onExit])
+
+  const exitRef = useRef(exitPresentation)
+  useEffect(() => { exitRef.current = exitPresentation }, [exitPresentation])
   useEffect(() => {
     return window.prose.win.onLeaveFullscreen?.(() => exitRef.current())
   }, [])
 
-  // Keyboard handler
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
-      if (showGrid) return // handled by grid overlay
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        e.stopImmediatePropagation()
+        if (showGrid) setShowGrid(false)
+        else exitPresentation()
+        return
+      }
+      if (showGrid) return
 
       switch (e.key) {
         case 'ArrowRight':
@@ -96,7 +108,7 @@ export function PresentationMode({ slides, theme, settings, master, startIndex, 
         case 'PageDown':
         case ' ':
           e.preventDefault()
-          goNext()
+          if (!playback.advance()) goNext()
           break
         case 'ArrowLeft':
         case 'ArrowUp':
@@ -104,10 +116,9 @@ export function PresentationMode({ slides, theme, settings, master, startIndex, 
           e.preventDefault()
           goPrev()
           break
-        case 'Escape':
         case 'F5':
           e.preventDefault()
-          onExit(currentIndex)
+          exitPresentation()
           break
         case 'g':
         case 'G':
@@ -140,15 +151,15 @@ export function PresentationMode({ slides, theme, settings, master, startIndex, 
           }
       }
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [currentIndex, showGrid, goNext, goPrev, goTo, onExit])
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [showGrid, goNext, goPrev, goTo, exitPresentation, playback])
 
   // Canvas click to advance
   function handleCanvasClick(e: React.MouseEvent): void {
     // Don't advance if toolbar or overlays are visible
     if ((e.target as HTMLElement).closest('[data-pres-controls]')) return
-    goNext()
+    if (!playback.advance()) goNext()
   }
 
   // Laser pointer tracking
@@ -157,7 +168,8 @@ export function PresentationMode({ slides, theme, settings, master, startIndex, 
     setLaserPos({ x: e.clientX, y: e.clientY })
   }
 
-  const currentSlide = slides[currentIndex]
+  const currentSlide = slides[currentIndex] ?? null
+  const playback = useSlideAnimationPlayback(currentSlide ?? { id: 'preview-empty', elements: [], notes: '', animations: [] }, { mode: 'presentation' })
   if (!currentSlide) return <div className="fixed inset-0 bg-black" />
 
   const sortedElements = [...currentSlide.elements].sort((a, b) => a.zIndex - b.zIndex)
@@ -219,25 +231,13 @@ export function PresentationMode({ slides, theme, settings, master, startIndex, 
             </div>
           ))}
           <div style={{ position: 'absolute', inset: 0 }}>
-            {sortedElements.filter((e) => !e.hidden).map((el) => (
-              <div
-                key={el.id}
-                style={{
-                  position: 'absolute',
-                  left: `${el.x}%`,
-                  top: `${el.y}%`,
-                  width: `${el.width}%`,
-                  height: `${el.height}%`,
-                  transform: `rotate(${el.rotate}deg) scaleX(${el.flipH ? -1 : 1}) scaleY(${el.flipV ? -1 : 1})`,
-                  transformOrigin: 'center center',
-                  opacity: el.opacity,
-                  zIndex: el.zIndex,
-                  overflow: 'hidden',
-                }}
-              >
-                {renderSlideElement(el, scale, true)}
-              </div>
-            ))}
+            <AnimatedSlideElements
+              elements={sortedElements.filter((e) => !e.hidden)}
+              visibleElementIds={playback.visibleElementIds}
+              activeAnimationByElement={playback.activeAnimationByElement}
+              onElementAnimationEnd={playback.onElementAnimationEnd}
+              renderElement={(el) => renderSlideElement(el, scale, true)}
+            />
           </div>
         </SlideTransition>
       </div>
@@ -267,9 +267,9 @@ export function PresentationMode({ slides, theme, settings, master, startIndex, 
           total={slides.length}
           notesVisible={showNotes}
           onPrev={goPrev}
-          onNext={goNext}
+          onNext={() => { if (!playback.advance()) goNext() }}
           onToggleNotes={() => setShowNotes((v) => !v)}
-          onExit={() => onExit(currentIndex)}
+          onExit={exitPresentation}
         />
       </div>
 

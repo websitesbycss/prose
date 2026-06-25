@@ -18,6 +18,7 @@ interface AppSettingsOut {
   lightAccentColor: string | null
   darkAccentColor: string | null
   uiScale: number
+  slidesRightPanelWidth: number
 }
 
 const DEFAULTS: AppSettingsOut = {
@@ -37,6 +38,7 @@ const DEFAULTS: AppSettingsOut = {
   lightAccentColor: '#2563eb',
   darkAccentColor: '#60a5fa',
   uiScale: 110,
+  slidesRightPanelWidth: 340,
 }
 
 const VALID_FORMATS = new Set(['none', 'mla', 'apa', 'chicago', 'ieee'])
@@ -74,6 +76,8 @@ function validateSettingValue(key: string, value: unknown): unknown {
     case 'pomodoroWorkMinutes':
     case 'pomodoroBreakMinutes':
       return typeof value === 'number' ? Math.max(1, Math.min(120, value)) : DEFAULTS[key as keyof AppSettingsOut]
+    case 'slidesRightPanelWidth':
+      return typeof value === 'number' ? Math.max(240, Math.min(640, value)) : DEFAULTS.slidesRightPanelWidth
     default:
       return value
   }
@@ -111,6 +115,7 @@ function loadSettings(): AppSettingsOut {
     lightAccentColor: get('lightAccentColor', DEFAULTS.lightAccentColor),
     darkAccentColor:  get('darkAccentColor',  DEFAULTS.darkAccentColor),
     uiScale: Math.min(125, Math.max(75, get('uiScale', DEFAULTS.uiScale))),
+    slidesRightPanelWidth: Math.max(240, Math.min(640, get('slidesRightPanelWidth', DEFAULTS.slidesRightPanelWidth))),
   }
 }
 

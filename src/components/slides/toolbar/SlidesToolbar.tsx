@@ -1,12 +1,13 @@
 import {
   AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal,
   AlignStartVertical, AlignCenterVertical, AlignEndVertical,
-  Play,
+  Play, Clapperboard,
 } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ToolbarRightSection } from '@/components/editor/ToolbarRightSection'
+import { cn } from '@/lib/utils'
 import { DefaultToolbar } from './DefaultToolbar'
 import { TextFormatToolbar } from './TextFormatToolbar'
 import { ShapeStyleToolbar } from './ShapeStyleToolbar'
@@ -38,6 +39,8 @@ interface Props {
   onInsertImage?(): void
   onInsertChart?(): void
   onPresent?(): void
+  onToggleAnimations?(): void
+  animationsPanelOpen?: boolean
   onEditMaster?(): void
   onExport?(): void
   onFind?(): void
@@ -67,6 +70,7 @@ export function SlidesToolbar({
   canUndo, canRedo, onUndo, onRedo,
   onBackground, onUpdateElement, onBatchUpdateElements, onAlignElements,
   onInsertShape, onInsertTable, onInsertImage, onInsertChart, onPresent, onEditMaster, onExport, onFind,
+  onToggleAnimations, animationsPanelOpen = false,
   onToggleGrid, gridActive, onSettingsOpen,
   pendingShapeType, pendingTableConfig,
   editingElementId, tableSelectedCells = [],
@@ -213,6 +217,24 @@ export function SlidesToolbar({
             </button>
           </TooltipTrigger>
           <TooltipContent side="bottom" className="text-xs">Start presentation (F5)</TooltipContent>
+        </Tooltip>
+      )}
+
+      {onToggleAnimations && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn('h-7 w-7', animationsPanelOpen && 'bg-accent text-accent-foreground')}
+              onClick={onToggleAnimations}
+            >
+              <Clapperboard className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">
+            {animationsPanelOpen ? 'Hide animations panel' : 'Show animations panel'}
+          </TooltipContent>
         </Tooltip>
       )}
 

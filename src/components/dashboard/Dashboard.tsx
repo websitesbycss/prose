@@ -22,6 +22,7 @@ import type { Document, ImportResult } from '@/types'
 import { useAppStore } from '@/store/appStore'
 import { formatRelativeTime, cn } from '@/lib/utils'
 import { loadPinnedIds, savePinnedIds } from '@/lib/pinnedDocs'
+import { DashboardMusicStatus } from './DashboardMusicStatus'
 
 type NavKey = 'all' | 'recent' | 'pinned' | FileType
 type ViewMode = 'grid' | 'list'
@@ -210,11 +211,74 @@ function SlidesThumbnail(): JSX.Element {
   )
 }
 
-function FileThumbnail({ type }: { type: FileType }): JSX.Element {
+function StaticPlaceholder({ type }: { type: FileType }): JSX.Element {
   if (type === 'sheet') return <SheetThumbnail />
   if (type === 'board') return <BoardThumbnail />
   if (type === 'slides') return <SlidesThumbnail />
   return <DocThumbnail />
+}
+
+/**
+ * Real, content-based thumbnail when one exists on disk (has_thumbnail from
+ * the index query already on `file` — no extra IPC call needed to know
+ * that), falling back to the static placeholder otherwise — including while
+ * the image is still loading, on a load error (corrupt/missing file), or
+ * before any save has ever produced one.
+ */
+function FileThumbnail({ file }: { file: Document }): JSX.Element {
+  const type: FileType = file.fileType ?? 'document'
+  const [hasThumbnail, setHasThumbnail] = useState(!!file.hasThumbnail)
+  const [path, setPath] = useState<string | null>(null)
+  const [thumbnailError, setThumbnailError] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+
+  // A different file's card was recycled into this slot (or its own
+  // has_thumbnail flipped from the initial index query) — resync local state.
+  useEffect(() => {
+    setHasThumbnail(!!file.hasThumbnail)
+    setThumbnailError(false)
+    setLoaded(false)
+  }, [file.id, file.hasThumbnail])
+
+  useEffect(() => {
+    if (!hasThumbnail) { setPath(null); return }
+    let cancelled = false
+    void window.prose.thumbnails.getPath(file.id).then((p) => { if (!cancelled) setPath(p) })
+    return () => { cancelled = true }
+  }, [hasThumbnail, file.id])
+
+  // thumbnail:ready fires after a background generation completes — flips
+  // local state directly rather than re-querying the index, per spec.
+  useEffect(() => {
+    return window.prose.thumbnails.onReady((readyId) => {
+      if (readyId !== file.id) return
+      setThumbnailError(false)
+      setLoaded(false)
+      setHasThumbnail(true)
+    })
+  }, [file.id])
+
+  const showImage = hasThumbnail && !!path && !thumbnailError
+
+  return (
+    <div className="relative h-full w-full">
+      {(!showImage || !loaded) && (
+        <div className="absolute inset-0 blur-[1px] opacity-50">
+          <StaticPlaceholder type={type} />
+        </div>
+      )}
+      {showImage && (
+        <img
+          src={`file://${path}`}
+          draggable={false}
+          onLoad={() => setLoaded(true)}
+          onError={() => setThumbnailError(true)}
+          className="absolute inset-0 h-full w-full object-cover"
+          style={{ opacity: loaded ? 1 : 0, transition: 'opacity 200ms' }}
+        />
+      )}
+    </div>
+  )
 }
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
@@ -303,6 +367,7 @@ export default function Dashboard({ embedded: _embedded = false }: { embedded?: 
     if (!deleteTarget) return
     try {
       await window.prose.documents.delete(deleteTarget.id)
+      void window.prose.thumbnails.delete(deleteTarget.id)
       setDocuments((prev) => prev.filter((d) => d.id !== deleteTarget.id))
       setPinnedIds((prev) => { const n = new Set(prev); n.delete(deleteTarget.id); savePinnedIds(n); return n })
       closeDocumentTab(deleteTarget.id)
@@ -435,6 +500,7 @@ export default function Dashboard({ embedded: _embedded = false }: { embedded?: 
 
         {/* Footer */}
         <div className="mt-2 border-t border-border pt-1.5 flex flex-col gap-0.5 -mx-[10px] px-[10px]">
+          <DashboardMusicStatus />
           <SidebarNavItem
             icon={isDark ? <Sun className="h-[15px] w-[15px]" /> : <Moon className="h-[15px] w-[15px]" />}
             label={isDark ? 'Light mode' : 'Dark mode'}
@@ -761,9 +827,7 @@ function FeaturedCard({ file, isDark, onOpen, onContextMenu }: {
     >
       {/* Thumbnail */}
       <div className="shrink-0 bg-muted/40 overflow-hidden" style={{ width: 210, padding: '16px 0 16px 16px' }}>
-        <div className="h-full w-full blur-[1px] opacity-50">
-          <FileThumbnail type={ft} />
-        </div>
+        <FileThumbnail file={file} />
       </div>
       {/* Body */}
       <div className="flex flex-1 flex-col justify-center gap-2.5 px-7 py-6">
@@ -811,9 +875,7 @@ function GridCard({ file, pinned, isDark, onOpen, onPin, onContextMenu }: {
         >
           <Pin className={cn('h-4 w-4', pinned && 'fill-current')} />
         </button>
-        <div className="h-full w-full blur-[1px] opacity-50">
-          <FileThumbnail type={ft} />
-        </div>
+        <FileThumbnail file={file} />
       </div>
       {/* Card body */}
       <div className="flex flex-col gap-1.5 px-3.5 py-3">

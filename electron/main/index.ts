@@ -20,6 +20,7 @@ import { registerSpellHandlers } from './ipc/spell'
 import { registerSlidesHandlers } from './ipc/slides'
 import { registerSlidesExportHandlers } from './ipc/slidesExport'
 import { registerSlidesImportHandlers } from './ipc/slidesImport'
+import { registerThumbnailHandlers } from './ipc/thumbnails'
 import { registerFileAssociation } from './services/fileAssociation'
 import { createProseWindow, registerWindowHandlers, initPaths } from './ipc/windows'
 import { autoUpdater } from 'electron-updater'
@@ -166,6 +167,7 @@ app.whenReady().then(async () => {
     registerSlidesHandlers()
     registerSlidesExportHandlers()
     registerSlidesImportHandlers()
+    registerThumbnailHandlers()
     initPaths(
       join(__dirname, '../preload/index.js'),
       join(__dirname, '../renderer/index.html'),

@@ -110,7 +110,9 @@ contextBridge.exposeInMainWorld('prose', {
   tabdrag: {
     detach: (docId: string) => ipcRenderer.send('tabdrag:detach', docId),
     cancel: () => ipcRenderer.send('tabdrag:cancel'),
-    finalize: () => ipcRenderer.send('tabdrag:finalize'),
+    finalize: (pos?: { screenX: number; screenY: number }) => ipcRenderer.send('tabdrag:finalize', pos),
+    registerTabBarBounds: (rect: { x: number; y: number; width: number; height: number }) =>
+      ipcRenderer.send('tabdrag:registerTabBarBounds', rect),
     onDetached: (cb: (data: { docId: string }) => void): (() => void) => {
       const listener = (_: Electron.IpcRendererEvent, data: { docId: string }): void => cb(data)
       ipcRenderer.on('tabdrag:detached', listener)
@@ -120,6 +122,16 @@ contextBridge.exposeInMainWorld('prose', {
       const listener = (_: Electron.IpcRendererEvent, data: { screenX: number }): void => cb(data)
       ipcRenderer.on('tabdrag:return', listener)
       return () => ipcRenderer.removeListener('tabdrag:return', listener)
+    },
+    onMerge: (cb: (data: { docId: string }) => void): (() => void) => {
+      const listener = (_: Electron.IpcRendererEvent, data: { docId: string }): void => cb(data)
+      ipcRenderer.on('tabdrag:merge', listener)
+      return () => ipcRenderer.removeListener('tabdrag:merge', listener)
+    },
+    onDropHover: (cb: (data: { active: boolean }) => void): (() => void) => {
+      const listener = (_: Electron.IpcRendererEvent, data: { active: boolean }): void => cb(data)
+      ipcRenderer.on('tabdrag:dropHover', listener)
+      return () => ipcRenderer.removeListener('tabdrag:dropHover', listener)
     },
   },
 
@@ -198,6 +210,25 @@ contextBridge.exposeInMainWorld('prose', {
       ipcRenderer.invoke('spell:addWord', documentId, word),
     removeWord: (documentId: string, word: string): Promise<string[]> =>
       ipcRenderer.invoke('spell:removeWord', documentId, word),
+  },
+
+  thumbnails: {
+    getPath: (fileId: string): Promise<string> => ipcRenderer.invoke('thumbnails:getPath', fileId),
+    save: (fileId: string, pngBase64: string): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke('thumbnails:save', fileId, pngBase64),
+    delete: (fileId: string): Promise<void> => ipcRenderer.invoke('thumbnails:delete', fileId),
+    captureRegion: (rect: { x: number; y: number; width: number; height: number }): Promise<string> =>
+      ipcRenderer.invoke('thumbnails:captureRegion', rect),
+    onGenerate: (callback: (fileId: string) => void): (() => void) => {
+      const listener = (_: Electron.IpcRendererEvent, fileId: string): void => callback(fileId)
+      ipcRenderer.on('thumbnail:generate', listener)
+      return () => ipcRenderer.removeListener('thumbnail:generate', listener)
+    },
+    onReady: (callback: (fileId: string) => void): (() => void) => {
+      const listener = (_: Electron.IpcRendererEvent, fileId: string): void => callback(fileId)
+      ipcRenderer.on('thumbnail:ready', listener)
+      return () => ipcRenderer.removeListener('thumbnail:ready', listener)
+    },
   },
 
   slides: {

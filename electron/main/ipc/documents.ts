@@ -50,6 +50,7 @@ function dashboardDocToOut(doc: ReturnType<typeof getAllDocumentsFromIndex>[0]) 
     headerContent: null,
     footerContent: null,
     wordCount: doc.wordCount,
+    hasThumbnail: doc.hasThumbnail,
   }
 }
 
@@ -99,7 +100,7 @@ export function registerDocumentHandlers(): void {
     return docToOut(doc)
   })
 
-  ipcMain.handle('documents:update', async (_, id: unknown, data: unknown) => {
+  ipcMain.handle('documents:update', async (event, id: unknown, data: unknown) => {
     if (typeof id !== 'string' || !id) throw new Error('Invalid document id')
     if (!data || typeof data !== 'object') throw new Error('Invalid update payload')
     const d = data as Record<string, unknown>
@@ -153,6 +154,14 @@ export function registerDocumentHandlers(): void {
       patch,
       snapshotOptions ? { snapshot: snapshotOptions } : undefined,
     )
+
+    // Only a real content save should regenerate the thumbnail — title/format/
+    // margin-only patches leave the rendered content (and its thumbnail) unchanged.
+    // Sent back to the same renderer that owns the live editor DOM/canvas needed
+    // to capture it, not broadcast to every window.
+    if ('content' in patch) {
+      event.sender.send('thumbnail:generate', id)
+    }
 
     return docToOut(updatedDoc)
   })

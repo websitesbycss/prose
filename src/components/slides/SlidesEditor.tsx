@@ -15,15 +15,17 @@ import { SlideMasterEditor } from './master/SlideMasterEditor'
 import { SlidesStatusBar } from './SlidesStatusBar'
 import { SlideFindBar } from './SlideFindBar'
 import { SlidesAIPanel } from './ai/SlidesAIPanel'
+import { AnimationsPanel } from './animations/AnimationsPanel'
 import { SLIDE_LAYOUTS } from './layouts/slideLayouts'
 import type { LayoutId } from './layouts/slideLayouts'
 import type { SlideToolMode } from './toolbar/DefaultToolbar'
-import type { Slide, SlideElement, SlidesContent, PresentationTheme, PresentationSettings, SlideMaster } from '@/types/slides'
+import type { Slide, SlideElement, SlidesContent, PresentationTheme, PresentationSettings, SlideMaster, ElementAnimation, TransitionType, TransitionDirection } from '@/types/slides'
 import { deserializeSlides, createInitialSlidesContent, SLIDE_BASE_WIDTH, SLIDE_BASE_HEIGHT } from '@/types/slides'
 import type { ElementMove, ElementResize, ElementRotate } from './canvas/types'
 import type { CanvasToolMode } from './canvas/SlideCanvas'
 import type { SnapSettings } from './canvas/snapUtils'
 import type { AppSettings } from '@/types'
+import { cloneSlide } from './slideClone'
 import { PresentationMode } from './presentation/PresentationMode'
 import { SlidesExportModal } from './export/SlidesExportModal'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -34,10 +36,17 @@ import { useIsActiveTab } from '@/hooks/useIsActiveTab'
 import { AUTO_SAVE_DEBOUNCE_MS } from '@/constants'
 import { ChartPickerDialog } from '@/components/shared/ChartPickerDialog'
 import type { ChartSnapshot } from '@/lib/chartSnapshot'
+import { runThumbnailGenerationOnce, downscaleToThumbnail } from '@/lib/thumbnailGeneration'
+import { rasterizeSlide } from './export/slideRasterizer'
 import { SlidesContextMenu } from './SlidesContextMenu'
 import type { SlideContextMenuCtx, AlignKind } from './SlidesContextMenu'
 import { bumpZIndex, rotateElementsBy, flipElements, setLocked, groupElements, ungroupElements } from './slideElementOps'
 import type { OrderDirection } from './slideElementOps'
+import { SlideBackground } from './canvas/SlideBackground'
+import { renderSlideElement } from './elements/renderSlideElement'
+import { AnimatedSlideElements } from './animations/AnimatedSlideElements'
+import { useSlideAnimationPlayback } from '@/lib/slideAnimationPlayback'
+import { clampAnimationDelay, clampAnimationDuration } from '@/types/slides'
 
 interface Props {
   documentId: string
@@ -143,9 +152,17 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   const [pendingTableConfig, setPendingTableConfig] = useState<{ cols: number; rows: number } | null>(null)
   const [tableSelectedCells, setTableSelectedCells] = useState<string[]>([])
   const aiPanelOpen = useAppStore((s) => s.aiPanelOpen)
+  const slidesAnimationsPanelOpen = useAppStore((s) => s.slidesAnimationsPanelOpen)
   const setAiPanelOpen = useAppStore((s) => s.setAiPanelOpen)
+  const setSlidesAnimationsPanelOpen = useAppStore((s) => s.setSlidesAnimationsPanelOpen)
   const setMusicPanelOpen = useAppStore((s) => s.setMusicPanelOpen)
   const setMusicPanelTab = useAppStore((s) => s.setMusicPanelTab)
+  const [rightPanelWidth, setRightPanelWidth] = useState(340)
+  const rightPanelDragRef = useRef<{ x: number; width: number } | null>(null)
+  const rightPanelWidthRef = useRef(340)
+  const [selectedAnimationId, setSelectedAnimationId] = useState<string | null>(null)
+  const [previewNonce, setPreviewNonce] = useState(0)
+  const [previewOpen, setPreviewOpen] = useState(false)
 
   const music = useMusicContext()
   const activeAmbient = AMBIENT_LAYERS.filter((l) => music?.ambientEnabled[l.id])
@@ -165,6 +182,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   useEffect(() => { themeRef.current = theme }, [theme])
   const settingsRef = useRef(settings)
   useEffect(() => { settingsRef.current = settings }, [settings])
+  useEffect(() => { rightPanelWidthRef.current = rightPanelWidth }, [rightPanelWidth])
 
   const { document: doc, notifySaveStatus } = useDocument(documentId)
   const history = useSlideHistory()
@@ -215,10 +233,41 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
         toElements: appSettings.slidesSnapToElements ?? true,
         equalSpacing: appSettings.slidesSnapEqualSpacing ?? true,
       })
+      const width = appSettings.slidesRightPanelWidth
+      if (typeof width === 'number' && Number.isFinite(width)) {
+        const clamped = Math.max(260, Math.min(560, Math.round(width)))
+        setRightPanelWidth(clamped)
+        rightPanelWidthRef.current = clamped
+      }
     })
   }, [])
 
   useEffect(() => { loadSnapSettings() }, [loadSnapSettings])
+
+  useEffect(() => {
+    function onMouseMove(e: MouseEvent): void {
+      if (!rightPanelDragRef.current) return
+      const delta = rightPanelDragRef.current.x - e.clientX
+      const width = Math.max(260, Math.min(560, rightPanelDragRef.current.width + delta))
+      setRightPanelWidth(width)
+      rightPanelWidthRef.current = width
+    }
+    function onMouseUp(): void {
+      if (!rightPanelDragRef.current) return
+      rightPanelDragRef.current = null
+      void window.prose.settings.set({ slidesRightPanelWidth: rightPanelWidthRef.current })
+      if (globalThis.document?.body) {
+        globalThis.document.body.style.cursor = ''
+        globalThis.document.body.style.userSelect = ''
+      }
+    }
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [])
 
   // ── Auto-save ─────────────────────────────────────────────────────────────────
 
@@ -257,6 +306,26 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   useEffect(() => () => {
     if (saveTimerRef.current) void flushAndSave()
   }, [flushAndSave])
+
+  // Thumbnail generation — fired by the main process after every successful
+  // content auto-save. Always rasterizes slide 0, never the currently active
+  // slide, via the same offscreen html2canvas pipeline already used for
+  // PNG/PPTX export, then downscales the 1920x1080 capture to the standard
+  // 560x315 thumbnail size.
+  useEffect(() => {
+    return window.prose.thumbnails.onGenerate((fileId) => {
+      if (fileId !== documentId) return
+      void runThumbnailGenerationOnce(fileId, async () => {
+        const firstSlide = slidesRef.current[0]
+        if (!firstSlide) return
+        if (firstSlide.elements.length === 0 && !firstSlide.background) return
+
+        const dataUrl = await rasterizeSlide(firstSlide, themeRef.current, masterRef.current)
+        const base64 = await downscaleToThumbnail(dataUrl)
+        await window.prose.thumbnails.save(fileId, base64)
+      })
+    })
+  }, [documentId])
 
   const handleUndo = useCallback((): void => {
     const prev = history.undo(slidesRef.current, masterRef.current)
@@ -307,6 +376,21 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
     setShowLayoutPicker(true)
   }, [activeSlideIndex])
 
+  const insertBlankSlide = useCallback((afterIndex: number): void => {
+    const blankLayout = SLIDE_LAYOUTS.find((l) => l.id === 'blank')
+    const elements = blankLayout ? blankLayout.createElement(theme) : []
+    const newSlide: Slide = { id: crypto.randomUUID(), elements, notes: '', animations: [] }
+    setSlides((prev) => {
+      pushHistory(prev)
+      const next = [...prev]
+      next.splice(afterIndex + 1, 0, newSlide)
+      return next
+    })
+    setActiveSlideIndex(afterIndex + 1)
+    setSelectedIds([])
+    scheduleSave()
+  }, [theme, pushHistory, scheduleSave])
+
   const handleLayoutSelect = useCallback((layoutId: LayoutId): void => {
     const idx = pendingAddIndexRef.current
     const layout = SLIDE_LAYOUTS.find((l) => l.id === layoutId)
@@ -326,11 +410,25 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   const deleteSlide = useCallback((idx?: number): void => {
     const target = idx ?? activeSlideIndex
     setSlides((prev) => {
-      if (prev.length <= 1) return prev
       pushHistory(prev)
+      if (prev.length <= 1) {
+        return [{
+          id: prev[0]!.id,
+          elements: [],
+          notes: '',
+          animations: [],
+          background: undefined,
+          transition: undefined,
+        }]
+      }
       return prev.filter((_, i) => i !== target)
     })
-    setActiveSlideIndex((i) => Math.max(0, Math.min(i, slides.length - 2)))
+    setActiveSlideIndex((i) => {
+      if (slides.length <= 1) return 0
+      if (target < i) return i - 1
+      if (target === i) return Math.max(0, Math.min(i, slides.length - 2))
+      return i
+    })
     setSelectedIds([])
     scheduleSave()
   }, [activeSlideIndex, pushHistory, scheduleSave, slides.length])
@@ -338,11 +436,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   const duplicateSlide = useCallback((idx: number): void => {
     setSlides((prev) => {
       pushHistory(prev)
-      const clone: Slide = {
-        ...prev[idx]!,
-        id: crypto.randomUUID(),
-        elements: prev[idx]!.elements.map((e) => ({ ...e, id: crypto.randomUUID() })),
-      }
+      const clone = cloneSlide(prev[idx]!)
       const next = [...prev]
       next.splice(idx + 1, 0, clone)
       return next
@@ -363,6 +457,67 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
     setActiveSlideIndex(toIdx)
     scheduleSave()
   }, [pushHistory, scheduleSave])
+
+  const addAnimation = useCallback((elementId: string): void => {
+    changeActiveSlide((s) => ({
+      ...s,
+      animations: [
+        ...s.animations,
+        {
+          id: crypto.randomUUID(),
+          elementId,
+          category: 'entrance',
+          effect: 'fade-in',
+          duration: 500,
+          delay: 0,
+          trigger: 'click',
+        },
+      ],
+    }))
+  }, [changeActiveSlide])
+
+  const updateAnimation = useCallback((id: string, patch: Partial<ElementAnimation>): void => {
+    changeActiveSlide((s) => ({
+      ...s,
+      animations: s.animations.map((animation) => (
+        animation.id !== id
+          ? animation
+          : {
+            ...animation,
+            ...patch,
+            duration: patch.duration !== undefined ? clampAnimationDuration(patch.duration) : animation.duration,
+            delay: patch.delay !== undefined ? clampAnimationDelay(patch.delay) : animation.delay,
+          }
+      )),
+    }))
+  }, [changeActiveSlide])
+
+  const removeAnimation = useCallback((id: string): void => {
+    changeActiveSlide((s) => ({ ...s, animations: s.animations.filter((animation) => animation.id !== id) }))
+    setSelectedAnimationId((current) => (current === id ? null : current))
+  }, [changeActiveSlide])
+
+  const reorderAnimations = useCallback((fromIdx: number, toIdx: number): void => {
+    if (fromIdx === toIdx) return
+    changeActiveSlide((s) => {
+      const next = [...s.animations]
+      const [moved] = next.splice(fromIdx, 1)
+      if (!moved) return s
+      next.splice(toIdx, 0, moved)
+      return { ...s, animations: next }
+    })
+  }, [changeActiveSlide])
+
+  const updateSlideTransition = useCallback((patch: { type?: TransitionType; direction?: TransitionDirection; duration?: number }): void => {
+    changeActiveSlide((s) => ({
+      ...s,
+      transition: {
+        type: patch.type ?? s.transition?.type ?? 'none',
+        direction: patch.direction ?? s.transition?.direction,
+        duration: patch.duration ?? s.transition?.duration ?? 500,
+      },
+    }))
+  }, [changeActiveSlide])
 
   // ── Canvas callbacks ──────────────────────────────────────────────────────────
 
@@ -481,7 +636,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
       const colWidths = Array.from({ length: cfg.cols }, (_, i) =>
         i < cfg.cols - 1 ? colW : 100 - colW * (cfg.cols - 1)
       )
-      const makeCell = () => ({ id: crypto.randomUUID(), content: '' })
+      const makeCell = (): { id: string; content: string } => ({ id: crypto.randomUUID(), content: '' })
       const tableRows = Array.from({ length: cfg.rows }, (_, r) =>
         Array.from({ length: cfg.cols }, () => r === 0 ? { ...makeCell(), style: { bold: true } } : makeCell())
       )
@@ -690,11 +845,6 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
     scheduleSave()
   }, [pushHistory, scheduleSave])
 
-  const handleMasterChange = useCallback((m: SlideMaster): void => {
-    setMaster(m)
-    scheduleSave()
-  }, [scheduleSave])
-
   // ── Master canvas callbacks ───────────────────────────────────────────────────
 
   const handleMasterSelectElement = useCallback((id: string, add: boolean): void => {
@@ -825,7 +975,9 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
       }
       changeMaster((m) => ({ ...m, elements: [...m.elements, el] }))
       setMasterSelectedIds([el.id])
-    } catch { }
+    } catch {
+      return
+    }
   }, [changeMaster])
 
   const masterSlide = useMemo(() => ({
@@ -982,7 +1134,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
       reader.onload = () => {
         const src = reader.result as string
         const img = new window.Image()
-        const finish = (natW: number, natH: number) => {
+        const finish = (natW: number, natH: number): void => {
           const aspect = natW / natH
           const elemWidth = 50
           const elemHeight = Math.min(70, elemWidth / aspect)
@@ -1032,7 +1184,8 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   // ── Keyboard tool shortcuts ───────────────────────────────────────────────────
 
   useEffect(() => {
-    function onKey(e: KeyboardEvent) {
+    if (presenting) return
+    function onKey(e: KeyboardEvent): void {
       const tag = (e.target as HTMLElement).tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement).isContentEditable) return
       if (e.key === 'F5') { e.preventDefault(); enterPresentation(); return }
@@ -1050,7 +1203,15 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [enterPresentation])
+  }, [presenting, enterPresentation])
+
+  useEffect(() => {
+    const current = slides[activeSlideIndex]
+    if (!current) return
+    if (selectedAnimationId && !current.animations.some((animation) => animation.id === selectedAnimationId)) {
+      setSelectedAnimationId(null)
+    }
+  }, [activeSlideIndex, selectedAnimationId, slides])
 
   // ── Loading state ─────────────────────────────────────────────────────────────
 
@@ -1086,6 +1247,9 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   const activeSlide = slides[activeSlideIndex] ?? slides[0]
   if (!activeSlide) return <TooltipProvider delayDuration={400}><div className="flex h-screen flex-col bg-background"><DashboardTabBar /></div></TooltipProvider>
 
+  const selectedElementId = selectedIds.length === 1 ? selectedIds[0]! : null
+  const rightPanelOpen = aiPanelOpen || slidesAnimationsPanelOpen
+
   return (
     <TooltipProvider delayDuration={400}>
     <div className="flex h-screen flex-col bg-background text-foreground">
@@ -1112,6 +1276,8 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
         onInsertImage={showMasterEditor ? () => void handleMasterInsertImage() : () => void handleInsertImage()}
         onInsertChart={showMasterEditor ? undefined : () => setChartPickerOpen(true)}
         onPresent={showMasterEditor ? undefined : enterPresentation}
+        onToggleAnimations={showMasterEditor ? undefined : () => setSlidesAnimationsPanelOpen(!slidesAnimationsPanelOpen)}
+        animationsPanelOpen={slidesAnimationsPanelOpen}
         onEditMaster={showMasterEditor ? undefined : () => setShowMasterEditor(true)}
         onExport={showMasterEditor ? undefined : () => setShowExportModal(true)}
         onFind={showMasterEditor ? undefined : () => setShowFindBar(true)}
@@ -1138,7 +1304,8 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
           settings={settings}
           activeIndex={activeSlideIndex}
           onNavigate={(idx) => { setActiveSlideIndex(idx); setSelectedIds([]) }}
-          onAddSlide={() => addSlide()}
+          onAddSlide={() => addSlide(activeSlideIndex)}
+          onInsertBlankSlide={insertBlankSlide}
           onDeleteSlide={deleteSlide}
           onDuplicateSlide={duplicateSlide}
           onReorderSlides={reorderSlides}
@@ -1185,6 +1352,17 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
             snapSettings={snapSettings}
           />
 
+          {previewOpen && (
+            <SlidePreviewOverlay
+              key={`${activeSlide.id}:${previewNonce}`}
+              slide={activeSlide}
+              theme={theme}
+              settings={settings}
+              master={master}
+              onClose={() => setPreviewOpen(false)}
+            />
+          )}
+
           <SpeakerNotesPanel
             notes={activeSlide.notes}
             onChange={handleNotesChange}
@@ -1221,21 +1399,50 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
           )}
         </div>
 
-        {/* Right: AI panel */}
-        {aiPanelOpen && (
-          <SlidesAIPanel
-            slide={activeSlide}
-            slides={slides}
-            activeSlideIndex={activeSlideIndex}
-            theme={theme}
-            settings={settings}
-            onClose={() => setAiPanelOpen(false)}
-            onUpdateNotes={handleNotesChange}
-            onUpdateElement={handleUpdateElement}
-            onInsertElement={handleInsertElement}
-            onInsertSlides={handleInsertSlides}
-            onReplaceCurrentSlide={handleReplaceCurrentSlide}
-          />
+        {/* Right: shared AI / animations panel */}
+        {rightPanelOpen && (
+          <div className="relative shrink-0 overflow-hidden border-l border-border" style={{ width: rightPanelWidth }}>
+            <div
+              className="absolute left-0 top-0 z-10 h-full w-1 cursor-col-resize transition-colors hover:bg-primary/30"
+              onMouseDown={(e) => {
+                rightPanelDragRef.current = { x: e.clientX, width: rightPanelWidth }
+                globalThis.document.body.style.cursor = 'col-resize'
+                globalThis.document.body.style.userSelect = 'none'
+              }}
+            />
+            {aiPanelOpen && (
+              <SlidesAIPanel
+                slide={activeSlide}
+                slides={slides}
+                activeSlideIndex={activeSlideIndex}
+                theme={theme}
+                settings={settings}
+                onClose={() => setAiPanelOpen(false)}
+                onUpdateNotes={handleNotesChange}
+                onUpdateElement={handleUpdateElement}
+                onInsertElement={handleInsertElement}
+                onInsertSlides={handleInsertSlides}
+                onReplaceCurrentSlide={handleReplaceCurrentSlide}
+              />
+            )}
+            {slidesAnimationsPanelOpen && (
+              <AnimationsPanel
+                slide={activeSlide}
+                selectedElementId={selectedElementId}
+                selectedAnimationId={selectedAnimationId}
+                onSelectAnimation={setSelectedAnimationId}
+                onAddAnimation={addAnimation}
+                onRemoveAnimation={removeAnimation}
+                onUpdateAnimation={updateAnimation}
+                onReorderAnimations={reorderAnimations}
+                onUpdateTransition={updateSlideTransition}
+                onPreview={() => {
+                  setPreviewNonce((value) => value + 1)
+                  setPreviewOpen(true)
+                }}
+              />
+            )}
+          </div>
         )}
       </div>
 
@@ -1328,5 +1535,81 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
       )}
     </div>
     </TooltipProvider>
+  )
+}
+
+function getPreviewBaseSize(settings: PresentationSettings): { baseW: number; baseH: number } {
+  if (settings.aspectRatio === '4:3') return { baseW: 1920, baseH: 1440 }
+  if (settings.aspectRatio === 'custom' && settings.customWidth && settings.customHeight) {
+    return { baseW: settings.customWidth, baseH: settings.customHeight }
+  }
+  return { baseW: SLIDE_BASE_WIDTH, baseH: SLIDE_BASE_HEIGHT }
+}
+
+function SlidePreviewOverlay({
+  slide,
+  theme,
+  settings,
+  master,
+  onClose,
+}: {
+  slide: Slide
+  theme: PresentationTheme
+  settings: PresentationSettings
+  master: SlideMaster
+  onClose: () => void
+}): JSX.Element {
+  const playback = useSlideAnimationPlayback(slide, { mode: 'preview' })
+  const { baseW, baseH } = getPreviewBaseSize(settings)
+  const scale = 1
+  const sortedElements = useMemo(() => [...slide.elements].sort((a, b) => a.zIndex - b.zIndex), [slide.elements])
+
+  useEffect(() => {
+    if (!playback.isComplete) return
+    const timer = setTimeout(() => onClose(), 450)
+    return () => clearTimeout(timer)
+  }, [onClose, playback.isComplete])
+
+  return (
+    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-background/70 backdrop-blur-[1px]">
+      <div className="mb-2 flex items-center gap-2 rounded-md border border-border bg-background/90 px-2 py-1 text-xs text-muted-foreground">
+        <span>Preview playing</span>
+        <button className="rounded px-1.5 py-0.5 text-foreground hover:bg-accent" onClick={onClose}>Stop</button>
+      </div>
+      <div className="relative w-[min(90%,1100px)]" style={{ aspectRatio: `${baseW} / ${baseH}` }}>
+        <div className="absolute inset-0 overflow-hidden rounded-md border border-border bg-background shadow-lg">
+          <SlideBackground background={slide.background ?? master.background} theme={theme} />
+          {master.elements.map((element) => (
+            <div
+              key={element.id}
+              style={{
+                position: 'absolute',
+                left: `${element.x}%`,
+                top: `${element.y}%`,
+                width: `${element.width}%`,
+                height: `${element.height}%`,
+                transform: `rotate(${element.rotate ?? 0}deg) scaleX(${element.flipH ? -1 : 1}) scaleY(${element.flipV ? -1 : 1})`,
+                transformOrigin: 'center center',
+                zIndex: 0,
+                pointerEvents: 'none',
+                overflow: 'hidden',
+                opacity: element.opacity ?? 1,
+              }}
+            >
+              {renderSlideElement(element, scale, true)}
+            </div>
+          ))}
+          <div className="absolute inset-0">
+            <AnimatedSlideElements
+              elements={sortedElements.filter((element) => !element.hidden)}
+              visibleElementIds={playback.visibleElementIds}
+              activeAnimationByElement={playback.activeAnimationByElement}
+              onElementAnimationEnd={playback.onElementAnimationEnd}
+              renderElement={(element) => renderSlideElement(element, scale, true)}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
