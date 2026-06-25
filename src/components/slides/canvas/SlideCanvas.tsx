@@ -39,6 +39,7 @@ interface Props {
   showGrid?: boolean
   zoom?: number  // 0 = fit, 25–400 = explicit %
   onFitZoomChange?(pct: number): void
+  onCanvasRectChange?(rect: { width: number; height: number; top: number; left: number }): void
   pendingShapeType?: ShapeType | null
   pendingTableConfig?: { cols: number; rows: number } | null
   onTableCellSelect?: (cellIds: string[]) => void
@@ -88,6 +89,7 @@ export function SlideCanvas({
   showGrid = false,
   zoom = 0,
   onFitZoomChange,
+  onCanvasRectChange,
   pendingShapeType,
   pendingTableConfig,
   onTableCellSelect,
@@ -159,6 +161,34 @@ export function SlideCanvas({
     obs.observe(el)
     return () => obs.disconnect()
   }, [baseW, baseH, zoom])
+
+  const onCanvasRectChangeRef = useRef(onCanvasRectChange)
+  useEffect(() => { onCanvasRectChangeRef.current = onCanvasRectChange }, [onCanvasRectChange])
+
+  // Reports the canvas's live on-screen rect (viewport-relative) so callers — e.g.
+  // the transition/animation preview overlay — can mirror its exact position and
+  // zoom. Re-measures on size changes, container layout shifts (sidebar toggling),
+  // scrolling (relevant in explicit-zoom mode, where the container scrolls), and
+  // window resizes.
+  useEffect(() => {
+    const canvasEl = canvasRef.current
+    const containerEl = containerRef.current
+    if (!canvasEl || !containerEl) return
+    function report(): void {
+      const r = canvasEl!.getBoundingClientRect()
+      onCanvasRectChangeRef.current?.({ width: r.width, height: r.height, top: r.top, left: r.left })
+    }
+    report()
+    const ro = new ResizeObserver(report)
+    ro.observe(containerEl)
+    containerEl.addEventListener('scroll', report)
+    window.addEventListener('resize', report)
+    return () => {
+      ro.disconnect()
+      containerEl.removeEventListener('scroll', report)
+      window.removeEventListener('resize', report)
+    }
+  }, [canvasSize])
 
   const registerRef = useCallback((id: string, el: HTMLDivElement | null): void => {
     if (el) elementRefs.current.set(id, el)
@@ -258,7 +288,7 @@ export function SlideCanvas({
       const startY = ((e.clientY - canvasRect.top) / canvasRect.height) * 100
       drawStartRef.current = { x: startX, y: startY }
 
-      function onMove(ev: MouseEvent) {
+      const onMove = (ev: MouseEvent): void => {
         if (!drawStartRef.current || !canvasRef.current) return
         const rect = canvasRef.current.getBoundingClientRect()
         const endX = ((ev.clientX - rect.left) / rect.width) * 100
@@ -271,7 +301,7 @@ export function SlideCanvas({
         })
       }
 
-      function onUp(ev: MouseEvent) {
+      const onUp = (ev: MouseEvent): void => {
         window.removeEventListener('mousemove', onMove)
         window.removeEventListener('mouseup', onUp)
         setGhostRect(null)

@@ -144,6 +144,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   const [showGrid, setShowGrid] = useState(false)
   const [zoom, setZoom] = useState(0) // 0 = fit
   const [fitZoom, setFitZoom] = useState(100) // computed fit % from canvas
+  const [canvasRect, setCanvasRect] = useState<{ width: number; height: number; top: number; left: number } | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [snapSettings, setSnapSettings] = useState<SnapSettings>({ enabled: true, toCanvas: true, toElements: true, equalSpacing: true })
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error' | 'unsaved'>('saved')
@@ -1348,19 +1349,21 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
             showGrid={showGrid}
             zoom={zoom}
             onFitZoomChange={setFitZoom}
+            onCanvasRectChange={setCanvasRect}
             pendingShapeType={pendingShapeType}
             pendingTableConfig={pendingTableConfig}
             onTableCellSelect={setTableSelectedCells}
             snapSettings={snapSettings}
           />
 
-          {previewOpen && (
+          {previewOpen && canvasRect && (
             <SlidePreviewOverlay
               key={`${activeSlide.id}:${previewNonce}`}
               slide={activeSlide}
               theme={theme}
               settings={settings}
               master={master}
+              canvasRect={canvasRect}
               onClose={() => setPreviewOpen(false)}
             />
           )}
@@ -1553,12 +1556,14 @@ function SlidePreviewOverlay({
   theme,
   settings,
   master,
+  canvasRect,
   onClose,
 }: {
   slide: Slide
   theme: PresentationTheme
   settings: PresentationSettings
   master: SlideMaster
+  canvasRect: { width: number; height: number; top: number; left: number }
   onClose: () => void
 }): JSX.Element {
   const hasTransition = !!slide.transition && slide.transition.type !== 'none'
@@ -1567,8 +1572,7 @@ function SlidePreviewOverlay({
   // whole sequence plays without requiring clicks — startPaused holds it
   // until the transition (played separately, below) finishes first.
   const playback = useSlideAnimationPlayback(slide, { mode: 'preview', startPaused: phase === 'transition' })
-  const { baseW, baseH } = getPreviewBaseSize(settings)
-  const scale = 1
+  const scale = canvasRect.width / getPreviewBaseSize(settings).baseW
   const sortedElements = useMemo(() => [...slide.elements].sort((a, b) => a.zIndex - b.zIndex), [slide.elements])
   const transitionDuration = slide.transition?.duration ?? 400
 
@@ -1641,31 +1645,34 @@ function SlidePreviewOverlay({
 
   return (
     <div
-      className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-background/70 backdrop-blur-[1px]"
+      className="fixed z-20 overflow-hidden"
+      style={{
+        top: canvasRect.top,
+        left: canvasRect.left,
+        width: canvasRect.width,
+        height: canvasRect.height,
+        boxShadow: '0 4px 32px rgba(0,0,0,0.18)',
+      }}
       onClick={handleAdvance}
     >
       <div
-        className="mb-2 flex items-center gap-2 rounded-md border border-border bg-background/90 px-2 py-1 text-xs text-muted-foreground"
+        className="absolute left-1/2 top-2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-md border border-border bg-background/90 px-2 py-1 text-xs text-muted-foreground shadow-sm"
         onClick={(e) => e.stopPropagation()}
       >
         <span>Preview playing</span>
         <button className="rounded px-1.5 py-0.5 text-foreground hover:bg-accent" onClick={onClose}>Stop</button>
       </div>
-      <div className="relative w-[min(90%,1100px)]" style={{ aspectRatio: `${baseW} / ${baseH}` }}>
-        <div className="absolute inset-0 overflow-hidden rounded-md border border-border bg-background shadow-lg">
-          {phase === 'transition' ? (
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                animation: `${getAnimationName(slide.transition?.type ?? 'none', slide.transition?.direction, 'forward')} ${transitionDuration}ms ease-out forwards`,
-              }}
-            >
-              {slideContent}
-            </div>
-          ) : slideContent}
+      {phase === 'transition' ? (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            animation: `${getAnimationName(slide.transition?.type ?? 'none', slide.transition?.direction, 'forward')} ${transitionDuration}ms ease-out forwards`,
+          }}
+        >
+          {slideContent}
         </div>
-      </div>
+      ) : slideContent}
     </div>
   )
 }
