@@ -240,7 +240,9 @@ export function EditorContextMenu({ editor, documentId, isActive, onEditMath }: 
       if (e.key === 'Escape') dismiss()
     }
     function onMouseDown(e: MouseEvent): void {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) dismiss()
+      // `Node` in this file's scope is ProseMirror's document-node type (imported
+      // above) — `globalThis.Node` is the actual DOM interface contains() needs.
+      if (menuRef.current && !menuRef.current.contains(e.target as globalThis.Node)) dismiss()
     }
     function onBlur(): void {
       dismiss()

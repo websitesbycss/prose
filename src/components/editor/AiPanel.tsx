@@ -73,7 +73,7 @@ function normaliseMath(text: string): string {
   // parser doesn't swallow them before remark-math can process the delimiter.
   // e.g. $\int_1^9$ → $\int_{1}^{9}$
   // Only matches simple alphanumeric args to avoid swallowing operators: x^2+x stays x^{2}+x.
-  t = t.replace(/\$([^$\n]+)\$/g, (match, inner: string) => {
+  t = t.replace(/\$([^$\n]+)\$/g, (_match, inner: string) => {
     const braced = inner.replace(/([_^])([a-zA-Z0-9]+)/g, (_, op: string, arg: string) => `${op}{${arg}}`)
     const balanced = balanceLatexBraces(braced)
     return balanced ? `$${balanced}$` : ''

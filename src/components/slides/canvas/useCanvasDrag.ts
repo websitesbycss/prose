@@ -3,7 +3,7 @@ import type { Slide } from '@/types/slides'
 import type { DragState, HandleType, ElementMove, ElementResize, ElementRotate, MarqueeRect } from './types'
 import {
   computeSnapTargets, applyMoveSnap, applyResizeSnap, applyRotationSnap, snapThreshold,
-  type SnapSettings, type SnapTargetList, type SnapGuide, type SpacingIndicator, type BoundsRect,
+  type SnapSettings, type SnapTargetList, type BoundsRect,
 } from './snapUtils'
 import type { SnapOverlayHandle } from './SnapOverlay'
 

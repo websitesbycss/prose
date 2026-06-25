@@ -1,4 +1,4 @@
-import type { Slide, SlideElement, PresentationTheme } from '@/types/slides'
+import type { SlideElement, PresentationTheme } from '@/types/slides'
 
 export type LayoutId =
   | 'blank'

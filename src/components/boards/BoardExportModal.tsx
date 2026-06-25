@@ -224,7 +224,7 @@ export function BoardExportModal({
             appState:      { ...appState, exportBackground: background },
             files,
             mimeType:      'image/png',
-            getDimensions: (w, h) => ({ width: w * sc, height: h * sc, scale: 1 }),
+            getDimensions: (w: number, h: number) => ({ width: w * sc, height: h * sc, scale: 1 }),
           })
           if (gen !== previewGenRef.current) return
           const url        = URL.createObjectURL(blob)
@@ -238,7 +238,7 @@ export function BoardExportModal({
             appState:      { ...appState, exportBackground: background },
             files,
             mimeType:      'image/png',
-            getDimensions: (w, h) => ({ width: w * 3, height: h * 3, scale: 1 }),
+            getDimensions: (w: number, h: number) => ({ width: w * 3, height: h * 3, scale: 1 }),
           })
           if (gen !== previewGenRef.current) return
           const dataUrl        = await blobToDataUrl(blob)
@@ -274,7 +274,7 @@ export function BoardExportModal({
           appState:      { ...appState, exportBackground: background },
           files,
           mimeType:      'image/png',
-          getDimensions: (w, h) => ({ width: w * sc, height: h * sc, scale: 1 }),
+          getDimensions: (w: number, h: number) => ({ width: w * sc, height: h * sc, scale: 1 }),
         })
         const url = URL.createObjectURL(blob)
         const a   = document.createElement('a')
@@ -288,7 +288,7 @@ export function BoardExportModal({
           appState:      { ...appState, exportBackground: background },
           files,
           mimeType:      'image/png',
-          getDimensions: (w, h) => ({ width: w * 3, height: h * 3, scale: 1 }),
+          getDimensions: (w: number, h: number) => ({ width: w * 3, height: h * 3, scale: 1 }),
         })
         const dataUrl      = await blobToDataUrl(blob)
         const [imgW, imgH] = await getImageDimensions(dataUrl)

@@ -39,7 +39,7 @@ export function TableEditToolbar({ element, selectedCells, onUpdateElement }: Pr
     ? element.rows[selectedRowIdx].findIndex((c) => selectedCells.includes(c.id))
     : -1
 
-  function formatCells(style: Partial<TableCellStyle>) {
+  function formatCells(style: Partial<TableCellStyle>): void {
     const newRows = element.rows.map((row) =>
       row.map((cell) =>
         selectedCells.includes(cell.id)
@@ -54,7 +54,7 @@ export function TableEditToolbar({ element, selectedCells, onUpdateElement }: Pr
     return Array.from({ length: cols }, () => ({ id: crypto.randomUUID(), content: '' }))
   }
 
-  function insertRowAbove() {
+  function insertRowAbove(): void {
     if (selectedRowIdx < 0) return
     const newRows = [
       ...element.rows.slice(0, selectedRowIdx),
@@ -64,7 +64,7 @@ export function TableEditToolbar({ element, selectedCells, onUpdateElement }: Pr
     onUpdateElement({ rows: newRows })
   }
 
-  function insertRowBelow() {
+  function insertRowBelow(): void {
     if (selectedRowIdx < 0) return
     const insertAt = selectedRowIdx + 1
     const newRows = [
@@ -75,12 +75,12 @@ export function TableEditToolbar({ element, selectedCells, onUpdateElement }: Pr
     onUpdateElement({ rows: newRows })
   }
 
-  function deleteRow() {
+  function deleteRow(): void {
     if (selectedRowIdx < 0 || element.rows.length <= 1) return
     onUpdateElement({ rows: element.rows.filter((_, i) => i !== selectedRowIdx) })
   }
 
-  function insertColLeft() {
+  function insertColLeft(): void {
     if (selectedColIdx < 0) return
     const newRows = element.rows.map((row) => [
       ...row.slice(0, selectedColIdx),
@@ -97,7 +97,7 @@ export function TableEditToolbar({ element, selectedCells, onUpdateElement }: Pr
     onUpdateElement({ rows: newRows, colWidths: newColWidths })
   }
 
-  function insertColRight() {
+  function insertColRight(): void {
     if (selectedColIdx < 0) return
     const insertAt = selectedColIdx + 1
     const newRows = element.rows.map((row) => [
@@ -115,7 +115,7 @@ export function TableEditToolbar({ element, selectedCells, onUpdateElement }: Pr
     onUpdateElement({ rows: newRows, colWidths: newColWidths })
   }
 
-  function deleteCol() {
+  function deleteCol(): void {
     if (selectedColIdx < 0 || element.colWidths.length <= 1) return
     const newRows = element.rows.map((row) => row.filter((_, ci) => ci !== selectedColIdx))
     const remaining = element.colWidths.filter((_, ci) => ci !== selectedColIdx)

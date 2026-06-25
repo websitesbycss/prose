@@ -361,7 +361,7 @@ export function HistoryPanel({ documentId, editor, format = 'none', pageMargins 
         if (editor) {
           skipPinClearRef.current = true
           try {
-            editor.commands.setContent(JSON.parse(snapshot.content) as object, false)
+            editor.commands.setContent(JSON.parse(snapshot.content) as object, { emitUpdate: false })
           } catch {
             editor.commands.setContent('')
           }

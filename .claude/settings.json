@@ -41,7 +41,8 @@
       "Bash(grep *)",
       "Bash(npx *)",
       "Bash(ls *)",
-      "Bash(cd *)"
+      "Bash(cd *)",
+      "Bash(cd * && grep *)"
     ],
     "additionalDirectories": [
       "C:\\"

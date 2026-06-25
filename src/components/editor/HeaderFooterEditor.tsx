@@ -137,7 +137,7 @@ export function HeaderFooterEditor({
   // Reset content when document switches or when contentKey changes (template applied)
   useEffect(() => {
     if (!editor) return
-    editor.commands.setContent(initialContent ?? EMPTY_DOC, false)
+    editor.commands.setContent(initialContent ?? EMPTY_DOC, { emitUpdate: false })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documentId, contentKey])
 

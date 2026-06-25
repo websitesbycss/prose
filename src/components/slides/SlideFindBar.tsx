@@ -16,13 +16,6 @@ interface Props {
   onClose(): void
 }
 
-function extractText(slide: Slide): string {
-  return slide.elements
-    .filter(e => e.type === 'text' && e.content)
-    .map(e => (e as { content?: string }).content ?? '')
-    .join(' ')
-}
-
 export function SlideFindBar({ slides, onNavigate, onClose }: Props): JSX.Element {
   const [query, setQuery] = useState('')
   const [matchIndex, setMatchIndex] = useState(0)

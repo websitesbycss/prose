@@ -75,7 +75,7 @@ import MathModal from './MathModal'
 import { ChartPickerDialog } from '@/components/shared/ChartPickerDialog'
 import type { ChartSnapshot } from '@/lib/chartSnapshot'
 import SettingsModal from '@/components/settings/SettingsModal'
-import type { AppSettings, Document, PageMargins } from '@/types'
+import type { AppSettings, PageMargins } from '@/types'
 import { List, Timer, BarChart2, History, ChevronLeft, ChevronRight, Settings } from 'lucide-react'
 import { AI_PANEL_WIDTH, DEFAULT_PAGE_MARGINS } from '@/constants'
 import { getDocumentScroll, setDocumentScroll } from '@/lib/documentTabCache'
@@ -288,7 +288,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
     setPageMargins(doc.pageMargins ?? DEFAULT_PAGE_MARGINS)
     try {
       const parsed = JSON.parse(doc.content || '{}') as object
-      editor.commands.setContent(parsed, false)
+      editor.commands.setContent(parsed, { emitUpdate: false })
     } catch {
       editor.commands.setContent('')
     }
@@ -445,7 +445,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   const applyTemplate = useCallback(
     async (format: 'mla' | 'apa', newContent: JSONContent, headerJson: JSONContent): Promise<void> => {
       if (!editor) return
-      editor.commands.setContent(newContent, false)
+      editor.commands.setContent(newContent, { emitUpdate: false })
       editor.chain()
         .selectAll()
         .updateAttributes('paragraph', { lineHeight: 2.0 })
@@ -505,11 +505,6 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
     format === 'mla' && currentJson ? extractMlaFields(currentJson) : undefined
   const initialApa =
     format === 'apa' && currentJson ? extractApaFields(currentJson) : undefined
-
-  const handleSaveNow = useCallback(
-    async (): Promise<void> => { if (editor) await saveNow(editor) },
-    [editor, saveNow]
-  )
 
   useEffect(() => {
     if (!isActive) return

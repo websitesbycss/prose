@@ -128,7 +128,7 @@ function Field({
 function MlaForm({
   fields,
   onChange,
-  onSubmit,
+  onSubmit: _onSubmit,
 }: {
   fields: MlaFields
   onChange: (f: MlaFields) => void

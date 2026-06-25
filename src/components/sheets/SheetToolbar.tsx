@@ -18,7 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Input } from '@/components/ui/input'
 import { ChromeColorPicker } from '@/components/ui/ChromeColorPicker'
 import { cn } from '@/lib/utils'
-import { alignToHt, cellAddress as makeCellAddress } from './sheetUtils'
+import { alignToHt } from './sheetUtils'
 import { ToolbarRightSection } from '@/components/editor/ToolbarRightSection'
 import { useAppStore } from '@/store/appStore'
 

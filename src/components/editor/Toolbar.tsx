@@ -560,7 +560,7 @@ function LineHeightPicker({
   const effectiveLh = lineHeight ?? (isMlaApa ? 2.0 : null)
 
   function applyLh(value: number): void {
-    editor.chain().focus().setLineHeight(value).run()
+    editor.chain().focus().setCustomLineHeight(value).run()
     setOpen(false)
     setShowCustom(false)
   }

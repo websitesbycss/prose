@@ -5,7 +5,6 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { cn } from '@/lib/utils'
 
 interface MathModalProps {
   open: boolean

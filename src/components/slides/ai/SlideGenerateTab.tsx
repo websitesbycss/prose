@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { Loader2, ChevronLeft, Check } from 'lucide-react'
 import type { Slide, PresentationTheme, PresentationSettings } from '@/types/slides'
-import { OUTLINE_SYSTEM_PROMPT, parseAiJson, aiSlideToProseSlide, type AiSlideSchema, slideToText } from './aiSlideUtils'
+import { OUTLINE_SYSTEM_PROMPT, parseAiJson, aiSlideToProseSlide, type AiSlideSchema } from './aiSlideUtils'
 import { SlideStaticView } from '../export/SlideStaticView'
 import { cn } from '@/lib/utils'
 
@@ -23,7 +23,7 @@ type Mode = 'outline' | 'document' | 'single'
 type GenState = 'idle' | 'loading' | 'preview' | 'error'
 
 export function SlideGenerateTab({
-  slides, activeSlideIndex, theme, settings,
+  slides: _slides, activeSlideIndex, theme, settings: _settings,
   onInsertSlides, onReplaceCurrentSlide,
 }: Props): JSX.Element {
   const [mode, setMode] = useState<Mode>('outline')
@@ -66,8 +66,6 @@ export function SlideGenerateTab({
       // Open file picker and read the document
       const docs = await window.prose.documents.getAll()
       // Simple: use first doc as a starting point. Ideally a picker would appear.
-      // For now, show a prompt to pick from current open files.
-      const titles = docs.filter(d => d.fileType !== 'slides').slice(0, 5).map(d => `"${d.title}"`).join(', ')
       const resp = await window.prose.ai.prompt({
         documentContent: docs.filter(d => d.fileType !== 'slides').slice(0, 3).map(d => `# ${d.title}\n${d.content?.replace(/<[^>]+>/g, '')}`).join('\n\n'),
         request: `${OUTLINE_SYSTEM_PROMPT}\n\nGenerate a presentation summarizing the content of the provided document(s).`,
