@@ -246,7 +246,7 @@ export function SheetTabBar({
         )}
         {ambientPlaying && (
           <button
-            onClick={() => { setMusicPanelTab('ambient'); setMusicPanelOpen(!musicPanelOpen) }}
+            onClick={() => { setMusicPanelTab('mixer'); setMusicPanelOpen(!musicPanelOpen) }}
             className="flex items-center gap-1 transition-colors hover:text-foreground"
             title="Open ambient mixer"
           >

@@ -12,7 +12,10 @@ interface Props {
   theme: PresentationTheme
 }
 
-export const SlideBackground = memo(function SlideBackground({ background, theme }: Props): JSX.Element {
+// Named distinctly from the `SlideBackground` *type* imported above — TS
+// treats a same-named exported value + imported type in one file as a
+// declaration merge, which (here) it then refuses to allow.
+export const SlideBackgroundLayer = memo(function SlideBackgroundLayer({ background, theme }: Props): JSX.Element {
   const base: React.CSSProperties = {
     position: 'absolute',
     inset: 0,

@@ -92,7 +92,7 @@ export function TextElementEditor({ element, scale, onCommit, onCancel }: Props)
     setIsEmpty(empty)
   }, [])
 
-  const alignMap: Record<TextElement['align'], string> = {
+  const alignMap: Record<TextElement['align'], React.CSSProperties['textAlign']> = {
     left: 'left', center: 'center', right: 'right', justify: 'justify',
   }
 

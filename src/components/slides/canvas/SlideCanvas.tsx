@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import type { Slide, PresentationTheme, PresentationSettings, SlideMaster, SlideElement, ShapeElement, ShapeType } from '@/types/slides'
 import { SLIDE_BASE_WIDTH, SLIDE_BASE_HEIGHT } from '@/types/slides'
-import { SlideBackground } from './SlideBackground'
+import { SlideBackgroundLayer } from './SlideBackground'
 import { SlideElementWrapper } from './SlideElementWrapper'
 import { MarqueeSelection } from './MarqueeSelection'
 import { SlideGridOverlay } from '../SlideGridOverlay'
@@ -249,6 +249,10 @@ export function SlideCanvas({
     if (!canvasRef.current) return
 
     if (toolMode !== 'select' && onDrawElement) {
+      // Captured into a const so the nested onMove/onUp closures below keep
+      // the non-undefined narrowing — TS can't carry an outer `if` check's
+      // narrowing of an optional prop into a nested `function` declaration.
+      const draw = onDrawElement
       const canvasRect = canvasRef.current.getBoundingClientRect()
       const startX = ((e.clientX - canvasRect.left) / canvasRect.width) * 100
       const startY = ((e.clientY - canvasRect.top) / canvasRect.height) * 100
@@ -280,22 +284,22 @@ export function SlideCanvas({
         const width = Math.abs(endX - drawStartRef.current.x)
         const height = Math.abs(endY - drawStartRef.current.y)
         if (width > 2 && height > 2) {
-          onDrawElement(toolMode, x, y, width, height)
+          draw(toolMode, x, y, width, height)
         } else {
           const cx = drawStartRef.current.x
           const cy = drawStartRef.current.y
           if (toolMode === 'text') {
-            onDrawElement(toolMode, cx, cy - 2, 30, 10)
+            draw(toolMode, cx, cy - 2, 30, 10)
           } else if (toolMode === 'shape') {
-            onDrawElement(toolMode, cx, cy, 15, 15)
+            draw(toolMode, cx, cy, 15, 15)
           } else if (toolMode === 'table') {
-            onDrawElement(toolMode, cx, cy, 35, 20)
+            draw(toolMode, cx, cy, 35, 20)
           } else if (toolMode === 'equation') {
-            onDrawElement(toolMode, cx, cy, 25, 12)
+            draw(toolMode, cx, cy, 25, 12)
           } else if (toolMode === 'code') {
-            onDrawElement(toolMode, cx, cy, 35, 20)
+            draw(toolMode, cx, cy, 35, 20)
           } else {
-            onDrawElement(toolMode, cx, cy, 30, 20)
+            draw(toolMode, cx, cy, 30, 20)
           }
         }
         drawStartRef.current = null
@@ -355,7 +359,7 @@ export function SlideCanvas({
       >
         {/* Slide background + master elements — clipped to canvas bounds */}
         <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', zIndex: 0, pointerEvents: 'none' }}>
-          <SlideBackground background={slide.background ?? master?.background} theme={theme} />
+          <SlideBackgroundLayer background={slide.background ?? master?.background} theme={theme} />
 
           {master?.elements.map((mel) => (
             <div

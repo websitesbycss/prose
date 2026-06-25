@@ -1,7 +1,7 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import type { Slide, PresentationTheme, PresentationSettings } from '@/types/slides'
 import { SLIDE_BASE_WIDTH, SLIDE_BASE_HEIGHT } from '@/types/slides'
-import { SlideBackground } from '../canvas/SlideBackground'
+import { SlideBackgroundLayer } from '../canvas/SlideBackground'
 import { renderSlideElement } from '../elements/renderSlideElement'
 import { cn } from '@/lib/utils'
 
@@ -74,7 +74,7 @@ export const SlideThumbnail = memo(function SlideThumbnail({
               left: 0,
             }}
           >
-            <SlideBackground background={slide.background} theme={theme} />
+            <SlideBackgroundLayer background={slide.background} theme={theme} />
             {sortedElements.filter((e) => !e.hidden).map((el) => (
               <div
                 key={el.id}

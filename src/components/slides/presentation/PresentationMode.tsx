@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import type { Slide, PresentationTheme, PresentationSettings, SlideMaster } from '@/types/slides'
 import { SLIDE_BASE_WIDTH, SLIDE_BASE_HEIGHT } from '@/types/slides'
-import { SlideBackground } from '../canvas/SlideBackground'
+import { SlideBackgroundLayer } from '../canvas/SlideBackground'
 import { renderSlideElement } from '../elements/renderSlideElement'
 import { SlideTransition } from './SlideTransition'
 import { PresentationToolbar } from './PresentationToolbar'
@@ -210,7 +210,7 @@ export function PresentationMode({ slides, theme, settings, master, startIndex, 
           duration={slideTransition?.duration ?? 400}
           navDirection={navDirection}
         >
-          <SlideBackground background={currentSlide.background} theme={theme} />
+          <SlideBackgroundLayer background={currentSlide.background} theme={theme} />
           {/* Master elements rendered behind slide content */}
           {master?.elements.map((mel) => (
             <div
@@ -219,22 +219,13 @@ export function PresentationMode({ slides, theme, settings, master, startIndex, 
                 position: 'absolute',
                 left: `${mel.x}%`, top: `${mel.y}%`,
                 width: `${mel.width}%`, height: `${mel.height}%`,
+                transform: `rotate(${mel.rotate ?? 0}deg) scaleX(${mel.flipH ? -1 : 1}) scaleY(${mel.flipV ? -1 : 1})`,
+                transformOrigin: 'center center',
                 zIndex: 0, pointerEvents: 'none', overflow: 'hidden',
+                opacity: mel.opacity ?? 1,
               }}
             >
-              {mel.type === 'logo' && mel.src && (
-                <img src={mel.src} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-              )}
-              {mel.type === 'footer' && (
-                <div style={{
-                  width: '100%', height: '100%', display: 'flex', alignItems: 'center',
-                  fontSize: (mel.fontSize ?? 16) * scale,
-                  color: mel.color ?? theme.textColor,
-                  fontFamily: 'Inter',
-                }}>
-                  {mel.content}
-                </div>
-              )}
+              {renderSlideElement(mel, scale, true)}
             </div>
           ))}
           <div style={{ position: 'absolute', inset: 0 }}>

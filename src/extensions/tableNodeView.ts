@@ -1,7 +1,7 @@
 import { Fragment, Node as PmNode, Slice } from '@tiptap/pm/model'
 import { NodeSelection } from '@tiptap/pm/state'
 import { TableView } from '@tiptap/pm/tables'
-import type { EditorView } from '@tiptap/pm/view'
+import type { EditorView, ViewMutationRecord } from '@tiptap/pm/view'
 
 type HandlePos = 'nw' | 'n' | 'ne' | 'w' | 'e' | 'sw' | 's' | 'se'
 
@@ -115,7 +115,7 @@ export class TableNodeView {
     return true
   }
 
-  ignoreMutation(mutation: MutationRecord): boolean {
+  ignoreMutation(mutation: ViewMutationRecord): boolean {
     const target = mutation.target as Node
     if (
       this.dragZone.contains(target) ||
@@ -124,7 +124,7 @@ export class TableNodeView {
     ) {
       return true
     }
-    return (this.inner as unknown as { ignoreMutation(r: MutationRecord): boolean }).ignoreMutation(mutation)
+    return (this.inner as unknown as { ignoreMutation(r: ViewMutationRecord): boolean }).ignoreMutation(mutation)
   }
 
   selectNode(): void {

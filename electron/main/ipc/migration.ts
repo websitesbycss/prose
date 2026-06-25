@@ -136,8 +136,11 @@ async function runMigration(): Promise<void> {
         version: PROSE_FILE_VERSION,
         id: row.id,
         title: row.title,
+        // This legacy DB predates sheets/boards/slides — every migrated row was a document.
+        fileType: 'document',
         format: row.format,
         content: parsedContent,
+        pageMargins: null,
         headerContent: row.header_content ? parseJson(row.header_content, null) : null,
         footerContent: row.footer_content ? parseJson(row.footer_content, null) : null,
         wordCountGoal: row.word_count_goal,
@@ -174,6 +177,7 @@ async function runMigration(): Promise<void> {
         category_id: row.category_id,
         created_at: row.created_at,
         updated_at: row.updated_at,
+        file_type: 'document',
       })
 
       migratedCount++

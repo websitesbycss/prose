@@ -5,21 +5,20 @@ import {
   deleteDocument,
   resolveDocument,
   getAllDocumentsFromIndex,
-  countWordsFromContent,
   getFolderStats,
   changeDocumentsFolder,
   getDocumentsFolder,
   setDocumentsFolder,
   type ProseFileDocument,
 } from '../services/fileService'
-import { upsertIndex, getAllIndexRows } from '../services/indexDb'
+import { getAllIndexRows } from '../services/indexDb'
 import { shell, dialog, BrowserWindow } from 'electron'
 import { validateFolderPath } from '../lib/pathValidation'
 
 const VALID_FORMATS = new Set(['none', 'mla', 'apa', 'chicago', 'ieee'])
 const VALID_FILE_TYPES = new Set(['document', 'sheet', 'board', 'slides'])
 
-function docToOut(doc: ProseFileDocument, filePath?: string) {
+function docToOut(doc: ProseFileDocument) {
   return {
     id: doc.id,
     title: doc.title,
@@ -63,7 +62,7 @@ export function registerDocumentHandlers(): void {
     if (typeof id !== 'string' || !id) throw new Error('Invalid document id')
     const resolved = await resolveDocument(id)
     if (!resolved) return null
-    return docToOut(resolved.doc, resolved.filePath)
+    return docToOut(resolved.doc)
   })
 
   ipcMain.handle('documents:create', async (_, data: unknown) => {
@@ -175,7 +174,7 @@ export function registerDocumentHandlers(): void {
     return getFolderStats()
   })
 
-  ipcMain.handle('documents:changeFolder', async (event, newPath: unknown, moveFiles: unknown) => {
+  ipcMain.handle('documents:changeFolder', async (_event, newPath: unknown, moveFiles: unknown) => {
     if (typeof newPath !== 'string' || !newPath) throw new Error('Invalid folder path')
     validateFolderPath(newPath)
     const shouldMove = moveFiles === true

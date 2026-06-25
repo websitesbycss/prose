@@ -1,6 +1,6 @@
 import { app, BrowserWindow, shell, ipcMain } from 'electron'
 import { existsSync } from 'fs'
-import { isAbsolute, join } from 'path'
+import { join } from 'path'
 import { initSettingsDb, closeSettingsDb, getSettingJson, setSetting } from './services/settingsDb'
 import { initIndexDb, closeIndexDb } from './services/indexDb'
 import { ensureDocumentsFolderExists, isDocumentsFolderAccessible, rebuildIndexFromFolder, renameUuidSuffixedFiles } from './services/fileService'
@@ -22,7 +22,7 @@ import { registerSlidesExportHandlers } from './ipc/slidesExport'
 import { registerSlidesImportHandlers } from './ipc/slidesImport'
 import { registerThumbnailHandlers } from './ipc/thumbnails'
 import { registerFileAssociation } from './services/fileAssociation'
-import { createProseWindow, registerWindowHandlers, initPaths } from './ipc/windows'
+import { registerWindowHandlers, initPaths } from './ipc/windows'
 import { autoUpdater } from 'electron-updater'
 
 const APP_ICON = join(__dirname, '../../resources/icons/prose.ico')
@@ -183,7 +183,7 @@ app.whenReady().then(async () => {
     return
   }
 
-  const win = createMainWindow()
+  createMainWindow()
 
   // Run migration after window is created so it can display progress
   checkAndRunMigration().catch((err) => {

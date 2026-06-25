@@ -19,7 +19,7 @@ import { AnimationsPanel } from './animations/AnimationsPanel'
 import { SLIDE_LAYOUTS } from './layouts/slideLayouts'
 import type { LayoutId } from './layouts/slideLayouts'
 import type { SlideToolMode } from './toolbar/DefaultToolbar'
-import type { Slide, SlideElement, SlidesContent, PresentationTheme, PresentationSettings, SlideMaster, ElementAnimation, TransitionType, TransitionDirection } from '@/types/slides'
+import type { Slide, SlideElement, TextElement, SlidesContent, PresentationTheme, PresentationSettings, SlideMaster, ElementAnimation, TransitionType, TransitionDirection } from '@/types/slides'
 import { deserializeSlides, createInitialSlidesContent, SLIDE_BASE_WIDTH, SLIDE_BASE_HEIGHT } from '@/types/slides'
 import type { ElementMove, ElementResize, ElementRotate } from './canvas/types'
 import type { CanvasToolMode } from './canvas/SlideCanvas'
@@ -42,7 +42,7 @@ import { SlidesContextMenu } from './SlidesContextMenu'
 import type { SlideContextMenuCtx, AlignKind } from './SlidesContextMenu'
 import { bumpZIndex, rotateElementsBy, flipElements, setLocked, groupElements, ungroupElements } from './slideElementOps'
 import type { OrderDirection } from './slideElementOps'
-import { SlideBackground } from './canvas/SlideBackground'
+import { SlideBackgroundLayer } from './canvas/SlideBackground'
 import { getAnimationName } from './presentation/SlideTransition'
 import { renderSlideElement } from './elements/renderSlideElement'
 import { AnimatedSlideElements } from './animations/AnimatedSlideElements'
@@ -57,7 +57,7 @@ function updateSlide(slides: Slide[], idx: number, updater: (s: Slide) => Slide)
   return slides.map((s, i) => (i === idx ? updater(s) : s))
 }
 
-function makeTextElement(x: number, y: number, w: number, h: number): SlideElement {
+function makeTextElement(x: number, y: number, w: number, h: number): TextElement {
   return {
     id: crypto.randomUUID(), type: 'text',
     x, y, width: w, height: h,
@@ -564,14 +564,14 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   const handleUpdateElement = useCallback((id: string, partial: Partial<SlideElement>): void => {
     changeActiveSlide((s) => ({
       ...s,
-      elements: s.elements.map((el) => (el.id === id ? { ...el, ...partial } : el)),
+      elements: s.elements.map((el) => (el.id === id ? ({ ...el, ...partial } as SlideElement) : el)),
     }))
   }, [changeActiveSlide])
 
   const handleBatchUpdateElements = useCallback((ids: string[], partial: Partial<SlideElement>): void => {
     changeActiveSlide((s) => ({
       ...s,
-      elements: s.elements.map((el) => (ids.includes(el.id) ? { ...el, ...partial } : el)),
+      elements: s.elements.map((el) => (ids.includes(el.id) ? ({ ...el, ...partial } as SlideElement) : el)),
     }))
   }, [changeActiveSlide])
 
@@ -610,7 +610,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
     setTableSelectedCells([])
     changeActiveSlide((s) => ({
       ...s,
-      elements: s.elements.map((el) => (el.id === id ? { ...el, ...partial } : el)),
+      elements: s.elements.map((el) => (el.id === id ? ({ ...el, ...partial } as SlideElement) : el)),
     }))
   }, [changeActiveSlide])
 
@@ -892,14 +892,14 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   const handleMasterUpdateElement = useCallback((id: string, partial: Partial<SlideElement>): void => {
     changeMaster((m) => ({
       ...m,
-      elements: m.elements.map((el) => (el.id === id ? { ...el, ...partial } : el)),
+      elements: m.elements.map((el) => (el.id === id ? ({ ...el, ...partial } as SlideElement) : el)),
     }))
   }, [changeMaster])
 
   const handleMasterBatchUpdateElements = useCallback((ids: string[], partial: Partial<SlideElement>): void => {
     changeMaster((m) => ({
       ...m,
-      elements: m.elements.map((el) => (ids.includes(el.id) ? { ...el, ...partial } : el)),
+      elements: m.elements.map((el) => (ids.includes(el.id) ? ({ ...el, ...partial } as SlideElement) : el)),
     }))
   }, [changeMaster])
 
@@ -925,7 +925,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
     setMasterEditingElementId(null)
     changeMaster((m) => ({
       ...m,
-      elements: m.elements.map((el) => (el.id === id ? { ...el, ...partial } : el)),
+      elements: m.elements.map((el) => (el.id === id ? ({ ...el, ...partial } as SlideElement) : el)),
     }))
   }, [changeMaster])
 
@@ -1606,7 +1606,7 @@ function SlidePreviewOverlay({
 
   const slideContent = (
     <>
-      <SlideBackground background={slide.background ?? master.background} theme={theme} />
+      <SlideBackgroundLayer background={slide.background ?? master.background} theme={theme} />
       {master.elements.map((element) => (
         <div
           key={element.id}

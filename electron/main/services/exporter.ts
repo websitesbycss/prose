@@ -115,10 +115,6 @@ function footerZoneHeightPx(marginBottomIn: number): number {
   return minMarginZoneInnerPadPx() + minMarginZoneContentBandPx() + headerFooterEdgeOffsetPx(marginBottomIn)
 }
 
-function resolveMargins(m: FetchedDocument['page_margins']) {
-  return m ?? DEFAULT_MARGINS
-}
-
 function parseContent(raw: string): JSONContent {
   try {
     return JSON.parse(raw) as JSONContent
@@ -316,7 +312,7 @@ export async function getPreviewHtml(id: string, opts: ExportOptions): Promise<s
   }
 
   const bodyHtml = nodeToHtml(doc, row.format)
-  return buildPreviewPage(row.title, bodyHtml, opts.colorMode, margins, opts.pageSize, opts.orientation, headerHtml, footerHtml)
+  return buildPreviewPage(row.title, bodyHtml, opts.colorMode ?? 'light', margins, opts.pageSize, opts.orientation, headerHtml, footerHtml)
 }
 
 export async function exportToPlainText(id: string, opts: ExportOptions): Promise<string | null> {
@@ -358,7 +354,7 @@ function inlineToMd(node: JSONContent): string {
   return (node.content ?? []).map(inlineToMd).join('')
 }
 
-function nodeToMarkdown(node: JSONContent, listIndex = 0): string {
+function nodeToMarkdown(node: JSONContent): string {
   switch (node.type) {
     case 'doc':
       return (node.content ?? [])
@@ -920,13 +916,22 @@ export async function exportToPdf(id: string, opts: ExportOptions): Promise<stri
 
 // ── DOCX ──────────────────────────────────────────────────────────────────────
 
+// docx requires every embedded SVG to carry a raster fallback (for viewers
+// that don't render inline SVG) — we don't rasterize the KaTeX SVG output, so
+// this 1x1 transparent PNG stands in. Modern Word/LibreOffice render the SVG
+// directly and never actually display the fallback.
+const TRANSPARENT_PNG_1X1 = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUAg1m6r4cAAAAASUVORK5CYII=',
+  'base64',
+)
+
 type DocxChild = Paragraph | DocxTable
 
 interface NumberingDef {
   reference: string
   levels: Array<{
     level: number
-    format: LevelFormat
+    format: typeof LevelFormat[keyof typeof LevelFormat]
     text: string
     alignment: typeof AlignmentType[keyof typeof AlignmentType]
     style: { paragraph: { indent: { left: number; hanging: number } } }
@@ -934,7 +939,11 @@ interface NumberingDef {
 }
 
 function marksToRun(text: string, marks: JSONContent['marks']): TextRun {
-  const opts: ConstructorParameters<typeof TextRun>[0] = { text }
+  // docx's run-options interface is all-readonly (built for object-literal
+  // construction) — built up here as a plain mutable record instead, since
+  // each mark conditionally sets a different field, then cast at the
+  // constructor call below.
+  const opts: Record<string, unknown> = { text }
   for (const mark of marks ?? []) {
     if (mark.type === 'bold') opts.bold = true
     else if (mark.type === 'italic') opts.italics = true
@@ -951,7 +960,7 @@ function marksToRun(text: string, marks: JSONContent['marks']): TextRun {
       if (mark.attrs?.fontFamily) opts.font = mark.attrs.fontFamily as string
     }
   }
-  return new TextRun(opts)
+  return new TextRun(opts as ConstructorParameters<typeof TextRun>[0])
 }
 
 function inlineToRuns(node: JSONContent): (TextRun | ImageRun | ExternalHyperlink)[] {
@@ -970,7 +979,7 @@ function inlineToRuns(node: JSONContent): (TextRun | ImageRun | ExternalHyperlin
     const latex = (node.attrs?.latex as string) ?? ''
     const svg = mathToSvgBuffer(latex, false)
     if (svg) {
-      return [new ImageRun({ data: svg.data, transformation: { width: svg.width, height: svg.height }, type: 'svg' })]
+      return [new ImageRun({ data: svg.data, transformation: { width: svg.width, height: svg.height }, type: 'svg', fallback: { type: 'png', data: TRANSPARENT_PNG_1X1 } })]
     }
     return [new TextRun({ text: latex, font: 'Courier New' })]
   }
@@ -984,7 +993,9 @@ function inlineToRuns(node: JSONContent): (TextRun | ImageRun | ExternalHyperlin
     const naturalW = dims?.width ?? MAX_IMG_WIDTH_PX
     const naturalH = dims?.height ?? Math.round(MAX_IMG_WIDTH_PX * 0.75)
     const scale = naturalW > MAX_IMG_WIDTH_PX ? MAX_IMG_WIDTH_PX / naturalW : 1
-    return [new ImageRun({ data: imgData, transformation: { width: Math.round(naturalW * scale), height: Math.round(naturalH * scale) }, type: imgType })]
+    // docx's ImageRun type union has no 'jpeg'/'webp' (only 'jpg'); normalize.
+    const docxImgType = imgType === 'jpeg' ? 'jpg' : imgType === 'webp' || imgType === 'svg' ? 'png' : imgType
+    return [new ImageRun({ data: imgData, transformation: { width: Math.round(naturalW * scale), height: Math.round(naturalH * scale) }, type: docxImgType })]
   }
   return (node.content ?? []).flatMap(inlineToRuns)
 }
@@ -1112,7 +1123,7 @@ function nodeToParagraphs(
 
     case 'heading': {
       const lvl = (node.attrs?.level as number) ?? 1
-      const headingMap: Record<number, HeadingLevel> = {
+      const headingMap: Record<number, typeof HeadingLevel[keyof typeof HeadingLevel]> = {
         1: HeadingLevel.HEADING_1,
         2: HeadingLevel.HEADING_2,
         3: HeadingLevel.HEADING_3,
@@ -1205,10 +1216,12 @@ function nodeToParagraphs(
         width = Math.round(naturalW * scale)
         height = Math.round(naturalH * scale)
       }
+      // docx's ImageRun type union has no 'jpeg'/'webp' (only 'jpg'); normalize.
+      const docxImgType = imgType === 'jpeg' ? 'jpg' : imgType === 'webp' || imgType === 'svg' ? 'png' : imgType
       return [
         new Paragraph({
           children: [
-            new ImageRun({ data: imgData, transformation: { width, height }, type: imgType }),
+            new ImageRun({ data: imgData, transformation: { width, height }, type: docxImgType }),
           ],
           spacing: { after: 0 },
         }),
@@ -1265,7 +1278,7 @@ function nodeToParagraphs(
       if (svg) {
         return [
           new Paragraph({
-            children: [new ImageRun({ data: svg.data, transformation: { width: svg.width, height: svg.height }, type: 'svg' })],
+            children: [new ImageRun({ data: svg.data, transformation: { width: svg.width, height: svg.height }, type: 'svg', fallback: { type: 'png', data: TRANSPARENT_PNG_1X1 } })],
             alignment: AlignmentType.CENTER,
             spacing: { before: 120, after: 120 },
           }),
