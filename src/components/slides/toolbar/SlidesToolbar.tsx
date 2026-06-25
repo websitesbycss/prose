@@ -226,7 +226,7 @@ export function SlidesToolbar({
             <Button
               variant="ghost"
               size="icon"
-              className={cn('h-7 w-7', animationsPanelOpen && 'bg-accent text-accent-foreground')}
+              className={cn('h-7 w-7 ml-1.5', animationsPanelOpen && 'bg-accent text-accent-foreground')}
               onClick={onToggleAnimations}
             >
               <Clapperboard className="h-3.5 w-3.5" />

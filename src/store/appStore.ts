@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { flushSync } from 'react-dom'
-import type { AiSelectionAttachment, OllamaStatus } from '@/types'
+import type { AiSelectionAttachment, FileType, OllamaStatus } from '@/types'
 
 type Theme = 'dark' | 'light'
 
@@ -33,6 +33,7 @@ interface AppState {
   showDashboard: boolean
   saveActiveDocument: (() => Promise<void>) | null
   newDocumentModalOpen: boolean
+  newDocumentModalInitialType: FileType | null
   theme: Theme
   sidebarOpen: boolean
   boardSidebarOpen: boolean
@@ -65,7 +66,7 @@ interface AppState {
   updateDocumentTab(id: string, updates: Partial<Pick<OpenDocumentTab, 'title' | 'format'>>): void
   goToDashboard(): void
   setSaveActiveDocument(fn: (() => Promise<void>) | null): void
-  setNewDocumentModalOpen(open: boolean): void
+  setNewDocumentModalOpen(open: boolean, initialType?: FileType): void
   setTheme(theme: Theme): void
   setSidebarOpen(open: boolean): void
   setBoardSidebarOpen(open: boolean): void
@@ -102,6 +103,7 @@ export const useAppStore = create<AppState>()((set) => ({
   showDashboard: true,
   saveActiveDocument: null,
   newDocumentModalOpen: false,
+  newDocumentModalInitialType: null,
   theme: readStoredTheme(),
   sidebarOpen: true,
   boardSidebarOpen: true,
@@ -227,7 +229,10 @@ export const useAppStore = create<AppState>()((set) => ({
 
   setSaveActiveDocument: (fn) => set({ saveActiveDocument: fn }),
 
-  setNewDocumentModalOpen: (open) => set({ newDocumentModalOpen: open }),
+  setNewDocumentModalOpen: (open, initialType) => set({
+    newDocumentModalOpen: open,
+    newDocumentModalInitialType: open ? (initialType ?? null) : null,
+  }),
 
   setTheme: (theme) => {
     try {

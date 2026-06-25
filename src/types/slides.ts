@@ -184,8 +184,6 @@ export interface TableElement extends BaseElement {
   colWidths: number[]
   rowHeights?: number[]
   border?: ElementBorder
-  hasHeaderRow: boolean
-  headerColor?: string
 }
 
 // ── Equation element ─────────────────────────────────────────────────────────

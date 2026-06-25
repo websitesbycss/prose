@@ -7,21 +7,26 @@ interface Props {
   onCommit(partial: Partial<TableElement>): void
   onCancel(): void
   onCellSelect?: (cellIds: string[]) => void
+  /** Click landed on the border margin (outside the table itself, inside the
+   * element's selection box) — start moving the whole element instead of
+   * editing a cell. */
+  onStartMove?(e: React.MouseEvent): void
 }
+
+// Width of the clickable "border" margin around the table used to grab and
+// move the whole element without it being mistaken for a cell click.
+const BORDER_MARGIN = 6
 
 interface CellProps {
   cell: TableCell
-  isHeader: boolean
   isSelected: boolean
   scale: number
-  headerColor?: string
   borderStyle: string
   onFocus(): void
   onUpdateContent(content: string): void
-  containerRef: React.RefObject<HTMLDivElement>
 }
 
-function EditableCell({ cell, isHeader, isSelected, scale, headerColor, borderStyle, onFocus, onUpdateContent, containerRef }: CellProps): JSX.Element {
+function EditableCell({ cell, isSelected, scale, borderStyle, onFocus, onUpdateContent }: CellProps): JSX.Element {
   const divRef = useRef<HTMLDivElement>(null)
   const hasInit = useRef(false)
 
@@ -43,11 +48,9 @@ function EditableCell({ cell, isHeader, isSelected, scale, headerColor, borderSt
         border: borderStyle,
         padding: `${3 * scale}px ${5 * scale}px`,
         verticalAlign: s.verticalAlign ?? 'top',
-        backgroundColor: isHeader
-          ? (s.backgroundColor ?? headerColor ?? '#f3f4f6')
-          : (s.backgroundColor ?? 'transparent'),
+        backgroundColor: s.backgroundColor ?? 'transparent',
         boxShadow: isSelected ? 'inset 0 0 0 2px #3B82F6' : 'none',
-        fontWeight: (isHeader || s.bold) ? 'bold' : 'normal',
+        fontWeight: s.bold ? 'bold' : 'normal',
         fontStyle: s.italic ? 'italic' : 'normal',
         textDecoration: [s.underline && 'underline', s.strikethrough && 'line-through'].filter(Boolean).join(' ') || undefined,
         fontSize: s.fontSize ? s.fontSize * scale : undefined,
@@ -72,10 +75,14 @@ function EditableCell({ cell, isHeader, isSelected, scale, headerColor, borderSt
         }}
         style={{
           outline: 'none',
+          // Fills the whole cell (not just shrink-to-fit around the text) so
+          // clicking anywhere in the cell — not just directly on the text —
+          // focuses it for editing.
+          height: '100%',
           minHeight: `${14 * scale}px`,
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-word',
-          textAlign: s.align ?? (isHeader ? 'center' : 'left'),
+          textAlign: s.align ?? 'left',
           cursor: 'text',
           userSelect: 'text',
         }}
@@ -84,7 +91,7 @@ function EditableCell({ cell, isHeader, isSelected, scale, headerColor, borderSt
   )
 }
 
-export function TableElementEditor({ element, scale, onCommit, onCancel, onCellSelect }: Props): JSX.Element {
+export function TableElementEditor({ element, scale, onCommit, onCancel, onCellSelect, onStartMove }: Props): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
   const numCols = element.colWidths.length
   const numRows = element.rows.length
@@ -199,15 +206,19 @@ export function TableElementEditor({ element, scale, onCommit, onCancel, onCellS
 
   return (
     <div
-      ref={containerRef}
       style={{
         position: 'absolute',
         inset: 0,
-        overflow: 'hidden',
         outline: '2px solid #3B82F6',
         outlineOffset: '-2px',
+        cursor: 'move',
       }}
-      onMouseDown={(e) => e.stopPropagation()}
+      // Only reachable for clicks in the border margin — the inner div below
+      // stops propagation for anything inside the table itself.
+      onMouseDown={(e) => {
+        if (e.button !== 0) return
+        onStartMove?.(e)
+      }}
       onKeyDown={(e) => {
         e.stopPropagation()
         if (e.key === 'Escape') { onCancel(); return }
@@ -229,32 +240,33 @@ export function TableElementEditor({ element, scale, onCommit, onCancel, onCellS
       }}
       tabIndex={-1}
     >
-      <table
-        key={cellsKey}
-        style={{
-          width: '100%',
-          height: '100%',
-          borderCollapse: 'collapse',
-          tableLayout: 'fixed',
-          fontSize: 14 * scale,
-        }}
+      <div
+        ref={containerRef}
+        style={{ position: 'absolute', inset: BORDER_MARGIN, overflow: 'hidden', cursor: 'default' }}
+        onMouseDown={(e) => e.stopPropagation()}
       >
-        <colgroup>
-          {colWidths.map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}
-        </colgroup>
-        <tbody>
-          {element.rows.map((row, ri) => {
-            const isHeader = element.hasHeaderRow && ri === 0
-            return (
+        <table
+          key={cellsKey}
+          style={{
+            width: '100%',
+            height: '100%',
+            borderCollapse: 'collapse',
+            tableLayout: 'fixed',
+            fontSize: 14 * scale,
+          }}
+        >
+          <colgroup>
+            {colWidths.map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}
+          </colgroup>
+          <tbody>
+            {element.rows.map((row, ri) => (
               <tr key={ri} style={{ height: `${rowHeights[ri] ?? (100 / numRows)}%` }}>
                 {row.map((cell, ci) => (
                   <EditableCell
                     key={`${cellsKey}-${cell.id}`}
                     cell={cell}
-                    isHeader={isHeader}
                     isSelected={selectedCellId === cell.id}
                     scale={scale}
-                    headerColor={element.headerColor}
                     borderStyle={borderStyle}
                     onFocus={() => setSelectedCellId(cell.id)}
                     onUpdateContent={(content) => {
@@ -262,50 +274,49 @@ export function TableElementEditor({ element, scale, onCommit, onCancel, onCellS
                         ri2 === ri ? r.map((c, ci2) => ci2 === ci ? { ...c, content } : c) : r,
                       )
                     }}
-                    containerRef={containerRef}
                   />
                 ))}
               </tr>
-            )
-          })}
-        </tbody>
-      </table>
+            ))}
+          </tbody>
+        </table>
 
-      {/* Column resize handles */}
-      {colHandles.map(({ x, i }) => (
-        <div
-          key={`col-${i}`}
-          style={{
-            position: 'absolute',
-            left: `${x}%`,
-            top: 0,
-            bottom: 0,
-            width: 8,
-            marginLeft: -4,
-            cursor: 'col-resize',
-            zIndex: 20,
-          }}
-          onMouseDown={(e) => startColResize(i, e)}
-        />
-      ))}
+        {/* Column resize handles */}
+        {colHandles.map(({ x, i }) => (
+          <div
+            key={`col-${i}`}
+            style={{
+              position: 'absolute',
+              left: `${x}%`,
+              top: 0,
+              bottom: 0,
+              width: 8,
+              marginLeft: -4,
+              cursor: 'col-resize',
+              zIndex: 20,
+            }}
+            onMouseDown={(e) => startColResize(i, e)}
+          />
+        ))}
 
-      {/* Row resize handles */}
-      {rowHandles.map(({ y, i }) => (
-        <div
-          key={`row-${i}`}
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            top: `${y}%`,
-            height: 8,
-            marginTop: -4,
-            cursor: 'row-resize',
-            zIndex: 20,
-          }}
-          onMouseDown={(e) => startRowResize(i, e)}
-        />
-      ))}
+        {/* Row resize handles */}
+        {rowHandles.map(({ y, i }) => (
+          <div
+            key={`row-${i}`}
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              top: `${y}%`,
+              height: 8,
+              marginTop: -4,
+              cursor: 'row-resize',
+              zIndex: 20,
+            }}
+            onMouseDown={(e) => startRowResize(i, e)}
+          />
+        ))}
+      </div>
     </div>
   )
 }

@@ -15,6 +15,10 @@ interface Params {
   setSelectedIds(ids: string[]): void
   scheduleSave(): void
   onSave(): void
+  /** Suppresses every shortcut below — e.g. while the animation preview overlay
+   * is open and arrow keys/space/enter should drive the preview instead of
+   * nudging or mutating the (still-selected) element underneath. */
+  disabled?: boolean
 }
 
 function updateActiveSlide(slides: Slide[], idx: number, updater: (s: Slide) => Slide): Slide[] {
@@ -40,17 +44,18 @@ export function useSlideKeyboardShortcuts({
   setSelectedIds,
   scheduleSave,
   onSave,
+  disabled,
 }: Params): void {
   const paramsRef = useRef({
     slides, activeSlideIndex, selectedIds, history,
     masterRef, setMaster,
-    elementClipboard, setSlides, setSelectedIds, scheduleSave, onSave,
+    elementClipboard, setSlides, setSelectedIds, scheduleSave, onSave, disabled,
   })
   useEffect(() => {
     paramsRef.current = {
       slides, activeSlideIndex, selectedIds, history,
       masterRef, setMaster,
-      elementClipboard, setSlides, setSelectedIds, scheduleSave, onSave,
+      elementClipboard, setSlides, setSelectedIds, scheduleSave, onSave, disabled,
     }
   })
 
@@ -60,6 +65,7 @@ export function useSlideKeyboardShortcuts({
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return
 
       const p = paramsRef.current
+      if (p.disabled) return
       const slide = p.slides[p.activeSlideIndex]
       if (!slide) return
 

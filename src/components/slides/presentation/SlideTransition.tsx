@@ -10,7 +10,7 @@ interface Props {
   children: React.ReactNode
 }
 
-function getAnimationName(
+export function getAnimationName(
   type: TransitionType,
   transitionDir: TransitionDirection | undefined,
   navDir: 'forward' | 'backward',

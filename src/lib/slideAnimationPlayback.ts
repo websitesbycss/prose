@@ -4,6 +4,10 @@ import { sanitizeAnimation, getAnimationClassName } from '@/lib/slideAnimations'
 
 interface PlaybackOptions {
   mode: 'preview' | 'presentation'
+  /** Computes initial element visibility (entrance elements hidden) but does
+   * not start playing — used to hold animations until a slide transition
+   * finishes first. Flipping this back to false resumes playback. */
+  startPaused?: boolean
 }
 
 interface ActiveAnimationState {
@@ -176,12 +180,14 @@ export function useSlideAnimationPlayback(slide: Slide, options: PlaybackOptions
       .map((element) => element.id)
     setVisibleElementIds(new Set(initialVisible))
 
+    if (options.startPaused) return
+
     if (animations[0] && animations[0].trigger !== 'click') {
       void runFromIndex(0)
       return
     }
     maybeSchedulePreviewAdvance()
-  }, [animations, clearPreviewTimer, maybeSchedulePreviewAdvance, runFromIndex, slide.elements])
+  }, [animations, clearPreviewTimer, maybeSchedulePreviewAdvance, runFromIndex, slide.elements, options.startPaused])
 
   const advance = useCallback((): boolean => {
     if (runningRef.current) return true

@@ -9,14 +9,13 @@
         style-src  'unsafe-inline' — required by KaTeX and Tailwind utility classes
         connect-src 'self'     — renderer cannot make arbitrary network requests
         object-src / frame-src 'none' — block plugin and iframe injection
-        img-src includes file: — dashboard thumbnails load from disk via file://
     -->
     <meta http-equiv="Content-Security-Policy" content="
       default-src 'self';
       script-src 'self';
       style-src 'self' 'unsafe-inline';
       font-src 'self' data:;
-      img-src 'self' data: blob: file:;
+      img-src 'self' data: blob:;
       connect-src 'self';
       media-src 'self';
       object-src 'none';

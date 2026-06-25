@@ -1267,6 +1267,55 @@
   cursor: pointer;
 }
 
+/* Slightly larger variant of .zoom-slider — same look (rounded track, round
+   primary-colored thumb) for sliders that aren't squeezed into a status bar,
+   e.g. the animation/transition duration & delay sliders. */
+.theme-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+.theme-slider:focus-visible {
+  outline: none;
+}
+.theme-slider::-webkit-slider-runnable-track {
+  height: 5px;
+  border-radius: 9999px;
+  background-color: hsl(var(--border));
+}
+.theme-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background-color: hsl(var(--primary));
+  margin-top: -4.5px;
+  cursor: pointer;
+  box-shadow: 0 0 0 0 hsl(var(--ring) / 0.3);
+  transition: box-shadow 120ms ease;
+}
+.theme-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px hsl(var(--ring) / 0.3);
+}
+.theme-slider::-moz-range-track {
+  height: 5px;
+  border-radius: 9999px;
+  background-color: hsl(var(--border));
+}
+.theme-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: none;
+  background-color: hsl(var(--primary));
+  cursor: pointer;
+}
+.theme-slider:focus-visible::-moz-range-thumb {
+  outline: 3px solid hsl(var(--ring) / 0.3);
+}
+
 .prose-editor .ProseMirror img {
   @apply max-w-full rounded;
   cursor: pointer;

@@ -1,5 +1,31 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
+/**
+ * Many renderer components can each want to know about the same IPC event
+ * (e.g. every dashboard card listens for "its" thumbnail:ready) — calling
+ * `ipcRenderer.on` once per component quickly exceeds Node's default
+ * max-listeners cap and trips MaxListenersExceededWarning. This registers a
+ * single real listener per channel and fans it out to any number of local
+ * subscribers instead.
+ */
+function fanoutListener<T>(channel: string): (callback: (payload: T) => void) => () => void {
+  const subscribers = new Set<(payload: T) => void>()
+  let registered = false
+  return (callback) => {
+    if (!registered) {
+      ipcRenderer.on(channel, (_: Electron.IpcRendererEvent, payload: T) => {
+        subscribers.forEach((cb) => cb(payload))
+      })
+      registered = true
+    }
+    subscribers.add(callback)
+    return () => subscribers.delete(callback)
+  }
+}
+
+const onThumbnailGenerate = fanoutListener<string>('thumbnail:generate')
+const onThumbnailReady = fanoutListener<string>('thumbnail:ready')
+
 contextBridge.exposeInMainWorld('prose', {
   documents: {
     getAll: () => ipcRenderer.invoke('documents:getAll'),
@@ -213,22 +239,14 @@ contextBridge.exposeInMainWorld('prose', {
   },
 
   thumbnails: {
-    getPath: (fileId: string): Promise<string> => ipcRenderer.invoke('thumbnails:getPath', fileId),
+    getDataUrl: (fileId: string): Promise<string | null> => ipcRenderer.invoke('thumbnails:getDataUrl', fileId),
     save: (fileId: string, pngBase64: string): Promise<{ ok: boolean; error?: string }> =>
       ipcRenderer.invoke('thumbnails:save', fileId, pngBase64),
     delete: (fileId: string): Promise<void> => ipcRenderer.invoke('thumbnails:delete', fileId),
     captureRegion: (rect: { x: number; y: number; width: number; height: number }): Promise<string> =>
       ipcRenderer.invoke('thumbnails:captureRegion', rect),
-    onGenerate: (callback: (fileId: string) => void): (() => void) => {
-      const listener = (_: Electron.IpcRendererEvent, fileId: string): void => callback(fileId)
-      ipcRenderer.on('thumbnail:generate', listener)
-      return () => ipcRenderer.removeListener('thumbnail:generate', listener)
-    },
-    onReady: (callback: (fileId: string) => void): (() => void) => {
-      const listener = (_: Electron.IpcRendererEvent, fileId: string): void => callback(fileId)
-      ipcRenderer.on('thumbnail:ready', listener)
-      return () => ipcRenderer.removeListener('thumbnail:ready', listener)
-    },
+    onGenerate: onThumbnailGenerate,
+    onReady: onThumbnailReady,
   },
 
   slides: {

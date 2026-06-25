@@ -37,13 +37,17 @@ function SimpleNewFileModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
+      onClick={onClose}
+    >
       <motion.div
         initial={{ opacity: 0, scale: 0.97, y: -8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.97, y: -8 }}
         transition={{ duration: 0.18 }}
         className="w-full max-w-sm rounded-xl border border-border bg-background p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold">New {label}</h2>
@@ -112,13 +116,17 @@ function TypePickerModal({
   ]
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
+      onClick={onClose}
+    >
       <motion.div
         initial={{ opacity: 0, scale: 0.97, y: -8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.97, y: -8 }}
         transition={{ duration: 0.18 }}
         className="w-full max-w-md rounded-xl border border-border bg-background p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold">New file</h2>
@@ -154,6 +162,7 @@ function TypePickerModal({
 /** App-level new file modal — usable from the tab bar, dashboard, or anywhere else. */
 export function GlobalNewDocumentModal(): JSX.Element {
   const open = useAppStore((s) => s.newDocumentModalOpen)
+  const initialType = useAppStore((s) => s.newDocumentModalInitialType)
   const setOpen = useAppStore((s) => s.setNewDocumentModalOpen)
   const openDocumentTab = useAppStore((s) => s.openDocumentTab)
   const [categories, setCategories] = useState<Category[]>([])
@@ -161,7 +170,9 @@ export function GlobalNewDocumentModal(): JSX.Element {
 
   useEffect(() => {
     if (!open) { setSelectedType(null); return }
+    setSelectedType(initialType)
     void window.prose.categories.getAll().then((cats) => setCategories(cats as Category[]))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
   function handleCreated(doc: Document): void {

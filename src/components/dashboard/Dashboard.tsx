@@ -228,7 +228,7 @@ function StaticPlaceholder({ type }: { type: FileType }): JSX.Element {
 function FileThumbnail({ file }: { file: Document }): JSX.Element {
   const type: FileType = file.fileType ?? 'document'
   const [hasThumbnail, setHasThumbnail] = useState(!!file.hasThumbnail)
-  const [path, setPath] = useState<string | null>(null)
+  const [dataUrl, setDataUrl] = useState<string | null>(null)
   const [thumbnailError, setThumbnailError] = useState(false)
   const [loaded, setLoaded] = useState(false)
 
@@ -241,9 +241,9 @@ function FileThumbnail({ file }: { file: Document }): JSX.Element {
   }, [file.id, file.hasThumbnail])
 
   useEffect(() => {
-    if (!hasThumbnail) { setPath(null); return }
+    if (!hasThumbnail) { setDataUrl(null); return }
     let cancelled = false
-    void window.prose.thumbnails.getPath(file.id).then((p) => { if (!cancelled) setPath(p) })
+    void window.prose.thumbnails.getDataUrl(file.id).then((url) => { if (!cancelled) setDataUrl(url) })
     return () => { cancelled = true }
   }, [hasThumbnail, file.id])
 
@@ -258,7 +258,7 @@ function FileThumbnail({ file }: { file: Document }): JSX.Element {
     })
   }, [file.id])
 
-  const showImage = hasThumbnail && !!path && !thumbnailError
+  const showImage = hasThumbnail && !!dataUrl && !thumbnailError
 
   return (
     <div className="relative h-full w-full">
@@ -269,7 +269,7 @@ function FileThumbnail({ file }: { file: Document }): JSX.Element {
       )}
       {showImage && (
         <img
-          src={`file://${path}`}
+          src={dataUrl}
           draggable={false}
           onLoad={() => setLoaded(true)}
           onError={() => setThumbnailError(true)}
@@ -576,7 +576,7 @@ export default function Dashboard({ embedded: _embedded = false }: { embedded?: 
                       key={key}
                       cfg={cfg}
                       isDark={isDark}
-                      onClick={() => setNewDocumentModalOpen(true)}
+                      onClick={() => setNewDocumentModalOpen(true, key)}
                     />
                   ))}
               </div>

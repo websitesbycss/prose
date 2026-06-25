@@ -43,6 +43,7 @@ import type { SlideContextMenuCtx, AlignKind } from './SlidesContextMenu'
 import { bumpZIndex, rotateElementsBy, flipElements, setLocked, groupElements, ungroupElements } from './slideElementOps'
 import type { OrderDirection } from './slideElementOps'
 import { SlideBackground } from './canvas/SlideBackground'
+import { getAnimationName } from './presentation/SlideTransition'
 import { renderSlideElement } from './elements/renderSlideElement'
 import { AnimatedSlideElements } from './animations/AnimatedSlideElements'
 import { useSlideAnimationPlayback } from '@/lib/slideAnimationPlayback'
@@ -92,10 +93,10 @@ function makeDefaultElement(type: CanvasToolMode, x: number, y: number, w: numbe
       x, y, width: w, height: h,
       rotate: 0, opacity: 1, zIndex: Date.now(), flipH: false, flipV: false, locked: false, hidden: false,
       rows: [
-        [{ id: crypto.randomUUID(), content: 'Header 1' }, { id: crypto.randomUUID(), content: 'Header 2' }],
+        [{ id: crypto.randomUUID(), content: '' }, { id: crypto.randomUUID(), content: '' }],
         [{ id: crypto.randomUUID(), content: '' }, { id: crypto.randomUUID(), content: '' }],
       ],
-      colWidths: [50, 50], hasHeaderRow: true,
+      colWidths: [50, 50],
     }
     case 'equation': return {
       id: crypto.randomUUID(), type: 'equation',
@@ -637,14 +638,14 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
         i < cfg.cols - 1 ? colW : 100 - colW * (cfg.cols - 1)
       )
       const makeCell = (): { id: string; content: string } => ({ id: crypto.randomUUID(), content: '' })
-      const tableRows = Array.from({ length: cfg.rows }, (_, r) =>
-        Array.from({ length: cfg.cols }, () => r === 0 ? { ...makeCell(), style: { bold: true } } : makeCell())
+      const tableRows = Array.from({ length: cfg.rows }, () =>
+        Array.from({ length: cfg.cols }, () => makeCell())
       )
       el = {
         id: crypto.randomUUID(), type: 'table',
         x, y, width, height,
         rotate: 0, opacity: 1, zIndex: Date.now(), flipH: false, flipV: false, locked: false, hidden: false,
-        rows: tableRows, colWidths, hasHeaderRow: true,
+        rows: tableRows, colWidths,
       }
       setPendingTableConfig(null)
     } else {
@@ -1111,6 +1112,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
     setSelectedIds,
     scheduleSave,
     onSave: flushAndSave,
+    disabled: previewOpen,
   })
 
   // ── Clipboard paste (images) ─────────────────────────────────────────────────
@@ -1559,10 +1561,22 @@ function SlidePreviewOverlay({
   master: SlideMaster
   onClose: () => void
 }): JSX.Element {
-  const playback = useSlideAnimationPlayback(slide, { mode: 'preview' })
+  const hasTransition = !!slide.transition && slide.transition.type !== 'none'
+  const [phase, setPhase] = useState<'transition' | 'animations'>(hasTransition ? 'transition' : 'animations')
+  // mode:'preview' auto-advances "on click" steps after a short pause so the
+  // whole sequence plays without requiring clicks — startPaused holds it
+  // until the transition (played separately, below) finishes first.
+  const playback = useSlideAnimationPlayback(slide, { mode: 'preview', startPaused: phase === 'transition' })
   const { baseW, baseH } = getPreviewBaseSize(settings)
   const scale = 1
   const sortedElements = useMemo(() => [...slide.elements].sort((a, b) => a.zIndex - b.zIndex), [slide.elements])
+  const transitionDuration = slide.transition?.duration ?? 400
+
+  useEffect(() => {
+    if (phase !== 'transition') return
+    const t = setTimeout(() => setPhase('animations'), transitionDuration)
+    return () => clearTimeout(t)
+  }, [phase, transitionDuration])
 
   useEffect(() => {
     if (!playback.isComplete) return
@@ -1570,44 +1584,86 @@ function SlidePreviewOverlay({
     return () => clearTimeout(timer)
   }, [onClose, playback.isComplete])
 
+  // Click anywhere on the preview, or the usual "advance" keys, move things
+  // along — skip straight past the transition if it's still playing,
+  // otherwise advance the animation sequence.
+  function handleAdvance(): void {
+    if (phase === 'transition') { setPhase('animations'); return }
+    playback.advance()
+  }
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent): void {
+      if (!['ArrowRight', 'ArrowDown', 'Enter', ' '].includes(e.key)) return
+      e.preventDefault()
+      e.stopPropagation()
+      handleAdvance()
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase])
+
+  const slideContent = (
+    <>
+      <SlideBackground background={slide.background ?? master.background} theme={theme} />
+      {master.elements.map((element) => (
+        <div
+          key={element.id}
+          style={{
+            position: 'absolute',
+            left: `${element.x}%`,
+            top: `${element.y}%`,
+            width: `${element.width}%`,
+            height: `${element.height}%`,
+            transform: `rotate(${element.rotate ?? 0}deg) scaleX(${element.flipH ? -1 : 1}) scaleY(${element.flipV ? -1 : 1})`,
+            transformOrigin: 'center center',
+            zIndex: 0,
+            pointerEvents: 'none',
+            overflow: 'hidden',
+            opacity: element.opacity ?? 1,
+          }}
+        >
+          {renderSlideElement(element, scale, true)}
+        </div>
+      ))}
+      <div className="absolute inset-0">
+        <AnimatedSlideElements
+          elements={sortedElements.filter((element) => !element.hidden)}
+          visibleElementIds={playback.visibleElementIds}
+          activeAnimationByElement={playback.activeAnimationByElement}
+          onElementAnimationEnd={playback.onElementAnimationEnd}
+          renderElement={(element) => renderSlideElement(element, scale, true)}
+        />
+      </div>
+    </>
+  )
+
   return (
-    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-background/70 backdrop-blur-[1px]">
-      <div className="mb-2 flex items-center gap-2 rounded-md border border-border bg-background/90 px-2 py-1 text-xs text-muted-foreground">
+    <div
+      className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-background/70 backdrop-blur-[1px]"
+      onClick={handleAdvance}
+    >
+      <div
+        className="mb-2 flex items-center gap-2 rounded-md border border-border bg-background/90 px-2 py-1 text-xs text-muted-foreground"
+        onClick={(e) => e.stopPropagation()}
+      >
         <span>Preview playing</span>
         <button className="rounded px-1.5 py-0.5 text-foreground hover:bg-accent" onClick={onClose}>Stop</button>
       </div>
       <div className="relative w-[min(90%,1100px)]" style={{ aspectRatio: `${baseW} / ${baseH}` }}>
         <div className="absolute inset-0 overflow-hidden rounded-md border border-border bg-background shadow-lg">
-          <SlideBackground background={slide.background ?? master.background} theme={theme} />
-          {master.elements.map((element) => (
+          {phase === 'transition' ? (
             <div
-              key={element.id}
               style={{
                 position: 'absolute',
-                left: `${element.x}%`,
-                top: `${element.y}%`,
-                width: `${element.width}%`,
-                height: `${element.height}%`,
-                transform: `rotate(${element.rotate ?? 0}deg) scaleX(${element.flipH ? -1 : 1}) scaleY(${element.flipV ? -1 : 1})`,
-                transformOrigin: 'center center',
-                zIndex: 0,
-                pointerEvents: 'none',
-                overflow: 'hidden',
-                opacity: element.opacity ?? 1,
+                inset: 0,
+                animation: `${getAnimationName(slide.transition?.type ?? 'none', slide.transition?.direction, 'forward')} ${transitionDuration}ms ease-out forwards`,
               }}
             >
-              {renderSlideElement(element, scale, true)}
+              {slideContent}
             </div>
-          ))}
-          <div className="absolute inset-0">
-            <AnimatedSlideElements
-              elements={sortedElements.filter((element) => !element.hidden)}
-              visibleElementIds={playback.visibleElementIds}
-              activeAnimationByElement={playback.activeAnimationByElement}
-              onElementAnimationEnd={playback.onElementAnimationEnd}
-              renderElement={(element) => renderSlideElement(element, scale, true)}
-            />
-          </div>
+          ) : slideContent}
         </div>
       </div>
     </div>

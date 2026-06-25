@@ -44,6 +44,11 @@ export function PresentationMode({ slides, theme, settings, master, startIndex, 
 
   const { baseW, baseH } = getBaseSize(settings)
 
+  // Declared early (before the keydown effect below references it) — hooks
+  // must run unconditionally on every render regardless of currentSlide.
+  const currentSlide = slides[currentIndex] ?? null
+  const playback = useSlideAnimationPlayback(currentSlide ?? { id: 'preview-empty', elements: [], notes: '', animations: [] }, { mode: 'presentation' })
+
   // Fullscreen via IPC on mount, restore on unmount
   useEffect(() => {
     void window.prose.win.setFullscreen(true)
@@ -113,6 +118,7 @@ export function PresentationMode({ slides, theme, settings, master, startIndex, 
         case 'ArrowLeft':
         case 'ArrowUp':
         case 'PageUp':
+        case 'Backspace':
           e.preventDefault()
           goPrev()
           break
@@ -136,10 +142,13 @@ export function PresentationMode({ slides, theme, settings, master, startIndex, 
           setLaserMode((v) => !v)
           break
         case 'Enter': {
+          e.preventDefault()
           if (numberBufRef.current.length > 0) {
             const n = parseInt(numberBufRef.current, 10)
             numberBufRef.current = ''
             if (!isNaN(n)) goTo(n - 1)
+          } else {
+            if (!playback.advance()) goNext()
           }
           break
         }
@@ -168,8 +177,6 @@ export function PresentationMode({ slides, theme, settings, master, startIndex, 
     setLaserPos({ x: e.clientX, y: e.clientY })
   }
 
-  const currentSlide = slides[currentIndex] ?? null
-  const playback = useSlideAnimationPlayback(currentSlide ?? { id: 'preview-empty', elements: [], notes: '', animations: [] }, { mode: 'presentation' })
   if (!currentSlide) return <div className="fixed inset-0 bg-black" />
 
   const sortedElements = [...currentSlide.elements].sort((a, b) => a.zIndex - b.zIndex)

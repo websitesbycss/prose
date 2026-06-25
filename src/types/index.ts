@@ -335,7 +335,7 @@ export interface ProseAPI {
     onOpenFile(callback: (filePath: string) => void): () => void
   }
   thumbnails: {
-    getPath(fileId: string): Promise<string>
+    getDataUrl(fileId: string): Promise<string | null>
     save(fileId: string, pngBase64: string): Promise<{ ok: boolean; error?: string }>
     delete(fileId: string): Promise<void>
     captureRegion(rect: { x: number; y: number; width: number; height: number }): Promise<string>

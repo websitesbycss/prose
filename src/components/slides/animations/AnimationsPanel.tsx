@@ -12,7 +12,14 @@ import type {
   AnimationEffect,
   AnimationTriggerMode,
 } from '@/types/slides'
-import { getAnimationEffectLabel, getSlideElementLabel } from '@/lib/slideAnimations'
+import {
+  getAnimationEffectLabel,
+  getSlideElementLabel,
+  TRANSITION_TYPE_LABELS,
+  TRANSITION_DIRECTION_LABELS,
+  ANIMATION_CATEGORY_LABELS,
+  ANIMATION_TRIGGER_LABELS,
+} from '@/lib/slideAnimations'
 
 interface Props {
   slide: Slide
@@ -48,12 +55,6 @@ function categoryIcon(category: AnimationCategory): JSX.Element {
   if (category === 'entrance') return <LogIn className="h-3.5 w-3.5" />
   if (category === 'exit') return <LogOut className="h-3.5 w-3.5" />
   return <Activity className="h-3.5 w-3.5" />
-}
-
-function triggerLabel(trigger: AnimationTriggerMode): string {
-  if (trigger === 'with-previous') return 'With previous'
-  if (trigger === 'after-previous') return 'After previous'
-  return 'On click'
 }
 
 function supportsDirection(effect: AnimationEffect): boolean {
@@ -92,11 +93,11 @@ export function AnimationsPanel({
 
   return (
     <aside className="flex h-full w-full flex-col border-l border-border bg-background">
-      <div className="border-b border-border p-3">
+      <div className="border-b border-border px-3 pb-3 pt-2.5">
         <div className="mb-2 flex items-center justify-between">
           <h3 className="text-xs font-semibold text-foreground">Slide transition</h3>
-          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onPreview}>
-            <Play className="mr-1 h-3.5 w-3.5" />
+          <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs" onClick={onPreview}>
+            <Play className="h-3.5 w-3.5" />
             Preview
           </Button>
         </div>
@@ -104,22 +105,22 @@ export function AnimationsPanel({
           <label className="flex items-center gap-2 text-xs">
             <span className="w-16 text-muted-foreground">Type</span>
             <select
-              className="h-7 flex-1 rounded-md border border-input bg-background px-2 text-xs"
+              className="h-7 flex-1 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
               value={transition.type}
               onChange={(e) => onUpdateTransition({ type: e.target.value as TransitionType })}
             >
-              {TRANSITIONS.map((type) => <option key={type} value={type}>{type}</option>)}
+              {TRANSITIONS.map((type) => <option key={type} value={type}>{TRANSITION_TYPE_LABELS[type]}</option>)}
             </select>
           </label>
           {(transition.type === 'slide' || transition.type === 'push') && (
             <label className="flex items-center gap-2 text-xs">
               <span className="w-16 text-muted-foreground">Direction</span>
               <select
-                className="h-7 flex-1 rounded-md border border-input bg-background px-2 text-xs"
+                className="h-7 flex-1 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
                 value={transition.direction ?? 'left'}
                 onChange={(e) => onUpdateTransition({ direction: e.target.value as TransitionDirection })}
               >
-                {DIRECTIONS.map((direction) => <option key={direction} value={direction}>{direction}</option>)}
+                {DIRECTIONS.map((direction) => <option key={direction} value={direction}>{TRANSITION_DIRECTION_LABELS[direction]}</option>)}
               </select>
             </label>
           )}
@@ -130,7 +131,7 @@ export function AnimationsPanel({
               min={100}
               max={2000}
               value={transition.duration}
-              className="flex-1"
+              className="theme-slider flex-1"
               onChange={(e) => onUpdateTransition({ duration: Number(e.target.value) })}
             />
             <span className="w-12 tabular-nums text-right text-muted-foreground">{transition.duration}ms</span>
@@ -138,11 +139,11 @@ export function AnimationsPanel({
         </div>
       </div>
 
-      <div className="border-b border-border p-3">
-        <div className="mb-2 flex items-center justify-between">
+      <div className="space-y-2 border-b border-border p-3">
+        <div className="flex items-center justify-between">
           <h3 className="text-xs font-semibold text-foreground">Element animations</h3>
-          <Button size="sm" className="h-7 text-xs" disabled={!canAdd} onClick={() => selectedElementId && onAddAnimation(selectedElementId)}>
-            <Plus className="mr-1 h-3.5 w-3.5" />
+          <Button size="sm" className="h-7 gap-1.5 text-xs" disabled={!canAdd} onClick={() => selectedElementId && onAddAnimation(selectedElementId)}>
+            <Plus className="h-3.5 w-3.5" />
             Add animation
           </Button>
         </div>
@@ -226,11 +227,12 @@ export function AnimationsPanel({
                     {getAnimationEffectLabel(animation.effect, animation.direction)}
                   </div>
                   <div className="text-[10px] text-muted-foreground">
-                    {triggerLabel(animation.trigger)} · {animation.duration}ms + {animation.delay}ms
+                    {ANIMATION_TRIGGER_LABELS[animation.trigger]} · {animation.duration}ms + {animation.delay}ms
                   </div>
                 </div>
                 <Trash2
-                  className="mt-0.5 h-3.5 w-3.5 text-muted-foreground hover:text-foreground"
+                  className="mt-0.5 h-3.5 w-3.5 shrink-0 cursor-pointer text-muted-foreground transition-colors hover:text-destructive"
+                  onPointerDown={(event) => event.stopPropagation()}
                   onClick={(event) => {
                     event.stopPropagation()
                     onRemoveAnimation(animation.id)
@@ -242,6 +244,7 @@ export function AnimationsPanel({
         </div>
       </div>
 
+      {slide.animations.length > 0 && (
       <div className="border-t border-border p-3">
         {selectedAnimation ? (
           <div className="space-y-2 text-xs">
@@ -249,17 +252,17 @@ export function AnimationsPanel({
             <label className="flex items-center gap-2">
               <span className="w-16 text-muted-foreground">Category</span>
               <select
-                className="h-7 flex-1 rounded-md border border-input bg-background px-2 text-xs"
+                className="h-7 flex-1 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
                 value={selectedAnimation.category}
                 onChange={(e) => onUpdateAnimation(selectedAnimation.id, { category: e.target.value as AnimationCategory })}
               >
-                {CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
+                {CATEGORIES.map((category) => <option key={category} value={category}>{ANIMATION_CATEGORY_LABELS[category]}</option>)}
               </select>
             </label>
             <label className="flex items-center gap-2">
               <span className="w-16 text-muted-foreground">Effect</span>
               <select
-                className="h-7 flex-1 rounded-md border border-input bg-background px-2 text-xs"
+                className="h-7 flex-1 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
                 value={selectedAnimation.effect}
                 onChange={(e) => onUpdateAnimation(selectedAnimation.id, { effect: e.target.value as AnimationEffect })}
               >
@@ -270,22 +273,22 @@ export function AnimationsPanel({
               <label className="flex items-center gap-2">
                 <span className="w-16 text-muted-foreground">Direction</span>
                 <select
-                  className="h-7 flex-1 rounded-md border border-input bg-background px-2 text-xs"
+                  className="h-7 flex-1 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
                   value={selectedAnimation.direction ?? 'left'}
                   onChange={(e) => onUpdateAnimation(selectedAnimation.id, { direction: e.target.value as TransitionDirection })}
                 >
-                  {DIRECTIONS.map((direction) => <option key={direction} value={direction}>{direction}</option>)}
+                  {DIRECTIONS.map((direction) => <option key={direction} value={direction}>{TRANSITION_DIRECTION_LABELS[direction]}</option>)}
                 </select>
               </label>
             )}
             <label className="flex items-center gap-2">
               <span className="w-16 text-muted-foreground">Trigger</span>
               <select
-                className="h-7 flex-1 rounded-md border border-input bg-background px-2 text-xs"
+                className="h-7 flex-1 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
                 value={selectedAnimation.trigger}
                 onChange={(e) => onUpdateAnimation(selectedAnimation.id, { trigger: e.target.value as AnimationTriggerMode })}
               >
-                {TRIGGERS.map((trigger) => <option key={trigger} value={trigger}>{triggerLabel(trigger)}</option>)}
+                {TRIGGERS.map((trigger) => <option key={trigger} value={trigger}>{ANIMATION_TRIGGER_LABELS[trigger]}</option>)}
               </select>
             </label>
             <label className="flex items-center gap-2">
@@ -295,7 +298,7 @@ export function AnimationsPanel({
                 min={0}
                 max={10000}
                 value={selectedAnimation.duration}
-                className="flex-1"
+                className="theme-slider flex-1"
                 onChange={(e) => onUpdateAnimation(selectedAnimation.id, { duration: Number(e.target.value) })}
               />
               <span className="w-14 tabular-nums text-right text-muted-foreground">{selectedAnimation.duration}ms</span>
@@ -307,7 +310,7 @@ export function AnimationsPanel({
                 min={0}
                 max={10000}
                 value={selectedAnimation.delay}
-                className="flex-1"
+                className="theme-slider flex-1"
                 onChange={(e) => onUpdateAnimation(selectedAnimation.id, { delay: Number(e.target.value) })}
               />
               <span className="w-14 tabular-nums text-right text-muted-foreground">{selectedAnimation.delay}ms</span>
@@ -317,6 +320,7 @@ export function AnimationsPanel({
           <p className="text-[11px] text-muted-foreground">Select an animation to edit details.</p>
         )}
       </div>
+      )}
     </aside>
   )
 }

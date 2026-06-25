@@ -1,4 +1,12 @@
-import type { AnimationEffect, ElementAnimation, SlideElement, TransitionDirection } from '@/types/slides'
+import type {
+  AnimationCategory,
+  AnimationEffect,
+  AnimationTriggerMode,
+  ElementAnimation,
+  SlideElement,
+  TransitionDirection,
+  TransitionType,
+} from '@/types/slides'
 import { clampAnimationDelay, clampAnimationDuration, normalizeAnimation } from '@/types/slides'
 
 export const ANIMATION_EFFECT_LABELS: Record<AnimationEffect, string> = {
@@ -14,7 +22,10 @@ export const ANIMATION_EFFECT_LABELS: Record<AnimationEffect, string> = {
   wipe: 'Wipe',
 }
 
-const DIRECTION_LABELS: Record<TransitionDirection, string> = {
+// Lowercase, mid-sentence fragment — only for "<effect> from <here>" phrasing
+// inside getAnimationEffectLabel below. Standalone UI (dropdown options, etc.)
+// should use TRANSITION_DIRECTION_LABELS instead.
+const DIRECTION_LABEL_FRAGMENTS: Record<TransitionDirection, string> = {
   left: 'left',
   right: 'right',
   up: 'top',
@@ -24,7 +35,36 @@ const DIRECTION_LABELS: Record<TransitionDirection, string> = {
 export function getAnimationEffectLabel(effect: AnimationEffect, direction?: TransitionDirection): string {
   const base = ANIMATION_EFFECT_LABELS[effect]
   if (!direction || (effect !== 'fly-in' && effect !== 'fly-out' && effect !== 'wipe')) return base
-  return `${base} from ${DIRECTION_LABELS[direction]}`
+  return `${base} from ${DIRECTION_LABEL_FRAGMENTS[direction]}`
+}
+
+export const TRANSITION_TYPE_LABELS: Record<TransitionType, string> = {
+  none: 'None',
+  fade: 'Fade',
+  slide: 'Slide',
+  push: 'Push',
+  zoom: 'Zoom',
+  flip: 'Flip',
+  dissolve: 'Dissolve',
+}
+
+export const TRANSITION_DIRECTION_LABELS: Record<TransitionDirection, string> = {
+  left: 'Left',
+  right: 'Right',
+  up: 'Up',
+  down: 'Down',
+}
+
+export const ANIMATION_CATEGORY_LABELS: Record<AnimationCategory, string> = {
+  entrance: 'Entrance',
+  emphasis: 'Emphasis',
+  exit: 'Exit',
+}
+
+export const ANIMATION_TRIGGER_LABELS: Record<AnimationTriggerMode, string> = {
+  click: 'On click',
+  'with-previous': 'With previous',
+  'after-previous': 'After previous',
 }
 
 export function sanitizeAnimation(animation: unknown): ElementAnimation {

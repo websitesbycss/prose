@@ -3,8 +3,8 @@ import type { Slide, SlideElement, ElementAnimation } from '@/types/slides'
 function cloneElement(el: SlideElement): SlideElement {
   const clone = JSON.parse(JSON.stringify(el)) as SlideElement
   clone.id = crypto.randomUUID()
-  if (clone.type === 'table' && clone.cells) {
-    clone.cells = clone.cells.map((row) =>
+  if (clone.type === 'table') {
+    clone.rows = clone.rows.map((row) =>
       row.map((cell) => ({ ...cell, id: crypto.randomUUID() })),
     )
   }

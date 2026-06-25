@@ -96,6 +96,7 @@ export const SlideElementWrapper = memo(function SlideElementWrapper({
             onCommit={(partial) => onCommitElement?.(element.id, partial as Partial<SlideElement>)}
             onCancel={onCancelEdit}
             onCellSelect={onTableCellSelect}
+            onStartMove={(e) => onElementMouseDown(e, element.id)}
           />
         )
       default:

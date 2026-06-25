@@ -329,8 +329,8 @@ export function SlideCanvas({
       style={{
         flex: 1,
         display: 'flex',
-        alignItems: zoom > 0 ? 'flex-start' : 'center',
-        justifyContent: zoom > 0 ? 'flex-start' : 'center',
+        alignItems: 'center',
+        justifyContent: 'center',
         overflow: zoom > 0 ? 'auto' : 'hidden',
         padding: zoom > 0 ? 24 : 0,
         backgroundColor: 'hsl(var(--editor-canvas))',

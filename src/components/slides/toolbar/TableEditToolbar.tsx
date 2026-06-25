@@ -1,4 +1,7 @@
-import { Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight } from 'lucide-react'
+import {
+  Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight,
+  ArrowUpToLine, ArrowDownToLine, ArrowLeftToLine, ArrowRightToLine, Minus,
+} from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -10,56 +13,6 @@ interface Props {
   element: TableElement
   selectedCells: string[]
   onUpdateElement(partial: Partial<TableElement>): void
-}
-
-// Row/col operation icons
-function InsRowAbove() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-      <line x1="6.5" y1="0.5" x2="6.5" y2="4.5" /><line x1="4.5" y1="2.5" x2="8.5" y2="2.5" />
-      <rect x="1" y="6.5" width="11" height="5" rx="0.5" /><line x1="1" y1="9" x2="12" y2="9" /><line x1="6.5" y1="6.5" x2="6.5" y2="11.5" />
-    </svg>
-  )
-}
-function InsRowBelow() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-      <rect x="1" y="1.5" width="11" height="5" rx="0.5" /><line x1="1" y1="4" x2="12" y2="4" /><line x1="6.5" y1="1.5" x2="6.5" y2="6.5" />
-      <line x1="6.5" y1="8.5" x2="6.5" y2="12.5" /><line x1="4.5" y1="10.5" x2="8.5" y2="10.5" />
-    </svg>
-  )
-}
-function InsColLeft() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-      <line x1="0.5" y1="6.5" x2="4.5" y2="6.5" /><line x1="2.5" y1="4.5" x2="2.5" y2="8.5" />
-      <rect x="6.5" y="1" width="5" height="11" rx="0.5" /><line x1="9" y1="1" x2="9" y2="12" /><line x1="6.5" y1="6.5" x2="11.5" y2="6.5" />
-    </svg>
-  )
-}
-function InsColRight() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-      <rect x="1.5" y="1" width="5" height="11" rx="0.5" /><line x1="4" y1="1" x2="4" y2="12" /><line x1="1.5" y1="6.5" x2="6.5" y2="6.5" />
-      <line x1="8.5" y1="6.5" x2="12.5" y2="6.5" /><line x1="10.5" y1="4.5" x2="10.5" y2="8.5" />
-    </svg>
-  )
-}
-function DelRow() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-      <rect x="1" y="4" width="11" height="5" rx="0.5" />
-      <line x1="4.5" y1="6.5" x2="8.5" y2="6.5" />
-    </svg>
-  )
-}
-function DelCol() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-      <rect x="4" y="1" width="5" height="11" rx="0.5" />
-      <line x1="6.5" y1="4.5" x2="6.5" y2="8.5" />
-    </svg>
-  )
 }
 
 const CELL_PALETTE = [
@@ -327,7 +280,7 @@ export function TableEditToolbar({ element, selectedCells, onUpdateElement }: Pr
       <Tooltip>
         <TooltipTrigger asChild>
           <Button variant="ghost" size="icon" className="h-7 w-7" disabled={selectedRowIdx < 0} onClick={insertRowAbove}>
-            <InsRowAbove />
+            <ArrowUpToLine className="h-3.5 w-3.5" />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom" className="text-xs">Insert row above</TooltipContent>
@@ -335,7 +288,7 @@ export function TableEditToolbar({ element, selectedCells, onUpdateElement }: Pr
       <Tooltip>
         <TooltipTrigger asChild>
           <Button variant="ghost" size="icon" className="h-7 w-7" disabled={selectedRowIdx < 0} onClick={insertRowBelow}>
-            <InsRowBelow />
+            <ArrowDownToLine className="h-3.5 w-3.5" />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom" className="text-xs">Insert row below</TooltipContent>
@@ -343,7 +296,7 @@ export function TableEditToolbar({ element, selectedCells, onUpdateElement }: Pr
       <Tooltip>
         <TooltipTrigger asChild>
           <Button variant="ghost" size="icon" className="h-7 w-7" disabled={selectedColIdx < 0} onClick={insertColLeft}>
-            <InsColLeft />
+            <ArrowLeftToLine className="h-3.5 w-3.5" />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom" className="text-xs">Insert column left</TooltipContent>
@@ -351,23 +304,23 @@ export function TableEditToolbar({ element, selectedCells, onUpdateElement }: Pr
       <Tooltip>
         <TooltipTrigger asChild>
           <Button variant="ghost" size="icon" className="h-7 w-7" disabled={selectedColIdx < 0} onClick={insertColRight}>
-            <InsColRight />
+            <ArrowRightToLine className="h-3.5 w-3.5" />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom" className="text-xs">Insert column right</TooltipContent>
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-7 w-7" disabled={selectedRowIdx < 0 || element.rows.length <= 1} onClick={deleteRow}>
-            <DelRow />
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive" disabled={selectedRowIdx < 0 || element.rows.length <= 1} onClick={deleteRow}>
+            <Minus className="h-3.5 w-3.5" />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom" className="text-xs">Delete row</TooltipContent>
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-7 w-7" disabled={selectedColIdx < 0 || element.colWidths.length <= 1} onClick={deleteCol}>
-            <DelCol />
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive" disabled={selectedColIdx < 0 || element.colWidths.length <= 1} onClick={deleteCol}>
+            <Minus className="h-3.5 w-3.5 rotate-90" />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom" className="text-xs">Delete column</TooltipContent>

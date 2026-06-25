@@ -58,7 +58,7 @@ export default function SaveLocation({ defaultFolder, onNext }: SaveLocationProp
               setOverride(e.target.checked)
               if (!e.target.checked) setSelectedFolder(null)
             }}
-            className="h-4 w-4 rounded border border-border accent-primary"
+            className="h-4 w-4 rounded border border-border accent-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
           <span className="text-sm text-muted-foreground">Change default document save location</span>
         </label>

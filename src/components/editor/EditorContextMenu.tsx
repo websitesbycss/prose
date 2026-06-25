@@ -11,7 +11,7 @@ import {
   Undo2, Redo2, Scissors, Copy, Clipboard, RemoveFormatting,
   Link2, Eraser, Sparkles, ExternalLink, Link, Unlink2,
   Trash2, Download, MousePointerClick, Pencil,
-  ArrowUp, ArrowDown, ArrowLeft, ArrowRight, X,
+  ArrowUpToLine, ArrowDownToLine, ArrowLeftToLine, ArrowRightToLine, Minus, X,
 } from 'lucide-react'
 
 interface MenuCtx {
@@ -33,6 +33,12 @@ interface MenuCtx {
   isInTable: boolean
   canUndo: boolean
   canRedo: boolean
+}
+
+// Same Minus icon as "delete row", rotated — matches the row/column icon
+// pairing used in the Sheets toolbar.
+function MinusRotated({ className }: { className?: string }): JSX.Element {
+  return <Minus className={cn(className, 'rotate-90')} />
 }
 
 type MenuItem =
@@ -405,13 +411,13 @@ export function EditorContextMenu({ editor, documentId, isActive, onEditMath }: 
 
       if (ctx.isInTable) {
         items.push({ type: 'sep' })
-        items.push({ type: 'btn', label: 'Insert row above', icon: ArrowUp, onClick: () => run(() => editor.chain().focus().addRowBefore().run()) })
-        items.push({ type: 'btn', label: 'Insert row below', icon: ArrowDown, onClick: () => run(() => editor.chain().focus().addRowAfter().run()) })
-        items.push({ type: 'btn', label: 'Insert column left', icon: ArrowLeft, onClick: () => run(() => editor.chain().focus().addColumnBefore().run()) })
-        items.push({ type: 'btn', label: 'Insert column right', icon: ArrowRight, onClick: () => run(() => editor.chain().focus().addColumnAfter().run()) })
+        items.push({ type: 'btn', label: 'Insert row above', icon: ArrowUpToLine, onClick: () => run(() => editor.chain().focus().addRowBefore().run()) })
+        items.push({ type: 'btn', label: 'Insert row below', icon: ArrowDownToLine, onClick: () => run(() => editor.chain().focus().addRowAfter().run()) })
+        items.push({ type: 'btn', label: 'Insert column left', icon: ArrowLeftToLine, onClick: () => run(() => editor.chain().focus().addColumnBefore().run()) })
+        items.push({ type: 'btn', label: 'Insert column right', icon: ArrowRightToLine, onClick: () => run(() => editor.chain().focus().addColumnAfter().run()) })
         items.push({ type: 'sep' })
-        items.push({ type: 'btn', label: 'Delete row', icon: Trash2, destructive: true, onClick: () => run(() => editor.chain().focus().deleteRow().run()) })
-        items.push({ type: 'btn', label: 'Delete column', icon: Trash2, destructive: true, onClick: () => run(() => editor.chain().focus().deleteColumn().run()) })
+        items.push({ type: 'btn', label: 'Delete row', icon: Minus, destructive: true, onClick: () => run(() => editor.chain().focus().deleteRow().run()) })
+        items.push({ type: 'btn', label: 'Delete column', icon: MinusRotated, destructive: true, onClick: () => run(() => editor.chain().focus().deleteColumn().run()) })
         items.push({ type: 'btn', label: 'Delete table', icon: Trash2, destructive: true, onClick: () => run(() => editor.chain().focus().deleteTable().run()) })
       }
     }

@@ -1,5 +1,5 @@
 import { ipcMain, app, BrowserWindow } from 'electron'
-import { mkdir, writeFile, unlink } from 'fs/promises'
+import { mkdir, writeFile, unlink, readFile } from 'fs/promises'
 import { join } from 'path'
 import { getIndexRow, setHasThumbnail } from '../services/indexDb'
 
@@ -42,9 +42,20 @@ function isValidRect(rect: unknown): rect is { x: number; y: number; width: numb
 }
 
 export function registerThumbnailHandlers(): void {
-  ipcMain.handle('thumbnails:getPath', (_, fileId: unknown) => {
+  // Returns the thumbnail as a data: URL rather than a file:// path — the
+  // renderer's origin is http://localhost in dev (Vite) and file:// only in
+  // production, and Chromium blocks file:// resource loads from a non-file:
+  // origin regardless of CSP. Reading the bytes over IPC and handing back a
+  // data: URL works identically in both, and the actual file content can
+  // still only be reached through this validated handler.
+  ipcMain.handle('thumbnails:getDataUrl', async (_, fileId: unknown) => {
     if (typeof fileId !== 'string' || !fileId) throw new Error('Invalid fileId')
-    return thumbnailPath(fileId)
+    try {
+      const buf = await readFile(thumbnailPath(fileId))
+      return `data:image/png;base64,${buf.toString('base64')}`
+    } catch {
+      return null
+    }
   })
 
   // Validates everything itself and never throws — the renderer treats a

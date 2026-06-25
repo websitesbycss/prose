@@ -490,7 +490,9 @@ export function DocumentTabBar({
               const isActive = !showDashboard && tab.id === activeDocumentId
               const isDraggingThis = tab.id === draggingId
               const d = dragRef.current
-              const slot = d ? (d.tabWidths.get(tab.id) ?? 100) + d.tabGap : 0
+              // Other tabs shift by the DRAGGED tab's width (the space it
+              // vacates/occupies as it moves past them) — not by their own.
+              const slot = d ? (d.tabWidths.get(d.tabId) ?? 100) + d.tabGap : 0
               const originIdx = d?.originIdx ?? tabIndex
               const insertIdx = visualInsertIdx ?? originIdx
               const shift = isDragging && !isDraggingThis
@@ -499,23 +501,21 @@ export function DocumentTabBar({
               const translateX = isDraggingThis ? dragDeltaX : shift
 
               return (
+                // Two layers on purpose: Motion takes ownership of `transform` on
+                // any element where it animates scale/x/y (it writes the combined
+                // transform itself on every frame, silently clobbering a `style.
+                // transform` we set on the same node). The live drag shift below
+                // must win every frame, so it lives on a plain inner div that
+                // Motion never touches — the outer motion.div keeps doing the
+                // mount/exit pop and the post-drop layout-reorder FLIP animation.
                 <motion.div
                   key={tab.id}
                   layout={!isDragging}
                   className="document-tab-item"
-                  style={{
-                    transform: isDragging ? `translateX(${translateX}px)` : undefined,
-                    transition: isDraggingThis ? 'none' : 'transform 180ms cubic-bezier(0,0,0.2,1)',
-                    zIndex: isDraggingThis ? 30 : undefined,
-                    position: 'relative',
-                  }}
+                  style={{ zIndex: isDraggingThis ? 30 : undefined, position: 'relative' }}
                   transition={{ duration: 0.13, ease: [0.25, 0.1, 0.25, 1] }}
                   initial={isDragging ? false : { opacity: 0, scale: 0.88, x: -6 }}
-                  animate={{
-                    opacity: isDraggingThis && isDetached ? 0 : 1,
-                    scale: 1,
-                    x: isDragging ? 0 : 0,
-                  }}
+                  animate={{ opacity: isDraggingThis && isDetached ? 0 : 1, scale: 1, x: 0 }}
                   exit={{ opacity: 0, scale: 0.88, x: -6 }}
                   onPointerDown={(e) => handlePointerDown(tab, e)}
                   onPointerMove={(e) => handlePointerMove(tab.id, e)}
@@ -523,28 +523,36 @@ export function DocumentTabBar({
                   onPointerCancel={(e) => handlePointerCancel(tab.id, e)}
                 >
                   <div
-                    className={cn('document-tab', isActive && 'document-tab--active')}
-                    onDoubleClick={() => {
-                      if (isActive && onStartTitleEdit) onStartTitleEdit()
+                    style={{
+                      width: '100%',
+                      transform: isDragging ? `translateX(${translateX}px)` : undefined,
+                      transition: isDraggingThis ? 'none' : 'transform 180ms cubic-bezier(0,0,0.2,1)',
                     }}
                   >
-                    <TabContent
-                      tab={tab}
-                      active={isActive}
-                      editing={isActive && editingTitle}
-                      draftTitle={draftTitle}
-                      onDraftChange={onDraftTitleChange}
-                      onCommitEdit={onCommitTitleEdit}
-                      onCancelEdit={onCancelTitleEdit}
-                    />
-                    <button
-                      type="button"
-                      className="document-tab__close"
-                      aria-label={`Close ${tab.title}`}
-                      onClick={(e) => { void handleCloseTab(tab.id, e) }}
+                    <div
+                      className={cn('document-tab', isActive && 'document-tab--active')}
+                      onDoubleClick={() => {
+                        if (isActive && onStartTitleEdit) onStartTitleEdit()
+                      }}
                     >
-                      <X className="h-3 w-3" />
-                    </button>
+                      <TabContent
+                        tab={tab}
+                        active={isActive}
+                        editing={isActive && editingTitle}
+                        draftTitle={draftTitle}
+                        onDraftChange={onDraftTitleChange}
+                        onCommitEdit={onCommitTitleEdit}
+                        onCancelEdit={onCancelTitleEdit}
+                      />
+                      <button
+                        type="button"
+                        className="document-tab__close"
+                        aria-label={`Close ${tab.title}`}
+                        onClick={(e) => { void handleCloseTab(tab.id, e) }}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
                   </div>
                 </motion.div>
               )
