@@ -1,38 +1,43 @@
 # Prose
 
-A free, fully offline office suite for Windows — Documents, Sheets, Boards, and Slides — with a local AI assistant built in throughout.
+A free, fully offline office suite for Windows. Documents, Sheets, Boards, and Slides, with a local AI assistant built into every one of them.
 
 Works on a plane. No account. No subscription. No data leaves your machine.
 
-> **Note on internet use:** Prose is mostly offline. The features that require a connection are: the one-time Ollama binary download on first launch, AI model downloads, DOI lookup for citations, and website metadata auto-fill for citations. Everything else (writing, spreadsheets, whiteboards, presentations, AI feedback, export) works fully offline.
+> **Note on internet use:** Prose is mostly offline. The features that need a connection are the one-time Ollama binary download on first launch, AI model downloads, DOI lookup for citations, and website metadata auto-fill for citations. Everything else (writing, spreadsheets, whiteboards, presentations, AI feedback, export) works fully offline.
 
 ---
 
 ## Apps
 
-Prose bundles four editors behind one tab bar, so a document, spreadsheet, whiteboard, and presentation can all be open at once and switched between instantly.
+Prose bundles four editors behind one tab bar, so you can have a document, a spreadsheet, a whiteboard, and a presentation open at the same time and jump between them instantly.
 
 ### Documents
-A rich text editor (headings, lists, tables, inline formatting, images, equations) with one-click MLA and APA page formatting — running headers, double-spacing, first-line indents — plus MLA, APA, Chicago, and IEEE citation styles with auto-generated in-text citations and a Works Cited/References page. Custom page margins per document. A citations manager with a source library and DOI/URL auto-fill. Document history with snapshots and one-click restore. Export to DOCX, PDF, Markdown, or plain text with a live paginated preview.
+A rich text editor with headings, lists, tables, images, and equations, plus one-click MLA and APA page formatting. Citations work in MLA, APA, Chicago, and IEEE style, with auto-generated in-text citations and a Works Cited or References page. Document history keeps snapshots you can restore with one click. Export to DOCX, PDF, Markdown, or plain text.
 
 ### Sheets
-A spreadsheet editor with formulas, multiple tabs, cell formatting, and chart insertion (bar/line/pie). Export to XLSX or CSV.
+A spreadsheet editor with formulas, multiple tabs, and full cell formatting. Insert bar, line, and pie charts straight from your data. AI can generate or summarize a table for you, drop new data right into the grid, and explain or write formulas in plain English. Export to XLSX or CSV.
 
 ### Boards
-An infinite-canvas whiteboard for diagrams, sketches, and freeform notes — shapes, freehand drawing, sticky notes, and image embedding. Export to PNG or PDF.
+An infinite canvas for diagrams, sketches, and freeform notes. Draw freehand, add shapes and sticky notes, embed images, and link in your other Prose files. AI can brainstorm a topic for you and lay the ideas out as sticky notes across the board. Export to PNG or PDF.
 
 ### Slides
-A presentation editor with slide masters, themes, element animations, slide transitions, and a presenter mode with speaker notes. Import/export PPTX. AI-assisted slide generation from a topic or outline.
+A presentation editor with slide masters, themes, element animations, and slide transitions, plus a presenter mode with speaker notes. Describe a topic or paste an outline and AI builds a full deck, complete with titles, body text, speaker notes, and AI-generated illustrations placed right on the slides. Import and export PPTX.
 
 ## AI, built in
 
-Every app talks to the same local Ollama model running on your machine — nothing is sent anywhere:
+Prose runs entirely on a local Ollama model on your own machine. Nothing you write, no document, no spreadsheet, no slide, ever leaves your computer or touches a server.
 
-- **Documents** — a writing assistant for feedback, rewriting, and tone, plus inline grammar/style analysis that flags issues directly in the text.
-- **Slides** — generate a full draft deck (titles, body text, speaker notes, and layout) from a topic, and an AI graphic generator for custom SVG visuals.
-- **Sheets & Boards** — AI-assisted content generation scoped to each app.
+The AI isn't just a chat sidebar bolted onto the app. It actually does things:
 
-A focus mode, typewriter mode, Pomodoro timer, ambient music player, and session/streak stats round out the writing environment.
+- **Documents** gets a writing assistant for feedback, rewriting, and tone, plus a grammar and style checker that scans the whole document and flags the same issues every time you run it, not a random subset.
+- **Slides** can generate a complete deck from a topic or outline, titles, bullets, speaker notes, and all, and it will design and place real illustrations on slides that call for one instead of leaving you with a wall of text.
+- **Sheets** can write or explain a formula, generate sample data, and insert that data straight into your cells.
+- **Boards** can take a topic and brainstorm a set of ideas, then place each one as a sticky note on the canvas for you to rearrange.
+
+Every model call happens on your machine through Ollama, so it works without an internet connection once the model is downloaded, and you can swap in any model that Ollama supports.
+
+A focus mode, typewriter mode, Pomodoro timer, ambient music player, and session and streak stats round out the writing environment.
 
 ## Download
 
@@ -84,4 +89,4 @@ Output lands in `release/`.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
