@@ -149,13 +149,13 @@ contextBridge.exposeInMainWorld('prose', {
       ipcRenderer.on('tabdrag:return', listener)
       return () => ipcRenderer.removeListener('tabdrag:return', listener)
     },
-    onMerge: (cb: (data: { docId: string }) => void): (() => void) => {
-      const listener = (_: Electron.IpcRendererEvent, data: { docId: string }): void => cb(data)
+    onMerge: (cb: (data: { docId: string; screenX: number }) => void): (() => void) => {
+      const listener = (_: Electron.IpcRendererEvent, data: { docId: string; screenX: number }): void => cb(data)
       ipcRenderer.on('tabdrag:merge', listener)
       return () => ipcRenderer.removeListener('tabdrag:merge', listener)
     },
-    onDropHover: (cb: (data: { active: boolean }) => void): (() => void) => {
-      const listener = (_: Electron.IpcRendererEvent, data: { active: boolean }): void => cb(data)
+    onDropHover: (cb: (data: { active: boolean; screenX?: number }) => void): (() => void) => {
+      const listener = (_: Electron.IpcRendererEvent, data: { active: boolean; screenX?: number }): void => cb(data)
       ipcRenderer.on('tabdrag:dropHover', listener)
       return () => ipcRenderer.removeListener('tabdrag:dropHover', listener)
     },

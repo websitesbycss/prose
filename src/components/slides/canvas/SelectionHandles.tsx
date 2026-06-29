@@ -24,7 +24,7 @@ const HANDLE_BASE: React.CSSProperties = {
   width: HANDLE_SIZE,
   height: HANDLE_SIZE,
   backgroundColor: '#ffffff',
-  border: '1.5px solid #3B82F6',
+  border: '1.5px solid hsl(var(--primary))',
   borderRadius: 1.5,
   zIndex: 10001,
 }
@@ -49,7 +49,7 @@ export function SelectionHandles({ onResizeMouseDown, onRotateMouseDown }: Props
           top: -30,
           width: 1,
           height: 30,
-          backgroundColor: '#3B82F6',
+          backgroundColor: 'hsl(var(--primary))',
           pointerEvents: 'none',
           zIndex: 10000,
         }}
@@ -64,7 +64,7 @@ export function SelectionHandles({ onResizeMouseDown, onRotateMouseDown }: Props
           width: 14,
           height: 14,
           backgroundColor: '#ffffff',
-          border: '1.5px solid #3B82F6',
+          border: '1.5px solid hsl(var(--primary))',
           borderRadius: '50%',
           cursor: 'grab',
           zIndex: 10001,

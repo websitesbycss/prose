@@ -19,8 +19,8 @@ export function MarqueeSelection({ rect }: Props): JSX.Element {
         top: `${top}%`,
         width: `${width}%`,
         height: `${height}%`,
-        border: '1.5px dashed #3B82F6',
-        backgroundColor: 'rgba(59, 130, 246, 0.08)',
+        border: '1.5px dashed hsl(var(--primary))',
+        backgroundColor: 'hsl(var(--primary) / 0.08)',
         pointerEvents: 'none',
         zIndex: 9999,
       }}

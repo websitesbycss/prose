@@ -15,6 +15,15 @@ export interface PresentationSettings {
   defaultFontSize: number
 }
 
+// Was duplicated verbatim across SlideCanvas, SlidesEditor, and PresentationMode.
+export function getSlideBaseSize(settings: PresentationSettings): { baseW: number; baseH: number } {
+  if (settings.aspectRatio === '4:3') return { baseW: 1920, baseH: 1440 }
+  if (settings.aspectRatio === 'custom' && settings.customWidth && settings.customHeight) {
+    return { baseW: settings.customWidth, baseH: settings.customHeight }
+  }
+  return { baseW: SLIDE_BASE_WIDTH, baseH: SLIDE_BASE_HEIGHT }
+}
+
 export interface PresentationTheme {
   id: string
   name: string

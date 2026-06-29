@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import type { Slide, PresentationTheme, PresentationSettings, SlideMaster } from '@/types/slides'
-import { SLIDE_BASE_WIDTH, SLIDE_BASE_HEIGHT } from '@/types/slides'
+import { getSlideBaseSize } from '@/types/slides'
 import { SlideBackgroundLayer } from '../canvas/SlideBackground'
 import { renderSlideElement } from '../elements/renderSlideElement'
 import { SlideTransition } from './SlideTransition'
@@ -19,14 +19,6 @@ interface Props {
   onExit(currentIndex: number): void
 }
 
-function getBaseSize(settings: PresentationSettings): { baseW: number; baseH: number } {
-  if (settings.aspectRatio === '4:3') return { baseW: 1920, baseH: 1440 }
-  if (settings.aspectRatio === 'custom' && settings.customWidth && settings.customHeight) {
-    return { baseW: settings.customWidth, baseH: settings.customHeight }
-  }
-  return { baseW: SLIDE_BASE_WIDTH, baseH: SLIDE_BASE_HEIGHT }
-}
-
 export function PresentationMode({ slides, theme, settings, master, startIndex, onExit }: Props): JSX.Element {
   const [currentIndex, setCurrentIndex] = useState(startIndex)
   const [navDirection, setNavDirection] = useState<'forward' | 'backward'>('forward')
@@ -42,7 +34,7 @@ export function PresentationMode({ slides, theme, settings, master, startIndex, 
 
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const { baseW, baseH } = getBaseSize(settings)
+  const { baseW, baseH } = getSlideBaseSize(settings)
 
   // Declared early (before the keydown effect below references it) — hooks
   // must run unconditionally on every render regardless of currentSlide.

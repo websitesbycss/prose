@@ -425,6 +425,18 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
     wb.setCellValue(row, col, formula)
   }, [])
 
+  // Writes an AI-generated table (parsed from a markdown response) starting
+  // at the selected cell — the first row is treated as a header row.
+  const onInsertTableData = useCallback((rows: string[][]) => {
+    const wb = workbookRef.current; if (!wb) return
+    const { row: startRow, col: startCol } = selectedCellRef.current
+    rows.forEach((rowValues, r) => {
+      rowValues.forEach((value, c) => {
+        wb.setCellValue(startRow + r, startCol + c, value)
+      })
+    })
+  }, [])
+
   // commitFormulaBar — writes formula bar value back to selected cell
   const commitFormulaBar = useCallback(() => {
     const wb = workbookRef.current; if (!wb) return
@@ -713,6 +725,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
                 fileType="sheet"
                 getDocumentContent={getSheetContext}
                 onInsertFormula={onInsertFormula}
+                onInsertTableData={onInsertTableData}
               />
             </div>
           )}

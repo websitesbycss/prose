@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { Loader2, ChevronLeft, Check } from 'lucide-react'
 import type { Slide, PresentationTheme, PresentationSettings } from '@/types/slides'
-import { OUTLINE_SYSTEM_PROMPT, parseAiJson, aiSlideToProseSlide, type AiSlideSchema } from './aiSlideUtils'
+import { OUTLINE_SYSTEM_PROMPT, parseAiJson, aiSlideToProseSlide, attachGeneratedVisuals, type AiSlideSchema } from './aiSlideUtils'
 import { SlideStaticView } from '../export/SlideStaticView'
 import { cn } from '@/lib/utils'
 
@@ -53,6 +53,8 @@ export function SlideGenerateTab({
       setGeneratedSlides(prosSlides)
       setSelectedIndices(new Set(prosSlides.map((_, i) => i)))
       setGenState('preview')
+      // Deck renders immediately with text; suggested visuals fill in once generated.
+      void attachGeneratedVisuals(capped, prosSlides, theme).then(setGeneratedSlides)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Generation failed — check Ollama is running')
       setGenState('error')
@@ -72,10 +74,12 @@ export function SlideGenerateTab({
         fileType: 'slides',
       })
       const aiSlides = parseAiJson<AiSlideSchema[]>(resp)
-      const prosSlides = aiSlides.slice(0, 20).map(ai => aiSlideToProseSlide(ai, theme))
+      const capped = aiSlides.slice(0, 20)
+      const prosSlides = capped.map(ai => aiSlideToProseSlide(ai, theme))
       setGeneratedSlides(prosSlides)
       setSelectedIndices(new Set(prosSlides.map((_, i) => i)))
       setGenState('preview')
+      void attachGeneratedVisuals(capped, prosSlides, theme).then(setGeneratedSlides)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Generation failed')
       setGenState('error')
@@ -97,6 +101,7 @@ export function SlideGenerateTab({
       setGeneratedSlides([prosSlide])
       setSelectedIndices(new Set([0]))
       setGenState('preview')
+      void attachGeneratedVisuals([aiSlide], [prosSlide], theme).then(setGeneratedSlides)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Generation failed')
       setGenState('error')

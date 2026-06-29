@@ -105,10 +105,16 @@ export function aiSlideToProseSlide(ai: AiSlideSchema, theme: PresentationTheme)
       }
       break
     }
-    default: // title-content, image-caption
+    default: { // title-content, image-caption
+      // Reserve the right third of the slide for a generated visual when one
+      // was suggested, so the text doesn't need to be reflowed after the
+      // (async) graphic comes back.
+      const hasImage = ai.layout === 'image-caption' && !!ai.suggestedImageDescription
+      const bodyWidth = hasImage ? 55 : 90
       elements.push(makeTextEl(crypto.randomUUID(), ai.title, 5, 4, 90, 14, 40, theme.textColor))
-      elements.push(makeTextEl(crypto.randomUUID(), contentToText(ai.content), 5, 22, 90, 68, 22, theme.textColor))
+      elements.push(makeTextEl(crypto.randomUUID(), contentToText(ai.content), 5, 22, bodyWidth, 68, 22, theme.textColor))
       break
+    }
   }
 
   return {
@@ -118,6 +124,36 @@ export function aiSlideToProseSlide(ai: AiSlideSchema, theme: PresentationTheme)
     animations: [],
     ...(bg ? { background: bg } : {}),
   }
+}
+
+// Region reserved for an AI-generated visual, matching the space the
+// "image-caption" layout above leaves empty on the right.
+export const AI_VISUAL_REGION = { x: 64, y: 22, width: 31, height: 60 }
+
+// Generates and attaches a visual for every "image-caption" slide that
+// suggested one — the rest of the deck builds and previews instantly, then
+// the (slower) generated graphics fill in as each one resolves.
+export async function attachGeneratedVisuals(
+  aiSlides: AiSlideSchema[],
+  prosSlides: Slide[],
+  theme: PresentationTheme,
+): Promise<Slide[]> {
+  const withVisuals = await Promise.all(
+    aiSlides.map(async (ai, i) => {
+      const slide = prosSlides[i]
+      if (!slide || ai.layout !== 'image-caption' || !ai.suggestedImageDescription) return slide
+      const visual = await generateSlideVisual(ai.suggestedImageDescription, theme)
+      if (!visual) return slide
+      const graphic: SlideElement = {
+        id: crypto.randomUUID(), type: 'ai-graphic',
+        x: AI_VISUAL_REGION.x, y: AI_VISUAL_REGION.y, width: AI_VISUAL_REGION.width, height: AI_VISUAL_REGION.height,
+        rotate: 0, opacity: 1, zIndex: 1000, flipH: false, flipV: false, locked: false, hidden: false,
+        svgContent: visual.svgContent, description: ai.suggestedImageDescription,
+      }
+      return { ...slide, elements: [...slide.elements, graphic] }
+    }),
+  )
+  return withVisuals.filter((s): s is Slide => !!s)
 }
 
 // ── System prompts (from spec) ────────────────────────────────────────────────
@@ -141,11 +177,44 @@ Rules:
 - Use "two-column" when comparing two things
 - Keep body text concise — maximum 6 bullet points per slide, maximum 10 words per bullet
 - Speaker notes should be 2-4 sentences elaborating on the slide content
-- suggestedImageDescription should describe a specific, concrete image that would enhance the slide — or null if no image is needed
+- Use layout "image-caption" (with a concrete, specific suggestedImageDescription) for any slide where a diagram, icon, or illustration would genuinely help — a real image will be generated from that description and placed on the slide. Use it generously where visuals add value, not just for literal photos. For all other layouts, set suggestedImageDescription to null.
 - backgroundColor is null to use the theme default, or a hex color for accent slides
 - Maximum 20 slides`
 
 export const SVG_SYSTEM_PROMPT = `Generate a clean, simple SVG illustration for a presentation slide.
 Return ONLY valid SVG markup starting with <svg. No explanation, no preamble.
-Style: flat design, minimal, professional.
-The SVG should use viewBox="0 0 400 300". Keep it simple — 5-15 shapes maximum.`
+Style: flat design, minimal, professional. Use only these theme colors where color is needed: {themeColors}.
+The SVG should use viewBox="0 0 400 300". Keep it simple — 5-15 shapes maximum.
+Subject: {description}`
+
+// ── Shared AI-graphic generation ──────────────────────────────────────────────
+// Used by both the manual "AI illustration" modal and automatic deck generation
+// (when a generated slide's suggestedImageDescription calls for a visual), so
+// the prompt/sanitization logic lives in one place instead of two.
+
+export async function generateSlideVisual(
+  description: string,
+  theme: PresentationTheme,
+): Promise<{ svgContent: string } | null> {
+  if (!description.trim()) return null
+  try {
+    const themeColors = [theme.primaryColor, theme.secondaryColor, theme.accentColor, theme.backgroundColor, theme.textColor].join(', ')
+    const resp = await window.prose.ai.prompt({
+      documentContent: description,
+      request: SVG_SYSTEM_PROMPT.replace('{themeColors}', themeColors).replace('{description}', description),
+      fileType: 'slides',
+    })
+    const svgMatch = /<svg[\s\S]*<\/svg>/i.exec(resp)
+    const rawSvg = svgMatch ? svgMatch[0] : resp.trim()
+    if (!rawSvg.startsWith('<svg')) return null
+    // Sanitized again — defense in depth — at render time in AiGraphicElementRenderer.
+    const DOMPurify = (await import('dompurify')).default
+    const safe = DOMPurify.sanitize(rawSvg, {
+      USE_PROFILES: { svg: true, svgFilters: true },
+      FORBID_TAGS: ['script', 'object', 'embed', 'link'],
+    })
+    return { svgContent: safe }
+  } catch {
+    return null
+  }
+}

@@ -47,7 +47,7 @@ export function CodeBlockElementEditor({ element, scale, onCommit, onCancel }: P
         backgroundColor: bg,
         borderRadius: 4 * scale,
         overflow: 'hidden',
-        border: '2px solid #3B82F6',
+        border: '2px solid hsl(var(--primary))',
       }}
       onMouseDown={(e) => e.stopPropagation()}
       onKeyDown={(e) => {

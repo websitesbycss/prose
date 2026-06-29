@@ -296,7 +296,7 @@ export interface ProseAPI {
     registerTabBarBounds(rect: { x: number; y: number; width: number; height: number }): void
     onDetached(cb: (data: { docId: string }) => void): () => void
     onReturn(cb: (data: { screenX: number }) => void): () => void
-    onMerge(cb: (data: { docId: string; screenX?: number }) => void): () => void
+    onMerge(cb: (data: { docId: string; screenX: number }) => void): () => void
     onDropHover(cb: (data: { active: boolean; screenX?: number }) => void): () => void
   }
   citations: {

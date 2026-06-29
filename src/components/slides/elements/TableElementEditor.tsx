@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect, useLayoutEffect, useCallback } from 'react'
 import type { TableElement, TableCell } from '@/types/slides'
+import { sanitizeRichText } from '@/lib/sanitizeHtml'
 
 interface Props {
   element: TableElement
@@ -33,7 +34,7 @@ function EditableCell({ cell, isSelected, scale, borderStyle, onFocus, onUpdateC
   useLayoutEffect(() => {
     if (!hasInit.current && divRef.current) {
       hasInit.current = true
-      divRef.current.innerHTML = cell.content
+      divRef.current.innerHTML = sanitizeRichText(cell.content)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -49,7 +50,7 @@ function EditableCell({ cell, isSelected, scale, borderStyle, onFocus, onUpdateC
         padding: `${3 * scale}px ${5 * scale}px`,
         verticalAlign: s.verticalAlign ?? 'top',
         backgroundColor: s.backgroundColor ?? 'transparent',
-        boxShadow: isSelected ? 'inset 0 0 0 2px #3B82F6' : 'none',
+        boxShadow: isSelected ? 'inset 0 0 0 2px hsl(var(--primary))' : 'none',
         fontWeight: s.bold ? 'bold' : 'normal',
         fontStyle: s.italic ? 'italic' : 'normal',
         textDecoration: [s.underline && 'underline', s.strikethrough && 'line-through'].filter(Boolean).join(' ') || undefined,
@@ -65,7 +66,7 @@ function EditableCell({ cell, isSelected, scale, borderStyle, onFocus, onUpdateC
         contentEditable
         suppressContentEditableWarning
         onFocus={onFocus}
-        onBlur={(e) => onUpdateContent(e.currentTarget.innerHTML)}
+        onBlur={(e) => onUpdateContent(sanitizeRichText(e.currentTarget.innerHTML))}
         onKeyDown={(e) => {
           if (e.key === 'Tab') {
             // Let Tab bubble to container for navigation — don't stop propagation
@@ -209,7 +210,7 @@ export function TableElementEditor({ element, scale, onCommit, onCancel, onCellS
       style={{
         position: 'absolute',
         inset: 0,
-        outline: '2px solid #3B82F6',
+        outline: '2px solid hsl(var(--primary))',
         outlineOffset: '-2px',
         cursor: 'move',
       }}

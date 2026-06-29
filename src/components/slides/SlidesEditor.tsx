@@ -20,7 +20,7 @@ import { SLIDE_LAYOUTS } from './layouts/slideLayouts'
 import type { LayoutId } from './layouts/slideLayouts'
 import type { SlideToolMode } from './toolbar/DefaultToolbar'
 import type { Slide, SlideElement, TextElement, SlidesContent, PresentationTheme, PresentationSettings, SlideMaster, ElementAnimation, TransitionType, TransitionDirection } from '@/types/slides'
-import { deserializeSlides, createInitialSlidesContent, SLIDE_BASE_WIDTH, SLIDE_BASE_HEIGHT } from '@/types/slides'
+import { deserializeSlides, createInitialSlidesContent, SLIDE_BASE_WIDTH, SLIDE_BASE_HEIGHT, getSlideBaseSize } from '@/types/slides'
 import type { ElementMove, ElementResize, ElementRotate } from './canvas/types'
 import type { CanvasToolMode } from './canvas/SlideCanvas'
 import type { SnapSettings } from './canvas/snapUtils'
@@ -1543,14 +1543,6 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   )
 }
 
-function getPreviewBaseSize(settings: PresentationSettings): { baseW: number; baseH: number } {
-  if (settings.aspectRatio === '4:3') return { baseW: 1920, baseH: 1440 }
-  if (settings.aspectRatio === 'custom' && settings.customWidth && settings.customHeight) {
-    return { baseW: settings.customWidth, baseH: settings.customHeight }
-  }
-  return { baseW: SLIDE_BASE_WIDTH, baseH: SLIDE_BASE_HEIGHT }
-}
-
 function SlidePreviewOverlay({
   slide,
   theme,
@@ -1572,7 +1564,7 @@ function SlidePreviewOverlay({
   // whole sequence plays without requiring clicks — startPaused holds it
   // until the transition (played separately, below) finishes first.
   const playback = useSlideAnimationPlayback(slide, { mode: 'preview', startPaused: phase === 'transition' })
-  const scale = canvasRect.width / getPreviewBaseSize(settings).baseW
+  const scale = canvasRect.width / getSlideBaseSize(settings).baseW
   const sortedElements = useMemo(() => [...slide.elements].sort((a, b) => a.zIndex - b.zIndex), [slide.elements])
   const transitionDuration = slide.transition?.duration ?? 400
 

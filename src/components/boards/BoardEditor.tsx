@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { Excalidraw, MainMenu, exportToBlob } from '@excalidraw/excalidraw'
+import { Excalidraw, MainMenu, exportToBlob, convertToExcalidrawElements } from '@excalidraw/excalidraw'
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore — no type declarations for CSS side-effect import
 import '@excalidraw/excalidraw/index.css'
@@ -8,7 +8,7 @@ import {
   Settings, ChevronLeft, ChevronRight,
   PanelLeft, Square, Circle, ArrowRight,
   Scissors, Copy, Clipboard, Trash2, CopyPlus,
-  Group, Ungroup, SendToBack, BringToFront, Link2,
+  Group, Ungroup, SendToBack, BringToFront, Link2, Sparkles,
 } from 'lucide-react'
 
 import { useDocument } from '@/hooks/useDocument'
@@ -21,6 +21,8 @@ import { BoardStatusBar } from './BoardStatusBar'
 import { AUTO_SAVE_DEBOUNCE_MS, AI_PANEL_WIDTH } from '@/constants'
 import { useAppStore } from '@/store/appStore'
 import AiPanel from '@/components/editor/AiPanel'
+import { BoardBrainstormModal } from './BoardBrainstormModal'
+import { STICKY_NOTE_COLORS } from './aiBoardUtils'
 import { useMusicContext } from '@/contexts/MusicContext'
 import { AMBIENT_LAYERS } from '@/hooks/useMusic'
 import { cn } from '@/lib/utils'
@@ -515,6 +517,7 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
   // resizes, and rotates just like any other board element, and does not
   // live-update if the source sheet's chart changes later.
   const [chartPickerOpen, setChartPickerOpen] = useState(false)
+  const [brainstormOpen, setBrainstormOpen] = useState(false)
 
   const addChartElement = useCallback(
     (snapshot: ChartSnapshot) => {
@@ -555,6 +558,45 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
       }
 
       api.updateScene({ elements: [...elements, newElement] })
+      scheduleSave()
+    },
+    [scheduleSave],
+  )
+
+  // AI brainstorm — places each generated idea as a sticky note (rectangle +
+  // bound text), tiled in a grid near the current viewport center.
+  const addBrainstormNotes = useCallback(
+    (ideas: string[]) => {
+      const api = excalidrawAPIRef.current
+      if (!api || ideas.length === 0) return
+
+      const appState = api.getAppState()
+      const elements = api.getSceneElements()
+
+      const NOTE_W = 200
+      const NOTE_H = 140
+      const GAP = 24
+      const cols = Math.min(4, Math.ceil(Math.sqrt(ideas.length)))
+      const rows = Math.ceil(ideas.length / cols)
+      const gridW = cols * NOTE_W + (cols - 1) * GAP
+      const gridH = rows * NOTE_H + (rows - 1) * GAP
+      const originX = -appState.scrollX + (appState.width ?? 800) / 2 / appState.zoom.value - gridW / 2
+      const originY = -appState.scrollY + (appState.height ?? 600) / 2 / appState.zoom.value - gridH / 2
+
+      const skeletons = ideas.map((idea, i) => ({
+        type: 'rectangle' as const,
+        x: originX + (i % cols) * (NOTE_W + GAP),
+        y: originY + Math.floor(i / cols) * (NOTE_H + GAP),
+        width: NOTE_W,
+        height: NOTE_H,
+        backgroundColor: STICKY_NOTE_COLORS[i % STICKY_NOTE_COLORS.length],
+        strokeColor: 'transparent',
+        roundness: { type: 3 as const },
+        label: { text: idea, fontSize: 16, textAlign: 'center' as const, verticalAlign: 'middle' as const },
+      }))
+      const newElements = convertToExcalidrawElements(skeletons)
+
+      api.updateScene({ elements: [...elements, ...newElements] })
       scheduleSave()
     },
     [scheduleSave],
@@ -748,7 +790,14 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
 
           {/* AI panel */}
           {aiPanelOpen && (
-            <div className="shrink-0" style={{ width: AI_PANEL_WIDTH }}>
+            <div className="relative shrink-0" style={{ width: AI_PANEL_WIDTH }}>
+              <button
+                className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-[11px] text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground"
+                onClick={() => setBrainstormOpen(true)}
+                title="Generate sticky-note ideas for a topic"
+              >
+                <Sparkles className="h-3 w-3" /> Brainstorm
+              </button>
               <AiPanel
                 editor={null}
                 fileType="board"
@@ -758,6 +807,13 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
           )}
         </div>
       </div>
+
+      {brainstormOpen && (
+        <BoardBrainstormModal
+          onInsert={addBrainstormNotes}
+          onClose={() => setBrainstormOpen(false)}
+        />
+      )}
 
       {statusBar}
 

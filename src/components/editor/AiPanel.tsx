@@ -203,6 +203,8 @@ interface AiPanelProps {
   getDocumentContent?: () => string
   /** Called when the user clicks "Insert formula" on an AI suggestion (Sheets only). */
   onInsertFormula?: (formula: string) => void
+  /** Called when the user clicks "Insert into sheet" on an AI-generated table (Sheets only). */
+  onInsertTableData?: (rows: string[][]) => void
 }
 
 // ── Shared apply logic ────────────────────────────────────────────────────────
@@ -249,6 +251,31 @@ function extractFormula(content: string): string | null {
   return null
 }
 
+// Extracts a GitHub-flavored markdown table (the format models reliably
+// produce when asked for tabular data) into a 2D array ready to write
+// straight into a sheet. Returns null if no table-shaped block is found.
+function extractMarkdownTable(content: string): string[][] | null {
+  const lines = content.split('\n').map((l) => l.trim())
+  let start = -1
+  for (let i = 0; i < lines.length - 1; i++) {
+    if (lines[i]?.startsWith('|') && /^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?$/.test(lines[i + 1] ?? '')) {
+      start = i
+      break
+    }
+  }
+  if (start === -1) return null
+  const rows: string[][] = []
+  for (let i = start; i < lines.length; i++) {
+    const line = lines[i]
+    if (!line?.startsWith('|')) break
+    if (i === start + 1) continue  // the |---|---| separator row
+    const cells = line.split('|').slice(1, -1).map((c) => c.trim())
+    if (cells.length === 0) break
+    rows.push(cells)
+  }
+  return rows.length > 0 ? rows : null
+}
+
 // ── Chat tab ──────────────────────────────────────────────────────────────────
 
 function ChatTab({
@@ -258,6 +285,7 @@ function ChatTab({
   setAssignmentContext,
   getDocumentContent,
   onInsertFormula,
+  onInsertTableData,
 }: {
   editor: Editor | null
   fileType?: FileType
@@ -265,6 +293,7 @@ function ChatTab({
   setAssignmentContext: (v: string) => void
   getDocumentContent?: () => string
   onInsertFormula?: (formula: string) => void
+  onInsertTableData?: (rows: string[][]) => void
 }): JSX.Element {
   const ollamaStatus = useAppStore((s) => s.ollamaStatus)
   const pendingAiPrompt = useAppStore((s) => s.pendingAiPrompt)
@@ -429,6 +458,9 @@ function ChatTab({
           const formula = msg.role === 'assistant' && fileType === 'sheet' && msg.content
             ? extractFormula(msg.content)
             : null
+          const table = msg.role === 'assistant' && fileType === 'sheet' && msg.content && !formula
+            ? extractMarkdownTable(msg.content)
+            : null
           return (
             <div key={msg.id} className={cn('flex flex-col', msg.role === 'user' ? 'items-end' : 'items-start')}>
               <div
@@ -466,6 +498,17 @@ function ChatTab({
                     onClick={() => onInsertFormula(formula)}
                   >
                     Insert
+                  </button>
+                </div>
+              )}
+              {table && onInsertTableData && (
+                <div className="mt-1 flex items-center gap-2 rounded-md border border-border bg-background px-2.5 py-1.5 text-[11px] max-w-[85%]">
+                  <span className="min-w-0 flex-1 truncate text-foreground">{table.length} row{table.length !== 1 ? 's' : ''} × {table[0]?.length ?? 0} cols</span>
+                  <button
+                    className="shrink-0 rounded bg-primary px-2 py-0.5 text-[10px] font-medium text-primary-foreground hover:bg-primary/90"
+                    onClick={() => onInsertTableData(table)}
+                  >
+                    Insert into sheet
                   </button>
                 </div>
               )}
@@ -917,7 +960,7 @@ export function IssueTooltip({
 
 // ── Main panel ────────────────────────────────────────────────────────────────
 
-export default function AiPanel({ editor, analysis, fileType = 'document', getDocumentContent, onInsertFormula }: AiPanelProps): JSX.Element {
+export default function AiPanel({ editor, analysis, fileType = 'document', getDocumentContent, onInsertFormula, onInsertTableData }: AiPanelProps): JSX.Element {
   const activeAiTab = useAppStore((s) => s.activeAiTab)
   const setActiveAiTab = useAppStore((s) => s.setActiveAiTab)
   const setAiPanelOpen = useAppStore((s) => s.setAiPanelOpen)
@@ -994,6 +1037,7 @@ export default function AiPanel({ editor, analysis, fileType = 'document', getDo
             setAssignmentContext={setAssignmentContext}
             getDocumentContent={getDocumentContent}
             onInsertFormula={onInsertFormula}
+            onInsertTableData={onInsertTableData}
           />
         ) : (
           <AnalysisTab

@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow, screen } from 'electron'
+import { ipcMain, BrowserWindow, screen, shell } from 'electron'
 import { existsSync } from 'fs'
 import { join } from 'path'
 import { resolveDocument } from '../services/fileService'
@@ -23,7 +23,15 @@ interface TabBarRect {
 }
 
 const tabBarBounds = new Map<number, TabBarRect>()
+// Tracks which webContents already have an unconditional cleanup registered,
+// so a stale rect can't outlive its window regardless of whether that window
+// ever subscribed to fullscreen events (tabBarBounds used to only get
+// cleaned up as a side effect of window:subscribeLeaveFullscreen's own
+// 'destroyed' handler — a window that never called it left its bounds in
+// the map forever, making merge-drag silently target a closed window).
+const tabBarBoundsCleanupRegistered = new Set<number>()
 
+let detachStarting = false
 let detach: {
   docId: string
   sourceWinId: number
@@ -66,7 +74,7 @@ export function createProseWindow(docId?: string): BrowserWindow {
     try {
       const parsed = new URL(url)
       if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
-        void import('electron').then(({ shell }) => { void shell.openExternal(url) })
+        shell.openExternal(url).catch(() => {})
       }
     } catch { /* ignore */ }
     return { action: 'deny' }
@@ -103,7 +111,7 @@ function createDragPreview(title: string): BrowserWindow {
     resizable: false,
     focusable: false,
     show: false,
-    webPreferences: { contextIsolation: true },
+    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
   })
   preview.setIgnoreMouseEvents(true)
   const safe = title.replace(/[<>&"']/g, '')
@@ -263,15 +271,28 @@ export function registerWindowHandlers(): void {
 
   ipcMain.on('tabdrag:registerTabBarBounds', (event, rect: TabBarRect) => {
     if (!rect || typeof rect.x !== 'number') return
-    tabBarBounds.set(event.sender.id, rect)
+    const wcId = event.sender.id
+    tabBarBounds.set(wcId, rect)
+    if (!tabBarBoundsCleanupRegistered.has(wcId)) {
+      tabBarBoundsCleanupRegistered.add(wcId)
+      event.sender.once('destroyed', () => {
+        tabBarBounds.delete(wcId)
+        tabBarBoundsCleanupRegistered.delete(wcId)
+      })
+    }
   })
 
   ipcMain.on('tabdrag:detach', (event, docId: string) => {
-    if (typeof docId !== 'string' || !docId || detach) return
+    if (typeof docId !== 'string' || !docId || detach || detachStarting) return
     const sourceWin = BrowserWindow.fromWebContents(event.sender)
     if (!sourceWin) return
+    // Set synchronously — resolveDocument() below is async, so without this
+    // a second 'tabdrag:detach' arriving before it resolves would pass the
+    // `detach` check above (still null) and spawn a duplicate window.
+    detachStarting = true
 
     void resolveDocument(docId).then((resolved) => {
+      detachStarting = false
       if (!resolved || detach) return
       const tabTitle = resolved.doc.title || 'Untitled'
 
@@ -341,6 +362,8 @@ export function registerWindowHandlers(): void {
         tabTitle,
         hoverWcId: null,
       }
+    }).catch(() => {
+      detachStarting = false
     })
   })
 

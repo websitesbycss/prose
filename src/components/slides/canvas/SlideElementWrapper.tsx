@@ -126,7 +126,7 @@ export const SlideElementWrapper = memo(function SlideElementWrapper({
         // locked/selected toggle, leaving outline-style stuck at its CSS
         // default ('none') until something else forced a full style refresh.
         outlineWidth: selected ? 2 : 0,
-        outlineColor: '#3B82F6',
+        outlineColor: 'hsl(var(--primary))',
         outlineStyle: !selected ? 'none' : element.locked ? 'dashed' : 'solid',
         outlineOffset: selected ? 1 : 0,
       }}

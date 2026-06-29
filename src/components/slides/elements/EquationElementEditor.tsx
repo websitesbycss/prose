@@ -49,7 +49,7 @@ export function EquationElementEditor({ element, scale, onCommit, onCancel }: Pr
         display: 'flex',
         flexDirection: 'column',
         backgroundColor: 'rgba(255,255,255,0.97)',
-        border: '2px solid #3B82F6',
+        border: '2px solid hsl(var(--primary))',
         borderRadius: 4,
         overflow: 'hidden',
       }}

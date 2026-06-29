@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, ipcMain } from 'electron'
+import { app, BrowserWindow, shell, ipcMain, session } from 'electron'
 import { existsSync } from 'fs'
 import { join } from 'path'
 import { initSettingsDb, closeSettingsDb, getSettingJson, setSetting } from './services/settingsDb'
@@ -140,6 +140,10 @@ if (!gotLock) {
 }
 
 app.whenReady().then(async () => {
+  // Prose never needs camera/mic/geolocation/notifications — deny every
+  // permission request outright rather than relying on Electron's defaults.
+  session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false))
+
   // Register .prose file association so double-click works without an installer
   registerFileAssociation()
 

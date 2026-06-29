@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import type { Slide, PresentationTheme, PresentationSettings, SlideMaster, SlideElement, ShapeElement, ShapeType } from '@/types/slides'
-import { SLIDE_BASE_WIDTH, SLIDE_BASE_HEIGHT } from '@/types/slides'
+import { getSlideBaseSize } from '@/types/slides'
 import { SlideBackgroundLayer } from './SlideBackground'
 import { SlideElementWrapper } from './SlideElementWrapper'
 import { MarqueeSelection } from './MarqueeSelection'
@@ -46,13 +46,6 @@ interface Props {
   snapSettings?: SnapSettings
 }
 
-function getBaseSize(settings: PresentationSettings): { baseW: number; baseH: number } {
-  if (settings.aspectRatio === '4:3') return { baseW: 1920, baseH: 1440 }
-  if (settings.aspectRatio === 'custom' && settings.customWidth && settings.customHeight) {
-    return { baseW: settings.customWidth, baseH: settings.customHeight }
-  }
-  return { baseW: SLIDE_BASE_WIDTH, baseH: SLIDE_BASE_HEIGHT }
-}
 
 // Compute multi-selection bounding box in percentages.
 function multiSelectBounds(slide: Slide, ids: string[]): { x: number; y: number; w: number; h: number } | null {
@@ -119,7 +112,7 @@ export function SlideCanvas({
   const [marqueeRect, setMarqueeRect] = useState<MarqueeRect | null>(null)
   const [ghostRect, setGhostRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null)
 
-  const { baseW, baseH } = getBaseSize(settings)
+  const { baseW, baseH } = getSlideBaseSize(settings)
   const scale = canvasSize.width / baseW
 
   const onFitZoomChangeRef = useRef(onFitZoomChange)
@@ -442,7 +435,7 @@ export function SlideCanvas({
               top: `${multiBounds.y}%`,
               width: `${multiBounds.w}%`,
               height: `${multiBounds.h}%`,
-              border: '1.5px dashed #3B82F6',
+              border: '1.5px dashed hsl(var(--primary))',
               pointerEvents: 'none',
               zIndex: 9998,
             }}
@@ -462,8 +455,8 @@ export function SlideCanvas({
           if (toolMode === 'shape' && pendingShapeType) {
             const ghostEl: ShapeElement = {
               id: 'ghost', type: 'shape', shapeType: pendingShapeType,
-              fill: 'rgba(59,130,246,0.12)',
-              border: { color: '#3B82F6', width: 2, style: 'solid' },
+              fill: 'hsl(var(--primary) / 0.12)',
+              border: { color: 'hsl(var(--primary))', width: 2, style: 'solid' },
               x: 0, y: 0, width: 100, height: 100,
               rotate: 0, opacity: 1, zIndex: 0, flipH: false, flipV: false, locked: false, hidden: false,
             }
@@ -476,15 +469,15 @@ export function SlideCanvas({
           if (toolMode === 'table' && pendingTableConfig) {
             const { cols, rows } = pendingTableConfig
             return (
-              <div style={{ ...ghostStyle, border: '1.5px solid #3B82F6', backgroundColor: 'rgba(59,130,246,0.04)' }}>
+              <div style={{ ...ghostStyle, border: '1.5px solid hsl(var(--primary))', backgroundColor: 'hsl(var(--primary) / 0.04)' }}>
                 <svg width="100%" height="100%" style={{ display: 'block' }}>
                   {Array.from({ length: cols - 1 }, (_, i) => {
                     const x = ((i + 1) / cols) * 100
-                    return <line key={`c${i}`} x1={`${x}%`} y1="0" x2={`${x}%`} y2="100%" stroke="#3B82F6" strokeWidth="1" />
+                    return <line key={`c${i}`} x1={`${x}%`} y1="0" x2={`${x}%`} y2="100%" stroke="hsl(var(--primary))" strokeWidth="1" />
                   })}
                   {Array.from({ length: rows - 1 }, (_, i) => {
                     const y = ((i + 1) / rows) * 100
-                    return <line key={`r${i}`} x1="0" y1={`${y}%`} x2="100%" y2={`${y}%`} stroke="#3B82F6" strokeWidth="1" />
+                    return <line key={`r${i}`} x1="0" y1={`${y}%`} x2="100%" y2={`${y}%`} stroke="hsl(var(--primary))" strokeWidth="1" />
                   })}
                 </svg>
               </div>
@@ -494,8 +487,8 @@ export function SlideCanvas({
             <div
               style={{
                 ...ghostStyle,
-                border: '1.5px dashed #3B82F6',
-                backgroundColor: 'rgba(59, 130, 246, 0.06)',
+                border: '1.5px dashed hsl(var(--primary))',
+                backgroundColor: 'hsl(var(--primary) / 0.06)',
               }}
             />
           )

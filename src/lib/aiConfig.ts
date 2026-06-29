@@ -32,7 +32,7 @@ export const FILE_TYPE_AI_CONFIG: Record<FileType, FileTypeAiConfig> = {
       { label: 'Suggest formula',  promptText: 'Suggest a formula for the selected column based on the data structure' },
       { label: 'Find errors',      promptText: 'Scan this sheet for formula errors, broken references, and logical inconsistencies' },
       { label: 'Summarize data',   promptText: 'Describe what the data in this sheet shows in plain English' },
-      { label: 'Generate data',    promptText: 'Generate appropriate example data for this sheet structure' },
+      { label: 'Generate data',    promptText: 'Generate appropriate example data for this sheet structure. Respond with ONLY a markdown table — no other text.' },
     ],
     contextLabel: 'Sheet context',
     contextPlaceholder: 'What is this sheet tracking or calculating?',

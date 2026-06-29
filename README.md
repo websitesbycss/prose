@@ -1,28 +1,38 @@
 # Prose
 
-A focused, fully offline essay writing app for Windows with a built-in AI assistant.
+A free, fully offline office suite for Windows — Documents, Sheets, Boards, and Slides — with a local AI assistant built in throughout.
 
 Works on a plane. No account. No subscription. No data leaves your machine.
 
-> **Note on internet use:** Prose is mostly offline. The features that require a connection are: the one-time Ollama binary download on first launch, the initial AI model download, DOI lookup for citations, and website metadata auto-fill for citations. Everything else (writing, AI feedback, export, formatting) works fully offline.
+> **Note on internet use:** Prose is mostly offline. The features that require a connection are: the one-time Ollama binary download on first launch, AI model downloads, DOI lookup for citations, and website metadata auto-fill for citations. Everything else (writing, spreadsheets, whiteboards, presentations, AI feedback, export) works fully offline.
 
 ---
 
-## Features
+## Apps
 
-- Rich text editor with headings, lists, tables, inline formatting, images, and undo/redo
-- MLA and APA formatting with running headers, double-spacing, first-line indents, auto-generated citations, and Works Cited pages
-- Custom page margins per document, configurable at creation or any time in settings
-- Citations manager with in-text citation insertion and a source library
-- AI writing assistant powered by a local Ollama model
-- Focus mode to hide all chrome while writing (F11 to toggle)
-- Typewriter mode that keeps the cursor vertically centered as you type
-- Pomodoro timer with configurable work/break intervals
-- Built-in music player with lofi, piano, jazz, and layerable ambient sounds
-- Session stats with a daily word count goal, writing streak, and average WPM
-- Document history with snapshots and one-click restore
-- Export to DOCX, PDF, Markdown, or plain text — with a live paginated preview
-- Auto-updater via GitHub Releases
+Prose bundles four editors behind one tab bar, so a document, spreadsheet, whiteboard, and presentation can all be open at once and switched between instantly.
+
+### Documents
+A rich text editor (headings, lists, tables, inline formatting, images, equations) with one-click MLA and APA page formatting — running headers, double-spacing, first-line indents — plus MLA, APA, Chicago, and IEEE citation styles with auto-generated in-text citations and a Works Cited/References page. Custom page margins per document. A citations manager with a source library and DOI/URL auto-fill. Document history with snapshots and one-click restore. Export to DOCX, PDF, Markdown, or plain text with a live paginated preview.
+
+### Sheets
+A spreadsheet editor with formulas, multiple tabs, cell formatting, and chart insertion (bar/line/pie). Export to XLSX or CSV.
+
+### Boards
+An infinite-canvas whiteboard for diagrams, sketches, and freeform notes — shapes, freehand drawing, sticky notes, and image embedding. Export to PNG or PDF.
+
+### Slides
+A presentation editor with slide masters, themes, element animations, slide transitions, and a presenter mode with speaker notes. Import/export PPTX. AI-assisted slide generation from a topic or outline.
+
+## AI, built in
+
+Every app talks to the same local Ollama model running on your machine — nothing is sent anywhere:
+
+- **Documents** — a writing assistant for feedback, rewriting, and tone, plus inline grammar/style analysis that flags issues directly in the text.
+- **Slides** — generate a full draft deck (titles, body text, speaker notes, and layout) from a topic, and an AI graphic generator for custom SVG visuals.
+- **Sheets & Boards** — AI-assisted content generation scoped to each app.
+
+A focus mode, typewriter mode, Pomodoro timer, ambient music player, and session/streak stats round out the writing environment.
 
 ## Download
 
@@ -57,9 +67,12 @@ Output lands in `release/`.
 
 | Layer | Library |
 |---|---|
-| Shell | Electron 31 |
+| Shell | Electron |
 | UI | React 18 + TypeScript |
-| Editor | Tiptap v2 |
+| Document editor | Tiptap v3 |
+| Sheets editor | Fortune-Sheet |
+| Boards (whiteboard) | Excalidraw |
+| Slides export/import | pptxgenjs |
 | State | Zustand |
 | Database | better-sqlite3 |
 | Components | shadcn/ui + Radix UI |

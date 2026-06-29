@@ -367,12 +367,22 @@ function rowToDashboard(row: IndexRow): DashboardDocument {
 
 // ── Folder scan / index rebuild ───────────────────────────────────────────────
 
+// Background folder scans run during/after startup and shouldn't starve
+// foreground IPC requests (e.g. the dashboard's initial document list) of
+// main-thread time — fs reads already yield naturally, but better-sqlite3's
+// synchronous calls don't, so we force a real event-loop tick periodically.
+const YIELD_EVERY = 25
+async function yieldToEventLoop(): Promise<void> {
+  await new Promise((resolve) => setImmediate(resolve))
+}
+
 export async function rebuildIndexFromFolder(): Promise<void> {
   const folder = getDocumentsFolder()
   let entries: string[] = []
   try { entries = await readdir(folder) } catch { return }
 
-  for (const entry of entries) {
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i]!
     if (!entry.endsWith('.prose')) continue
     const filePath = join(folder, entry)
     try {
@@ -389,6 +399,7 @@ export async function rebuildIndexFromFolder(): Promise<void> {
         file_type: doc.fileType ?? 'document',
       })
     } catch { /* skip bad files */ }
+    if (i % YIELD_EVERY === YIELD_EVERY - 1) await yieldToEventLoop()
   }
 }
 

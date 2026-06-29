@@ -120,7 +120,8 @@ export class OllamaManager {
   async *streamChat(
     model: string,
     systemPrompt: string,
-    messages: Array<{ role: 'user' | 'assistant'; content: string }>
+    messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+    optionsOverride?: { temperature?: number; seed?: number },
   ): AsyncGenerator<string> {
     const res = await fetch(`${OLLAMA_HOST}/api/chat`, {
       method: 'POST',
@@ -137,6 +138,7 @@ export class OllamaManager {
           num_predict: -1,
           num_ctx: 8192,
           temperature: 0.4,  // lower than default 0.8 — reduces mid-expression drift on math
+          ...optionsOverride,
         },
       }),
     })

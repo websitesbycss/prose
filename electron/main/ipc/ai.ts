@@ -99,6 +99,53 @@ Field rules:
 Output ONLY the JSON object. Nothing before it. Nothing after it.`
 }
 
+// Analysis previously ran once over a single 6000-char truncated window, so
+// anything past that point in a longer document was never checked, and the
+// model's own sampling temperature made repeat scans surface different
+// issues. Splitting into paragraph-aligned chunks (each analyzed with
+// temperature 0 and a fixed seed) gives full document coverage and the same
+// result on every scan of the same content.
+const ANALYZE_CHUNK_CHARS = 4500
+const ANALYZE_MAX_CHUNKS = 12
+const ANALYZE_SEED = 7
+
+function chunkDocument(text: string, maxChars: number): string[] {
+  const paragraphs = text.split(/\n{2,}/)
+  const chunks: string[] = []
+  let current = ''
+  for (const para of paragraphs) {
+    const piece = para.length > maxChars
+      // A single oversized paragraph gets hard-split at sentence boundaries.
+      ? para.match(/[^.!?]+[.!?]+(\s+|$)|[^.!?]+$/g) ?? [para]
+      : [para]
+    for (const part of piece) {
+      if (current && (current.length + part.length + 2) > maxChars) {
+        chunks.push(current)
+        current = part
+      } else {
+        current = current ? `${current}\n\n${part}` : part
+      }
+    }
+  }
+  if (current.trim()) chunks.push(current)
+  return chunks.slice(0, ANALYZE_MAX_CHUNKS)
+}
+
+function mergeAnalysisResults(results: AnalysisResult[]): AnalysisResult {
+  const seenQuotes = new Set<string>()
+  const issues: Issue[] = []
+  for (const result of results) {
+    for (const issue of result.issues) {
+      const key = issue.quote.trim().toLowerCase()
+      if (seenQuotes.has(key)) continue  // de-dupe issues caught twice across adjacent chunks
+      seenQuotes.add(key)
+      issues.push({ ...issue, id: String(issues.length + 1) })
+    }
+  }
+  const tone = results.find((r) => r.tone)?.tone ?? 'Academic'
+  return { issues, tone }
+}
+
 function getModel(): string {
   return getSettingJson<string>('ollamaModel', 'llama3.2:3b') || 'llama3.2:3b'
 }
@@ -442,21 +489,27 @@ export function registerAiHandlers(manager: OllamaManager): void {
       return { issues: [], tone: 'Academic' }
     }
     if (!documentContent.trim()) return { issues: [], tone: 'Academic' }
-    const budget = calculateBudget(countWords(documentContent))
     const model = getModel()
-    let raw = ''
-    try {
-      for await (const chunk of manager.streamChat(
-        model,
-        buildAnalysisSystemPrompt(budget),
-        [{ role: 'user', content: buildAnalysisUserMessage(documentContent, assignmentContext) }],
-      )) {
-        raw += chunk
+    const chunks = chunkDocument(documentContent, ANALYZE_CHUNK_CHARS)
+    const results: AnalysisResult[] = []
+    for (const chunk of chunks) {
+      const budget = calculateBudget(countWords(chunk))
+      let raw = ''
+      try {
+        for await (const part of manager.streamChat(
+          model,
+          buildAnalysisSystemPrompt(budget),
+          [{ role: 'user', content: buildAnalysisUserMessage(chunk, assignmentContext) }],
+          { temperature: 0, seed: ANALYZE_SEED },
+        )) {
+          raw += part
+        }
+      } catch (err) {
+        console.error('ai:analyze error:', err)
+        continue  // skip this chunk on failure rather than discarding the whole scan
       }
-    } catch (err) {
-      console.error('ai:analyze error:', err)
-      return { issues: [], tone: 'Academic' }
+      results.push(validateAnalysisResult(extractJson(raw), budget))
     }
-    return validateAnalysisResult(extractJson(raw), budget)
+    return mergeAnalysisResults(results)
   })
 }

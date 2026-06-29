@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import type { TextElement } from '@/types/slides'
+import { sanitizeRichText } from '@/lib/sanitizeHtml'
 
 interface Props {
   element: TextElement
@@ -18,7 +19,7 @@ export function TextElementEditor({ element, scale, onCommit, onCancel }: Props)
   useEffect(() => {
     const el = divRef.current
     if (!el) return
-    el.innerHTML = element.content
+    el.innerHTML = sanitizeRichText(element.content)
     el.focus()
     const range = document.createRange()
     range.selectNodeContents(el)
@@ -30,7 +31,7 @@ export function TextElementEditor({ element, scale, onCommit, onCancel }: Props)
   const commit = useCallback((): void => {
     if (committedRef.current) return
     committedRef.current = true
-    const content = divRef.current?.innerHTML ?? element.content
+    const content = sanitizeRichText(divRef.current?.innerHTML ?? element.content)
     onCommit(content)
   }, [element.content, onCommit])
 

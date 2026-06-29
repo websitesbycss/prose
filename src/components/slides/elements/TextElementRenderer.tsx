@@ -1,5 +1,6 @@
 import { memo } from 'react'
 import type { TextElement } from '@/types/slides'
+import { sanitizeRichText } from '@/lib/sanitizeHtml'
 
 interface Props {
   element: TextElement
@@ -68,7 +69,7 @@ export const TextElementRenderer = memo(function TextElementRenderer({ element, 
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-word',
           }}
-          dangerouslySetInnerHTML={{ __html: content }}
+          dangerouslySetInnerHTML={{ __html: sanitizeRichText(content) }}
         />
       )}
     </div>
