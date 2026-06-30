@@ -243,6 +243,7 @@ export const useAppStore = create<AppState>()((set) => ({
     const apply = (): void => {
       document.documentElement.classList.toggle('dark', theme === 'dark')
       flushSync(() => set({ theme }))
+      void window.prose.win.setTitleBarOverlay?.(theme)
     }
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     if (!reduceMotion && typeof document.startViewTransition === 'function') {

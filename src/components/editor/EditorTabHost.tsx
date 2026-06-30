@@ -4,7 +4,7 @@ import { useAppStore } from '@/store/appStore'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { DocumentTabBar } from '@/components/editor/DocumentTabBar'
-import { WindowControls } from '@/components/WindowControls'
+import { TitleBarFrame } from '@/components/TitleBarFrame'
 import { cn } from '@/lib/utils'
 import type { FileType } from '@/types'
 
@@ -43,10 +43,9 @@ function FileTypePlaceholder({ fileType }: { fileType: FileType }): JSX.Element 
 function EditorChromeFallback(): JSX.Element {
   return (
     <div className="flex h-full flex-col bg-background">
-      <div className="title-bar flex h-10 shrink-0 items-center border-b border-border pl-3 text-foreground">
+      <TitleBarFrame>
         <DocumentTabBar />
-        <WindowControls />
-      </div>
+      </TitleBarFrame>
       <LoadingScreen fullScreen={false} />
     </div>
   )

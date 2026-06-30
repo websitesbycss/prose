@@ -122,6 +122,11 @@ contextBridge.exposeInMainWorld('prose', {
     setFullscreen: (fullscreen: boolean) => ipcRenderer.send('window:setFullscreen', fullscreen),
     isFullscreen: (): Promise<boolean> => ipcRenderer.invoke('window:isFullscreen'),
     setSnapLayout: (layout: string): Promise<void> => ipcRenderer.invoke('window:setSnapLayout', layout),
+    setTitleBarOverlay: (theme: 'dark' | 'light'): Promise<void> =>
+      ipcRenderer.invoke('window:setTitleBarOverlay', theme),
+    usesNativeControls: (): Promise<boolean> => ipcRenderer.invoke('window:usesNativeControls'),
+    getContentScreenOffset: (): Promise<{ x: number; y: number }> =>
+      ipcRenderer.invoke('window:getContentScreenOffset'),
     onLeaveFullscreen: (cb: () => void): (() => void) => {
       ipcRenderer.send('window:subscribeLeaveFullscreen')
       const listener = (): void => cb()
@@ -262,4 +267,6 @@ contextBridge.exposeInMainWorld('prose', {
     saveExportBytes: (base64: string, filename: string, format: string) => ipcRenderer.invoke('slides:saveBytes', base64, filename, format),
     importPptx: () => ipcRenderer.invoke('slides:importPptx'),
   },
+
+  platform: process.platform as NodeJS.Platform,
 })

@@ -287,6 +287,9 @@ export interface ProseAPI {
     setFullscreen(fullscreen: boolean): void
     isFullscreen(): Promise<boolean>
     setSnapLayout(layout: string): Promise<void>
+    setTitleBarOverlay(theme: 'dark' | 'light'): Promise<void>
+    usesNativeControls(): Promise<boolean>
+    getContentScreenOffset(): Promise<{ x: number; y: number }>
     onLeaveFullscreen(cb: () => void): () => void
   }
   tabdrag: {
@@ -362,6 +365,7 @@ export interface ProseAPI {
     saveExportBytes(base64: string, filename: string, format: string): Promise<void>
     importPptx(): Promise<{ title: string; content: string } | null>
   }
+  platform: NodeJS.Platform
 }
 
 declare global {

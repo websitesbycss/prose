@@ -4,14 +4,38 @@
 
 /* ── Custom title bar ────────────────────────────────────────────────────── */
 /* Mark the entire title bar as a drag region for the frameless window. */
-.title-bar { -webkit-app-region: drag; }
+.title-bar {
+  -webkit-app-region: drag;
+}
+
+.title-bar__content {
+  -webkit-app-region: drag;
+  min-width: 0;
+  flex: 1;
+}
+
+/* Cap content width so tabs stay left of native window controls (do not pad — padding crushed flex children to 0). */
+.title-bar--native .title-bar__content {
+  max-width: calc(100% - var(--titlebar-overlay-inset, 138px));
+}
 /* All interactive descendants opt out of window-drag so they stay clickable. */
 .title-bar button,
 .title-bar input,
 .title-bar a,
 .title-bar [role="button"],
 .title-bar .document-tab-strip,
-.title-bar .document-tab-item { -webkit-app-region: no-drag; }
+.title-bar .document-tab-item,
+.title-bar__actions {
+  -webkit-app-region: no-drag;
+}
+
+.title-bar-drag-fill {
+  -webkit-app-region: drag;
+  align-self: stretch;
+  min-width: 1.5rem;
+  flex: 1 1 auto;
+  cursor: default;
+}
 
 /* Window-control close button: red on hover. */
 .win-close:hover { background-color: #e81123 !important; color: #fff !important; }
@@ -98,14 +122,17 @@
   gap: 1px;
   min-width: 0;
   flex: 1;
-  /* No scroll — tabs compress like Chrome tabs. */
   overflow: hidden;
+}
+
+.document-tab-strip--dragging {
+  overflow: visible;
+  gap: 0;
 }
 
 .document-tab {
   display: flex;
   align-items: center;
-  /* Fill the flex item width; item handles max-width. */
   width: 100%;
   min-width: 0;
   height: 1.75rem;
@@ -118,6 +145,7 @@
   color: hsl(var(--muted-foreground));
   background: transparent;
   cursor: pointer;
+  overflow: hidden;
   transition: background-color 0.12s ease, color 0.12s ease;
 }
 
@@ -907,12 +935,27 @@
 .document-tab-item {
   display: flex;
   align-items: center;
-  /* Shrink proportionally when many tabs, like Chrome. */
   flex: 1 1 0;
   min-width: 3.5rem;
   max-width: 13rem;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
+}
+
+.document-tab-strip--dragging .document-tab-item {
+  overflow: visible;
+}
+
+.document-tab-item--dragging {
+  z-index: 50;
+}
+
+.document-tab-item--dragging .document-tab {
+  box-shadow: 0 2px 10px hsl(var(--foreground) / 0.12);
+}
+
+.document-tab-item--shifting {
+  z-index: 20;
 }
 
 .document-tab-drop-zone {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { DocumentTabBar } from '@/components/editor/DocumentTabBar'
-import { WindowControls } from '@/components/WindowControls'
+import { TitleBarFrame } from '@/components/TitleBarFrame'
 import { useAppStore } from '@/store/appStore'
 import type { Document } from '@/types'
 
@@ -32,7 +32,7 @@ export default function TitleBar({ document, onTitleChange }: TitleBarProps): JS
   }
 
   return (
-    <div className="title-bar flex h-10 shrink-0 items-center border-b border-border pl-3 text-foreground">
+    <TitleBarFrame>
       <DocumentTabBar
         activeDocumentId={document?.id}
         editingTitle={editingTitle}
@@ -42,7 +42,6 @@ export default function TitleBar({ document, onTitleChange }: TitleBarProps): JS
         onCommitTitleEdit={() => void commitTitleEdit()}
         onCancelTitleEdit={() => setEditingTitle(false)}
       />
-      <WindowControls />
-    </div>
+    </TitleBarFrame>
   )
 }

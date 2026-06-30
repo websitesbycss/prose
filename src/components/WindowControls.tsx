@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
+import { useAppStore } from '@/store/appStore'
 
-// ── Snap layout definitions ───────────────────────────────────────────────────
+// ── Snap layout definitions (macOS / Linux custom title bar) ─────────────────
 
 interface Zone { x: number; y: number; w: number; h: number; active: boolean }
 interface SnapLayout { id: string; label: string; zones: Zone[] }
@@ -10,15 +11,12 @@ const T = 1 / 3
 const Q = 1 / 4
 
 const SNAP_LAYOUTS: SnapLayout[] = [
-  // Row 1: halves + maximize
   { id: 'left-half',        label: 'Left half',       zones: [{ x: 0, y: 0, w: 0.5, h: 1, active: true  }, { x: 0.5, y: 0, w: 0.5,   h: 1, active: false }] },
   { id: 'right-half',       label: 'Right half',      zones: [{ x: 0, y: 0, w: 0.5, h: 1, active: false }, { x: 0.5, y: 0, w: 0.5,   h: 1, active: true  }] },
   { id: 'maximize',         label: 'Maximize',        zones: [{ x: 0, y: 0, w: 1,   h: 1, active: true  }] },
-  // Row 2: two-thirds and center-half
   { id: 'left-two-thirds',  label: 'Left ⅔',          zones: [{ x: 0,     y: 0, w: T * 2, h: 1, active: true  }, { x: T * 2, y: 0, w: T,     h: 1, active: false }] },
   { id: 'center-half',      label: 'Center ½',        zones: [{ x: 0, y: 0, w: Q, h: 1, active: false }, { x: Q, y: 0, w: 0.5, h: 1, active: true }, { x: Q + 0.5, y: 0, w: Q, h: 1, active: false }] },
   { id: 'right-two-thirds', label: 'Right ⅔',         zones: [{ x: 0,     y: 0, w: T,     h: 1, active: false }, { x: T,     y: 0, w: T * 2, h: 1, active: true  }] },
-  // Row 3: thirds
   { id: 'left-third',       label: 'Left ⅓',          zones: [{ x: 0,     y: 0, w: T, h: 1, active: true  }, { x: T,     y: 0, w: T, h: 1, active: false }, { x: T * 2, y: 0, w: T, h: 1, active: false }] },
   { id: 'center-third',     label: 'Center ⅓',        zones: [{ x: 0,     y: 0, w: T, h: 1, active: false }, { x: T,     y: 0, w: T, h: 1, active: true  }, { x: T * 2, y: 0, w: T, h: 1, active: false }] },
   { id: 'right-third',      label: 'Right ⅓',         zones: [{ x: 0,     y: 0, w: T, h: 1, active: false }, { x: T,     y: 0, w: T, h: 1, active: false }, { x: T * 2, y: 0, w: T, h: 1, active: true  }] },
@@ -47,16 +45,33 @@ function LayoutPreview({ zones }: { zones: Zone[] }): JSX.Element {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-/** Native-style window minimize / restore / close buttons for the custom title bar. */
-export function WindowControls(): JSX.Element {
+/**
+ * Window minimize / restore / close buttons for the custom title bar.
+ * On Windows 11, native controls (with OS snap layouts on maximize hover) are
+ * provided via Electron's titleBarOverlay — this component renders nothing there.
+ */
+export function WindowControls(): JSX.Element | null {
+  const theme = useAppStore((s) => s.theme)
   const [isMaximized, setIsMaximized] = useState(false)
   const [showSnap, setShowSnap] = useState(false)
+  const [nativeControls, setNativeControls] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    void window.prose.win.usesNativeControls?.().then(setNativeControls)
+  }, [])
 
   useEffect(() => {
     void window.prose.win.isMaximized().then(setIsMaximized)
     const unsub = window.prose.win.subscribeMaximize(setIsMaximized)
     return unsub
   }, [])
+
+  useEffect(() => {
+    if (nativeControls) void window.prose.win.setTitleBarOverlay?.(theme)
+  }, [nativeControls, theme])
+
+  if (nativeControls === null) return null
+  if (nativeControls) return null
 
   function handleSnapLayout(id: string): void {
     setShowSnap(false)
@@ -69,10 +84,8 @@ export function WindowControls(): JSX.Element {
 
   return (
     <div className="flex shrink-0 items-stretch self-stretch">
-      {/* Divider */}
       <div className="my-2 mx-1.5 w-px bg-border" />
 
-      {/* Minimize */}
       <button
         type="button"
         className={cn(btnBase)}
@@ -85,7 +98,6 @@ export function WindowControls(): JSX.Element {
         </svg>
       </button>
 
-      {/* Maximize / Restore — with snap layouts popup on hover */}
       <div
         className="relative flex items-stretch"
         onMouseEnter={() => setShowSnap(true)}
@@ -110,7 +122,6 @@ export function WindowControls(): JSX.Element {
           )}
         </button>
 
-        {/* Snap layouts popup */}
         {showSnap && (
           <div className="absolute right-0 top-full z-[9999] mt-0.5 rounded-lg border border-border bg-popover p-2 shadow-xl">
             <div className="grid grid-cols-3 gap-1">
@@ -129,7 +140,6 @@ export function WindowControls(): JSX.Element {
         )}
       </div>
 
-      {/* Close */}
       <button
         type="button"
         className={cn(btnBase, 'win-close')}

@@ -51,6 +51,7 @@ export default function App(): JSX.Element {
       const scale = appSettings.uiScale ?? 110
       document.documentElement.style.fontSize = `${scale}%`
       useAppStore.getState().setUiScale(scale)
+      void window.prose.win.setTitleBarOverlay?.(appSettings.theme ?? 'dark')
     })
   }, [])
 

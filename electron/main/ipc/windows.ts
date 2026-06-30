@@ -2,6 +2,7 @@ import { ipcMain, BrowserWindow, screen, shell } from 'electron'
 import { existsSync } from 'fs'
 import { join } from 'path'
 import { resolveDocument } from '../services/fileService'
+import { applyTitleBarOverlay, windowChromeOptions } from '../windowChrome'
 
 const APP_ICON = join(__dirname, '../../../resources/icons/prose.ico')
 
@@ -36,7 +37,7 @@ let detach: {
   docId: string
   sourceWinId: number
   sourceWcId: number
-  win: BrowserWindow
+  win: BrowserWindow | null
   preview: BrowserWindow | null
   interval: ReturnType<typeof setInterval>
   tabTitle: string
@@ -49,7 +50,7 @@ export function createProseWindow(docId?: string): BrowserWindow {
     height: 800,
     minWidth: 960,
     minHeight: 600,
-    frame: false,
+    ...windowChromeOptions(),
     show: false,
     autoHideMenuBar: true,
     ...(existsSync(APP_ICON) ? { icon: APP_ICON } : {}),
@@ -144,7 +145,7 @@ function stopDetach(): void {
     const prevWin = BrowserWindow.getAllWindows().find((w) => w.webContents.id === detach!.hoverWcId)
     prevWin?.webContents.send('tabdrag:dropHover', { active: false })
   }
-  if (!detach.win.isDestroyed()) detach.win.close()
+  if (detach.win && !detach.win.isDestroyed()) detach.win.close()
   if (detach.preview && !detach.preview.isDestroyed()) detach.preview.close()
   detach = null
 }
@@ -164,6 +165,21 @@ export function registerWindowHandlers(): void {
   })
   ipcMain.handle('window:isMaximized', (event) => {
     return BrowserWindow.fromWebContents(event.sender)?.isMaximized() ?? false
+  })
+
+  ipcMain.handle('window:setTitleBarOverlay', (event, theme: unknown) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return
+    applyTitleBarOverlay(win, theme === 'light' ? 'light' : 'dark')
+  })
+
+  ipcMain.handle('window:usesNativeControls', () => process.platform === 'win32')
+
+  ipcMain.handle('window:getContentScreenOffset', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return { x: 0, y: 0 }
+    const b = win.getBounds()
+    return { x: b.x, y: b.y }
   })
 
   ipcMain.on('window:subscribeMaximize', (event) => {
@@ -269,10 +285,27 @@ export function registerWindowHandlers(): void {
     leaveFullscreenSubs.delete(event.sender.id)
   })
 
-  ipcMain.on('tabdrag:registerTabBarBounds', (event, rect: TabBarRect) => {
-    if (!rect || typeof rect.x !== 'number') return
+  ipcMain.on('tabdrag:registerTabBarBounds', (event, rect: TabBarRect | { left: number; top: number; width: number; height: number }) => {
+    if (!rect || typeof rect.width !== 'number') return
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return
     const wcId = event.sender.id
-    tabBarBounds.set(wcId, rect)
+    const winBounds = win.getBounds()
+    const screenRect: TabBarRect =
+      'left' in rect
+        ? {
+            x: winBounds.x + Math.round(rect.left),
+            y: winBounds.y + Math.round(rect.top),
+            width: Math.round(rect.width),
+            height: Math.round(rect.height),
+          }
+        : {
+            x: Math.round(rect.x),
+            y: Math.round(rect.y),
+            width: Math.round(rect.width),
+            height: Math.round(rect.height),
+          }
+    tabBarBounds.set(wcId, screenRect)
     if (!tabBarBoundsCleanupRegistered.has(wcId)) {
       tabBarBoundsCleanupRegistered.add(wcId)
       event.sender.once('destroyed', () => {
@@ -295,28 +328,17 @@ export function registerWindowHandlers(): void {
       detachStarting = false
       if (!resolved || detach) return
       const tabTitle = resolved.doc.title || 'Untitled'
-
-      const cursor = screen.getCursorScreenPoint()
-      const win = createProseWindow(docId)
       const preview = createDragPreview(tabTitle)
 
       preview.once('ready-to-show', () => {
         if (!preview.isDestroyed()) preview.show()
       })
 
-      win.once('ready-to-show', () => {
-        if (win.isDestroyed()) return
-        const [w] = win.getSize()
-        win.setPosition(Math.max(0, cursor.x - Math.floor(w / 2)), Math.max(0, cursor.y - 20))
-        win.hide()
-      })
-
-      const SNAP_PAD = 50
       const sourceBounds = tabBarBounds.get(event.sender.id)
       let hoverWcId: number | null = null
 
       const interval = setInterval(() => {
-        if (!detach || win.isDestroyed()) { stopDetach(); return }
+        if (!detach) { clearInterval(interval); return }
 
         const pos = screen.getCursorScreenPoint()
 
@@ -344,9 +366,8 @@ export function registerWindowHandlers(): void {
         }
 
         if (!sourceWin.isDestroyed() && sourceBounds) {
-          const snapZone = expandedRect(sourceBounds, SNAP_PAD)
+          const snapZone = expandedRect(sourceBounds, 50)
           if (pointInRect(pos.x, pos.y, snapZone)) {
-            win.hide()
             sourceWin.webContents.send('tabdrag:return', { screenX: pos.x })
           }
         }
@@ -356,7 +377,7 @@ export function registerWindowHandlers(): void {
         docId,
         sourceWinId: sourceWin.id,
         sourceWcId: event.sender.id,
-        win,
+        win: null,
         preview,
         interval,
         tabTitle,
@@ -389,7 +410,7 @@ export function registerWindowHandlers(): void {
       }
       const targetWin = BrowserWindow.getAllWindows().find((w) => w.webContents.id === mergeTarget.wcId)
       targetWin?.webContents.send('tabdrag:merge', { docId: detach.docId, screenX: x })
-      if (!detach.win.isDestroyed()) detach.win.close()
+      if (detach.win && !detach.win.isDestroyed()) detach.win.close()
       if (detach.preview && !detach.preview.isDestroyed()) detach.preview.close()
       event.sender.send('tabdrag:detached', { docId: detach.docId })
       detach = null
@@ -402,10 +423,12 @@ export function registerWindowHandlers(): void {
       return
     }
 
-    if (!detach.win.isDestroyed()) {
-      detach.win.show()
-      detach.win.setPosition(Math.max(0, x - 200), Math.max(0, y - 20))
-    }
+    const win = createProseWindow(detach.docId)
+    win.once('ready-to-show', () => {
+      if (win.isDestroyed()) return
+      win.setPosition(Math.max(0, x - 200), Math.max(0, y - 20))
+      win.show()
+    })
     if (detach.preview && !detach.preview.isDestroyed()) detach.preview.close()
     event.sender.send('tabdrag:detached', { docId: detach.docId })
     detach = null

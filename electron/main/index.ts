@@ -23,6 +23,7 @@ import { registerSlidesImportHandlers } from './ipc/slidesImport'
 import { registerThumbnailHandlers } from './ipc/thumbnails'
 import { registerFileAssociation } from './services/fileAssociation'
 import { registerWindowHandlers, initPaths } from './ipc/windows'
+import { windowChromeOptions, applyTitleBarOverlay } from './windowChrome'
 import { autoUpdater } from 'electron-updater'
 
 const APP_ICON = join(__dirname, '../../resources/icons/prose.ico')
@@ -42,7 +43,7 @@ function createMainWindow(): BrowserWindow {
     height: bounds.height,
     minWidth: 960,
     minHeight: 600,
-    frame: false,
+    ...windowChromeOptions(),
     show: false,
     autoHideMenuBar: true,
     ...(existsSync(APP_ICON) ? { icon: APP_ICON } : {}),

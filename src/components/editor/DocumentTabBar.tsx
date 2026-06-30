@@ -147,20 +147,55 @@ export function DocumentTabBar({
   const [dropIndicatorLeft, setDropIndicatorLeft] = useState(0)
 
   const tabStripRef = useRef<HTMLDivElement>(null)
+  const barRootRef    = useRef<HTMLDivElement>(null)
   const dragRef     = useRef<DragInfo | null>(null)
+  const screenOffsetRef = useRef({ x: 0, y: 0 })
 
   const displayTabs = localTabs ?? openTabs
   const isDragging = draggingId !== null
+  const isSingleTab = openTabs.length <= 1
+
+  function screenXToClientX(screenX: number): number {
+    return screenX - screenOffsetRef.current.x
+  }
+
+  function armWindowMoveStop(): void {
+    const onUp = (): void => {
+      window.prose.win.stopMove()
+      window.removeEventListener('pointerup', onUp)
+    }
+    window.addEventListener('pointerup', onUp)
+  }
+
+  function startWindowMoveFromEvent(e: { screenX: number; screenY: number }): void {
+    window.prose.win.startMove({
+      offsetX: e.screenX - screenOffsetRef.current.x,
+      offsetY: e.screenY - screenOffsetRef.current.y,
+    })
+    armWindowMoveStop()
+  }
+
+  // Window screen origin for accurate merge hit-testing (frameless windows).
+  useEffect(() => {
+    const update = (): void => {
+      void window.prose.win.getContentScreenOffset?.().then((o) => {
+        screenOffsetRef.current = o
+      })
+    }
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [])
 
   // Report tab-bar screen bounds for cross-window merge during tear-off
   useEffect(() => {
-    const el = tabStripRef.current
+    const el = barRootRef.current
     if (!el || !window.prose.tabdrag?.registerTabBarBounds) return
     const report = (): void => {
       const r = el.getBoundingClientRect()
       window.prose.tabdrag.registerTabBarBounds({
-        x: Math.round(r.left + window.screenX),
-        y: Math.round(r.top + window.screenY),
+        left: Math.round(r.left),
+        top: Math.round(r.top),
         width: Math.round(r.width),
         height: Math.round(r.height),
       })
@@ -180,7 +215,7 @@ export function DocumentTabBar({
     return window.prose.tabdrag.onMerge(({ docId, screenX }) => {
       const insertIdx =
         typeof screenX === 'number'
-          ? computeInsertIdxFromClientX(screenX - window.screenX)
+          ? computeInsertIdxFromClientX(screenXToClientX(screenX))
           : openTabs.length
       void window.prose.documents.getById(docId).then((doc) => {
         if (!doc) return
@@ -188,7 +223,7 @@ export function DocumentTabBar({
           id: doc.id,
           title: doc.title,
           format: doc.format,
-          fileType: (doc as { fileType?: string }).fileType as import('@/types').FileType | undefined ?? 'document',
+          fileType: doc.fileType ?? 'document',
         }, insertIdx)
       })
     })
@@ -202,7 +237,7 @@ export function DocumentTabBar({
         return
       }
       if (typeof screenX === 'number') {
-        const idx = computeInsertIdxFromClientX(screenX - window.screenX)
+        const idx = computeInsertIdxFromClientX(screenXToClientX(screenX))
         setExternalDropIdx(idx)
         updateDropIndicator(idx)
       }
@@ -322,6 +357,24 @@ export function DocumentTabBar({
     if (!d.hasMoved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return
     d.hasMoved = true
 
+    // Single tab: always move the window (Chrome behavior — no tear-out/reorder).
+    if (isSingleTab) {
+      if (d.mode === 'detached') {
+        window.prose.tabdrag.cancel()
+        setIsDetached(false)
+      }
+      if (d.mode !== 'windowMove') {
+        d.mode = 'windowMove'
+        setDraggingId(null)
+        setLocalTabs(null)
+        setDragDeltaX(0)
+        setVisualInsertIdx(null)
+        try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId) } catch { /* ignore */ }
+        startWindowMoveFromEvent(e)
+      }
+      return
+    }
+
     const stripRect = tabStripRef.current?.getBoundingClientRect()
     const THRESHOLD = 30
     const inStrip =
@@ -329,19 +382,12 @@ export function DocumentTabBar({
       (e.clientY >= stripRect.top - THRESHOLD && e.clientY <= stripRect.bottom + THRESHOLD)
 
     if (!inStrip && d.mode === 'strip') {
-      if (openTabs.length <= 1) {
-        // Single tab: move the window instead of creating a new one.
-        d.mode = 'windowMove'
-        window.prose.win.startMove({
-          offsetX: e.screenX - window.screenX,
-          offsetY: e.screenY - window.screenY,
-        })
-      } else {
-        // Multi-tab: tear off to new window.
-        d.mode = 'detached'
-        setIsDetached(true)
+      d.mode = 'detached'
+      setIsDetached(true)
+      void (async () => {
+        if (tabId === activeDocumentId && saveActiveDocument) await saveActiveDocument()
         window.prose.tabdrag.detach(tabId)
-      }
+      })()
     } else if (inStrip && d.mode === 'detached') {
       d.mode = 'strip'
       setIsDetached(false)
@@ -409,16 +455,22 @@ export function DocumentTabBar({
       if (!d || d.mode !== 'detached') return
       d.mode = 'strip'
       setIsDetached(false)
-      const idx = computeInsertIdx(screenX - window.screenX, d)
+      const idx = computeInsertIdx(screenXToClientX(screenX), d)
       d.visualInsertIdx = idx
       setVisualInsertIdx(idx)
-      setDragDeltaX(screenX - window.screenX - d.startX)
+      setDragDeltaX(screenXToClientX(screenX) - d.startX)
     })
     const unsubDetached = window.prose.tabdrag.onDetached(({ docId }) => {
-      const tabs = useAppStore.getState().openTabs
-      const wasLastTab = tabs.length === 1 && tabs[0]?.id === docId
-      closeDocumentTab(docId)
-      if (wasLastTab) void window.prose.win.close()
+      void (async () => {
+        const tabs = useAppStore.getState().openTabs
+        const wasLastTab = tabs.length === 1 && tabs[0]?.id === docId
+        const saveFn = useAppStore.getState().saveActiveDocument
+        if (docId === useAppStore.getState().activeDocumentId && saveFn) {
+          await saveFn()
+        }
+        closeDocumentTab(docId)
+        if (wasLastTab) void window.prose.win.close()
+      })()
     })
     return () => { unsubReturn(); unsubDetached() }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -445,7 +497,10 @@ export function DocumentTabBar({
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
+    <div
+      ref={barRootRef}
+      className={cn('flex min-w-0 flex-1 items-center gap-1.5', isDragging ? 'overflow-visible' : 'overflow-hidden')}
+    >
       <Button
         variant="ghost"
         size="icon"
@@ -462,21 +517,13 @@ export function DocumentTabBar({
       {openTabs.length > 0 && (
         <div
           ref={tabStripRef}
-          className="document-tab-strip relative min-w-0 flex-1"
+          className={cn('document-tab-strip relative min-w-0 flex-1', isDragging && 'document-tab-strip--dragging')}
           onPointerDown={(e) => {
             if (e.button !== 0) return
             // Only handle clicks in the empty space (not on tabs, close buttons, or the + button)
             if ((e.target as HTMLElement).closest('.document-tab-item, .document-tab-strip__new')) return
             e.preventDefault()
-            window.prose.win.startMove({
-              offsetX: e.screenX - window.screenX,
-              offsetY: e.screenY - window.screenY,
-            })
-            const onUp = (): void => {
-              window.prose.win.stopMove()
-              window.removeEventListener('pointerup', onUp)
-            }
-            window.addEventListener('pointerup', onUp)
+            startWindowMoveFromEvent(e)
           }}
         >
           {externalDropIdx !== null && (
@@ -499,20 +546,18 @@ export function DocumentTabBar({
                 ? tabShiftOffset(tabIndex, originIdx, insertIdx, slot)
                 : 0
               const translateX = isDraggingThis ? dragDeltaX : shift
+              const isShifting = isDragging && !isDraggingThis && shift !== 0
 
               return (
-                // Two layers on purpose: Motion takes ownership of `transform` on
-                // any element where it animates scale/x/y (it writes the combined
-                // transform itself on every frame, silently clobbering a `style.
-                // transform` we set on the same node). The live drag shift below
-                // must win every frame, so it lives on a plain inner div that
-                // Motion never touches — the outer motion.div keeps doing the
-                // mount/exit pop and the post-drop layout-reorder FLIP animation.
                 <motion.div
                   key={tab.id}
                   layout={!isDragging}
-                  className="document-tab-item"
-                  style={{ zIndex: isDraggingThis ? 30 : undefined, position: 'relative' }}
+                  className={cn(
+                    'document-tab-item',
+                    isDraggingThis && 'document-tab-item--dragging',
+                    isShifting && 'document-tab-item--shifting',
+                  )}
+                  style={{ position: 'relative' }}
                   transition={{ duration: 0.13, ease: [0.25, 0.1, 0.25, 1] }}
                   initial={isDragging ? false : { opacity: 0, scale: 0.88, x: -6 }}
                   animate={{ opacity: isDraggingThis && isDetached ? 0 : 1, scale: 1, x: 0 }}
@@ -574,6 +619,16 @@ export function DocumentTabBar({
           </Popover>
         </div>
       )}
+
+      {/* Draggable title-bar fill: right of tabs → window controls (Chrome-style). */}
+      <div
+        className="title-bar-drag-fill"
+        onPointerDown={(e) => {
+          if (e.button !== 0) return
+          e.preventDefault()
+          startWindowMoveFromEvent(e)
+        }}
+      />
     </div>
   )
 }

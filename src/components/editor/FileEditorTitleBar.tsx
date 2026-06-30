@@ -1,5 +1,5 @@
 import { DocumentTabBar } from '@/components/editor/DocumentTabBar'
-import { WindowControls } from '@/components/WindowControls'
+import { TitleBarFrame } from '@/components/TitleBarFrame'
 
 /**
  * Shared title bar for non-document editors (Sheets, Boards).
@@ -8,9 +8,8 @@ import { WindowControls } from '@/components/WindowControls'
  */
 export function FileEditorTitleBar(): JSX.Element {
   return (
-    <div className="title-bar flex h-10 shrink-0 items-center border-b border-border pl-3 text-foreground">
+    <TitleBarFrame>
       <DocumentTabBar />
-      <WindowControls />
-    </div>
+    </TitleBarFrame>
   )
 }
