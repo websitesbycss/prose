@@ -42,6 +42,8 @@ let detach: {
   interval: ReturnType<typeof setInterval>
   tabTitle: string
   hoverWcId: number | null
+  grabOffsetX: number
+  grabOffsetY: number
 } | null = null
 
 export function createProseWindow(docId?: string): BrowserWindow {
@@ -315,7 +317,7 @@ export function registerWindowHandlers(): void {
     }
   })
 
-  ipcMain.on('tabdrag:detach', (event, docId: string) => {
+  ipcMain.on('tabdrag:detach', (event, docId: string, opts?: { grabOffsetX?: number; grabOffsetY?: number }) => {
     if (typeof docId !== 'string' || !docId || detach || detachStarting) return
     const sourceWin = BrowserWindow.fromWebContents(event.sender)
     if (!sourceWin) return
@@ -382,6 +384,8 @@ export function registerWindowHandlers(): void {
         interval,
         tabTitle,
         hoverWcId: null,
+        grabOffsetX: opts?.grabOffsetX ?? 0,
+        grabOffsetY: opts?.grabOffsetY ?? 0,
       }
     }).catch(() => {
       detachStarting = false
@@ -390,6 +394,15 @@ export function registerWindowHandlers(): void {
 
   ipcMain.on('tabdrag:cancel', () => {
     stopDetach()
+  })
+
+  ipcMain.on('tabdrag:checkMerge', (event, { screenX, screenY, docId }: { screenX: number; screenY: number; docId: string }) => {
+    const mergeTarget = findTabBarAtPoint(screenX, screenY, event.sender.id)
+    if (!mergeTarget) return
+    const targetWin = BrowserWindow.getAllWindows().find((w) => w.webContents.id === mergeTarget.wcId)
+    if (!targetWin || targetWin.isDestroyed()) return
+    targetWin.webContents.send('tabdrag:merge', { docId, screenX })
+    event.sender.send('tabdrag:detached', { docId })
   })
 
   ipcMain.on('tabdrag:finalize', (event, pos?: { screenX?: number; screenY?: number }) => {
@@ -424,9 +437,15 @@ export function registerWindowHandlers(): void {
     }
 
     const win = createProseWindow(detach.docId)
+    const grabX = detach.grabOffsetX
+    const grabY = detach.grabOffsetY
     win.once('ready-to-show', () => {
       if (win.isDestroyed()) return
-      win.setPosition(Math.max(0, x - 200), Math.max(0, y - 20))
+      // Position the new window so the tab appears under the cursor at the same grab offset.
+      // TAB_LEFT = home button (28px) + flex gap (6px) + small padding (~6px)
+      const TAB_LEFT = 40
+      const TAB_TOP = 8
+      win.setPosition(Math.max(0, x - TAB_LEFT - grabX), Math.max(0, y - TAB_TOP - grabY))
       win.show()
     })
     if (detach.preview && !detach.preview.isDestroyed()) detach.preview.close()

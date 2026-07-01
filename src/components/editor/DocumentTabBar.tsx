@@ -47,16 +47,10 @@ interface DragInfo {
   stripLeft: number
   originIdx: number
   visualInsertIdx: number
+  grabOffsetX: number
+  grabOffsetY: number
 }
 
-function tabShiftOffset(tabIndex: number, fromIdx: number, insertIdx: number, slot: number): number {
-  if (fromIdx < insertIdx) {
-    if (tabIndex > fromIdx && tabIndex < insertIdx) return -slot
-  } else if (fromIdx > insertIdx) {
-    if (tabIndex >= insertIdx && tabIndex < fromIdx) return slot
-  }
-  return 0
-}
 
 // ── Tab content (label + format badge, or rename input) ──────────────────────
 
@@ -263,6 +257,20 @@ export function DocumentTabBar({
     return items.length
   }
 
+  function updateInternalDropIndicator(insertIdx: number, draggingTabId: string): void {
+    const strip = tabStripRef.current
+    if (!strip) return
+    const items = Array.from(strip.querySelectorAll<HTMLElement>('.document-tab-item'))
+      .filter((el) => !el.classList.contains('document-tab-item--dragging'))
+    const stripLeft = strip.getBoundingClientRect().left
+    if (items.length === 0) { setDropIndicatorLeft(0); return }
+    if (insertIdx >= items.length) {
+      setDropIndicatorLeft(items[items.length - 1]!.getBoundingClientRect().right - stripLeft)
+    } else {
+      setDropIndicatorLeft(items[insertIdx]!.getBoundingClientRect().left - stripLeft)
+    }
+  }
+
   function updateDropIndicator(insertIdx: number): void {
     const strip = tabStripRef.current
     const items = Array.from(strip?.querySelectorAll<HTMLElement>('.document-tab-item') ?? [])
@@ -327,6 +335,9 @@ export function DocumentTabBar({
         : 4
     const stripLeft = items[0]?.getBoundingClientRect().left ?? 0
     const originIdx = openTabs.findIndex((t) => t.id === tab.id)
+    const tabRect = items[originIdx]?.getBoundingClientRect()
+    const grabOffsetX = tabRect ? e.clientX - tabRect.left : 0
+    const grabOffsetY = tabRect ? e.clientY - tabRect.top : 0
 
     dragRef.current = {
       tabId: tab.id,
@@ -340,6 +351,8 @@ export function DocumentTabBar({
       stripLeft,
       originIdx,
       visualInsertIdx: originIdx,
+      grabOffsetX,
+      grabOffsetY,
     }
     setLocalTabs([...openTabs])
     setDraggingId(tab.id)
@@ -357,12 +370,15 @@ export function DocumentTabBar({
     if (!d.hasMoved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return
     d.hasMoved = true
 
-    // Single tab: always move the window (Chrome behavior — no tear-out/reorder).
-    if (isSingleTab) {
-      if (d.mode === 'detached') {
-        window.prose.tabdrag.cancel()
-        setIsDetached(false)
-      }
+    const stripRect = tabStripRef.current?.getBoundingClientRect()
+    const THRESHOLD = 30
+    const inStrip =
+      !stripRect ||
+      (e.clientY >= stripRect.top - THRESHOLD && e.clientY <= stripRect.bottom + THRESHOLD)
+
+    // Single tab within strip: move the window. Outside strip: allow detach for cross-window merging.
+    if (isSingleTab && inStrip) {
+      if (d.mode === 'detached') { window.prose.tabdrag.cancel(); setIsDetached(false); d.mode = 'strip' }
       if (d.mode !== 'windowMove') {
         d.mode = 'windowMove'
         setDraggingId(null)
@@ -374,26 +390,19 @@ export function DocumentTabBar({
       }
       return
     }
-
-    const stripRect = tabStripRef.current?.getBoundingClientRect()
-    const THRESHOLD = 30
-    const inStrip =
-      !stripRect ||
-      (e.clientY >= stripRect.top - THRESHOLD && e.clientY <= stripRect.bottom + THRESHOLD)
+    if (isSingleTab && d.mode === 'windowMove') return  // once window-moving, stay that way
 
     if (!inStrip && d.mode === 'strip') {
       d.mode = 'detached'
       setIsDetached(true)
       void (async () => {
         if (tabId === activeDocumentId && saveActiveDocument) await saveActiveDocument()
-        window.prose.tabdrag.detach(tabId)
+        window.prose.tabdrag.detach(tabId, { grabOffsetX: d.grabOffsetX, grabOffsetY: d.grabOffsetY })
       })()
     } else if (inStrip && d.mode === 'detached') {
       d.mode = 'strip'
       setIsDetached(false)
       window.prose.tabdrag.cancel()
-    } else if (inStrip && d.mode === 'windowMove') {
-      // Window-move is a one-way transition; don't cancel mid-drag.
     }
 
     if (d.mode === 'strip') {
@@ -403,6 +412,7 @@ export function DocumentTabBar({
         d.visualInsertIdx = idx
         setVisualInsertIdx(idx)
       }
+      updateInternalDropIndicator(idx, d.tabId)
     }
   }
 
@@ -427,6 +437,13 @@ export function DocumentTabBar({
     }
     if (d.mode === 'windowMove') {
       window.prose.win.stopMove()
+      if (isSingleTab) {
+        const tabId2 = d.tabId
+        void (async () => {
+          if (tabId2 === activeDocumentId && saveActiveDocument) await saveActiveDocument()
+          window.prose.tabdrag.checkMerge?.({ screenX: e.screenX, screenY: e.screenY, docId: tabId2 })
+        })()
+      }
       endDrag()
       return
     }
@@ -526,7 +543,7 @@ export function DocumentTabBar({
             startWindowMoveFromEvent(e)
           }}
         >
-          {externalDropIdx !== null && (
+          {(externalDropIdx !== null || (isDragging && visualInsertIdx !== null && !isDetached)) && (
             <div
               className="pointer-events-none absolute bottom-1 top-1 z-40 w-0.5 rounded-full bg-primary"
               style={{ left: dropIndicatorLeft }}
@@ -536,22 +553,13 @@ export function DocumentTabBar({
             {displayTabs.map((tab, tabIndex) => {
               const isActive = !showDashboard && tab.id === activeDocumentId
               const isDraggingThis = tab.id === draggingId
-              const d = dragRef.current
-              // Other tabs shift by the DRAGGED tab's width (the space it
-              // vacates/occupies as it moves past them) — not by their own.
-              const slot = d ? (d.tabWidths.get(d.tabId) ?? 100) + d.tabGap : 0
-              const originIdx = d?.originIdx ?? tabIndex
-              const insertIdx = visualInsertIdx ?? originIdx
-              const shift = isDragging && !isDraggingThis
-                ? tabShiftOffset(tabIndex, originIdx, insertIdx, slot)
-                : 0
-              const translateX = isDraggingThis ? dragDeltaX : shift
-              const isShifting = isDragging && !isDraggingThis && shift !== 0
+              const translateX = isDraggingThis ? dragDeltaX : 0
+              const isShifting = false
 
               return (
                 <motion.div
                   key={tab.id}
-                  layout={!isDragging}
+                  layout={isDragging ? false : 'position'}
                   className={cn(
                     'document-tab-item',
                     isDraggingThis && 'document-tab-item--dragging',
@@ -560,7 +568,7 @@ export function DocumentTabBar({
                   style={{ position: 'relative' }}
                   transition={{ duration: 0.13, ease: [0.25, 0.1, 0.25, 1] }}
                   initial={isDragging ? false : { opacity: 0, scale: 0.88, x: -6 }}
-                  animate={{ opacity: isDraggingThis && isDetached ? 0 : 1, scale: 1, x: 0 }}
+                  animate={{ opacity: isDraggingThis && isDetached ? 0 : isDraggingThis ? 0.55 : 1, scale: 1, x: 0 }}
                   exit={{ opacity: 0, scale: 0.88, x: -6 }}
                   onPointerDown={(e) => handlePointerDown(tab, e)}
                   onPointerMove={(e) => handlePointerMove(tab.id, e)}

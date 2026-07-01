@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import {
   Sun, Moon, Sparkles, Music, MoreHorizontal,
   Search, Download, Maximize2, Settings,
-  RotateCcw, Trash2, HelpCircle, Grid3X3, LayoutTemplate,
+  RotateCcw, Trash2, HelpCircle, Grid3X3,
 } from 'lucide-react'
 import { BoardExportModal } from '@/components/boards/BoardExportModal'
 import { Button } from '@/components/ui/button'
@@ -70,7 +70,6 @@ interface ThreeDotsProps {
   onSlidesFind?: () => void
   onSlidesExport?: () => void
   onSlidesPresent?: () => void
-  onSlidesMaster?: () => void
   onSlidesToggleGrid?: () => void
   slidesGridActive?: boolean
 }
@@ -88,7 +87,6 @@ function ThreeDotsMenu({
   onSlidesFind,
   onSlidesExport,
   onSlidesPresent,
-  onSlidesMaster,
   onSlidesToggleGrid,
   slidesGridActive,
 }: ThreeDotsProps): JSX.Element {
@@ -225,11 +223,8 @@ function ThreeDotsMenu({
                 {onSlidesPresent && (
                   <MenuItem icon={Maximize2} label="Enter presentation mode" shortcut="F5" onClick={() => { setOpen(false); onSlidesPresent() }} />
                 )}
-                {onSlidesMaster && (
-                  <MenuItem icon={LayoutTemplate} label="Edit slide master" onClick={() => { setOpen(false); onSlidesMaster() }} />
-                )}
                 {onSlidesToggleGrid && (
-                  <MenuItem icon={Grid3X3} label={slidesGridActive ? 'Hide grid' : 'Show grid'} onClick={() => { setOpen(false); onSlidesToggleGrid() }} />
+                  <MenuItem icon={Grid3X3} label={slidesGridActive ? 'Hide grid' : 'Show grid'} shortcut="Ctrl+'" onClick={() => { setOpen(false); onSlidesToggleGrid() }} />
                 )}
                 <MenuItem icon={Settings} label="Settings" onClick={() => { setOpen(false); onSettingsOpen?.() }} />
               </>
@@ -309,7 +304,6 @@ export interface ToolbarRightSectionProps {
   onSlidesFind?: () => void
   onSlidesExport?: () => void
   onSlidesPresent?: () => void
-  onSlidesMaster?: () => void
   onSlidesToggleGrid?: () => void
   slidesGridActive?: boolean
 }
@@ -327,7 +321,6 @@ export function ToolbarRightSection({
   onSlidesFind,
   onSlidesExport,
   onSlidesPresent,
-  onSlidesMaster,
   onSlidesToggleGrid,
   slidesGridActive,
 }: ToolbarRightSectionProps): JSX.Element {
@@ -413,7 +406,6 @@ export function ToolbarRightSection({
         onSlidesFind={onSlidesFind}
         onSlidesExport={onSlidesExport}
         onSlidesPresent={onSlidesPresent}
-        onSlidesMaster={onSlidesMaster}
         onSlidesToggleGrid={onSlidesToggleGrid}
         slidesGridActive={slidesGridActive}
       />

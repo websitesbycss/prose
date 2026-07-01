@@ -43,7 +43,6 @@ interface Props {
   onPresent?(): void
   onToggleAnimations?(): void
   animationsPanelOpen?: boolean
-  onEditMaster?(): void
   onExport?(): void
   onFind?(): void
   onToggleGrid?(): void
@@ -71,7 +70,7 @@ export function SlidesToolbar({
   toolMode, onToolMode, slide, selectedIds, documentId, documentTitle,
   canUndo, canRedo, onUndo, onRedo,
   onBackground, onUpdateElement, onBatchUpdateElements, onAlignElements,
-  onInsertShape, onInsertTable, onInsertImage, onInsertChart, onPresent, onEditMaster, onExport, onFind,
+  onInsertShape, onInsertTable, onInsertImage, onInsertChart, onPresent, onExport, onFind,
   onToggleAnimations, animationsPanelOpen = false,
   onToggleGrid, gridActive, onSettingsOpen,
   pendingShapeType, pendingTableConfig,
@@ -275,7 +274,6 @@ export function SlidesToolbar({
         onSlidesFind={onFind}
         onSlidesExport={onExport}
         onSlidesPresent={onPresent}
-        onSlidesMaster={onEditMaster}
         onSlidesToggleGrid={onToggleGrid}
         slidesGridActive={gridActive}
         onSettingsOpen={onSettingsOpen}

@@ -1,11 +1,4 @@
 # Todos
-- Make add file card in Boards actually work and not just say empty web-embed
-- Fix tab bar jittering when you click on another tab to switch
-- Make tab reordering be a simple drag and drop where the possible spot is highlighted with a vertical line. this is the same behavior as visual studio code ![alt text](image.png) where the 'ghost' is just a lower opacity version of the tab in the tab bar, not window contents. this already works for dragging out a new tab but not for simple reordering. We need to move away from fluid reordering and adopt a more visual studio code approach. 
-- Allow single tabs to be dropped in on other Prose window tab bars. This is the standard behavior of chrome, but currently it is not possible.
-- If you drag out a tab to form a new Prose window, where you start dragging on the tab from should then be the same position where the new prose window is created. in other words, if you start dragging on the top left of the tab and then drag it out then release somewhere else to create a new Prose window, where you release your mouse should be the same position at the top left of the tab in the tab bar.
-- Remove Slide Master/Master slide completely from slides because it's too buggy. Compelte removal from the code no more references to it at all. No breaking of slides functionality.
-- Make Show/hide grid be toggleable with a keyboard shortcut (decide what, it cant be Ctrl+G because that is supposed to group elements together) in slides and put that in the slides three dots menu like F5 for enter presentation mode to show the user it's possible
-- Fix an issue where if grid is shown in Slides, it then shows over the settings modal if you choose to open that. and i assume other modals if those are open too. it should only show on the slide canvas and behind elements.
-- Move pomodoro settings to Writing tab of settings modal.
-- Move the spellcheck tooltip in documents down a bit because it's too high above the word you're hovering over for spellcheck.
+
+<!-- Add new items below -->
+

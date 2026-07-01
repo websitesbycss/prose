@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useCallback, useMemo } from 'react'
-import type { Slide, PresentationTheme, PresentationSettings, SlideMaster, SlideElement, ShapeElement, ShapeType } from '@/types/slides'
+import type { Slide, PresentationTheme, PresentationSettings, SlideElement, ShapeElement, ShapeType } from '@/types/slides'
 import { getSlideBaseSize } from '@/types/slides'
 import { SlideBackgroundLayer } from './SlideBackground'
 import { SlideElementWrapper } from './SlideElementWrapper'
@@ -35,7 +35,6 @@ interface Props {
   onCommitElement?(id: string, partial: Partial<SlideElement>): void
   onElementContextMenu?(e: React.MouseEvent, id: string): void
   onCanvasContextMenu?(e: React.MouseEvent): void
-  master?: SlideMaster
   showGrid?: boolean
   zoom?: number  // 0 = fit, 25–400 = explicit %
   onFitZoomChange?(pct: number): void
@@ -78,7 +77,6 @@ export function SlideCanvas({
   onDrawElement,
   onElementContextMenu,
   onCanvasContextMenu,
-  master,
   showGrid = false,
   zoom = 0,
   onFitZoomChange,
@@ -380,26 +378,9 @@ export function SlideCanvas({
           userSelect: 'none',
         }}
       >
-        {/* Slide background + master elements — clipped to canvas bounds */}
+        {/* Slide background — clipped to canvas bounds */}
         <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', zIndex: 0, pointerEvents: 'none' }}>
-          <SlideBackgroundLayer background={slide.background ?? master?.background} theme={theme} />
-
-          {master?.elements.map((mel) => (
-            <div
-              key={mel.id}
-              style={{
-                position: 'absolute',
-                left: `${mel.x}%`, top: `${mel.y}%`,
-                width: `${mel.width}%`, height: `${mel.height}%`,
-                transform: `rotate(${mel.rotate ?? 0}deg) scaleX(${mel.flipH ? -1 : 1}) scaleY(${mel.flipV ? -1 : 1})`,
-                transformOrigin: 'center center',
-                zIndex: 0, pointerEvents: 'none', overflow: 'hidden',
-                opacity: mel.opacity ?? 1,
-              }}
-            >
-              {renderSlideElement(mel, scale, true)}
-            </div>
-          ))}
+          <SlideBackgroundLayer background={slide.background} theme={theme} />
         </div>
 
         {/* Slide elements — overflow: visible so they render in surrounding whitespace */}
@@ -499,9 +480,9 @@ export function SlideCanvas({
         {/* Snap guides overlay — pointer-events:none, above elements */}
         <SnapOverlay ref={overlayRef} />
 
-        {/* Grid overlay — clipped to canvas bounds */}
+        {/* Grid overlay — clipped to canvas bounds, no explicit z-index so it stays below any portal modals */}
         {showGrid && (
-          <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', zIndex: 10000, pointerEvents: 'none' }}>
+          <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
             <SlideGridOverlay canvasWidth={canvasSize.width} canvasHeight={canvasSize.height} />
           </div>
         )}

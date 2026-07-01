@@ -139,9 +139,10 @@ contextBridge.exposeInMainWorld('prose', {
   },
 
   tabdrag: {
-    detach: (docId: string) => ipcRenderer.send('tabdrag:detach', docId),
+    detach: (docId: string, opts?: { grabOffsetX?: number; grabOffsetY?: number }) => ipcRenderer.send('tabdrag:detach', docId, opts),
     cancel: () => ipcRenderer.send('tabdrag:cancel'),
     finalize: (pos?: { screenX: number; screenY: number }) => ipcRenderer.send('tabdrag:finalize', pos),
+    checkMerge: (opts: { screenX: number; screenY: number; docId: string }) => ipcRenderer.send('tabdrag:checkMerge', opts),
     registerTabBarBounds: (rect: { x: number; y: number; width: number; height: number }) =>
       ipcRenderer.send('tabdrag:registerTabBarBounds', rect),
     onDetached: (cb: (data: { docId: string }) => void): (() => void) => {

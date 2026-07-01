@@ -499,7 +499,7 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
         fillStyle: 'solid', strokeWidth: 1, strokeStyle: 'solid',
         roundness: { type: 3, value: 8 }, roughness: 0, opacity: 100,
         groupIds: [], frameId: null, boundElements: null,
-        updated: Date.now(), isDeleted: false, link: null, locked: false,
+        updated: Date.now(), isDeleted: false, link: 'https://prose-embed.internal/file-card', locked: false,
         seed: Math.floor(Math.random() * 2 ** 31),
         version: 1, versionNonce: Math.floor(Math.random() * 2 ** 31), index: null,
         customData: {
@@ -769,6 +769,7 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
               theme={theme === 'dark' ? 'dark' : 'light'}
               gridModeEnabled={true}
               renderEmbeddable={renderEmbeddable}
+              validateEmbeddable={(url) => url.startsWith('https://prose-embed.internal')}
               UIOptions={{
                 welcomeScreen: false,
                 canvasActions: {

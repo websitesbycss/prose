@@ -172,11 +172,9 @@ export function SpellTooltip({ editor, documentId }: SpellTooltipProps): JSX.Ele
     setState(null)
   }
 
-  // Gap scales with line height so the tooltip stays visually close at any font size.
-  // state.y is the top of the line box; subtract a small fraction so we don't land
-  // all the way at the top of the leading — keeps the tooltip tight to the glyphs.
-  const gap = Math.round(state.lineHeight * 0.15)
-  const top = state.y - TOOLTIP_HEIGHT - gap
+  // state.y is the top of the full line box (which includes leading above glyphs).
+  // Offset by ~20% of line height to position the tooltip closer to the glyph.
+  const top = Math.round(state.y - TOOLTIP_HEIGHT + state.lineHeight * 0.2)
 
   return createPortal(
     <motion.div

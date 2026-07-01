@@ -314,29 +314,6 @@ export interface Slide {
   animations: ElementAnimation[]
 }
 
-// ── Slide master ─────────────────────────────────────────────────────────────
-
-export interface SlideMasterElement {
-  id: string
-  type: 'logo' | 'footer'
-  x: number
-  y: number
-  width: number
-  height: number
-  // logo: src is a data URL or file path
-  src?: string
-  // footer: text content
-  content?: string
-  fontSize?: number
-  color?: string
-  align?: TextAlignH
-}
-
-export interface SlideMaster {
-  background?: SlideBackground
-  elements: SlideElement[]
-}
-
 // ── Presentation content (stored in .prose file `content` field) ─────────────
 
 export interface SlidesContent {
@@ -344,7 +321,6 @@ export interface SlidesContent {
   slides: Slide[]
   theme: PresentationTheme
   settings: PresentationSettings
-  master?: SlideMaster
 }
 
 // ── Type guard ───────────────────────────────────────────────────────────────
@@ -471,10 +447,7 @@ export function deserializeSlides(raw: unknown): SlidesContent {
   const theme = deserializeTheme(c.theme)
   const settings = deserializeSettings(c.settings)
 
-  const master: SlideMaster | undefined = c.master && typeof c.master === 'object'
-    ? migrateMaster(c.master as Record<string, unknown>)
-    : undefined
-  return { version: 1, slides: slides.length > 0 ? slides : createInitialSlidesContent().slides, theme, settings, master }
+  return { version: 1, slides: slides.length > 0 ? slides : createInitialSlidesContent().slides, theme, settings }
 }
 
 function deserializeSlide(raw: unknown): Slide {
@@ -490,44 +463,6 @@ function deserializeSlide(raw: unknown): Slide {
     transition: deserializeTransition(s.transition),
     animations: Array.isArray(s.animations) ? (s.animations as unknown[]).map(normalizeAnimation) : [],
   }
-}
-
-function migrateMaster(raw: Record<string, unknown>): SlideMaster {
-  const background = isValidBackground(raw.background) ? (raw.background as SlideBackground) : undefined
-  const elements: SlideElement[] = Array.isArray(raw.elements)
-    ? (raw.elements as unknown[]).map(migrateMasterEl).filter((e): e is SlideElement => e !== null)
-    : []
-  return { background, elements }
-}
-
-function migrateMasterEl(raw: unknown): SlideElement | null {
-  if (!raw || typeof raw !== 'object') return null
-  const e = raw as Record<string, unknown>
-  // Already a proper SlideElement (has rotate/opacity from new format)
-  if (typeof e.rotate === 'number' && typeof e.opacity === 'number' && isValidElement(raw)) {
-    return raw as SlideElement
-  }
-  // Old SlideMasterElement format migration
-  const id = typeof e.id === 'string' && e.id ? e.id : crypto.randomUUID()
-  const x = typeof e.x === 'number' ? e.x : 0
-  const y = typeof e.y === 'number' ? e.y : 0
-  const width = typeof e.width === 'number' ? e.width : 10
-  const height = typeof e.height === 'number' ? e.height : 10
-  const base = { id, x, y, width, height, rotate: 0, opacity: 1, zIndex: 0, flipH: false, flipV: false, locked: false, hidden: false }
-  if (e.type === 'logo' && typeof e.src === 'string') {
-    return { ...base, type: 'image' as const, src: e.src, altText: 'Logo', borderRadius: 0, filters: { brightness: 100, contrast: 100, saturation: 100, blur: 0 } }
-  }
-  if (e.type === 'footer') {
-    return {
-      ...base, type: 'text' as const,
-      content: typeof e.content === 'string' ? e.content : '',
-      fontFamily: 'Inter', fontSize: typeof e.fontSize === 'number' ? e.fontSize : 16,
-      color: typeof e.color === 'string' ? e.color : '#1a1a1a',
-      align: (['left','center','right','justify'].includes(e.align as string) ? e.align : 'left') as TextAlignH,
-      verticalAlign: 'middle' as TextAlignV, lineHeight: 1.4, letterSpacing: 0, overflow: 'auto-fit' as TextOverflow,
-    }
-  }
-  return null
 }
 
 function isValidElement(raw: unknown): raw is SlideElement {

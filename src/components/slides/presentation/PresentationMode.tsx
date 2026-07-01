@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import type { Slide, PresentationTheme, PresentationSettings, SlideMaster } from '@/types/slides'
+import type { Slide, PresentationTheme, PresentationSettings } from '@/types/slides'
 import { getSlideBaseSize } from '@/types/slides'
 import { SlideBackgroundLayer } from '../canvas/SlideBackground'
 import { renderSlideElement } from '../elements/renderSlideElement'
@@ -14,12 +14,11 @@ interface Props {
   slides: Slide[]
   theme: PresentationTheme
   settings: PresentationSettings
-  master?: SlideMaster
   startIndex: number
   onExit(currentIndex: number): void
 }
 
-export function PresentationMode({ slides, theme, settings, master, startIndex, onExit }: Props): JSX.Element {
+export function PresentationMode({ slides, theme, settings, startIndex, onExit }: Props): JSX.Element {
   const [currentIndex, setCurrentIndex] = useState(startIndex)
   const [navDirection, setNavDirection] = useState<'forward' | 'backward'>('forward')
   const [showGrid, setShowGrid] = useState(false)
@@ -203,23 +202,6 @@ export function PresentationMode({ slides, theme, settings, master, startIndex, 
           navDirection={navDirection}
         >
           <SlideBackgroundLayer background={currentSlide.background} theme={theme} />
-          {/* Master elements rendered behind slide content */}
-          {master?.elements.map((mel) => (
-            <div
-              key={mel.id}
-              style={{
-                position: 'absolute',
-                left: `${mel.x}%`, top: `${mel.y}%`,
-                width: `${mel.width}%`, height: `${mel.height}%`,
-                transform: `rotate(${mel.rotate ?? 0}deg) scaleX(${mel.flipH ? -1 : 1}) scaleY(${mel.flipV ? -1 : 1})`,
-                transformOrigin: 'center center',
-                zIndex: 0, pointerEvents: 'none', overflow: 'hidden',
-                opacity: mel.opacity ?? 1,
-              }}
-            >
-              {renderSlideElement(mel, scale, true)}
-            </div>
-          ))}
           <div style={{ position: 'absolute', inset: 0 }}>
             <AnimatedSlideElements
               elements={sortedElements.filter((e) => !e.hidden)}

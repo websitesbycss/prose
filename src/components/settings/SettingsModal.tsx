@@ -19,15 +19,14 @@ import { applyAccentColors, LIGHT_PRESETS, DARK_PRESETS, DEFAULT_LIGHT_ACCENT, D
 import { ChromeColorPicker } from '@/components/ui/ChromeColorPicker'
 import type { AppSettings, StorageInfo, PageMargins } from '@/types'
 import { PAGE_MARGIN_MIN_IN, PAGE_MARGIN_MAX_IN } from '@/constants'
-import { Palette, PenLine, Sparkles, Timer, Info, ExternalLink, HardDrive, FileText, X, Plus, LayoutTemplate } from 'lucide-react'
+import { Palette, PenLine, Sparkles, Info, ExternalLink, HardDrive, FileText, X, Plus, LayoutTemplate } from 'lucide-react'
 
-type Section = 'page' | 'slides' | 'appearance' | 'writing' | 'ai' | 'pomodoro' | 'storage' | 'about'
+type Section = 'page' | 'slides' | 'appearance' | 'writing' | 'ai' | 'storage' | 'about'
 
 const BASE_SECTIONS: { id: Section; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'writing', label: 'Writing', icon: PenLine },
   { id: 'ai', label: 'AI', icon: Sparkles },
-  { id: 'pomodoro', label: 'Pomodoro', icon: Timer },
   { id: 'storage', label: 'Storage', icon: HardDrive },
   { id: 'about', label: 'About', icon: Info },
 ]
@@ -495,6 +494,39 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
                       </div>
                     </>
                   )}
+                  <Separator />
+                  <SectionTitle>Pomodoro</SectionTitle>
+                  <SettingRow label="Work duration">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min={1}
+                        max={120}
+                        className="h-8 w-20 text-xs"
+                        value={settings.pomodoroWorkMinutes}
+                        onChange={(e) => void save({ pomodoroWorkMinutes: Math.max(1, parseInt(e.target.value) || 25) })}
+                      />
+                      <span className="text-xs text-muted-foreground">min</span>
+                    </div>
+                  </SettingRow>
+                  <Separator />
+                  <SettingRow label="Break duration">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min={1}
+                        max={60}
+                        className="h-8 w-20 text-xs"
+                        value={settings.pomodoroBreakMinutes}
+                        onChange={(e) => void save({ pomodoroBreakMinutes: Math.max(1, parseInt(e.target.value) || 5) })}
+                      />
+                      <span className="text-xs text-muted-foreground">min</span>
+                    </div>
+                  </SettingRow>
+                  <Separator />
+                  <div className="py-3 text-xs text-muted-foreground">
+                    Changes take effect on the next timer reset.
+                  </div>
                 </>
               )}
 
@@ -527,43 +559,6 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
                     To download a different model, run{' '}
                     <code className="rounded bg-muted px-1 py-0.5 font-mono">ollama pull &lt;model&gt;</code>{' '}
                     in a terminal, then restart Prose.
-                  </div>
-                </>
-              )}
-
-              {section === 'pomodoro' && (
-                <>
-                  <SectionTitle>Pomodoro</SectionTitle>
-                  <SettingRow label="Work duration">
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        min={1}
-                        max={120}
-                        className="h-8 w-20 text-xs"
-                        value={settings.pomodoroWorkMinutes}
-                        onChange={(e) => void save({ pomodoroWorkMinutes: Math.max(1, parseInt(e.target.value) || 25) })}
-                      />
-                      <span className="text-xs text-muted-foreground">min</span>
-                    </div>
-                  </SettingRow>
-                  <Separator />
-                  <SettingRow label="Break duration">
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        min={1}
-                        max={60}
-                        className="h-8 w-20 text-xs"
-                        value={settings.pomodoroBreakMinutes}
-                        onChange={(e) => void save({ pomodoroBreakMinutes: Math.max(1, parseInt(e.target.value) || 5) })}
-                      />
-                      <span className="text-xs text-muted-foreground">min</span>
-                    </div>
-                  </SettingRow>
-                  <Separator />
-                  <div className="py-3 text-xs text-muted-foreground">
-                    Changes take effect on the next timer reset.
                   </div>
                 </>
               )}

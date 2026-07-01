@@ -11,7 +11,6 @@ import { SpeakerNotesPanel } from './panel/SpeakerNotesPanel'
 import { SlidesToolbar } from './toolbar/SlidesToolbar'
 import { ThemePanel } from './themes/ThemePanel'
 import { LayoutPicker } from './layouts/LayoutPicker'
-import { SlideMasterEditor } from './master/SlideMasterEditor'
 import { SlidesStatusBar } from './SlidesStatusBar'
 import { SlideFindBar } from './SlideFindBar'
 import { SlidesAIPanel } from './ai/SlidesAIPanel'
@@ -19,7 +18,7 @@ import { AnimationsPanel } from './animations/AnimationsPanel'
 import { SLIDE_LAYOUTS } from './layouts/slideLayouts'
 import type { LayoutId } from './layouts/slideLayouts'
 import type { SlideToolMode } from './toolbar/DefaultToolbar'
-import type { Slide, SlideElement, TextElement, SlidesContent, PresentationTheme, PresentationSettings, SlideMaster, ElementAnimation, TransitionType, TransitionDirection } from '@/types/slides'
+import type { Slide, SlideElement, TextElement, SlidesContent, PresentationTheme, PresentationSettings, ElementAnimation, TransitionType, TransitionDirection } from '@/types/slides'
 import { deserializeSlides, createInitialSlidesContent, SLIDE_BASE_WIDTH, SLIDE_BASE_HEIGHT, getSlideBaseSize } from '@/types/slides'
 import type { ElementMove, ElementResize, ElementRotate } from './canvas/types'
 import type { CanvasToolMode } from './canvas/SlideCanvas'
@@ -134,11 +133,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   const [showThemePanel, setShowThemePanel] = useState(false)
   const [themePanelAnchor, setThemePanelAnchor] = useState<DOMRect | null>(null)
   const [showLayoutPicker, setShowLayoutPicker] = useState(false)
-  const [showMasterEditor, setShowMasterEditor] = useState(false)
   const [showExportModal, setShowExportModal] = useState(false)
-  const [master, setMaster] = useState<SlideMaster>({ elements: [] })
-  const [masterSelectedIds, setMasterSelectedIds] = useState<string[]>([])
-  const [masterEditingElementId, setMasterEditingElementId] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [showFindBar, setShowFindBar] = useState(false)
   const [showGrid, setShowGrid] = useState(false)
@@ -178,8 +173,6 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   const elementClipboard = useRef<SlideElement[]>([])
   const slidesRef = useRef(slides)
   useEffect(() => { slidesRef.current = slides }, [slides])
-  const masterRef = useRef<SlideMaster>(master)
-  useEffect(() => { masterRef.current = master }, [master])
   const themeRef = useRef(theme)
   useEffect(() => { themeRef.current = theme }, [theme])
   const settingsRef = useRef(settings)
@@ -211,7 +204,6 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
       setSlides(content.slides)
       setTheme(content.theme)
       setSettings(content.settings)
-      setMaster(content.master ?? { elements: [] })
     } catch {
       const initial = createInitialSlidesContent()
       setSlides(initial.slides)
@@ -283,7 +275,6 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
         slides: slidesRef.current,
         theme: themeRef.current,
         settings: settingsRef.current,
-        master: masterRef.current,
       }
       await window.prose.documents.update(documentId, { content: JSON.stringify(content) })
       notifySaveStatus('saved')
@@ -322,7 +313,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
         if (!firstSlide) return
         if (firstSlide.elements.length === 0 && !firstSlide.background) return
 
-        const dataUrl = await rasterizeSlide(firstSlide, themeRef.current, masterRef.current)
+        const dataUrl = await rasterizeSlide(firstSlide, themeRef.current)
         const base64 = await downscaleToThumbnail(dataUrl)
         await window.prose.thumbnails.save(fileId, base64)
       })
@@ -330,20 +321,18 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   }, [documentId])
 
   const handleUndo = useCallback((): void => {
-    const prev = history.undo(slidesRef.current, masterRef.current)
+    const prev = history.undo(slidesRef.current)
     if (prev) {
       setSlides(prev.slides)
-      setMaster(prev.master)
       setSelectedIds([])
       scheduleSave()
     }
   }, [history, scheduleSave])
 
   const handleRedo = useCallback((): void => {
-    const next = history.redo(slidesRef.current, masterRef.current)
+    const next = history.redo(slidesRef.current)
     if (next) {
       setSlides(next.slides)
-      setMaster(next.master)
       setSelectedIds([])
       scheduleSave()
     }
@@ -352,7 +341,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   // ── Mutation helpers ──────────────────────────────────────────────────────────
 
   const pushHistory = useCallback((slides: Slide[]): void => {
-    history.push(slides, masterRef.current)
+    history.push(slides)
   }, [history])
 
   const changeActiveSlide = useCallback((updater: (s: Slide) => Slide): void => {
@@ -362,14 +351,6 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
     })
     scheduleSave()
   }, [activeSlideIndex, pushHistory, scheduleSave])
-
-  const changeMaster = useCallback((updater: (m: SlideMaster) => SlideMaster): void => {
-    setMaster((prev) => {
-      history.push(slidesRef.current, prev)
-      return updater(prev)
-    })
-    scheduleSave()
-  }, [history, scheduleSave])
 
   const pendingAddIndexRef = useRef<number>(0)
 
@@ -847,156 +828,9 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
     scheduleSave()
   }, [pushHistory, scheduleSave])
 
-  // ── Master canvas callbacks ───────────────────────────────────────────────────
-
-  const handleMasterSelectElement = useCallback((id: string, add: boolean): void => {
-    setMasterSelectedIds((prev) => {
-      if (add) return prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-      return prev.includes(id) && prev.length === 1 ? prev : [id]
-    })
-  }, [])
-
-  const handleMasterDoubleClickElement = useCallback((id: string): void => {
-    if (!id) { setMasterEditingElementId(null); return }
-    const el = masterRef.current.elements.find((e) => e.id === id)
-    if (el && (el.type === 'text' || el.type === 'equation' || el.type === 'code' || el.type === 'table')) {
-      setMasterEditingElementId(id)
-    }
-  }, [])
-
-  const handleMasterMoveElements = useCallback((moves: ElementMove[]): void => {
-    changeMaster((m) => ({
-      ...m,
-      elements: m.elements.map((el) => {
-        const mv = moves.find((x) => x.id === el.id)
-        return mv ? { ...el, x: mv.x, y: mv.y } : el
-      }),
-    }))
-  }, [changeMaster])
-
-  const handleMasterResizeElement = useCallback((resize: ElementResize): void => {
-    changeMaster((m) => ({
-      ...m,
-      elements: m.elements.map((el) =>
-        el.id === resize.id ? { ...el, x: resize.x, y: resize.y, width: resize.width, height: resize.height } : el
-      ),
-    }))
-  }, [changeMaster])
-
-  const handleMasterRotateElement = useCallback((rot: ElementRotate): void => {
-    changeMaster((m) => ({
-      ...m,
-      elements: m.elements.map((el) => (el.id === rot.id ? { ...el, rotate: rot.rotate } : el)),
-    }))
-  }, [changeMaster])
-
-  const handleMasterUpdateElement = useCallback((id: string, partial: Partial<SlideElement>): void => {
-    changeMaster((m) => ({
-      ...m,
-      elements: m.elements.map((el) => (el.id === id ? ({ ...el, ...partial } as SlideElement) : el)),
-    }))
-  }, [changeMaster])
-
-  const handleMasterBatchUpdateElements = useCallback((ids: string[], partial: Partial<SlideElement>): void => {
-    changeMaster((m) => ({
-      ...m,
-      elements: m.elements.map((el) => (ids.includes(el.id) ? ({ ...el, ...partial } as SlideElement) : el)),
-    }))
-  }, [changeMaster])
-
-  const handleMasterAlignElements = useCallback((updates: { id: string; x: number; y: number }[]): void => {
-    changeMaster((m) => ({
-      ...m,
-      elements: m.elements.map((el) => {
-        const u = updates.find((x) => x.id === el.id)
-        return u ? { ...el, x: u.x, y: u.y } : el
-      }),
-    }))
-  }, [changeMaster])
-
-  const handleMasterCommitText = useCallback((id: string, content: string): void => {
-    setMasterEditingElementId(null)
-    changeMaster((m) => ({
-      ...m,
-      elements: m.elements.map((el) => (el.id === id ? { ...el, content } : el)),
-    }))
-  }, [changeMaster])
-
-  const handleMasterCommitElement = useCallback((id: string, partial: Partial<SlideElement>): void => {
-    setMasterEditingElementId(null)
-    changeMaster((m) => ({
-      ...m,
-      elements: m.elements.map((el) => (el.id === id ? ({ ...el, ...partial } as SlideElement) : el)),
-    }))
-  }, [changeMaster])
-
-  const handleMasterDrawElement = useCallback((_type: CanvasToolMode, x: number, y: number, width: number, height: number): void => {
-    let el: SlideElement | null = null
-    if (_type === 'shape') {
-      const shapeType = pendingShapeType ?? 'rect'
-      el = {
-        id: crypto.randomUUID(), type: 'shape',
-        x, y, width, height,
-        rotate: 0, opacity: 1, zIndex: Date.now(), flipH: false, flipV: false, locked: false, hidden: false,
-        shapeType, fill: '#3b82f6', border: { color: '#2563eb', width: 2, style: 'solid' },
-      }
-      setPendingShapeType(null)
-    } else {
-      el = makeDefaultElement(_type, x, y, width, height)
-    }
-    if (!el) return
-    changeMaster((m) => ({ ...m, elements: [...m.elements, el!] }))
-    setMasterSelectedIds([el.id])
-    setToolMode('select')
-    if (_type === 'text') setMasterEditingElementId(el.id)
-  }, [changeMaster, pendingShapeType])
-
-  const handleMasterInsertImage = useCallback(async (): Promise<void> => {
-    try {
-      const filePath = await window.prose.dialog.openImage()
-      if (!filePath) return
-      const { w: natW, h: natH } = await new Promise<{ w: number; h: number }>((resolve) => {
-        const img = new window.Image()
-        const timer = setTimeout(() => resolve({ w: 16, h: 9 }), 2000)
-        img.onload = () => { clearTimeout(timer); resolve({ w: img.naturalWidth || 16, h: img.naturalHeight || 9 }) }
-        img.onerror = () => { clearTimeout(timer); resolve({ w: 16, h: 9 }) }
-        img.src = filePath
-      })
-      const aspect = natW / natH
-      const elemWidth = 50
-      const elemHeight = Math.min(70, elemWidth / aspect)
-      const finalWidth = elemHeight < 70 ? elemWidth : elemHeight * aspect
-      const el: SlideElement = {
-        id: crypto.randomUUID(), type: 'image',
-        x: Math.max(0, (100 - finalWidth) / 2),
-        y: Math.max(0, (100 - elemHeight) / 2),
-        width: finalWidth, height: elemHeight,
-        rotate: 0, opacity: 1, zIndex: Date.now(), flipH: false, flipV: false, locked: false, hidden: false,
-        src: filePath, altText: '', borderRadius: 0,
-        filters: { brightness: 100, contrast: 100, saturation: 100, blur: 0 },
-      }
-      changeMaster((m) => ({ ...m, elements: [...m.elements, el] }))
-      setMasterSelectedIds([el.id])
-    } catch {
-      return
-    }
-  }, [changeMaster])
-
-  const masterSlide = useMemo(() => ({
-    id: 'master' as const,
-    elements: master.elements,
-    background: master.background,
-    notes: '',
-    animations: [] as never[],
-  }), [master])
-
   const handleSlideBackground = useCallback((color: string): void => {
-    if (showMasterEditor) {
-      changeMaster((m) => ({ ...m, background: { type: 'solid' as const, color } }))
-    } else {
-      changeActiveSlide((s) => ({ ...s, background: { type: 'solid' as const, color } }))
-    }
-  }, [showMasterEditor, changeMaster, changeActiveSlide])
+    changeActiveSlide((s) => ({ ...s, background: { type: 'solid' as const, color } }))
+  }, [changeActiveSlide])
 
   // ── AI panel callbacks ────────────────────────────────────────────────────────
 
@@ -1106,8 +940,6 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
     activeSlideIndex,
     selectedIds,
     history,
-    masterRef,
-    setMaster,
     elementClipboard,
     setSlides,
     setSelectedIds,
@@ -1195,6 +1027,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
       if ((e.ctrlKey || e.metaKey) && e.key === 'f') { e.preventDefault(); setShowFindBar(true); return }
       if ((e.ctrlKey || e.metaKey) && e.key === '0') { e.preventDefault(); setZoom(0); return }
       if ((e.ctrlKey || e.metaKey) && e.key === '1') { e.preventDefault(); setZoom(100); return }
+      if ((e.ctrlKey || e.metaKey) && e.key === "'") { e.preventDefault(); setShowGrid((v) => !v); return }
       if (e.ctrlKey || e.metaKey || e.altKey) return
       switch (e.key) {
         case 'v': case 'V': setToolMode('select'); break
@@ -1224,7 +1057,6 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
         slides={slides}
         theme={theme}
         settings={settings}
-        master={master}
         startIndex={activeSlideIndex}
         onExit={(idx) => {
           setPresenting(false)
@@ -1262,8 +1094,8 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
       <SlidesToolbar
         toolMode={toolMode}
         onToolMode={setToolMode}
-        slide={showMasterEditor ? masterSlide as never : activeSlide}
-        selectedIds={showMasterEditor ? masterSelectedIds : selectedIds}
+        slide={activeSlide}
+        selectedIds={selectedIds}
         documentId={documentId}
         documentTitle={doc?.title ?? 'Presentation'}
         canUndo={canUndo}
@@ -1271,30 +1103,26 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
         onUndo={handleUndo}
         onRedo={handleRedo}
         onBackground={handleBackground}
-        onUpdateElement={showMasterEditor ? handleMasterUpdateElement : handleUpdateElement}
-        onBatchUpdateElements={showMasterEditor ? handleMasterBatchUpdateElements : handleBatchUpdateElements}
-        onAlignElements={showMasterEditor ? handleMasterAlignElements : handleAlignElements}
+        onUpdateElement={handleUpdateElement}
+        onBatchUpdateElements={handleBatchUpdateElements}
+        onAlignElements={handleAlignElements}
         onInsertShape={handleInsertShape}
         onInsertTable={handleInsertTable}
-        onInsertImage={showMasterEditor ? () => void handleMasterInsertImage() : () => void handleInsertImage()}
-        onInsertChart={showMasterEditor ? undefined : () => setChartPickerOpen(true)}
-        onPresent={showMasterEditor ? undefined : enterPresentation}
-        onToggleAnimations={showMasterEditor ? undefined : () => setSlidesAnimationsPanelOpen(!slidesAnimationsPanelOpen)}
+        onInsertImage={() => void handleInsertImage()}
+        onInsertChart={() => setChartPickerOpen(true)}
+        onPresent={enterPresentation}
+        onToggleAnimations={() => setSlidesAnimationsPanelOpen(!slidesAnimationsPanelOpen)}
         animationsPanelOpen={slidesAnimationsPanelOpen}
-        onEditMaster={showMasterEditor ? undefined : () => setShowMasterEditor(true)}
-        onExport={showMasterEditor ? undefined : () => setShowExportModal(true)}
-        onFind={showMasterEditor ? undefined : () => setShowFindBar(true)}
+        onExport={() => setShowExportModal(true)}
+        onFind={() => setShowFindBar(true)}
         onToggleGrid={() => setShowGrid((v) => !v)}
         gridActive={showGrid}
         onSettingsOpen={() => setSettingsOpen(true)}
         pendingShapeType={pendingShapeType}
         pendingTableConfig={pendingTableConfig}
-        editingElementId={showMasterEditor ? masterEditingElementId : editingElementId}
-        tableSelectedCells={showMasterEditor ? [] : tableSelectedCells}
-        slideBackgroundColor={showMasterEditor
-          ? (master.background?.type === 'solid' ? master.background.color : theme.backgroundColor)
-          : (activeSlide.background?.type === 'solid' ? activeSlide.background.color : theme.backgroundColor)
-        }
+        editingElementId={editingElementId}
+        tableSelectedCells={tableSelectedCells}
+        slideBackgroundColor={activeSlide.background?.type === 'solid' ? activeSlide.background.color : theme.backgroundColor}
         onSlideBackground={handleSlideBackground}
       />
 
@@ -1317,7 +1145,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
         {/* Center: canvas + speaker notes */}
         <div className="relative flex min-w-0 flex-1 flex-col">
           {/* Find bar */}
-          {!showMasterEditor && showFindBar && (
+          {showFindBar && (
             <div className="relative h-0">
               <SlideFindBar
                 slides={slides}
@@ -1345,7 +1173,6 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
             onDrawElement={handleDrawElement}
             onElementContextMenu={handleElementContextMenu}
             onCanvasContextMenu={handleCanvasContextMenu}
-            master={master}
             showGrid={showGrid}
             zoom={zoom}
             onFitZoomChange={setFitZoom}
@@ -1362,7 +1189,6 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
               slide={activeSlide}
               theme={theme}
               settings={settings}
-              master={master}
               canvasRect={canvasRect}
               onClose={() => setPreviewOpen(false)}
             />
@@ -1373,35 +1199,6 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
             onChange={handleNotesChange}
           />
 
-          {/* Slide master overlay */}
-          {showMasterEditor && (
-            <SlideMasterEditor
-              master={master}
-              theme={theme}
-              settings={settings}
-              toolMode={toolMode}
-              selectedIds={masterSelectedIds}
-              editingElementId={masterEditingElementId}
-              onSelectElement={handleMasterSelectElement}
-              onDeselectAll={() => setMasterSelectedIds([])}
-              onDoubleClickElement={handleMasterDoubleClickElement}
-              onCommitText={handleMasterCommitText}
-              onCommitElement={handleMasterCommitElement}
-              onMoveElements={handleMasterMoveElements}
-              onResizeElement={handleMasterResizeElement}
-              onRotateElement={handleMasterRotateElement}
-              onMarqueeSelect={setMasterSelectedIds}
-              onDrawElement={handleMasterDrawElement}
-              onClose={() => { setShowMasterEditor(false); setMasterSelectedIds([]); setMasterEditingElementId(null) }}
-              showGrid={showGrid}
-              zoom={zoom}
-              onFitZoomChange={setFitZoom}
-              pendingShapeType={pendingShapeType}
-              pendingTableConfig={pendingTableConfig}
-              onTableCellSelect={setTableSelectedCells}
-              snapSettings={snapSettings}
-            />
-          )}
         </div>
 
         {/* Right: shared AI / animations panel */}
@@ -1489,7 +1286,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
       {/* Export modal */}
       {showExportModal && (
         <SlidesExportModal
-          content={{ version: 1, slides, theme, settings, master }}
+          content={{ version: 1, slides, theme, settings }}
           title={doc?.title ?? 'Presentation'}
           activeSlideIndex={activeSlideIndex}
           onClose={() => setShowExportModal(false)}
@@ -1512,32 +1309,30 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
         />
       )}
 
-      {!showMasterEditor && (
-        <SlidesContextMenu
-          ctx={slideCtxMenu}
-          onDismiss={() => setSlideCtxMenu(null)}
-          elements={activeSlide.elements}
-          selectedIds={selectedIds}
-          canUndo={canUndo}
-          canRedo={canRedo}
-          onUndo={handleUndo}
-          onRedo={handleRedo}
-          onSelectAll={handleSelectAllElements}
-          onPaste={handlePasteClipboard}
-          onPasteWithoutFormatting={() => void handlePasteWithoutFormatting()}
-          onCut={handleCutSelected}
-          onCopy={handleCopySelected}
-          onDuplicate={handleDuplicateSelected}
-          onDelete={handleDeleteSelected}
-          onAlign={handleContextAlign}
-          onOrder={handleOrderSelected}
-          onRotateBy={handleRotateSelectedBy}
-          onFlip={handleFlipSelected}
-          onToggleLock={handleToggleLockSelected}
-          onGroup={handleGroupSelected}
-          onUngroup={handleUngroupSelected}
-        />
-      )}
+      <SlidesContextMenu
+        ctx={slideCtxMenu}
+        onDismiss={() => setSlideCtxMenu(null)}
+        elements={activeSlide.elements}
+        selectedIds={selectedIds}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        onSelectAll={handleSelectAllElements}
+        onPaste={handlePasteClipboard}
+        onPasteWithoutFormatting={() => void handlePasteWithoutFormatting()}
+        onCut={handleCutSelected}
+        onCopy={handleCopySelected}
+        onDuplicate={handleDuplicateSelected}
+        onDelete={handleDeleteSelected}
+        onAlign={handleContextAlign}
+        onOrder={handleOrderSelected}
+        onRotateBy={handleRotateSelectedBy}
+        onFlip={handleFlipSelected}
+        onToggleLock={handleToggleLockSelected}
+        onGroup={handleGroupSelected}
+        onUngroup={handleUngroupSelected}
+      />
     </div>
     </TooltipProvider>
   )
@@ -1547,14 +1342,12 @@ function SlidePreviewOverlay({
   slide,
   theme,
   settings,
-  master,
   canvasRect,
   onClose,
 }: {
   slide: Slide
   theme: PresentationTheme
   settings: PresentationSettings
-  master: SlideMaster
   canvasRect: { width: number; height: number; top: number; left: number }
   onClose: () => void
 }): JSX.Element {
@@ -1602,27 +1395,7 @@ function SlidePreviewOverlay({
 
   const slideContent = (
     <>
-      <SlideBackgroundLayer background={slide.background ?? master.background} theme={theme} />
-      {master.elements.map((element) => (
-        <div
-          key={element.id}
-          style={{
-            position: 'absolute',
-            left: `${element.x}%`,
-            top: `${element.y}%`,
-            width: `${element.width}%`,
-            height: `${element.height}%`,
-            transform: `rotate(${element.rotate ?? 0}deg) scaleX(${element.flipH ? -1 : 1}) scaleY(${element.flipV ? -1 : 1})`,
-            transformOrigin: 'center center',
-            zIndex: 0,
-            pointerEvents: 'none',
-            overflow: 'hidden',
-            opacity: element.opacity ?? 1,
-          }}
-        >
-          {renderSlideElement(element, scale, true)}
-        </div>
-      ))}
+      <SlideBackgroundLayer background={slide.background} theme={theme} />
       <div className="absolute inset-0">
         <AnimatedSlideElements
           elements={sortedElements.filter((element) => !element.hidden)}

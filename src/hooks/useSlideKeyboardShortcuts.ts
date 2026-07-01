@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import type { Slide, SlideElement, SlideMaster } from '@/types/slides'
+import type { Slide, SlideElement } from '@/types/slides'
 import type { SlideHistory } from './useSlideHistory'
 import { bumpZIndex } from '@/components/slides/slideElementOps'
 
@@ -8,8 +8,6 @@ interface Params {
   activeSlideIndex: number
   selectedIds: string[]
   history: SlideHistory
-  masterRef: React.MutableRefObject<SlideMaster>
-  setMaster(m: SlideMaster): void
   elementClipboard: React.MutableRefObject<SlideElement[]>
   setSlides(slides: Slide[]): void
   setSelectedIds(ids: string[]): void
@@ -37,8 +35,6 @@ export function useSlideKeyboardShortcuts({
   activeSlideIndex,
   selectedIds,
   history,
-  masterRef,
-  setMaster,
   elementClipboard,
   setSlides,
   setSelectedIds,
@@ -48,13 +44,11 @@ export function useSlideKeyboardShortcuts({
 }: Params): void {
   const paramsRef = useRef({
     slides, activeSlideIndex, selectedIds, history,
-    masterRef, setMaster,
     elementClipboard, setSlides, setSelectedIds, scheduleSave, onSave, disabled,
   })
   useEffect(() => {
     paramsRef.current = {
       slides, activeSlideIndex, selectedIds, history,
-      masterRef, setMaster,
       elementClipboard, setSlides, setSelectedIds, scheduleSave, onSave, disabled,
     }
   })
@@ -70,21 +64,21 @@ export function useSlideKeyboardShortcuts({
       if (!slide) return
 
       const changeSlide = (updater: (s: Slide) => Slide): void => {
-        p.history.push(p.slides, p.masterRef.current)
+        p.history.push(p.slides)
         p.setSlides(updateActiveSlide(p.slides, p.activeSlideIndex, updater))
         p.scheduleSave()
       }
 
       if (e.ctrlKey && !e.shiftKey && e.key === 'z') {
         e.preventDefault()
-        const prev = p.history.undo(p.slides, p.masterRef.current)
-        if (prev) { p.setSlides(prev.slides); p.setMaster(prev.master); p.setSelectedIds([]); p.scheduleSave() }
+        const prev = p.history.undo(p.slides)
+        if (prev) { p.setSlides(prev.slides); p.setSelectedIds([]); p.scheduleSave() }
         return
       }
       if (e.ctrlKey && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) {
         e.preventDefault()
-        const next = p.history.redo(p.slides, p.masterRef.current)
-        if (next) { p.setSlides(next.slides); p.setMaster(next.master); p.setSelectedIds([]); p.scheduleSave() }
+        const next = p.history.redo(p.slides)
+        if (next) { p.setSlides(next.slides); p.setSelectedIds([]); p.scheduleSave() }
         return
       }
       if (e.ctrlKey && e.key === 's') {

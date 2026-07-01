@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { flushSync } from 'react-dom'
 import html2canvas from 'html2canvas'
 import { SlideStaticView } from './SlideStaticView'
-import type { Slide, PresentationTheme, SlideMaster } from '@/types/slides'
+import type { Slide, PresentationTheme } from '@/types/slides'
 
 export const RASTER_W = 1920
 export const RASTER_H = 1080
@@ -12,7 +12,6 @@ export const RASTER_H = 1080
 export async function rasterizeSlide(
   slide: Slide,
   theme: PresentationTheme,
-  master: SlideMaster | undefined,
 ): Promise<string> {
   const container = document.createElement('div')
   // Position well outside viewport so it doesn't flicker on screen
@@ -26,7 +25,6 @@ export async function rasterizeSlide(
         <SlideStaticView
           slide={slide}
           theme={theme}
-          master={master}
           width={RASTER_W}
           height={RASTER_H}
         />
