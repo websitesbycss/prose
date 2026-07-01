@@ -13,7 +13,7 @@ import { ChromeColorPicker } from '@/components/ui/ChromeColorPicker'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store/appStore'
 import type { TextElement } from '@/types/slides'
-import { BorderColorIcon, BorderWeightPicker, ColorPickerDropdown } from './ToolbarShared'
+import { BorderColorIcon, BorderWeightPicker, ColorPickerDropdown, CompactGroup } from './ToolbarShared'
 
 const FONT_FAMILIES = ['Calibri', 'Times New Roman', 'Georgia', 'Arial', 'Courier New']
 const FONT_SIZE_PRESETS = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72, 96]
@@ -36,6 +36,7 @@ const FILL_PALETTE = [
 interface Props {
   element: TextElement
   onUpdate(partial: Partial<TextElement>): void
+  compact?: boolean
 }
 
 // ── Font family picker ────────────────────────────────────────────────────────
@@ -258,7 +259,7 @@ function LineHeightPicker({ lineHeight, onChange }: { lineHeight: number; onChan
 
 // ── Main toolbar ──────────────────────────────────────────────────────────────
 
-export function TextFormatToolbar({ element, onUpdate }: Props): JSX.Element {
+export function TextFormatToolbar({ element, onUpdate, compact = false }: Props): JSX.Element {
   const theme = useAppStore((s) => s.theme)
 
   const isBold = element.content.includes('<strong>') || element.content.includes('<b>')
@@ -333,38 +334,49 @@ export function TextFormatToolbar({ element, onUpdate }: Props): JSX.Element {
       <Separator orientation="vertical" className="mx-0.5 h-5" />
 
       {/* Bold / Italic / Underline / Strikethrough */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className={cn('h-7 w-7', isBold && '!text-primary')} onClick={() => wrapToggle('strong', 'strong', 'strong', isBold)}>
-            <Bold className="h-3.5 w-3.5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">Bold</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className={cn('h-7 w-7', isItalic && '!text-primary')} onClick={() => wrapToggle('em', 'em', 'em', isItalic)}>
-            <Italic className="h-3.5 w-3.5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">Italic</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className={cn('h-7 w-7', isUnderline && '!text-primary')} onClick={() => wrapToggle('u', 'u', 'u', isUnderline)}>
-            <Underline className="h-3.5 w-3.5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">Underline</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className={cn('h-7 w-7', isStrike && '!text-primary')} onClick={() => wrapToggle('s', 's', 's', isStrike)}>
-            <Strikethrough className="h-3.5 w-3.5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">Strikethrough</TooltipContent>
-      </Tooltip>
+      {compact ? (
+        <CompactGroup icon={Bold} label="Text style">
+          <Button variant="ghost" size="icon" className={cn('h-7 w-7', isBold && '!text-primary')} onClick={() => wrapToggle('strong', 'strong', 'strong', isBold)}><Bold className="h-3.5 w-3.5" /></Button>
+          <Button variant="ghost" size="icon" className={cn('h-7 w-7', isItalic && '!text-primary')} onClick={() => wrapToggle('em', 'em', 'em', isItalic)}><Italic className="h-3.5 w-3.5" /></Button>
+          <Button variant="ghost" size="icon" className={cn('h-7 w-7', isUnderline && '!text-primary')} onClick={() => wrapToggle('u', 'u', 'u', isUnderline)}><Underline className="h-3.5 w-3.5" /></Button>
+          <Button variant="ghost" size="icon" className={cn('h-7 w-7', isStrike && '!text-primary')} onClick={() => wrapToggle('s', 's', 's', isStrike)}><Strikethrough className="h-3.5 w-3.5" /></Button>
+        </CompactGroup>
+      ) : (
+        <>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className={cn('h-7 w-7', isBold && '!text-primary')} onClick={() => wrapToggle('strong', 'strong', 'strong', isBold)}>
+                <Bold className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">Bold</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className={cn('h-7 w-7', isItalic && '!text-primary')} onClick={() => wrapToggle('em', 'em', 'em', isItalic)}>
+                <Italic className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">Italic</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className={cn('h-7 w-7', isUnderline && '!text-primary')} onClick={() => wrapToggle('u', 'u', 'u', isUnderline)}>
+                <Underline className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">Underline</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className={cn('h-7 w-7', isStrike && '!text-primary')} onClick={() => wrapToggle('s', 's', 's', isStrike)}>
+                <Strikethrough className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">Strikethrough</TooltipContent>
+          </Tooltip>
+        </>
+      )}
 
       {/* Text color — "A" letter + color swatch */}
       <ColorPickerDropdown
@@ -445,42 +457,64 @@ export function TextFormatToolbar({ element, onUpdate }: Props): JSX.Element {
       <Separator orientation="vertical" className="mx-0.5 h-5" />
 
       {/* Text alignment */}
-      {(['left', 'center', 'right', 'justify'] as const).map((a, i) => {
-        const icons = [AlignLeft, AlignCenter, AlignRight, AlignJustify]
-        const Icon = icons[i]!
-        const labels = ['Align left', 'Align center', 'Align right', 'Justify']
-        return (
-          <Tooltip key={a}>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className={cn('h-7 w-7', element.align === a && '!text-primary')} onClick={() => onUpdate({ align: a })}>
-                <Icon className="h-3.5 w-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs">{labels[i]}</TooltipContent>
-          </Tooltip>
-        )
-      })}
+      {compact ? (
+        <CompactGroup icon={AlignLeft} label="Text alignment">
+          <Button variant="ghost" size="icon" className={cn('h-7 w-7', element.align === 'left' && '!text-primary')} onClick={() => onUpdate({ align: 'left' })}><AlignLeft className="h-3.5 w-3.5" /></Button>
+          <Button variant="ghost" size="icon" className={cn('h-7 w-7', element.align === 'center' && '!text-primary')} onClick={() => onUpdate({ align: 'center' })}><AlignCenter className="h-3.5 w-3.5" /></Button>
+          <Button variant="ghost" size="icon" className={cn('h-7 w-7', element.align === 'right' && '!text-primary')} onClick={() => onUpdate({ align: 'right' })}><AlignRight className="h-3.5 w-3.5" /></Button>
+          <Button variant="ghost" size="icon" className={cn('h-7 w-7', element.align === 'justify' && '!text-primary')} onClick={() => onUpdate({ align: 'justify' })}><AlignJustify className="h-3.5 w-3.5" /></Button>
+        </CompactGroup>
+      ) : (
+        (['left', 'center', 'right', 'justify'] as const).map((a, i) => {
+          const icons = [AlignLeft, AlignCenter, AlignRight, AlignJustify]
+          const Icon = icons[i]!
+          const labels = ['Align left', 'Align center', 'Align right', 'Justify']
+          return (
+            <Tooltip key={a}>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className={cn('h-7 w-7', element.align === a && '!text-primary')} onClick={() => onUpdate({ align: a })}>
+                  <Icon className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">{labels[i]}</TooltipContent>
+            </Tooltip>
+          )
+        })
+      )}
 
       <Separator orientation="vertical" className="mx-0.5 h-5" />
 
       {/* Line height + List */}
-      <LineHeightPicker lineHeight={element.lineHeight} onChange={(v) => onUpdate({ lineHeight: v })} />
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className={cn('h-7 w-7', isBulletList && '!text-primary')} onMouseDown={(e) => handleListMouseDown('ul', e)}>
-            <List className="h-3.5 w-3.5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">Bullet list</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className={cn('h-7 w-7', isOrderedList && '!text-primary')} onMouseDown={(e) => handleListMouseDown('ol', e)}>
-            <ListOrdered className="h-3.5 w-3.5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">Numbered list</TooltipContent>
-      </Tooltip>
+      {compact ? (
+        <CompactGroup icon={List} label="Lists &amp; spacing">
+          <Button variant="ghost" size="icon" className={cn('h-7 w-7', isBulletList && '!text-primary')} onMouseDown={(e) => handleListMouseDown('ul', e)}><List className="h-3.5 w-3.5" /></Button>
+          <Button variant="ghost" size="icon" className={cn('h-7 w-7', isOrderedList && '!text-primary')} onMouseDown={(e) => handleListMouseDown('ol', e)}><ListOrdered className="h-3.5 w-3.5" /></Button>
+          {/* LineHeightPicker opens its own popover — stop propagation to keep compact group open */}
+          <span onClick={(e) => e.stopPropagation()}>
+            <LineHeightPicker lineHeight={element.lineHeight} onChange={(v) => onUpdate({ lineHeight: v })} />
+          </span>
+        </CompactGroup>
+      ) : (
+        <>
+          <LineHeightPicker lineHeight={element.lineHeight} onChange={(v) => onUpdate({ lineHeight: v })} />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className={cn('h-7 w-7', isBulletList && '!text-primary')} onMouseDown={(e) => handleListMouseDown('ul', e)}>
+                <List className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">Bullet list</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className={cn('h-7 w-7', isOrderedList && '!text-primary')} onMouseDown={(e) => handleListMouseDown('ol', e)}>
+                <ListOrdered className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">Numbered list</TooltipContent>
+          </Tooltip>
+        </>
+      )}
     </div>
   )
 }

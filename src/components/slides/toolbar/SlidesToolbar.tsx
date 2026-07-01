@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react'
 import {
   AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal,
   AlignStartVertical, AlignCenterVertical, AlignEndVertical,
@@ -8,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ToolbarRightSection } from '@/components/editor/ToolbarRightSection'
 import { cn } from '@/lib/utils'
+import { CompactGroup } from './ToolbarShared'
 import { DefaultToolbar } from './DefaultToolbar'
 import { TextFormatToolbar } from './TextFormatToolbar'
 import { ShapeStyleToolbar } from './ShapeStyleToolbar'
@@ -76,6 +78,17 @@ export function SlidesToolbar({
   editingElementId, tableSelectedCells = [],
   slideBackgroundColor, onSlideBackground,
 }: Props): JSX.Element {
+  const toolbarRef = useRef<HTMLDivElement>(null)
+  const [toolbarWidth, setToolbarWidth] = useState(9999)
+  const compact = toolbarWidth < 900
+  useEffect(() => {
+    const el = toolbarRef.current
+    if (!el) return
+    const obs = new ResizeObserver(([entry]) => { if (entry) setToolbarWidth(entry.contentRect.width) })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
+
   const selectedElements = slide.elements.filter((e) => selectedIds.includes(e.id))
   const selCount = selectedIds.length
   const singleElement = selCount === 1 ? selectedElements[0] : undefined
@@ -119,7 +132,7 @@ export function SlidesToolbar({
   }
 
   return (
-    <div className="flex h-10 shrink-0 items-center border-b border-border bg-background px-2 gap-0.5">
+    <div ref={toolbarRef} className="flex h-10 shrink-0 items-center border-b border-border bg-background px-2 gap-0.5">
       {/* Always-visible tool palette */}
       <DefaultToolbar
         toolMode={toolMode}
@@ -146,16 +159,31 @@ export function SlidesToolbar({
           {/* ── Canvas alignment (single element only) ── */}
           {singleElement && (
             <div className="flex items-center gap-0.5">
-              {CANVAS_ALIGN_BUTTONS.map(({ type, icon: Icon, label }) => (
-                <Tooltip key={type}>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => alignToCanvas(type)}>
-                      <Icon className="h-3.5 w-3.5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="text-xs">{label}</TooltipContent>
-                </Tooltip>
-              ))}
+              {compact ? (
+                <CompactGroup icon={AlignStartVertical} label="Align to slide">
+                  {CANVAS_ALIGN_BUTTONS.map(({ type, icon: Icon, label }) => (
+                    <Tooltip key={type}>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => alignToCanvas(type)}>
+                          <Icon className="h-3.5 w-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="text-xs">{label}</TooltipContent>
+                    </Tooltip>
+                  ))}
+                </CompactGroup>
+              ) : (
+                CANVAS_ALIGN_BUTTONS.map(({ type, icon: Icon, label }) => (
+                  <Tooltip key={type}>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => alignToCanvas(type)}>
+                        <Icon className="h-3.5 w-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">{label}</TooltipContent>
+                  </Tooltip>
+                ))
+              )}
             </div>
           )}
 
@@ -176,6 +204,7 @@ export function SlidesToolbar({
                 <TextFormatToolbar
                   element={repElement as TextElement}
                   onUpdate={(p) => updateAll(p as Partial<SlideElement>)}
+                  compact={compact}
                 />
               )}
               {styleType === 'shape' && (
@@ -196,6 +225,7 @@ export function SlidesToolbar({
                   element={repElement as TableElement}
                   selectedCells={tableSelectedCells}
                   onUpdateElement={(p) => updateAll(p as Partial<SlideElement>)}
+                  compact={compact}
                 />
               )}
             </>

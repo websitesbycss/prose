@@ -37,7 +37,7 @@ export function FindWidget({ editor, open, onClose, onNavigate }: FindWidgetProp
       setQuery('')
       setReplaceValue('')
       setShowReplace(false)
-      editor?.commands.clearFind()
+      if (editor?.view) editor.commands.clearFind()
     }
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 

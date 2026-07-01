@@ -1,18 +1,19 @@
 import {
   Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight,
-  ArrowUpToLine, ArrowDownToLine, ArrowLeftToLine, ArrowRightToLine, Minus,
+  ArrowUpToLine, ArrowDownToLine, ArrowLeftToLine, ArrowRightToLine, Minus, PaintBucket,
 } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { ChromeColorPicker } from '@/components/ui/ChromeColorPicker'
-import { ColorPickerDropdown, BorderWeightPicker, BorderColorIcon } from './ToolbarShared'
+import { ColorPickerDropdown, BorderWeightPicker, BorderColorIcon, CompactGroup } from './ToolbarShared'
 import type { TableElement, TableCellStyle } from '@/types/slides'
 
 interface Props {
   element: TableElement
   selectedCells: string[]
   onUpdateElement(partial: Partial<TableElement>): void
+  compact?: boolean
 }
 
 const CELL_PALETTE = [
@@ -28,7 +29,7 @@ const BORDER_PALETTE = [
   '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899',
 ]
 
-export function TableEditToolbar({ element, selectedCells, onUpdateElement }: Props): JSX.Element {
+export function TableEditToolbar({ element, selectedCells, onUpdateElement, compact = false }: Props): JSX.Element {
   // Get first selected cell for reading current style
   const flatCells = element.rows.flat()
   const selectedCellObjs = flatCells.filter((c) => selectedCells.includes(c.id))
@@ -132,40 +133,50 @@ export function TableEditToolbar({ element, selectedCells, onUpdateElement }: Pr
   return (
     <div className="flex items-center gap-0.5">
       {/* Text formatting */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.bold ? '!text-primary' : ''}`}
-            disabled={!hasSel} onClick={() => formatCells({ bold: !cellStyle.bold })}>
-            <Bold className="h-3.5 w-3.5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">Bold</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.italic ? '!text-primary' : ''}`}
-            disabled={!hasSel} onClick={() => formatCells({ italic: !cellStyle.italic })}>
-            <Italic className="h-3.5 w-3.5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">Italic</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.underline ? '!text-primary' : ''}`}
-            disabled={!hasSel} onClick={() => formatCells({ underline: !cellStyle.underline })}>
-            <Underline className="h-3.5 w-3.5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">Underline</TooltipContent>
-      </Tooltip>
+      {compact ? (
+        <CompactGroup icon={Bold} label="Text style">
+          <Button variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.bold ? '!text-primary' : ''}`} disabled={!hasSel} onClick={() => formatCells({ bold: !cellStyle.bold })}><Bold className="h-3.5 w-3.5" /></Button>
+          <Button variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.italic ? '!text-primary' : ''}`} disabled={!hasSel} onClick={() => formatCells({ italic: !cellStyle.italic })}><Italic className="h-3.5 w-3.5" /></Button>
+          <Button variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.underline ? '!text-primary' : ''}`} disabled={!hasSel} onClick={() => formatCells({ underline: !cellStyle.underline })}><Underline className="h-3.5 w-3.5" /></Button>
+        </CompactGroup>
+      ) : (
+        <>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.bold ? '!text-primary' : ''}`}
+                disabled={!hasSel} onClick={() => formatCells({ bold: !cellStyle.bold })}>
+                <Bold className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">Bold</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.italic ? '!text-primary' : ''}`}
+                disabled={!hasSel} onClick={() => formatCells({ italic: !cellStyle.italic })}>
+                <Italic className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">Italic</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.underline ? '!text-primary' : ''}`}
+                disabled={!hasSel} onClick={() => formatCells({ underline: !cellStyle.underline })}>
+                <Underline className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">Underline</TooltipContent>
+          </Tooltip>
+        </>
+      )}
 
       {/* Text color */}
       <ColorPickerDropdown
         tooltip="Text color"
         trigger={
           <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1" disabled={!hasSel}>
-            <span className="text-[15px] font-normal leading-[14px] w-4 text-center" style={{ fontFamily: 'serif' }}>A</span>
+            <span className="text-[15px] font-normal leading-[14px] w-4 text-center">A</span>
             <span className="mt-[5px] h-1 w-4 rounded-sm border border-neutral-300 dark:border-neutral-600" style={{ backgroundColor: cellStyle.color ?? '#1a1a1a', borderColor: cellStyle.color ?? '#1a1a1a' }} />
           </Button>
         }
@@ -186,33 +197,43 @@ export function TableEditToolbar({ element, selectedCells, onUpdateElement }: Pr
       <Separator orientation="vertical" className="mx-0.5 h-5" />
 
       {/* Alignment */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.align === 'left' || !cellStyle.align ? '!text-primary' : ''}`}
-            disabled={!hasSel} onClick={() => formatCells({ align: 'left' })}>
-            <AlignLeft className="h-3.5 w-3.5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">Align left</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.align === 'center' ? '!text-primary' : ''}`}
-            disabled={!hasSel} onClick={() => formatCells({ align: 'center' })}>
-            <AlignCenter className="h-3.5 w-3.5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">Align center</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.align === 'right' ? '!text-primary' : ''}`}
-            disabled={!hasSel} onClick={() => formatCells({ align: 'right' })}>
-            <AlignRight className="h-3.5 w-3.5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">Align right</TooltipContent>
-      </Tooltip>
+      {compact ? (
+        <CompactGroup icon={AlignLeft} label="Alignment">
+          <Button variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.align === 'left' || !cellStyle.align ? '!text-primary' : ''}`} disabled={!hasSel} onClick={() => formatCells({ align: 'left' })}><AlignLeft className="h-3.5 w-3.5" /></Button>
+          <Button variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.align === 'center' ? '!text-primary' : ''}`} disabled={!hasSel} onClick={() => formatCells({ align: 'center' })}><AlignCenter className="h-3.5 w-3.5" /></Button>
+          <Button variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.align === 'right' ? '!text-primary' : ''}`} disabled={!hasSel} onClick={() => formatCells({ align: 'right' })}><AlignRight className="h-3.5 w-3.5" /></Button>
+        </CompactGroup>
+      ) : (
+        <>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.align === 'left' || !cellStyle.align ? '!text-primary' : ''}`}
+                disabled={!hasSel} onClick={() => formatCells({ align: 'left' })}>
+                <AlignLeft className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">Align left</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.align === 'center' ? '!text-primary' : ''}`}
+                disabled={!hasSel} onClick={() => formatCells({ align: 'center' })}>
+                <AlignCenter className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">Align center</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.align === 'right' ? '!text-primary' : ''}`}
+                disabled={!hasSel} onClick={() => formatCells({ align: 'right' })}>
+                <AlignRight className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">Align right</TooltipContent>
+          </Tooltip>
+        </>
+      )}
 
       <Separator orientation="vertical" className="mx-0.5 h-5" />
 
@@ -221,9 +242,7 @@ export function TableEditToolbar({ element, selectedCells, onUpdateElement }: Pr
         tooltip="Cell fill color"
         trigger={
           <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1" disabled={!hasSel}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5">
-              <path d="M20 14c-.092 1.853-1.486 4.785-3.315 6.585C15.743 21.517 14.881 22 14 22s-1.743-.483-2.685-1.415C9.486 18.785 8.092 15.853 8 14c0-3.314 2.686-6 6-6s6 2.686 6 6zM16.243 5.757l-1.414-1.414-9.9 9.9 1.415 1.414zm-4.484-2.828L4.222 10.465l1.414 1.414 7.536-7.536z"/>
-            </svg>
+            <PaintBucket className="h-3.5 w-3.5 leading-none" />
             <span className="mt-0.5 h-1 w-4 rounded-sm border border-neutral-300 dark:border-neutral-600"
               style={{ backgroundColor: fillColor === 'transparent' ? undefined : fillColor, borderColor: fillColor !== 'transparent' ? fillColor : undefined }} />
           </Button>
@@ -277,54 +296,71 @@ export function TableEditToolbar({ element, selectedCells, onUpdateElement }: Pr
       <Separator orientation="vertical" className="mx-0.5 h-5" />
 
       {/* Row/col operations */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-7 w-7" disabled={selectedRowIdx < 0} onClick={insertRowAbove}>
-            <ArrowUpToLine className="h-3.5 w-3.5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">Insert row above</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-7 w-7" disabled={selectedRowIdx < 0} onClick={insertRowBelow}>
-            <ArrowDownToLine className="h-3.5 w-3.5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">Insert row below</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-7 w-7" disabled={selectedColIdx < 0} onClick={insertColLeft}>
-            <ArrowLeftToLine className="h-3.5 w-3.5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">Insert column left</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-7 w-7" disabled={selectedColIdx < 0} onClick={insertColRight}>
-            <ArrowRightToLine className="h-3.5 w-3.5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">Insert column right</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive" disabled={selectedRowIdx < 0 || element.rows.length <= 1} onClick={deleteRow}>
-            <Minus className="h-3.5 w-3.5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">Delete row</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive" disabled={selectedColIdx < 0 || element.colWidths.length <= 1} onClick={deleteCol}>
-            <Minus className="h-3.5 w-3.5 rotate-90" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">Delete column</TooltipContent>
-      </Tooltip>
+      {compact ? (
+        <>
+          <CompactGroup icon={ArrowUpToLine} label="Insert row / column">
+            <Button variant="ghost" size="icon" className="h-7 w-7" disabled={selectedRowIdx < 0} onClick={insertRowAbove}><ArrowUpToLine className="h-3.5 w-3.5" /></Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7" disabled={selectedRowIdx < 0} onClick={insertRowBelow}><ArrowDownToLine className="h-3.5 w-3.5" /></Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7" disabled={selectedColIdx < 0} onClick={insertColLeft}><ArrowLeftToLine className="h-3.5 w-3.5" /></Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7" disabled={selectedColIdx < 0} onClick={insertColRight}><ArrowRightToLine className="h-3.5 w-3.5" /></Button>
+          </CompactGroup>
+          <CompactGroup icon={Minus} label="Delete row / column">
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive" disabled={selectedRowIdx < 0 || element.rows.length <= 1} onClick={deleteRow}><Minus className="h-3.5 w-3.5" /></Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive" disabled={selectedColIdx < 0 || element.colWidths.length <= 1} onClick={deleteCol}><Minus className="h-3.5 w-3.5 rotate-90" /></Button>
+          </CompactGroup>
+        </>
+      ) : (
+        <>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7" disabled={selectedRowIdx < 0} onClick={insertRowAbove}>
+                <ArrowUpToLine className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">Insert row above</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7" disabled={selectedRowIdx < 0} onClick={insertRowBelow}>
+                <ArrowDownToLine className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">Insert row below</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7" disabled={selectedColIdx < 0} onClick={insertColLeft}>
+                <ArrowLeftToLine className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">Insert column left</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7" disabled={selectedColIdx < 0} onClick={insertColRight}>
+                <ArrowRightToLine className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">Insert column right</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive" disabled={selectedRowIdx < 0 || element.rows.length <= 1} onClick={deleteRow}>
+                <Minus className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">Delete row</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive" disabled={selectedColIdx < 0 || element.colWidths.length <= 1} onClick={deleteCol}>
+                <Minus className="h-3.5 w-3.5 rotate-90" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">Delete column</TooltipContent>
+          </Tooltip>
+        </>
+      )}
     </div>
   )
 }

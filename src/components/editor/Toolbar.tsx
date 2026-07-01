@@ -188,6 +188,62 @@ function Sep(): JSX.Element {
   return <Separator orientation="vertical" className="mx-0.5 h-5" />
 }
 
+function CompactGroup({
+  icon: Icon, label, children,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  children: React.ReactNode
+}): JSX.Element {
+  const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState({ top: 0, left: 0 })
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const dropRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    function onDown(e: MouseEvent) {
+      if (dropRef.current?.contains(e.target as Node)) return
+      if (btnRef.current?.contains(e.target as Node)) return
+      setOpen(false)
+    }
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey) }
+  }, [open])
+  function handleOpen() {
+    if (!btnRef.current) return
+    const r = btnRef.current.getBoundingClientRect()
+    setPos({ top: r.bottom + 4, left: r.left })
+    setOpen((o) => !o)
+  }
+  return (
+    <>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button ref={btnRef} variant="ghost" size="sm" className="h-7 px-1.5 flex items-center gap-0.5" onClick={handleOpen}>
+            <Icon className="h-3.5 w-3.5" />
+            <ChevronDown className="h-2.5 w-2.5 opacity-50" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">{label}</TooltipContent>
+      </Tooltip>
+      {open && createPortal(
+        <div
+          ref={dropRef}
+          style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 99999 }}
+          className="flex items-center gap-0.5 rounded-lg border border-border bg-background p-1 shadow-lg"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => setOpen(false)}
+        >
+          {children}
+        </div>,
+        document.body,
+      )}
+    </>
+  )
+}
+
 
 function ColorPicker({
   editor,
@@ -1114,6 +1170,17 @@ function ToolbarInner({
   const citationPanelOpen = useAppStore((s) => s.citationPanelOpen)
   const theme = useAppStore((s) => s.theme)
 
+  const toolbarScrollRef = useRef<HTMLDivElement>(null)
+  const [toolbarWidth, setToolbarWidth] = useState(9999)
+  const compact = toolbarWidth < 1000
+  useEffect(() => {
+    const el = toolbarScrollRef.current
+    if (!el) return
+    const obs = new ResizeObserver(([entry]) => { if (entry) setToolbarWidth(entry.contentRect.width) })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
+
   const s = useEditorState({
     editor,
     selector: (ctx) => ({
@@ -1219,6 +1286,7 @@ function ToolbarInner({
     >
     {/* Scrollable formatting controls */}
     <div
+      ref={toolbarScrollRef}
       className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto px-2"
       onMouseDown={(e) => e.preventDefault()}
     >
@@ -1284,122 +1352,85 @@ function ToolbarInner({
       <Sep />
 
       {/* Alignment */}
-      <ToolbarBtn
-        icon={AlignLeft}
-        title="Align left"
-        active={s.isAlignLeft}
-        onClick={() => editor.chain().focus().setTextAlign('left').run()}
-      />
-      <ToolbarBtn
-        icon={AlignCenter}
-        title="Align center"
-        active={s.isAlignCenter}
-        onClick={() => editor.chain().focus().setTextAlign('center').run()}
-      />
-      <ToolbarBtn
-        icon={AlignRight}
-        title="Align right"
-        active={s.isAlignRight}
-        onClick={() => editor.chain().focus().setTextAlign('right').run()}
-      />
-      <ToolbarBtn
-        icon={AlignJustify}
-        title="Justify"
-        active={s.isAlignJustify}
-        onClick={() => editor.chain().focus().setTextAlign('justify').run()}
-      />
+      {compact ? (
+        <CompactGroup icon={AlignLeft} label="Alignment">
+          <ToolbarBtn icon={AlignLeft} title="Align left" active={s.isAlignLeft} onClick={() => editor.chain().focus().setTextAlign('left').run()} />
+          <ToolbarBtn icon={AlignCenter} title="Align center" active={s.isAlignCenter} onClick={() => editor.chain().focus().setTextAlign('center').run()} />
+          <ToolbarBtn icon={AlignRight} title="Align right" active={s.isAlignRight} onClick={() => editor.chain().focus().setTextAlign('right').run()} />
+          <ToolbarBtn icon={AlignJustify} title="Justify" active={s.isAlignJustify} onClick={() => editor.chain().focus().setTextAlign('justify').run()} />
+        </CompactGroup>
+      ) : (
+        <>
+          <ToolbarBtn icon={AlignLeft} title="Align left" active={s.isAlignLeft} onClick={() => editor.chain().focus().setTextAlign('left').run()} />
+          <ToolbarBtn icon={AlignCenter} title="Align center" active={s.isAlignCenter} onClick={() => editor.chain().focus().setTextAlign('center').run()} />
+          <ToolbarBtn icon={AlignRight} title="Align right" active={s.isAlignRight} onClick={() => editor.chain().focus().setTextAlign('right').run()} />
+          <ToolbarBtn icon={AlignJustify} title="Justify" active={s.isAlignJustify} onClick={() => editor.chain().focus().setTextAlign('justify').run()} />
+        </>
+      )}
 
       {!isZoneEditor && <Sep />}
 
       {/* Lists and indent */}
       {!isZoneEditor && (
-        <>
-          <ToolbarBtn
-            icon={List}
-            title="Bullet list"
-            active={s.isBulletList}
-            onClick={() => editor.chain().focus().toggleBulletList().run()}
-          />
-          <ToolbarBtn
-            icon={ListOrdered}
-            title="Numbered list"
-            active={s.isOrderedList}
-            onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          />
-          <ToolbarBtn
-            icon={IndentIcon}
-            title="Indent (Tab)"
-            onClick={() => editor.chain().focus().indent().run()}
-          />
-          <ToolbarBtn
-            icon={Outdent}
-            title="Outdent (Shift+Tab)"
-            onClick={() => editor.chain().focus().outdent().run()}
-          />
-        </>
+        compact ? (
+          <CompactGroup icon={List} label="Lists &amp; indent">
+            <ToolbarBtn icon={List} title="Bullet list" active={s.isBulletList} onClick={() => editor.chain().focus().toggleBulletList().run()} />
+            <ToolbarBtn icon={ListOrdered} title="Numbered list" active={s.isOrderedList} onClick={() => editor.chain().focus().toggleOrderedList().run()} />
+            <ToolbarBtn icon={IndentIcon} title="Indent (Tab)" onClick={() => editor.chain().focus().indent().run()} />
+            <ToolbarBtn icon={Outdent} title="Outdent (Shift+Tab)" onClick={() => editor.chain().focus().outdent().run()} />
+            <ToolbarBtn icon={Subscript} title="Subscript" active={s.isSubscript} onClick={() => handleToggleSubSup('subscript', s.isSubscript)} />
+            <ToolbarBtn icon={Superscript} title="Superscript" active={s.isSuperscript} onClick={() => handleToggleSubSup('superscript', s.isSuperscript)} />
+          </CompactGroup>
+        ) : (
+          <>
+            <ToolbarBtn icon={List} title="Bullet list" active={s.isBulletList} onClick={() => editor.chain().focus().toggleBulletList().run()} />
+            <ToolbarBtn icon={ListOrdered} title="Numbered list" active={s.isOrderedList} onClick={() => editor.chain().focus().toggleOrderedList().run()} />
+            <ToolbarBtn icon={IndentIcon} title="Indent (Tab)" onClick={() => editor.chain().focus().indent().run()} />
+            <ToolbarBtn icon={Outdent} title="Outdent (Shift+Tab)" onClick={() => editor.chain().focus().outdent().run()} />
+          </>
+        )
       )}
 
       <Sep />
 
       {/* Line height / subscript / superscript */}
       <LineHeightPicker editor={editor} lineHeight={s.lineHeight} format={format} />
-      <ToolbarBtn
-        icon={Subscript}
-        title="Subscript"
-        active={s.isSubscript}
-        onClick={() => handleToggleSubSup('subscript', s.isSubscript)}
-      />
-      <ToolbarBtn
-        icon={Superscript}
-        title="Superscript"
-        active={s.isSuperscript}
-        onClick={() => handleToggleSubSup('superscript', s.isSuperscript)}
-      />
-      <ToolbarBtn
-        icon={Sigma}
-        title="Insert equation (LaTeX)"
-        onClick={() => onOpenMathModal?.()}
-      />
+      {(!compact || isZoneEditor) && (
+        <>
+          <ToolbarBtn icon={Subscript} title="Subscript" active={s.isSubscript} onClick={() => handleToggleSubSup('subscript', s.isSubscript)} />
+          <ToolbarBtn icon={Superscript} title="Superscript" active={s.isSuperscript} onClick={() => handleToggleSubSup('superscript', s.isSuperscript)} />
+        </>
+      )}
+      {(!compact || isZoneEditor) && (
+        <ToolbarBtn icon={Sigma} title="Insert equation (LaTeX)" onClick={() => onOpenMathModal?.()} />
+      )}
 
       <Sep />
 
       {/* Insert */}
-      {!isZoneEditor && (
-        <ToolbarBtn
-          icon={Image}
-          title="Insert image"
-          onClick={() => void handleImageInsert()}
-        />
+      {compact && !isZoneEditor ? (
+        <CompactGroup icon={Image} label="Insert">
+          <ToolbarBtn icon={Image} title="Insert image" onClick={() => void handleImageInsert()} />
+          <ToolbarBtn icon={Table2} title="Insert table" onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} />
+          <ToolbarBtn icon={Sigma} title="Insert equation (LaTeX)" onClick={() => onOpenMathModal?.()} />
+          <ToolbarBtn icon={SeparatorHorizontal} title="Insert page break" onClick={() => editor.chain().focus().insertPageBreak().run()} />
+          <ToolbarBtn icon={BarChart3} title="Insert chart" onClick={() => onOpenChartPicker?.()} />
+          {/* Link popover stays open on click — stop propagation so compact group doesn't close */}
+          <span onClick={(e) => e.stopPropagation()}>
+            <LinkPopover editor={editor} isLink={s.isLink} />
+          </span>
+        </CompactGroup>
+      ) : (
+        <>
+          {!isZoneEditor && <ToolbarBtn icon={Image} title="Insert image" onClick={() => void handleImageInsert()} />}
+          <LinkPopover editor={editor} isLink={s.isLink} />
+          {isZoneEditor && <ToolbarBtn icon={Hash} title="Insert page number" onClick={() => editor.chain().focus().insertPageNumber().run()} />}
+          {!isZoneEditor && <ToolbarBtn icon={Table2} title="Insert table" onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} />}
+          {!isZoneEditor && <ToolbarBtn icon={SeparatorHorizontal} title="Insert page break" onClick={() => editor.chain().focus().insertPageBreak().run()} />}
+          {!isZoneEditor && <ToolbarBtn icon={BarChart3} title="Insert chart" onClick={() => onOpenChartPicker?.()} />}
+        </>
       )}
-      <LinkPopover editor={editor} isLink={s.isLink} />
-      {isZoneEditor && (
-        <ToolbarBtn
-          icon={Hash}
-          title="Insert page number"
-          onClick={() => editor.chain().focus().insertPageNumber().run()}
-        />
-      )}
-      {!isZoneEditor && (
-        <ToolbarBtn
-          icon={Table2}
-          title="Insert table"
-          onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
-        />
-      )}
-      {!isZoneEditor && (
-        <ToolbarBtn
-          icon={SeparatorHorizontal}
-          title="Insert page break"
-          onClick={() => editor.chain().focus().insertPageBreak().run()}
-        />
-      )}
-      {!isZoneEditor && (
-        <ToolbarBtn
-          icon={BarChart3}
-          title="Insert chart"
-          onClick={() => onOpenChartPicker?.()}
-        />
-      )}
+      {isZoneEditor && compact && <ToolbarBtn icon={Hash} title="Insert page number" onClick={() => editor.chain().focus().insertPageNumber().run()} />}
 
       {/* Image border tools — only visible when an image is selected */}
       {s.isOnImage && !isZoneEditor && (

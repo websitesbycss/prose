@@ -279,6 +279,64 @@ function FontSizePicker({
   )
 }
 
+// ── Compact group dropdown ───────────────────────────────────────────────────
+
+function CompactGroup({
+  icon: Icon, label, children,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  children: React.ReactNode
+}): JSX.Element {
+  const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState({ top: 0, left: 0 })
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const dropRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    function onDown(e: MouseEvent) {
+      if (dropRef.current?.contains(e.target as Node)) return
+      if (btnRef.current?.contains(e.target as Node)) return
+      setOpen(false)
+    }
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey) }
+  }, [open])
+  function handleOpen() {
+    if (!btnRef.current) return
+    const r = btnRef.current.getBoundingClientRect()
+    setPos({ top: r.bottom + 4, left: r.left })
+    setOpen((o) => !o)
+  }
+  return (
+    <>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button ref={btnRef} variant="ghost" size="sm" className="h-7 px-1.5 flex items-center gap-0.5" onClick={handleOpen}>
+            <Icon className="h-3.5 w-3.5" />
+            <ChevronDown className="h-2.5 w-2.5 opacity-50" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">{label}</TooltipContent>
+      </Tooltip>
+      {open && createPortal(
+        <div
+          ref={dropRef}
+          style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 99999 }}
+          className="flex items-center gap-0.5 rounded-lg border border-border bg-background p-1 shadow-lg"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => setOpen(false)}
+        >
+          {children}
+        </div>,
+        document.body,
+      )}
+    </>
+  )
+}
+
 // ── Main toolbar ─────────────────────────────────────────────────────────────
 
 export function SheetToolbar({
@@ -300,6 +358,17 @@ export function SheetToolbar({
 }: SheetToolbarProps) {
   const theme = useAppStore((s) => s.theme)
   const wb = () => workbookRef.current
+
+  const toolbarScrollRef = useRef<HTMLDivElement>(null)
+  const [toolbarWidth, setToolbarWidth] = useState(9999)
+  const compact = toolbarWidth < 900
+  useEffect(() => {
+    const el = toolbarScrollRef.current
+    if (!el) return
+    const obs = new ResizeObserver(([entry]) => { if (entry) setToolbarWidth(entry.contentRect.width) })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
 
   function applyToSelection(attr: string, value: unknown) {
     const w = wb(); if (!w) return
@@ -376,7 +445,7 @@ export function SheetToolbar({
   return (
     <div className="flex h-10 shrink-0 items-center border-b border-border bg-background">
       {/* Scrollable formatting controls */}
-      <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto px-2 py-1">
+      <div ref={toolbarScrollRef} className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto px-2 py-1">
 
         {/* Undo / Redo */}
         <Tooltip>
@@ -484,30 +553,40 @@ export function SheetToolbar({
         <Separator orientation="vertical" className="mx-0.5 h-5" />
 
         {/* Alignment */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className={cn('h-7 w-7', state.align === 'left' && 'bg-accent')} onClick={() => setAlign('left')}>
-              <AlignLeft className="h-3.5 w-3.5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="text-xs">Align left</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className={cn('h-7 w-7', state.align === 'center' && 'bg-accent')} onClick={() => setAlign('center')}>
-              <AlignCenter className="h-3.5 w-3.5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="text-xs">Align center</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className={cn('h-7 w-7', state.align === 'right' && 'bg-accent')} onClick={() => setAlign('right')}>
-              <AlignRight className="h-3.5 w-3.5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="text-xs">Align right</TooltipContent>
-        </Tooltip>
+        {compact ? (
+          <CompactGroup icon={AlignLeft} label="Alignment">
+            <Button variant="ghost" size="icon" className={cn('h-7 w-7', state.align === 'left' && 'bg-accent')} onClick={() => setAlign('left')}><AlignLeft className="h-3.5 w-3.5" /></Button>
+            <Button variant="ghost" size="icon" className={cn('h-7 w-7', state.align === 'center' && 'bg-accent')} onClick={() => setAlign('center')}><AlignCenter className="h-3.5 w-3.5" /></Button>
+            <Button variant="ghost" size="icon" className={cn('h-7 w-7', state.align === 'right' && 'bg-accent')} onClick={() => setAlign('right')}><AlignRight className="h-3.5 w-3.5" /></Button>
+          </CompactGroup>
+        ) : (
+          <>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className={cn('h-7 w-7', state.align === 'left' && 'bg-accent')} onClick={() => setAlign('left')}>
+                  <AlignLeft className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">Align left</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className={cn('h-7 w-7', state.align === 'center' && 'bg-accent')} onClick={() => setAlign('center')}>
+                  <AlignCenter className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">Align center</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className={cn('h-7 w-7', state.align === 'right' && 'bg-accent')} onClick={() => setAlign('right')}>
+                  <AlignRight className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">Align right</TooltipContent>
+            </Tooltip>
+          </>
+        )}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="ghost" size="icon" className={cn('h-7 w-7', state.wrap && 'bg-accent')} onClick={toggleWrap}>
@@ -532,54 +611,71 @@ export function SheetToolbar({
         <Separator orientation="vertical" className="mx-0.5 h-5" />
 
         {/* Row/col operations */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={insertRowAbove}>
-              <ArrowUpToLine className="h-3.5 w-3.5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="text-xs">Insert row above</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={insertRowBelow}>
-              <ArrowDownToLine className="h-3.5 w-3.5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="text-xs">Insert row below</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={insertColLeft}>
-              <ArrowLeftToLine className="h-3.5 w-3.5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="text-xs">Insert column left</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={insertColRight}>
-              <ArrowRightToLine className="h-3.5 w-3.5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="text-xs">Insert column right</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive" onClick={deleteRow}>
-              <Minus className="h-3.5 w-3.5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="text-xs">Delete row</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive" onClick={deleteCol}>
-              <Minus className="h-3.5 w-3.5 rotate-90" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="text-xs">Delete column</TooltipContent>
-        </Tooltip>
+        {compact ? (
+          <>
+            <CompactGroup icon={ArrowUpToLine} label="Insert row / column">
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={insertRowAbove}><ArrowUpToLine className="h-3.5 w-3.5" /></Button>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={insertRowBelow}><ArrowDownToLine className="h-3.5 w-3.5" /></Button>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={insertColLeft}><ArrowLeftToLine className="h-3.5 w-3.5" /></Button>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={insertColRight}><ArrowRightToLine className="h-3.5 w-3.5" /></Button>
+            </CompactGroup>
+            <CompactGroup icon={Minus} label="Delete row / column">
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive" onClick={deleteRow}><Minus className="h-3.5 w-3.5" /></Button>
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive" onClick={deleteCol}><Minus className="h-3.5 w-3.5 rotate-90" /></Button>
+            </CompactGroup>
+          </>
+        ) : (
+          <>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={insertRowAbove}>
+                  <ArrowUpToLine className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">Insert row above</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={insertRowBelow}>
+                  <ArrowDownToLine className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">Insert row below</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={insertColLeft}>
+                  <ArrowLeftToLine className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">Insert column left</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={insertColRight}>
+                  <ArrowRightToLine className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">Insert column right</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive" onClick={deleteRow}>
+                  <Minus className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">Delete row</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive" onClick={deleteCol}>
+                  <Minus className="h-3.5 w-3.5 rotate-90" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">Delete column</TooltipContent>
+            </Tooltip>
+          </>
+        )}
 
         <Separator orientation="vertical" className="mx-0.5 h-5" />
 
@@ -603,7 +699,7 @@ export function SheetToolbar({
           {cellAddress || 'A1'}
         </span>
         <input
-          className="w-[340px] shrink-0 rounded border border-border bg-background px-2 py-0.5 font-mono text-xs text-foreground outline-none focus:ring-1 focus:ring-primary/60"
+          className="min-w-[120px] max-w-[340px] flex-1 rounded border border-border bg-background px-2 py-0.5 font-mono text-xs text-foreground outline-none focus:ring-1 focus:ring-primary/60"
           value={formulaBarValue}
           onChange={(e) => onFormulaBarChange(e.target.value)}
           onKeyDown={(e) => {

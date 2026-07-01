@@ -227,6 +227,7 @@ export function EditorContextMenu({ editor, documentId, isActive, onEditMath }: 
       }
     }
 
+    if (!editor.view) return
     const dom = editor.view.dom as HTMLElement
     dom.addEventListener('contextmenu', onContextMenu)
     return () => dom.removeEventListener('contextmenu', onContextMenu)

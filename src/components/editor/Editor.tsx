@@ -313,7 +313,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
 
   // Show/hide issue decorations based on panel visibility and analysis results
   useEffect(() => {
-    if (!editor) return
+    if (!editor || !editor.view) return
     if (aiPanelOpen) {
       editor.commands.setAnalysisIssues(analysis.issues)
     } else {

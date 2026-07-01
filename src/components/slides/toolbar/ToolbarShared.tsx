@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'motion/react'
+import { ChevronDown } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -108,6 +109,62 @@ export function ColorPickerDropdown({ trigger, tooltip, children }: {
         document.body
       )}
     </Tooltip>
+  )
+}
+
+export function CompactGroup({
+  icon: Icon, label, children,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  children: React.ReactNode
+}): JSX.Element {
+  const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState({ top: 0, left: 0 })
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const dropRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    function onDown(e: MouseEvent) {
+      if (dropRef.current?.contains(e.target as Node)) return
+      if (btnRef.current?.contains(e.target as Node)) return
+      setOpen(false)
+    }
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey) }
+  }, [open])
+  function handleOpen() {
+    if (!btnRef.current) return
+    const r = btnRef.current.getBoundingClientRect()
+    setPos({ top: r.bottom + 4, left: r.left })
+    setOpen((o) => !o)
+  }
+  return (
+    <>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button ref={btnRef} variant="ghost" size="sm" className="h-7 px-1.5 flex items-center gap-0.5" onClick={handleOpen}>
+            <Icon className="h-3.5 w-3.5" />
+            <ChevronDown className="h-2.5 w-2.5 opacity-50" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">{label}</TooltipContent>
+      </Tooltip>
+      {open && createPortal(
+        <div
+          ref={dropRef}
+          style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 99999 }}
+          className="flex items-center gap-0.5 rounded-lg border border-border bg-background p-1 shadow-lg"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => setOpen(false)}
+        >
+          {children}
+        </div>,
+        document.body,
+      )}
+    </>
   )
 }
 

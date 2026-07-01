@@ -882,7 +882,7 @@ export function IssueTooltip({
   }, [])
 
   useEffect(() => {
-    if (!editor) return
+    if (!editor || !editor.view) return
 
     function onMouseMove(e: MouseEvent): void {
       const target = e.target as HTMLElement

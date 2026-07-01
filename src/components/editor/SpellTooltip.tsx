@@ -69,7 +69,7 @@ export function SpellTooltip({ editor, documentId }: SpellTooltipProps): JSX.Ele
   }
 
   useEffect(() => {
-    if (!editor) return
+    if (!editor || !editor.view) return
     const dom = editor.view.dom as HTMLElement
 
     function onMouseOver(e: MouseEvent): void {

@@ -1,7 +1,11 @@
 # Todos
-- Fix Slides left sidebar context menu (add slide after, duplicate slide, delete slide do not work)
-- Make ESC key work for exiting presentation (should be a simple fix)
-- Add music playing status to dashboard
-- Make tab reordering (dragging) more smooth in the tab bar, and less buggy
-- Allow new Prose windows to be created by dragging out tab, and also Prose windows to be merged with others by dragging one tab (SAME BEHAVIOR AS GOOGLE CHROME TABS). Range within 50px of tab bar for automatic snapping back in
-- Add element animations and slide transitions to Slides (Slide transitions: Fade, Slide {left/right/up/down}, Push, Zoom, Dissolve; Element animations: Appear, Fade in/out, Fly in/out {left/right/top/bottom}, Zoom in/out, Bounce in/out, Wipe). Animations should live in the right sidebar in the same sidebar as the AI panel, so when the AI panel is open and you try to open the animations panel it takes the AI panels place. It should be resizable like Documents right sidebar. There should be a preview mode that allows you to preview all transitions on the current slide.
+- Make add file card in Boards actually work and not just say empty web-embed
+- Fix tab bar jittering when you click on another tab to switch
+- Make tab reordering be a simple drag and drop where the possible spot is highlighted with a vertical line. this is the same behavior as visual studio code ![alt text](image.png) where the 'ghost' is just a lower opacity version of the tab in the tab bar, not window contents. this already works for dragging out a new tab but not for simple reordering. We need to move away from fluid reordering and adopt a more visual studio code approach. 
+- Allow single tabs to be dropped in on other Prose window tab bars. This is the standard behavior of chrome, but currently it is not possible.
+- If you drag out a tab to form a new Prose window, where you start dragging on the tab from should then be the same position where the new prose window is created. in other words, if you start dragging on the top left of the tab and then drag it out then release somewhere else to create a new Prose window, where you release your mouse should be the same position at the top left of the tab in the tab bar.
+- Remove Slide Master/Master slide completely from slides because it's too buggy. Compelte removal from the code no more references to it at all. No breaking of slides functionality.
+- Make Show/hide grid be toggleable with a keyboard shortcut (decide what, it cant be Ctrl+G because that is supposed to group elements together) in slides and put that in the slides three dots menu like F5 for enter presentation mode to show the user it's possible
+- Fix an issue where if grid is shown in Slides, it then shows over the settings modal if you choose to open that. and i assume other modals if those are open too. it should only show on the slide canvas and behind elements.
+- Move pomodoro settings to Writing tab of settings modal.
+- Move the spellcheck tooltip in documents down a bit because it's too high above the word you're hovering over for spellcheck.
