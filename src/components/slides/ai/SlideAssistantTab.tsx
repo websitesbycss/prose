@@ -1,6 +1,7 @@
-// Phase 31 — Assistant tab with 7 per-slide AI chips.
 import { useState, useCallback } from 'react'
+import { motion, AnimatePresence } from 'motion/react'
 import { Loader2, Check, X } from 'lucide-react'
+import { Separator } from '@/components/ui/separator'
 import type { Slide, SlideElement, PresentationTheme } from '@/types/slides'
 import { slideToText, presentationToText, parseAiJson } from './aiSlideUtils'
 import { cn } from '@/lib/utils'
@@ -32,36 +33,47 @@ async function promptAi(request: string, context: string): Promise<string> {
   })
 }
 
-// ── Single chip component ────────────────────────────────────────────────────
+// ── Pill button component ─────────────────────────────────────────────────────
 
-function Chip({ label, description, onRun, children, state, error }: {
+function Pill({ label, onRun, children, state, error }: {
   label: string
-  description: string
   onRun(): void
   children?: React.ReactNode
   state: ChipState
   error?: string | null
 }): JSX.Element {
   return (
-    <div className="rounded-lg border border-border bg-card p-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-xs font-medium text-foreground">{label}</p>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">{description}</p>
-        </div>
-        <button
-          className={cn(
-            'flex h-6 shrink-0 items-center gap-1 rounded px-2 text-[11px] font-medium transition-colors',
-            state === 'loading' ? 'cursor-not-allowed opacity-60' : 'bg-primary text-primary-foreground hover:opacity-90',
-          )}
-          onClick={onRun}
-          disabled={state === 'loading'}
-        >
-          {state === 'loading' ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Run'}
-        </button>
-      </div>
-      {error && <p className="mt-2 text-[11px] text-destructive">{error}</p>}
-      {state === 'done' && children}
+    <div>
+      <button
+        disabled={state === 'loading'}
+        className={cn(
+          'w-full rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
+          'border border-border hover:bg-accent hover:text-accent-foreground',
+          state === 'loading' && 'cursor-not-allowed opacity-60',
+        )}
+        onClick={onRun}
+      >
+        <span className="flex items-center gap-1.5">
+          {state === 'loading' && <Loader2 className="h-3 w-3 shrink-0 animate-spin text-muted-foreground" />}
+          {label}
+        </span>
+      </button>
+      <AnimatePresence>
+        {(state === 'done' || state === 'error') && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="overflow-hidden"
+          >
+            <div className="mt-1 rounded-md border border-border bg-card p-2.5">
+              {error && <p className="text-[11px] text-destructive">{error}</p>}
+              {state === 'done' && children}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
@@ -75,6 +87,8 @@ export function SlideAssistantTab({
   const [states, setStates] = useState<Record<string, ChipState>>({})
   const [results, setResults] = useState<Record<string, ChipResult>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [contextOpen, setContextOpen] = useState(false)
+  const [slidesContext, setSlidesContext] = useState('')
 
   const setChip = useCallback((id: string, state: ChipState, result?: ChipResult, error?: string) => {
     setStates(s => ({ ...s, [id]: state }))
@@ -85,6 +99,7 @@ export function SlideAssistantTab({
 
   const ctx = slideToText(slide, activeSlideIndex)
   const allCtx = presentationToText(slides)
+  const ctxWithAssignment = slidesContext ? `${ctx}\n\nPresentation context: ${slidesContext}` : ctx
 
   // 1. Write talking points
   async function runTalkingPoints() {
@@ -92,7 +107,7 @@ export function SlideAssistantTab({
     try {
       const resp = await promptAi(
         'Write 4–6 concise bullet-point talking points for this slide that a presenter can use as speaker notes. Return only the bullet points, one per line, starting with •.',
-        ctx,
+        ctxWithAssignment,
       )
       setChip('tp', 'done', { type: 'talking-points', data: resp.trim() })
     } catch (e) {
@@ -106,7 +121,7 @@ export function SlideAssistantTab({
     try {
       const resp = await promptAi(
         'Suggest 3 concise, engaging slide titles for this slide based on its content. Return ONLY a JSON array of 3 strings, nothing else.',
-        ctx,
+        ctxWithAssignment,
       )
       const options = parseAiJson<string[]>(resp)
       setChip('title', 'done', { type: 'titles', data: options.slice(0, 3) })
@@ -121,7 +136,7 @@ export function SlideAssistantTab({
     try {
       const resp = await promptAi(
         'Identify 2–4 weak phrases in this slide and suggest improvements. Return ONLY a JSON array of objects with shape {"original": string, "improved": string}.',
-        ctx,
+        ctxWithAssignment,
       )
       const suggestions = parseAiJson<Array<{ original: string; improved: string }>>(resp)
       setChip('improve', 'done', { type: 'improvements', data: suggestions })
@@ -136,7 +151,7 @@ export function SlideAssistantTab({
     try {
       const resp = await promptAi(
         'This slide may have too much text. Suggest a condensed version — keep only the essential points. Return ONLY the revised text content, ready to place on the slide.',
-        ctx,
+        ctxWithAssignment,
       )
       setChip('simplify', 'done', { type: 'simplified', data: resp.trim() })
     } catch (e) {
@@ -150,7 +165,7 @@ export function SlideAssistantTab({
     try {
       const resp = await promptAi(
         'Based on this slide\'s content type, suggest the most appropriate layout. Return ONLY a JSON object: {"layout": "title" | "title-content" | "two-column" | "section-header" | "image-caption", "reason": string}.',
-        ctx,
+        ctxWithAssignment,
       )
       const suggestion = parseAiJson<{ layout: string; reason: string }>(resp)
       setChip('layout', 'done', { type: 'layout', data: suggestion })
@@ -165,7 +180,7 @@ export function SlideAssistantTab({
     try {
       const resp = await promptAi(
         'Describe a specific, concrete image that would enhance this slide visually. Write 1–2 sentences describing what the ideal image should show.',
-        ctx,
+        ctxWithAssignment,
       )
       setChip('imgdesc', 'done', { type: 'image-desc', data: resp.trim() })
     } catch (e) {
@@ -188,13 +203,11 @@ export function SlideAssistantTab({
     }
   }
 
-  // Insert talking points into notes
   function applyTalkingPoints() {
     const text = results['tp']?.data as string
     if (text) onUpdateNotes(text)
   }
 
-  // Apply title: insert as text element
   function applyTitle(title: string) {
     const el: SlideElement = {
       id: crypto.randomUUID(), type: 'text',
@@ -207,14 +220,12 @@ export function SlideAssistantTab({
     onInsertElement(el)
   }
 
-  // Apply simplified text: update first text element
   function applySimplified() {
     const text = results['simplify']?.data as string
     const firstText = slide.elements.find(e => e.type === 'text')
     if (firstText && text) onUpdateElement(firstText.id, { content: text })
   }
 
-  // Apply improvement
   function applyImprovement(original: string, improved: string) {
     for (const el of slide.elements) {
       if (el.type === 'text' && el.content?.includes(original)) {
@@ -225,148 +236,187 @@ export function SlideAssistantTab({
   }
 
   return (
-    <div className="flex flex-col gap-2 p-3">
+    <div className="flex flex-col">
+      {/* Slides context */}
+      <div className="shrink-0 px-3 pt-2 pb-1">
+        <button
+          className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+          onClick={() => setContextOpen((o) => !o)}
+        >
+          <span className={cn('transition-transform', contextOpen && 'rotate-90')}>›</span>
+          Slides context
+        </button>
+        <AnimatePresence>
+          {contextOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="overflow-hidden"
+            >
+              <textarea
+                className={cn(
+                  'mt-1.5 w-full resize-none rounded-md border border-input bg-transparent px-2 py-1.5',
+                  'text-xs placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring',
+                  'min-h-[60px]',
+                )}
+                placeholder="What's this presentation about? Topic, audience, goals…"
+                value={slidesContext}
+                onChange={(e) => setSlidesContext(e.target.value)}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
-      {/* 1 — Talking points */}
-      <Chip
-        label="Write talking points"
-        description="Generate speaker notes from this slide's content"
-        onRun={() => void runTalkingPoints()}
-        state={states['tp'] ?? 'idle'}
-        error={errors['tp']}
-      >
-        <div className="mt-2 space-y-1.5">
+      <Separator />
+
+      {/* Suggestion pills */}
+      <div className="flex flex-col gap-1 p-3">
+        <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          Suggestions
+        </p>
+
+        {/* 1 — Talking points */}
+        <Pill
+          label="Write talking points"
+          onRun={() => void runTalkingPoints()}
+          state={states['tp'] ?? 'idle'}
+          error={errors['tp']}
+        >
           <p className="whitespace-pre-wrap text-[11px] text-foreground">{results['tp']?.data as string}</p>
-          <button className="flex items-center gap-1 rounded bg-primary/10 px-2 py-1 text-[11px] text-primary hover:bg-primary/20" onClick={applyTalkingPoints}>
+          <button
+            className="mt-2 flex items-center gap-1 rounded bg-primary/10 px-2 py-1 text-[11px] text-primary hover:bg-primary/20"
+            onClick={applyTalkingPoints}
+          >
             <Check className="h-3 w-3" /> Insert as speaker notes
           </button>
-        </div>
-      </Chip>
+        </Pill>
 
-      {/* 2 — Suggest title */}
-      <Chip
-        label="Suggest title"
-        description="Get 3 title options based on slide content"
-        onRun={() => void runSuggestTitle()}
-        state={states['title'] ?? 'idle'}
-        error={errors['title']}
-      >
-        <div className="mt-2 flex flex-col gap-1">
-          {(results['title']?.data as string[] ?? []).map((t, i) => (
-            <button
-              key={i}
-              className="rounded border border-border px-2 py-1.5 text-left text-[11px] text-foreground hover:bg-accent"
-              onClick={() => applyTitle(t)}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-      </Chip>
+        {/* 2 — Suggest title */}
+        <Pill
+          label="Suggest title"
+          onRun={() => void runSuggestTitle()}
+          state={states['title'] ?? 'idle'}
+          error={errors['title']}
+        >
+          <div className="flex flex-col gap-1">
+            {(results['title']?.data as string[] ?? []).map((t, i) => (
+              <button
+                key={i}
+                className="rounded border border-border px-2 py-1.5 text-left text-[11px] text-foreground hover:bg-accent"
+                onClick={() => applyTitle(t)}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        </Pill>
 
-      {/* 3 — Improve text */}
-      <Chip
-        label="Improve text"
-        description="Identify weak phrases and suggest improvements"
-        onRun={() => void runImproveText()}
-        state={states['improve'] ?? 'idle'}
-        error={errors['improve']}
-      >
-        <div className="mt-2 flex flex-col gap-2">
-          {(results['improve']?.data as Array<{ original: string; improved: string }> ?? []).map((s, i) => (
-            <div key={i} className="rounded border border-border p-2 text-[11px]">
-              <p className="text-muted-foreground line-through">{s.original}</p>
-              <p className="mt-0.5 text-foreground">{s.improved}</p>
-              <div className="mt-1.5 flex gap-1">
-                <button className="flex items-center gap-0.5 rounded bg-primary/10 px-2 py-0.5 text-[10px] text-primary hover:bg-primary/20" onClick={() => applyImprovement(s.original, s.improved)}>
-                  <Check className="h-2.5 w-2.5" /> Apply
-                </button>
+        {/* 3 — Improve text */}
+        <Pill
+          label="Improve text"
+          onRun={() => void runImproveText()}
+          state={states['improve'] ?? 'idle'}
+          error={errors['improve']}
+        >
+          <div className="flex flex-col gap-2">
+            {(results['improve']?.data as Array<{ original: string; improved: string }> ?? []).map((s, i) => (
+              <div key={i} className="rounded border border-border p-2 text-[11px]">
+                <p className="text-muted-foreground line-through">{s.original}</p>
+                <p className="mt-0.5 text-foreground">{s.improved}</p>
+                <div className="mt-1.5 flex gap-1">
+                  <button
+                    className="flex items-center gap-0.5 rounded bg-primary/10 px-2 py-0.5 text-[10px] text-primary hover:bg-primary/20"
+                    onClick={() => applyImprovement(s.original, s.improved)}
+                  >
+                    <Check className="h-2.5 w-2.5" /> Apply
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      </Chip>
+            ))}
+          </div>
+        </Pill>
 
-      {/* 4 — Simplify slide */}
-      <Chip
-        label="Simplify slide"
-        description="Condense text to the essential points"
-        onRun={() => void runSimplify()}
-        state={states['simplify'] ?? 'idle'}
-        error={errors['simplify']}
-      >
-        <div className="mt-2 space-y-1.5">
+        {/* 4 — Simplify slide */}
+        <Pill
+          label="Simplify slide"
+          onRun={() => void runSimplify()}
+          state={states['simplify'] ?? 'idle'}
+          error={errors['simplify']}
+        >
           <p className="whitespace-pre-wrap rounded border border-border p-2 text-[11px] text-foreground">
             {results['simplify']?.data as string}
           </p>
-          <button className="flex items-center gap-1 rounded bg-primary/10 px-2 py-1 text-[11px] text-primary hover:bg-primary/20" onClick={applySimplified}>
+          <button
+            className="mt-2 flex items-center gap-1 rounded bg-primary/10 px-2 py-1 text-[11px] text-primary hover:bg-primary/20"
+            onClick={applySimplified}
+          >
             <Check className="h-3 w-3" /> Apply to first text element
           </button>
-        </div>
-      </Chip>
+        </Pill>
 
-      {/* 5 — Suggest layout */}
-      <Chip
-        label="Suggest layout"
-        description="Recommend a layout based on content type"
-        onRun={() => void runSuggestLayout()}
-        state={states['layout'] ?? 'idle'}
-        error={errors['layout']}
-      >
-        {results['layout'] && (() => {
-          const s = results['layout']?.data as { layout: string; reason: string }
-          return (
-            <div className="mt-2 rounded border border-border p-2 text-[11px]">
-              <p className="font-medium text-foreground">{s.layout}</p>
-              <p className="mt-0.5 text-muted-foreground">{s.reason}</p>
-            </div>
-          )
-        })()}
-      </Chip>
+        {/* 5 — Suggest layout */}
+        <Pill
+          label="Suggest layout"
+          onRun={() => void runSuggestLayout()}
+          state={states['layout'] ?? 'idle'}
+          error={errors['layout']}
+        >
+          {results['layout'] && (() => {
+            const s = results['layout']?.data as { layout: string; reason: string }
+            return (
+              <div className="text-[11px]">
+                <p className="font-medium text-foreground">{s.layout}</p>
+                <p className="mt-0.5 text-muted-foreground">{s.reason}</p>
+              </div>
+            )
+          })()}
+        </Pill>
 
-      {/* 6 — Generate image description */}
-      <Chip
-        label="Generate image description"
-        description="Describe an image that would enhance this slide"
-        onRun={() => void runImageDesc()}
-        state={states['imgdesc'] ?? 'idle'}
-        error={errors['imgdesc']}
-      >
-        <div className="mt-2 space-y-1.5">
+        {/* 6 — Generate image description */}
+        <Pill
+          label="Generate image description"
+          onRun={() => void runImageDesc()}
+          state={states['imgdesc'] ?? 'idle'}
+          error={errors['imgdesc']}
+        >
           <p className="text-[11px] text-foreground">{results['imgdesc']?.data as string}</p>
           <button
-            className="text-[11px] text-muted-foreground hover:text-foreground"
+            className="mt-2 text-[11px] text-muted-foreground hover:text-foreground"
             onClick={() => navigator.clipboard.writeText(results['imgdesc']?.data as string ?? '')}
           >
             Copy to clipboard
           </button>
-        </div>
-      </Chip>
+        </Pill>
 
-      {/* 7 — Check consistency */}
-      <Chip
-        label="Check consistency"
-        description="Review all slides for conflicts and inconsistencies"
-        onRun={() => void runConsistency()}
-        state={states['consist'] ?? 'idle'}
-        error={errors['consist']}
-      >
-        <div className="mt-2 flex flex-col gap-1">
-          {(results['consist']?.data as Array<{ slide: number; issue: string }> ?? []).length === 0 ? (
-            <p className="flex items-center gap-1 text-[11px] text-green-600"><Check className="h-3 w-3" /> No issues found</p>
-          ) : (
-            (results['consist']?.data as Array<{ slide: number; issue: string }>).map((issue, i) => (
-              <div key={i} className="flex items-start gap-1.5 rounded border border-border p-1.5 text-[11px]">
-                <X className="mt-0.5 h-3 w-3 shrink-0 text-destructive" />
-                <div>
-                  <span className="font-medium">Slide {issue.slide}: </span>
-                  <span className="text-muted-foreground">{issue.issue}</span>
+        {/* 7 — Check consistency */}
+        <Pill
+          label="Check consistency"
+          onRun={() => void runConsistency()}
+          state={states['consist'] ?? 'idle'}
+          error={errors['consist']}
+        >
+          <div className="flex flex-col gap-1">
+            {(results['consist']?.data as Array<{ slide: number; issue: string }> ?? []).length === 0 ? (
+              <p className="flex items-center gap-1 text-[11px] text-green-600">
+                <Check className="h-3 w-3" /> No issues found
+              </p>
+            ) : (
+              (results['consist']?.data as Array<{ slide: number; issue: string }>).map((issue, i) => (
+                <div key={i} className="flex items-start gap-1.5 rounded border border-border p-1.5 text-[11px]">
+                  <X className="mt-0.5 h-3 w-3 shrink-0 text-destructive" />
+                  <div>
+                    <span className="font-medium">Slide {issue.slide}: </span>
+                    <span className="text-muted-foreground">{issue.issue}</span>
+                  </div>
                 </div>
-              </div>
-            ))
-          )}
-        </div>
-      </Chip>
+              ))
+            )}
+          </div>
+        </Pill>
+      </div>
     </div>
   )
 }

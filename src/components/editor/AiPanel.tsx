@@ -278,7 +278,7 @@ function extractMarkdownTable(content: string): string[][] | null {
 
 // ── Chat tab ──────────────────────────────────────────────────────────────────
 
-function ChatTab({
+export function ChatTab({
   editor,
   fileType = 'document',
   assignmentContext,

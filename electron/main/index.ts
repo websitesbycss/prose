@@ -88,9 +88,9 @@ function createMainWindow(): BrowserWindow {
   win.webContents.setWindowOpenHandler(({ url }) => {
     try {
       const parsed = new URL(url)
-      if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
-        shell.openExternal(url).catch(() => {})
-      }
+      const isExternal = (parsed.protocol === 'https:' || parsed.protocol === 'http:')
+        && !parsed.hostname.endsWith('.internal')
+      if (isExternal) shell.openExternal(url).catch(() => {})
     } catch { /* malformed URL — ignore */ }
     return { action: 'deny' }
   })

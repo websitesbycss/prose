@@ -1,6 +1,6 @@
-// Phase 31 — Slides AI panel. Shown in the right sidebar when ✦ is toggled.
 import { useState } from 'react'
-import { X } from 'lucide-react'
+import { Sparkles, MessageSquare, WandSparkles, X } from 'lucide-react'
+import { Separator } from '@/components/ui/separator'
 import type { Slide, SlideElement, PresentationTheme, PresentationSettings } from '@/types/slides'
 import { SlideAssistantTab } from './SlideAssistantTab'
 import { SlideGenerateTab } from './SlideGenerateTab'
@@ -20,44 +20,62 @@ interface Props {
   onReplaceCurrentSlide(slide: Slide): void
 }
 
-type Tab = 'assistant' | 'generate'
+type Tab = 'chat' | 'generate'
 
 export function SlidesAIPanel({
   slide, slides, activeSlideIndex, theme, settings,
   onClose, onUpdateNotes, onUpdateElement, onInsertElement,
   onInsertSlides, onReplaceCurrentSlide,
 }: Props): JSX.Element {
-  const [tab, setTab] = useState<Tab>('assistant')
+  const [tab, setTab] = useState<Tab>('chat')
 
   return (
     <div className="flex h-full w-72 shrink-0 flex-col border-l border-border bg-background">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-border px-3 py-2">
-        <div className="flex gap-0.5 rounded-lg border border-border bg-muted p-0.5">
-          {(['assistant', 'generate'] as Tab[]).map(t => (
-            <button
-              key={t}
-              className={cn(
-                'rounded px-2.5 py-1 text-[11px] font-medium transition-all',
-                tab === t ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
-              )}
-              onClick={() => setTab(t)}
-            >
-              {t === 'assistant' ? 'Assistant' : 'Generate'}
-            </button>
-          ))}
+      <div className="flex h-10 shrink-0 items-center gap-2 pl-3 pr-1.5">
+        <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
+        <span className="text-xs font-medium">AI assistant</span>
+
+        <div className="ml-auto flex items-center rounded-md border border-border bg-muted/40 p-0.5 gap-0.5">
+          <button
+            onClick={() => setTab('chat')}
+            className={cn(
+              'flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium transition-colors',
+              tab === 'chat'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            <MessageSquare className="h-2.5 w-2.5" />
+            Chat
+          </button>
+          <button
+            onClick={() => setTab('generate')}
+            className={cn(
+              'flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium transition-colors',
+              tab === 'generate'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            <WandSparkles className="h-2.5 w-2.5" />
+            Generate
+          </button>
         </div>
+
         <button
-          className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
           onClick={onClose}
         >
-          <X className="h-3.5 w-3.5" />
+          <X className="h-4 w-4" />
         </button>
       </div>
 
+      <Separator />
+
       {/* Content */}
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {tab === 'assistant' ? (
+        {tab === 'chat' ? (
           <SlideAssistantTab
             slide={slide}
             slides={slides}

@@ -76,9 +76,9 @@ export function createProseWindow(docId?: string): BrowserWindow {
   win.webContents.setWindowOpenHandler(({ url }) => {
     try {
       const parsed = new URL(url)
-      if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
-        shell.openExternal(url).catch(() => {})
-      }
+      const isExternal = (parsed.protocol === 'https:' || parsed.protocol === 'http:')
+        && !parsed.hostname.endsWith('.internal')
+      if (isExternal) shell.openExternal(url).catch(() => {})
     } catch { /* ignore */ }
     return { action: 'deny' }
   })
@@ -445,7 +445,7 @@ export function registerWindowHandlers(): void {
       // TAB_LEFT = home button (28px) + flex gap (6px) + small padding (~6px)
       const TAB_LEFT = 40
       const TAB_TOP = 8
-      win.setPosition(Math.max(0, x - TAB_LEFT - grabX), Math.max(0, y - TAB_TOP - grabY))
+      win.setPosition(Math.max(0, Math.round(x - TAB_LEFT - grabX)), Math.max(0, Math.round(y - TAB_TOP - grabY)))
       win.show()
     })
     if (detach.preview && !detach.preview.isDestroyed()) detach.preview.close()

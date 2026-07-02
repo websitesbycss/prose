@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { Excalidraw, MainMenu, exportToBlob, convertToExcalidrawElements } from '@excalidraw/excalidraw'
+import { Excalidraw, MainMenu, exportToBlob } from '@excalidraw/excalidraw'
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore — no type declarations for CSS side-effect import
 import '@excalidraw/excalidraw/index.css'
@@ -8,7 +8,7 @@ import {
   Settings, ChevronLeft, ChevronRight,
   PanelLeft, Square, Circle, ArrowRight,
   Scissors, Copy, Clipboard, Trash2, CopyPlus,
-  Group, Ungroup, SendToBack, BringToFront, Link2, Sparkles,
+  Group, Ungroup, SendToBack, BringToFront, Link2,
 } from 'lucide-react'
 
 import { useDocument } from '@/hooks/useDocument'
@@ -20,8 +20,7 @@ import { BoardToolbar } from './BoardToolbar'
 import { BoardStatusBar } from './BoardStatusBar'
 import { AUTO_SAVE_DEBOUNCE_MS, AI_PANEL_WIDTH } from '@/constants'
 import { useAppStore } from '@/store/appStore'
-import AiPanel from '@/components/editor/AiPanel'
-import { BoardBrainstormModal } from './BoardBrainstormModal'
+import { BoardsAIPanel } from './BoardsAIPanel'
 import { STICKY_NOTE_COLORS } from './aiBoardUtils'
 import { useMusicContext } from '@/contexts/MusicContext'
 import { AMBIENT_LAYERS } from '@/hooks/useMusic'
@@ -88,29 +87,45 @@ function ProseFileCardView({
   const countLabel: Record<string, string> = { sheet: 'cells', board: 'elements' }
   const unit = countLabel[data.fileType] ?? 'words'
 
+  const [thumbUrl, setThumbUrl] = useState<string | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    void window.prose.thumbnails.getDataUrl(data.fileId).then((url) => {
+      if (!cancelled && url) setThumbUrl(url)
+    })
+    return () => { cancelled = true }
+  }, [data.fileId])
+
   return (
     <div
       style={{ width, height }}
-      className="flex flex-col overflow-hidden rounded-lg border border-border bg-card p-3 text-card-foreground shadow-sm"
+      className="flex flex-col overflow-hidden rounded-lg border border-border bg-card text-card-foreground shadow-sm"
       onDoubleClick={(e) => { e.stopPropagation(); onOpen() }}
     >
-      <div className="mb-1.5 flex items-center gap-1.5">
-        <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-primary">
-          {typeLabel[data.fileType] ?? 'FILE'}
-        </span>
-        <span className="min-w-0 flex-1 truncate text-xs font-semibold">{data.title}</span>
+      {thumbUrl ? (
+        <div className="h-16 w-full shrink-0 overflow-hidden">
+          <img src={thumbUrl} draggable={false} className="h-full w-full object-cover" />
+        </div>
+      ) : null}
+      <div className="flex flex-1 flex-col overflow-hidden p-3">
+        <div className="mb-1.5 flex items-center gap-1.5">
+          <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-primary">
+            {typeLabel[data.fileType] ?? 'FILE'}
+          </span>
+          <span className="min-w-0 flex-1 truncate text-xs font-semibold">{data.title}</span>
+        </div>
+        {data.wordCount > 0 && (
+          <p className="mb-1 text-[10px] text-muted-foreground">
+            {data.wordCount.toLocaleString()} {unit}
+          </p>
+        )}
+        {!thumbUrl && data.preview && (
+          <p className="line-clamp-2 text-[10px] leading-relaxed text-muted-foreground/80">
+            {data.preview}
+          </p>
+        )}
+        <p className="mt-auto pt-1 text-[9px] text-muted-foreground/50">Double-click to open</p>
       </div>
-      {data.wordCount > 0 && (
-        <p className="mb-1 text-[10px] text-muted-foreground">
-          {data.wordCount.toLocaleString()} {unit}
-        </p>
-      )}
-      {data.preview && (
-        <p className="line-clamp-2 text-[10px] leading-relaxed text-muted-foreground/80">
-          {data.preview}
-        </p>
-      )}
-      <p className="mt-auto pt-1.5 text-[9px] text-muted-foreground/50">Double-click to open</p>
     </div>
   )
 }
@@ -517,7 +532,6 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
   // resizes, and rotates just like any other board element, and does not
   // live-update if the source sheet's chart changes later.
   const [chartPickerOpen, setChartPickerOpen] = useState(false)
-  const [brainstormOpen, setBrainstormOpen] = useState(false)
 
   const addChartElement = useCallback(
     (snapshot: ChartSnapshot) => {
@@ -583,18 +597,81 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
       const originX = -appState.scrollX + (appState.width ?? 800) / 2 / appState.zoom.value - gridW / 2
       const originY = -appState.scrollY + (appState.height ?? 600) / 2 / appState.zoom.value - gridH / 2
 
-      const skeletons = ideas.map((idea, i) => ({
-        type: 'rectangle' as const,
-        x: originX + (i % cols) * (NOTE_W + GAP),
-        y: originY + Math.floor(i / cols) * (NOTE_H + GAP),
-        width: NOTE_W,
-        height: NOTE_H,
-        backgroundColor: STICKY_NOTE_COLORS[i % STICKY_NOTE_COLORS.length],
-        strokeColor: 'transparent',
-        roundness: { type: 3 as const },
-        label: { text: idea, fontSize: 16, textAlign: 'center' as const, verticalAlign: 'middle' as const },
-      }))
-      const newElements = convertToExcalidrawElements(skeletons)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const newElements: any[] = []
+
+      ideas.forEach((idea, i) => {
+        const x = originX + (i % cols) * (NOTE_W + GAP)
+        const y = originY + Math.floor(i / cols) * (NOTE_H + GAP)
+        const color = STICKY_NOTE_COLORS[i % STICKY_NOTE_COLORS.length]!
+        const rectId = crypto.randomUUID()
+        const textId = crypto.randomUUID()
+        const now = Date.now()
+
+        newElements.push({
+          type: 'rectangle',
+          id: rectId,
+          x, y,
+          width: NOTE_W,
+          height: NOTE_H,
+          angle: 0,
+          strokeColor: 'transparent',
+          backgroundColor: color,
+          fillStyle: 'solid',
+          strokeWidth: 2,
+          strokeStyle: 'solid',
+          roughness: 0,
+          opacity: 100,
+          groupIds: [],
+          frameId: null,
+          boundElements: [{ type: 'text', id: textId }],
+          updated: now,
+          isDeleted: false,
+          link: null,
+          locked: false,
+          seed: Math.floor(Math.random() * 2 ** 31),
+          version: 1,
+          versionNonce: Math.floor(Math.random() * 2 ** 31),
+          index: null,
+          roundness: { type: 3 },
+        })
+
+        newElements.push({
+          type: 'text',
+          id: textId,
+          x: x + 10,
+          y: y + 10,
+          width: NOTE_W - 20,
+          height: NOTE_H - 20,
+          angle: 0,
+          strokeColor: '#1e1e1e',
+          backgroundColor: 'transparent',
+          fillStyle: 'solid',
+          strokeWidth: 2,
+          strokeStyle: 'solid',
+          roughness: 0,
+          opacity: 100,
+          groupIds: [],
+          frameId: null,
+          boundElements: null,
+          containerId: rectId,
+          text: idea,
+          fontSize: 15,
+          fontFamily: 1,
+          textAlign: 'center',
+          verticalAlign: 'middle',
+          autoResize: true,
+          lineHeight: 1.25,
+          updated: now,
+          isDeleted: false,
+          link: null,
+          locked: false,
+          seed: Math.floor(Math.random() * 2 ** 31),
+          version: 1,
+          versionNonce: Math.floor(Math.random() * 2 ** 31),
+          index: null,
+        })
+      })
 
       api.updateScene({ elements: [...elements, ...newElements] })
       scheduleSave()
@@ -791,30 +868,15 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
 
           {/* AI panel */}
           {aiPanelOpen && (
-            <div className="relative shrink-0" style={{ width: AI_PANEL_WIDTH }}>
-              <button
-                className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-[11px] text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground"
-                onClick={() => setBrainstormOpen(true)}
-                title="Generate sticky-note ideas for a topic"
-              >
-                <Sparkles className="h-3 w-3" /> Brainstorm
-              </button>
-              <AiPanel
-                editor={null}
-                fileType="board"
-                getDocumentContent={getBoardContext}
+            <div className="shrink-0" style={{ width: AI_PANEL_WIDTH }}>
+              <BoardsAIPanel
+                getBoardContext={getBoardContext}
+                onInsert={addBrainstormNotes}
               />
             </div>
           )}
         </div>
       </div>
-
-      {brainstormOpen && (
-        <BoardBrainstormModal
-          onInsert={addBrainstormNotes}
-          onClose={() => setBrainstormOpen(false)}
-        />
-      )}
 
       {statusBar}
 
