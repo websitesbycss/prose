@@ -1,9 +1,13 @@
-import { useState } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { Sparkles, MessageSquare, WandSparkles, X } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import type { Slide, SlideElement, PresentationTheme, PresentationSettings } from '@/types/slides'
-import { SlideAssistantTab } from './SlideAssistantTab'
+import { ChatTab } from '@/components/editor/AiPanel'
+import type { AiActionHandler } from '@/components/editor/AiPanel'
+import type { SlidesAction } from '@/lib/ai/proseActions'
+import { applySlideActions, buildSlidesChatContext } from './slideActionExecutor'
 import { SlideGenerateTab } from './SlideGenerateTab'
+import { useAppStore } from '@/store/appStore'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -18,19 +22,44 @@ interface Props {
   onInsertElement(el: SlideElement): void
   onInsertSlides(newSlides: Slide[], afterIndex: number): void
   onReplaceCurrentSlide(slide: Slide): void
+  onUpdateCurrentSlide(updater: (s: Slide) => Slide): void
 }
 
 type Tab = 'chat' | 'generate'
 
 export function SlidesAIPanel({
   slide, slides, activeSlideIndex, theme, settings,
-  onClose, onUpdateNotes, onUpdateElement, onInsertElement,
-  onInsertSlides, onReplaceCurrentSlide,
+  onClose, onInsertSlides, onReplaceCurrentSlide, onUpdateCurrentSlide,
 }: Props): JSX.Element {
   const [tab, setTab] = useState<Tab>('chat')
+  const assignmentContext = useAppStore((s) => s.assignmentContext)
+  const setAssignmentContext = useAppStore((s) => s.setAssignmentContext)
+
+  // Refs keep the action handler and context getter fresh without recreating
+  // them (ChatTab holds them across renders while a reply streams in).
+  const slideRef = useRef(slide); slideRef.current = slide
+  const slidesRef = useRef(slides); slidesRef.current = slides
+  const indexRef = useRef(activeSlideIndex); indexRef.current = activeSlideIndex
+  const themeRef = useRef(theme); themeRef.current = theme
+  const insertSlidesRef = useRef(onInsertSlides); insertSlidesRef.current = onInsertSlides
+  const updateCurrentSlideRef = useRef(onUpdateCurrentSlide); updateCurrentSlideRef.current = onUpdateCurrentSlide
+
+  const actionHandler = useMemo<AiActionHandler>(() => ({
+    surface: 'slides',
+    apply: (actions) => applySlideActions(actions as SlidesAction[], {
+      theme: themeRef.current,
+      getCurrentSlide: () => slideRef.current,
+      activeSlideIndex: indexRef.current,
+      insertSlides: (newSlides, afterIndex) => insertSlidesRef.current(newSlides, afterIndex),
+      updateCurrentSlide: (updater) => updateCurrentSlideRef.current(updater),
+    }),
+  }), [])
+
+  const getSlidesContext = useMemo(() => (): string =>
+    buildSlidesChatContext(slidesRef.current, indexRef.current, themeRef.current), [])
 
   return (
-    <div className="flex h-full w-72 shrink-0 flex-col border-l border-border bg-background">
+    <div className="flex h-full w-full shrink-0 flex-col border-l border-border bg-background">
       {/* Header */}
       <div className="flex h-10 shrink-0 items-center gap-2 pl-3 pr-1.5">
         <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
@@ -74,26 +103,27 @@ export function SlidesAIPanel({
       <Separator />
 
       {/* Content */}
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-hidden">
         {tab === 'chat' ? (
-          <SlideAssistantTab
-            slide={slide}
-            slides={slides}
-            activeSlideIndex={activeSlideIndex}
-            theme={theme}
-            onUpdateNotes={onUpdateNotes}
-            onUpdateElement={onUpdateElement}
-            onInsertElement={onInsertElement}
+          <ChatTab
+            editor={null}
+            fileType="slides"
+            assignmentContext={assignmentContext}
+            setAssignmentContext={setAssignmentContext}
+            getDocumentContent={getSlidesContext}
+            actionHandler={actionHandler}
           />
         ) : (
-          <SlideGenerateTab
-            slides={slides}
-            activeSlideIndex={activeSlideIndex}
-            theme={theme}
-            settings={settings}
-            onInsertSlides={onInsertSlides}
-            onReplaceCurrentSlide={onReplaceCurrentSlide}
-          />
+          <div className="h-full overflow-y-auto">
+            <SlideGenerateTab
+              slides={slides}
+              activeSlideIndex={activeSlideIndex}
+              theme={theme}
+              settings={settings}
+              onInsertSlides={onInsertSlides}
+              onReplaceCurrentSlide={onReplaceCurrentSlide}
+            />
+          </div>
         )}
       </div>
     </div>

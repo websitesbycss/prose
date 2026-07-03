@@ -202,7 +202,7 @@ export async function generateSlideVisual(
     const resp = await window.prose.ai.prompt({
       documentContent: description,
       request: SVG_SYSTEM_PROMPT.replace('{themeColors}', themeColors).replace('{description}', description),
-      fileType: 'slides',
+      fileType: 'generate',
     })
     const svgMatch = /<svg[\s\S]*<\/svg>/i.exec(resp)
     const rawSvg = svgMatch ? svgMatch[0] : resp.trim()

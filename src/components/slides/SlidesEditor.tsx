@@ -1225,6 +1225,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
                 onInsertElement={handleInsertElement}
                 onInsertSlides={handleInsertSlides}
                 onReplaceCurrentSlide={handleReplaceCurrentSlide}
+                onUpdateCurrentSlide={changeActiveSlide}
               />
             )}
             {slidesAnimationsPanelOpen && (

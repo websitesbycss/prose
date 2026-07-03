@@ -13,9 +13,30 @@ import { FILE_TYPE_AI_CONFIG } from '@/lib/aiConfig'
 import type { FileType } from '@/lib/aiConfig'
 import type { Issue, AiSelectionAttachment } from '@/types'
 import type { AnalysisState, AnalysisControls } from '@/hooks/useAnalysis'
+import { findQuoteIndex } from '@/lib/quoteMatch'
+import {
+  extractActionBlock, stripActionBlock, hasOpenActionFence, validateActions, describeAction,
+} from '@/lib/ai/proseActions'
+import type { ActionSurface, ProseAction, ValidatedActions } from '@/lib/ai/proseActions'
 import {
   Send, Loader2, Sparkles, WandSparkles, MessageSquare, ScanText, X, TextSelect,
+  Wand2, Check, AlertTriangle,
 } from 'lucide-react'
+
+// ── AI action execution bridge ────────────────────────────────────────────────
+// Editors that support prose-actions pass a handler; the ChatTab parses action
+// blocks out of assistant replies, shows a preview card, and calls apply()
+// only when the user clicks Apply.
+
+export interface AiActionResult {
+  ok: boolean
+  message?: string
+}
+
+export interface AiActionHandler {
+  surface: ActionSurface
+  apply(actions: ProseAction[]): AiActionResult | Promise<AiActionResult>
+}
 
 // ── Markdown renderer for assistant messages ─────────────────────────────────
 
@@ -205,6 +226,10 @@ interface AiPanelProps {
   onInsertFormula?: (formula: string) => void
   /** Called when the user clicks "Insert into sheet" on an AI-generated table (Sheets only). */
   onInsertTableData?: (rows: string[][]) => void
+  /** Lets AI replies carry applyable prose-actions (Sheets, Boards). */
+  actionHandler?: AiActionHandler
+  /** Optional second tab (e.g. Sheets "Insights") for file types without analysis. */
+  extraTab?: { label: string; icon: React.ComponentType<{ className?: string }>; content: React.ReactNode }
 }
 
 // ── Shared apply logic ────────────────────────────────────────────────────────
@@ -212,7 +237,7 @@ interface AiPanelProps {
 function applyIssueSuggestion(editor: Editor, issue: Issue): void {
   if (!issue.suggestion) return
   const docText = editor.state.doc.textContent
-  const idx = docText.indexOf(issue.quote)
+  const idx = findQuoteIndex(docText, issue.quote)
   if (idx === -1) return
   let textOffset = 0
   let from: number | null = null
@@ -276,6 +301,93 @@ function extractMarkdownTable(content: string): string[][] | null {
   return rows.length > 0 ? rows : null
 }
 
+// ── Action preview card ───────────────────────────────────────────────────────
+
+type ActionCardState = { status: 'idle' } | { status: 'applying' } | { status: 'applied' } | { status: 'error'; message: string }
+
+function ActionCard({
+  validated,
+  state,
+  onApply,
+}: {
+  validated: ValidatedActions
+  state: ActionCardState
+  onApply(): void
+}): JSX.Element {
+  const n = validated.actions.length
+  return (
+    <div className="mt-1 w-full max-w-[85%] rounded-lg border border-primary/30 bg-primary/5 p-2.5">
+      <div className="mb-1.5 flex items-center gap-1.5">
+        <Wand2 className="h-3 w-3 shrink-0 text-primary" />
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-primary">
+          {n} action{n !== 1 ? 's' : ''} ready
+        </span>
+      </div>
+      <ul className="mb-2 space-y-0.5">
+        {validated.actions.slice(0, 8).map((a, i) => (
+          <li key={i} className="flex items-start gap-1.5 text-[11px] leading-snug text-foreground">
+            <span className="mt-[5px] h-1 w-1 shrink-0 rounded-full bg-primary/60" />
+            {describeAction(a)}
+          </li>
+        ))}
+        {validated.actions.length > 8 && (
+          <li className="text-[10px] text-muted-foreground">…and {validated.actions.length - 8} more</li>
+        )}
+      </ul>
+      {validated.warnings.length > 0 && (
+        <p className="mb-2 flex items-start gap-1 text-[10px] text-amber-600 dark:text-amber-400">
+          <AlertTriangle className="mt-px h-2.5 w-2.5 shrink-0" />
+          {validated.warnings[0]}{validated.warnings.length > 1 ? ` (+${validated.warnings.length - 1} more)` : ''}
+        </p>
+      )}
+      {state.status === 'applied' ? (
+        <p className="flex items-center gap-1 text-[11px] font-medium text-green-600 dark:text-green-400">
+          <Check className="h-3 w-3" /> Applied
+        </p>
+      ) : state.status === 'error' ? (
+        <div>
+          <p className="mb-1 text-[10px] text-destructive">{state.message}</p>
+          <button
+            className="rounded bg-primary px-2.5 py-1 text-[10px] font-medium text-primary-foreground hover:bg-primary/90"
+            onClick={onApply}
+          >
+            Retry
+          </button>
+        </div>
+      ) : (
+        <button
+          className="flex items-center gap-1 rounded bg-primary px-2.5 py-1 text-[10px] font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+          disabled={state.status === 'applying'}
+          onClick={onApply}
+        >
+          {state.status === 'applying' && <Loader2 className="h-2.5 w-2.5 animate-spin" />}
+          Apply
+        </button>
+      )}
+    </div>
+  )
+}
+
+// Splits an assistant message into displayable text + (optionally) a validated
+// action block. While the fence is still streaming in, the partial JSON is
+// hidden behind a "building" indicator instead of raw JSON flooding the bubble.
+function splitAssistantContent(
+  content: string,
+  surface: ActionSurface | null,
+): { text: string; validated: ValidatedActions | null; building: boolean } {
+  if (!surface) return { text: content, validated: null, building: false }
+  const block = extractActionBlock(content)
+  if (block) {
+    const validated = validateActions(block.json, surface)
+    return { text: stripActionBlock(content, block.raw), validated, building: false }
+  }
+  if (hasOpenActionFence(content)) {
+    const fenceIdx = content.search(/```(?:prose-actions|prose_actions|json)/i)
+    return { text: fenceIdx > 0 ? content.slice(0, fenceIdx).trim() : '', validated: null, building: true }
+  }
+  return { text: content, validated: null, building: false }
+}
+
 // ── Chat tab ──────────────────────────────────────────────────────────────────
 
 export function ChatTab({
@@ -286,6 +398,7 @@ export function ChatTab({
   getDocumentContent,
   onInsertFormula,
   onInsertTableData,
+  actionHandler,
 }: {
   editor: Editor | null
   fileType?: FileType
@@ -294,6 +407,8 @@ export function ChatTab({
   getDocumentContent?: () => string
   onInsertFormula?: (formula: string) => void
   onInsertTableData?: (rows: string[][]) => void
+  /** When provided, prose-actions blocks in AI replies become applyable cards. */
+  actionHandler?: AiActionHandler
 }): JSX.Element {
   const ollamaStatus = useAppStore((s) => s.ollamaStatus)
   const pendingAiPrompt = useAppStore((s) => s.pendingAiPrompt)
@@ -306,6 +421,7 @@ export function ChatTab({
   const [input, setInput] = useState('')
   const [attachment, setAttachment] = useState<AiSelectionAttachment | null>(null)
   const [attachmentActive, setAttachmentActive] = useState(false)
+  const [actionStates, setActionStates] = useState<Record<string, ActionCardState>>({})
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -391,6 +507,28 @@ export function ChatTab({
     await sendMessage(t, docText, assignmentContext || undefined, selectionContent, fileType)
   }
 
+  async function applyActions(messageId: string, validated: ValidatedActions): Promise<void> {
+    if (!actionHandler) return
+    setActionStates((s) => ({ ...s, [messageId]: { status: 'applying' } }))
+    try {
+      const result = await actionHandler.apply(validated.actions)
+      setActionStates((s) => ({
+        ...s,
+        [messageId]: result.ok
+          ? { status: 'applied' }
+          : { status: 'error', message: result.message ?? 'Could not apply these actions.' },
+      }))
+    } catch (err) {
+      console.error('[AiPanel] action apply error:', err)
+      setActionStates((s) => ({ ...s, [messageId]: { status: 'error', message: 'Something went wrong while applying.' } }))
+    }
+  }
+
+  function handleClearMessages(): void {
+    setActionStates({})
+    clearMessages()
+  }
+
   return (
     <div className="flex h-full flex-col">
       {/* Document context */}
@@ -455,14 +593,19 @@ export function ChatTab({
         )}
 
         {messages.map((msg) => {
-          const formula = msg.role === 'assistant' && fileType === 'sheet' && msg.content
-            ? extractFormula(msg.content)
+          const { text: displayText, validated, building } = msg.role === 'assistant'
+            ? splitAssistantContent(msg.content, actionHandler?.surface ?? null)
+            : { text: msg.content, validated: null, building: false }
+          const formula = msg.role === 'assistant' && fileType === 'sheet' && displayText && !validated
+            ? extractFormula(displayText)
             : null
-          const table = msg.role === 'assistant' && fileType === 'sheet' && msg.content && !formula
-            ? extractMarkdownTable(msg.content)
+          const table = msg.role === 'assistant' && fileType === 'sheet' && displayText && !formula && !validated
+            ? extractMarkdownTable(displayText)
             : null
+          const showBubble = msg.role === 'user' || displayText || (!validated && !building)
           return (
             <div key={msg.id} className={cn('flex flex-col', msg.role === 'user' ? 'items-end' : 'items-start')}>
+              {showBubble && (
               <div
                 className={cn(
                   'ai-chat-bubble min-w-0 max-w-[85%] rounded-2xl px-3 py-2 text-xs leading-relaxed',
@@ -471,8 +614,8 @@ export function ChatTab({
                     : 'rounded-bl-sm bg-muted text-foreground'
                 )}
               >
-                {msg.role === 'assistant' && msg.content ? (
-                  <AiMarkdown>{normaliseMath(msg.content)}</AiMarkdown>
+                {msg.role === 'assistant' && displayText ? (
+                  <AiMarkdown>{normaliseMath(displayText)}</AiMarkdown>
                 ) : msg.content || (
                   <span className="flex items-center gap-1 text-muted-foreground">
                     {reloading ? (
@@ -490,6 +633,20 @@ export function ChatTab({
                   </span>
                 )}
               </div>
+              )}
+              {building && (
+                <div className="mt-1 flex items-center gap-1.5 rounded-md border border-primary/20 bg-primary/5 px-2.5 py-1.5 text-[10px] text-muted-foreground">
+                  <Loader2 className="h-2.5 w-2.5 animate-spin text-primary" />
+                  Preparing actions…
+                </div>
+              )}
+              {validated && (
+                <ActionCard
+                  validated={validated}
+                  state={actionStates[msg.id] ?? { status: 'idle' }}
+                  onApply={() => void applyActions(msg.id, validated)}
+                />
+              )}
               {formula && onInsertFormula && (
                 <div className="mt-1 flex items-center gap-2 rounded-md border border-border bg-background px-2.5 py-1.5 text-[11px] max-w-[85%]">
                   <code className="min-w-0 flex-1 truncate font-mono text-[10px] text-foreground">{formula}</code>
@@ -533,7 +690,7 @@ export function ChatTab({
         <div className="shrink-0 flex justify-end px-3 pb-1">
           <button
             className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-            onClick={clearMessages}
+            onClick={handleClearMessages}
           >
             Clear chat
           </button>
@@ -628,7 +785,7 @@ function AnalysisTab({
   function scrollToIssue(issue: Issue): void {
     if (!editor) return
     const docText = editor.state.doc.textContent
-    const idx = docText.indexOf(issue.quote)
+    const idx = findQuoteIndex(docText, issue.quote)
     if (idx === -1) return
     let textOffset = 0
     let targetPos: number | null = null
@@ -960,17 +1117,25 @@ export function IssueTooltip({
 
 // ── Main panel ────────────────────────────────────────────────────────────────
 
-export default function AiPanel({ editor, analysis, fileType = 'document', getDocumentContent, onInsertFormula, onInsertTableData }: AiPanelProps): JSX.Element {
+export default function AiPanel({ editor, analysis, fileType = 'document', getDocumentContent, onInsertFormula, onInsertTableData, actionHandler, extraTab }: AiPanelProps): JSX.Element {
   const activeAiTab = useAppStore((s) => s.activeAiTab)
   const setActiveAiTab = useAppStore((s) => s.setActiveAiTab)
   const setAiPanelOpen = useAppStore((s) => s.setAiPanelOpen)
   const issueCount = useAppStore((s) => s.issueCount)
   const assignmentContext = useAppStore((s) => s.assignmentContext)
   const setAssignmentContext = useAppStore((s) => s.setAssignmentContext)
+  // Local tab state for the optional extra tab (file types without analysis).
+  const [extraTabActive, setExtraTabActive] = useState(false)
 
   const hasAnalysis = FILE_TYPE_AI_CONFIG[fileType].hasAnalysis
   // If the current tab is 'analysis' but this file type doesn't support it, switch to chat.
   const resolvedTab = !hasAnalysis && activeAiTab === 'analysis' ? 'chat' : activeAiTab
+  const hasTabs = hasAnalysis || !!extraTab
+
+  const tabPillClass = (active: boolean): string => cn(
+    'flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium transition-colors',
+    active ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+  )
 
   return (
     <div className="flex h-full flex-col border-l border-border">
@@ -979,45 +1144,46 @@ export default function AiPanel({ editor, analysis, fileType = 'document', getDo
         <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
         <span className="text-xs font-medium">AI assistant</span>
 
-        {/* Tab pills — only shown when analysis is available */}
-        {hasAnalysis && (
+        {/* Tab pills */}
+        {hasTabs && (
           <div className="ml-auto flex items-center rounded-md border border-border bg-muted/40 p-0.5 gap-0.5">
             <button
-              onClick={() => setActiveAiTab('chat')}
-              className={cn(
-                'flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium transition-colors',
-                resolvedTab === 'chat'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
+              onClick={() => { setActiveAiTab('chat'); setExtraTabActive(false) }}
+              className={tabPillClass(hasAnalysis ? resolvedTab === 'chat' : !extraTabActive)}
             >
               <MessageSquare className="h-2.5 w-2.5" />
               Chat
             </button>
-            <button
-              onClick={() => setActiveAiTab('analysis')}
-              className={cn(
-                'flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium transition-colors',
-                resolvedTab === 'analysis'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <ScanText className="h-2.5 w-2.5" />
-              Issues
-              {issueCount > 0 && (
-                <span className="rounded-full bg-primary px-1 py-px text-[8px] font-bold leading-none text-primary-foreground">
-                  {issueCount > 99 ? '99+' : issueCount}
-                </span>
-              )}
-            </button>
+            {hasAnalysis && (
+              <button
+                onClick={() => setActiveAiTab('analysis')}
+                className={tabPillClass(resolvedTab === 'analysis')}
+              >
+                <ScanText className="h-2.5 w-2.5" />
+                Issues
+                {issueCount > 0 && (
+                  <span className="rounded-full bg-primary px-1 py-px text-[8px] font-bold leading-none text-primary-foreground">
+                    {issueCount > 99 ? '99+' : issueCount}
+                  </span>
+                )}
+              </button>
+            )}
+            {!hasAnalysis && extraTab && (
+              <button
+                onClick={() => setExtraTabActive(true)}
+                className={tabPillClass(extraTabActive)}
+              >
+                <extraTab.icon className="h-2.5 w-2.5" />
+                {extraTab.label}
+              </button>
+            )}
           </div>
         )}
 
         <button
           className={cn(
             'flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
-            !hasAnalysis && 'ml-auto',
+            !hasTabs && 'ml-auto',
           )}
           onClick={() => setAiPanelOpen(false)}
         >
@@ -1029,7 +1195,9 @@ export default function AiPanel({ editor, analysis, fileType = 'document', getDo
 
       {/* Tab content */}
       <div className="flex-1 overflow-hidden">
-        {resolvedTab === 'chat' || !hasAnalysis ? (
+        {!hasAnalysis && extraTab && extraTabActive ? (
+          extraTab.content
+        ) : resolvedTab === 'chat' || !hasAnalysis ? (
           <ChatTab
             editor={editor}
             fileType={fileType}
@@ -1038,6 +1206,7 @@ export default function AiPanel({ editor, analysis, fileType = 'document', getDo
             getDocumentContent={getDocumentContent}
             onInsertFormula={onInsertFormula}
             onInsertTableData={onInsertTableData}
+            actionHandler={actionHandler}
           />
         ) : (
           <AnalysisTab

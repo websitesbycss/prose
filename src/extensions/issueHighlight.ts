@@ -3,6 +3,7 @@ import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import type { Issue } from '@/types'
+import { findQuoteIndex } from '@/lib/quoteMatch'
 
 export const issueHighlightKey = new PluginKey<DecorationSet>('issueHighlight')
 
@@ -37,7 +38,7 @@ function buildDecorations(doc: PMNode, issues: Issue[]): DecorationSet {
   for (const issue of issues) {
     const quote = issue.quote.trim()
     if (!quote || quote.length < 2) continue
-    const idx = text.indexOf(quote)
+    const idx = findQuoteIndex(text, quote)
     if (idx === -1 || idx + quote.length > positions.length) continue
 
     const from = positions[idx]!

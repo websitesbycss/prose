@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { Excalidraw, MainMenu, exportToBlob } from '@excalidraw/excalidraw'
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore — no type declarations for CSS side-effect import
@@ -22,6 +22,7 @@ import { AUTO_SAVE_DEBOUNCE_MS, AI_PANEL_WIDTH } from '@/constants'
 import { useAppStore } from '@/store/appStore'
 import { BoardsAIPanel } from './BoardsAIPanel'
 import { STICKY_NOTE_COLORS } from './aiBoardUtils'
+import { createBoardActionHandler } from './boardAiActions'
 import { useMusicContext } from '@/contexts/MusicContext'
 import { AMBIENT_LAYERS } from '@/hooks/useMusic'
 import { cn } from '@/lib/utils'
@@ -679,6 +680,14 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
     [scheduleSave],
   )
 
+  // AI chat action handler — lets prose-actions from the AI panel draw nodes,
+  // arrows, and file cards on the board (after the user clicks Apply).
+  const boardActionHandler = useMemo(() => createBoardActionHandler({
+    getApi: () => excalidrawAPIRef.current,
+    addFileCard,
+    scheduleSave,
+  }), [addFileCard, scheduleSave])
+
   // Excalidraw has no public undo()/redo() API — it only responds to a real
   // keydown on its own root container (.excalidraw-container), so locate that
   // element within this board's own wrapper and dispatch there.
@@ -872,6 +881,7 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
               <BoardsAIPanel
                 getBoardContext={getBoardContext}
                 onInsert={addBrainstormNotes}
+                actionHandler={boardActionHandler}
               />
             </div>
           )}

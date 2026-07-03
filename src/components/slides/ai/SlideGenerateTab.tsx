@@ -45,7 +45,7 @@ export function SlideGenerateTab({
       const resp = await window.prose.ai.prompt({
         documentContent: outlineText,
         request: prompt,
-        fileType: 'slides',
+        fileType: 'generate',
       })
       const aiSlides = parseAiJson<AiSlideSchema[]>(resp)
       const capped = aiSlides.slice(0, 20)
@@ -71,7 +71,7 @@ export function SlideGenerateTab({
       const resp = await window.prose.ai.prompt({
         documentContent: docs.filter(d => d.fileType !== 'slides').slice(0, 3).map(d => `# ${d.title}\n${d.content?.replace(/<[^>]+>/g, '')}`).join('\n\n'),
         request: `${OUTLINE_SYSTEM_PROMPT}\n\nGenerate a presentation summarizing the content of the provided document(s).`,
-        fileType: 'slides',
+        fileType: 'generate',
       })
       const aiSlides = parseAiJson<AiSlideSchema[]>(resp)
       const capped = aiSlides.slice(0, 20)
@@ -94,7 +94,7 @@ export function SlideGenerateTab({
       const resp = await window.prose.ai.prompt({
         documentContent: singleDesc,
         request: `Generate content for a single presentation slide based on this description. Return ONLY a JSON object matching the schema: {"title": string, "layout": "title" | "title-content" | "two-column" | "section-header" | "image-caption", "content": string | string[], "speakerNotes": string, "suggestedImageDescription": string | null, "backgroundColor": null}`,
-        fileType: 'slides',
+        fileType: 'generate',
       })
       const aiSlide = parseAiJson<AiSlideSchema>(resp)
       const prosSlide = aiSlideToProseSlide(aiSlide, theme)

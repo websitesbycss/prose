@@ -135,7 +135,7 @@ export interface AiPromptPayload {
   request: string
   selectionContent?: string
   history?: Array<{ role: 'user' | 'assistant'; content: string }>
-  fileType?: 'document' | 'sheet' | 'board' | 'slides'
+  fileType?: 'document' | 'sheet' | 'board' | 'slides' | 'sheet-insights' | 'generate'
 }
 
 export interface Issue {

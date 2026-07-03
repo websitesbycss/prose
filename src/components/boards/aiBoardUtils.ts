@@ -27,7 +27,7 @@ export async function generateBrainstormIdeas(topic: string): Promise<string[]> 
   const resp = await window.prose.ai.prompt({
     documentContent: topic,
     request: `${BRAINSTORM_SYSTEM_PROMPT}\n\nTopic: ${topic}`,
-    fileType: 'board',
+    fileType: 'generate',
   })
   return parseBrainstormIdeas(resp)
 }

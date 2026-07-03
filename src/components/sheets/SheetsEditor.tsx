@@ -9,8 +9,12 @@ import type { Sheet, Hooks, Selection } from '@fortune-sheet/core'
 import '@fortune-sheet/react/dist/index.css'
 
 import { useDocument } from '@/hooks/useDocument'
-import type { SheetContent, ChartDef } from '@/types/sheet'
+import type { SheetContent, ChartDef, ChartType } from '@/types/sheet'
 import { isSheetContent, createInitialSheetContent } from '@/types/sheet'
+import { createSheetActionHandler } from './sheetAiActions'
+import { SheetInsightsTab } from './SheetInsightsTab'
+import type { CellRef } from '@/lib/ai/proseActions'
+import { Lightbulb } from 'lucide-react'
 import { FileEditorTitleBar } from '@/components/editor/FileEditorTitleBar'
 import { SheetToolbar, type ToolbarState } from './SheetToolbar'
 import { SheetTabBar } from './SheetTabBar'
@@ -551,6 +555,32 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
 
   // ── End chart management ──────────────────────────────────────────────────
 
+  // ── AI actions + insights ──────────────────────────────────────────────────
+
+  const aiActionHandler = useMemo(() => createSheetActionHandler({
+    workbookRef,
+    getActiveSheetId: () => activeTabIdRef.current,
+    insertChart: handleInsertChart,
+    onMutated: scheduleSave,
+  }), [handleInsertChart, scheduleSave])
+
+  const insightsInsertFormula = useCallback((cell: CellRef, formula: string) => {
+    const wb = workbookRef.current; if (!wb) return
+    wb.setCellValue(cell.row, cell.col, formula)
+    scheduleSave()
+  }, [scheduleSave])
+
+  const insightsInsertChart = useCallback((chart: { type: ChartType; dataRange: string; title: string }) => {
+    handleInsertChart({
+      sheetId: activeTabIdRef.current,
+      type: chart.type,
+      dataRange: chart.dataRange,
+      title: chart.title,
+    })
+  }, [handleInsertChart])
+
+  // ── End AI actions + insights ──────────────────────────────────────────────
+
   // onChange: sync tab bar, zoom, and schedule save
   const handleChange = useCallback((data: Sheet[]) => {
     pendingDataRef.current = data
@@ -726,6 +756,18 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
                 getDocumentContent={getSheetContext}
                 onInsertFormula={onInsertFormula}
                 onInsertTableData={onInsertTableData}
+                actionHandler={aiActionHandler}
+                extraTab={{
+                  label: 'Insights',
+                  icon: Lightbulb,
+                  content: (
+                    <SheetInsightsTab
+                      getSheetContext={getSheetContext}
+                      onInsertFormula={insightsInsertFormula}
+                      onInsertChart={insightsInsertChart}
+                    />
+                  ),
+                }}
               />
             </div>
           )}

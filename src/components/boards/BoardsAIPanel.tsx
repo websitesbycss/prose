@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Sparkles, MessageSquare, Wand2, X, Loader2 } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { ChatTab } from '@/components/editor/AiPanel'
+import type { AiActionHandler } from '@/components/editor/AiPanel'
 import { useAppStore } from '@/store/appStore'
 import { generateBrainstormIdeas } from './aiBoardUtils'
 import { cn } from '@/lib/utils'
@@ -9,11 +10,12 @@ import { cn } from '@/lib/utils'
 interface Props {
   getBoardContext(): string
   onInsert(ideas: string[]): void
+  actionHandler?: AiActionHandler
 }
 
 type Tab = 'chat' | 'brainstorm'
 
-export function BoardsAIPanel({ getBoardContext, onInsert }: Props): JSX.Element {
+export function BoardsAIPanel({ getBoardContext, onInsert, actionHandler }: Props): JSX.Element {
   const setAiPanelOpen = useAppStore((s) => s.setAiPanelOpen)
   const assignmentContext = useAppStore((s) => s.assignmentContext)
   const setAssignmentContext = useAppStore((s) => s.setAssignmentContext)
@@ -100,6 +102,7 @@ export function BoardsAIPanel({ getBoardContext, onInsert }: Props): JSX.Element
             assignmentContext={assignmentContext}
             setAssignmentContext={setAssignmentContext}
             getDocumentContent={getBoardContext}
+            actionHandler={actionHandler}
           />
         ) : (
           <div className="flex h-full flex-col p-3">
