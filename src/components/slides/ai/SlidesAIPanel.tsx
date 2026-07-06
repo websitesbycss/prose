@@ -1,5 +1,6 @@
 import { useState, useRef, useMemo } from 'react'
 import { Sparkles, MessageSquare, WandSparkles, X } from 'lucide-react'
+import { AnimatePresence, motion } from 'motion/react'
 import { Separator } from '@/components/ui/separator'
 import type { Slide, SlideElement, PresentationTheme, PresentationSettings } from '@/types/slides'
 import { ChatTab } from '@/components/editor/AiPanel'
@@ -32,6 +33,7 @@ export function SlidesAIPanel({
   onClose, onInsertSlides, onReplaceCurrentSlide, onUpdateCurrentSlide,
 }: Props): JSX.Element {
   const [tab, setTab] = useState<Tab>('chat')
+  const [contextOpen, setContextOpen] = useState(false)
   const assignmentContext = useAppStore((s) => s.assignmentContext)
   const setAssignmentContext = useAppStore((s) => s.setAssignmentContext)
 
@@ -102,6 +104,42 @@ export function SlidesAIPanel({
 
       <Separator />
 
+      {/* Slides context — lives in the shared header so it stays in place and
+          keeps its value regardless of which tab (Chat / Generate) is active. */}
+      <div className="shrink-0 px-3 pt-2 pb-1">
+        <button
+          className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+          onClick={() => setContextOpen((o) => !o)}
+        >
+          <span className={cn('transition-transform', contextOpen && 'rotate-90')}>›</span>
+          Slides context
+        </button>
+        <AnimatePresence>
+          {contextOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="overflow-hidden"
+            >
+              <textarea
+                className={cn(
+                  'mt-1.5 w-full resize-none rounded-md border border-input bg-transparent px-2 py-1.5',
+                  'text-xs placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring',
+                  'min-h-[60px]',
+                )}
+                placeholder="What's this presentation about? Topic, audience, goals…"
+                value={assignmentContext}
+                onChange={(e) => setAssignmentContext(e.target.value)}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      <Separator />
+
       {/* Content */}
       <div className="min-h-0 flex-1 overflow-hidden">
         {tab === 'chat' ? (
@@ -112,6 +150,7 @@ export function SlidesAIPanel({
             setAssignmentContext={setAssignmentContext}
             getDocumentContent={getSlidesContext}
             actionHandler={actionHandler}
+            hideContext
           />
         ) : (
           <div className="h-full overflow-y-auto">
@@ -120,6 +159,7 @@ export function SlidesAIPanel({
               activeSlideIndex={activeSlideIndex}
               theme={theme}
               settings={settings}
+              assignmentContext={assignmentContext}
               onInsertSlides={onInsertSlides}
               onReplaceCurrentSlide={onReplaceCurrentSlide}
             />

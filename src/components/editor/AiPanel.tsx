@@ -399,6 +399,7 @@ export function ChatTab({
   onInsertFormula,
   onInsertTableData,
   actionHandler,
+  hideContext = false,
 }: {
   editor: Editor | null
   fileType?: FileType
@@ -409,6 +410,8 @@ export function ChatTab({
   onInsertTableData?: (rows: string[][]) => void
   /** When provided, prose-actions blocks in AI replies become applyable cards. */
   actionHandler?: AiActionHandler
+  /** Hides the built-in context textarea — set when the host panel renders its own (Slides). */
+  hideContext?: boolean
 }): JSX.Element {
   const ollamaStatus = useAppStore((s) => s.ollamaStatus)
   const pendingAiPrompt = useAppStore((s) => s.pendingAiPrompt)
@@ -531,40 +534,44 @@ export function ChatTab({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Document context */}
-      <div className="shrink-0 px-3 pt-2 pb-1">
-        <button
-          className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
-          onClick={() => setContextOpen((o) => !o)}
-        >
-          <span className={cn('transition-transform', contextOpen && 'rotate-90')}>›</span>
-          {config.contextLabel}
-        </button>
-        <AnimatePresence>
-          {contextOpen && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              className="overflow-hidden"
+      {/* Document context — hidden when the host panel renders its own (Slides) */}
+      {!hideContext && (
+        <>
+          <div className="shrink-0 px-3 pt-2 pb-1">
+            <button
+              className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+              onClick={() => setContextOpen((o) => !o)}
             >
-              <textarea
-                className={cn(
-                  'mt-1.5 w-full resize-none rounded-md border border-input bg-transparent px-2 py-1.5',
-                  'text-xs placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring',
-                  'min-h-[60px]'
-                )}
-                placeholder={config.contextPlaceholder}
-                value={assignmentContext}
-                onChange={(e) => setAssignmentContext(e.target.value)}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+              <span className={cn('transition-transform', contextOpen && 'rotate-90')}>›</span>
+              {config.contextLabel}
+            </button>
+            <AnimatePresence>
+              {contextOpen && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="overflow-hidden"
+                >
+                  <textarea
+                    className={cn(
+                      'mt-1.5 w-full resize-none rounded-md border border-input bg-transparent px-2 py-1.5',
+                      'text-xs placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring',
+                      'min-h-[60px]'
+                    )}
+                    placeholder={config.contextPlaceholder}
+                    value={assignmentContext}
+                    onChange={(e) => setAssignmentContext(e.target.value)}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
-      <Separator />
+          <Separator />
+        </>
+      )}
 
       {/* Message list */}
       <div className="flex-1 overflow-y-auto px-3 py-2 space-y-3">

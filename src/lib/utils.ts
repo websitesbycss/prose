@@ -30,6 +30,17 @@ export function extractWordCount(tiptapJson: string): number {
   }
 }
 
+/** Extracts plain text from a document's stored TipTap/ProseMirror JSON (not HTML). */
+export function extractPlainText(tiptapJson: string): string {
+  try {
+    const doc = JSON.parse(tiptapJson) as { content?: unknown[] }
+    if (!doc.content) return ''
+    return extractText(doc.content).trim()
+  } catch {
+    return ''
+  }
+}
+
 function extractText(nodes: unknown[]): string {
   // Join inline siblings (all text nodes) with '' so character-level text nodes
   // from old markdown imports concatenate into real words rather than
