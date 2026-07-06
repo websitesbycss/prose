@@ -82,7 +82,7 @@ export function SlideDocumentPicker({ selectedIds, onToggle, instructions, onIns
       </div>
 
       {/* List */}
-      <div className="max-h-48 overflow-y-auto rounded-md border border-border">
+      <div className="max-h-72 overflow-y-auto rounded-md border border-border">
         {docs === null && (
           <p className="px-3 py-4 text-center text-[11px] text-muted-foreground">Loading documents…</p>
         )}
@@ -116,7 +116,7 @@ export function SlideDocumentPicker({ selectedIds, onToggle, instructions, onIns
 
       {/* Additional instructions */}
       <textarea
-        className="h-16 w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+        className="h-20 w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
         placeholder="Optional instructions — e.g. &quot;create 8 slides&quot; or &quot;use a two-column layout for comparisons&quot;"
         value={instructions}
         onChange={(e) => onInstructionsChange(e.target.value)}

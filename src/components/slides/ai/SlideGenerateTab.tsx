@@ -239,7 +239,7 @@ export function SlideGenerateTab({
             )}
             onClick={() => { setMode(m); setGenState('idle'); setError(null) }}
           >
-            {m === 'outline' ? 'Outline' : m === 'document' ? 'Document' : 'Single slide'}
+            {m === 'outline' ? 'Outline' : m === 'document' ? 'From Document' : 'Single slide'}
           </button>
         ))}
       </div>
