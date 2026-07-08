@@ -3,10 +3,10 @@ import { Sparkles, MessageSquare, WandSparkles, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Separator } from '@/components/ui/separator'
 import type { Slide, SlideElement, PresentationTheme, PresentationSettings } from '@/types/slides'
-import { ChatTab } from '@/components/editor/AiPanel'
 import type { AiActionHandler } from '@/components/editor/AiPanel'
 import type { SlidesAction } from '@/lib/ai/proseActions'
 import { applySlideActions, buildSlidesChatContext } from './slideActionExecutor'
+import { SlidesChatTab } from './SlidesChatTab'
 import { SlideGenerateTab } from './SlideGenerateTab'
 import { useAppStore } from '@/store/appStore'
 import { cn } from '@/lib/utils'
@@ -22,7 +22,6 @@ interface Props {
   onUpdateElement(id: string, partial: Partial<SlideElement>): void
   onInsertElement(el: SlideElement): void
   onInsertSlides(newSlides: Slide[], afterIndex: number): void
-  onReplaceCurrentSlide(slide: Slide): void
   onUpdateCurrentSlide(updater: (s: Slide) => Slide): void
 }
 
@@ -30,7 +29,7 @@ type Tab = 'chat' | 'generate'
 
 export function SlidesAIPanel({
   slide, slides, activeSlideIndex, theme, settings,
-  onClose, onInsertSlides, onReplaceCurrentSlide, onUpdateCurrentSlide,
+  onClose, onInsertSlides, onUpdateCurrentSlide,
 }: Props): JSX.Element {
   const [tab, setTab] = useState<Tab>('chat')
   const [contextOpen, setContextOpen] = useState(false)
@@ -143,14 +142,10 @@ export function SlidesAIPanel({
       {/* Content */}
       <div className="min-h-0 flex-1 overflow-hidden">
         {tab === 'chat' ? (
-          <ChatTab
-            editor={null}
-            fileType="slides"
-            assignmentContext={assignmentContext}
-            setAssignmentContext={setAssignmentContext}
+          <SlidesChatTab
             getDocumentContent={getSlidesContext}
+            assignmentContext={assignmentContext}
             actionHandler={actionHandler}
-            hideContext
           />
         ) : (
           <div className="h-full overflow-y-auto">
@@ -161,7 +156,6 @@ export function SlidesAIPanel({
               settings={settings}
               assignmentContext={assignmentContext}
               onInsertSlides={onInsertSlides}
-              onReplaceCurrentSlide={onReplaceCurrentSlide}
             />
           </div>
         )}

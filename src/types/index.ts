@@ -136,6 +136,8 @@ export interface AiPromptPayload {
   selectionContent?: string
   history?: Array<{ role: 'user' | 'assistant'; content: string }>
   fileType?: 'document' | 'sheet' | 'board' | 'slides' | 'sheet-insights' | 'generate'
+  /** Base64 image payloads (no `data:` prefix), attached to the current turn only. */
+  images?: string[]
 }
 
 export interface Issue {
@@ -259,6 +261,7 @@ export interface ProseAPI {
   ai: {
     prompt(payload: AiPromptPayload): Promise<string>
     getStatus(): Promise<OllamaStatus>
+    getModelCapabilities(): Promise<{ model: string; multimodal: boolean }>
     streamPrompt(payload: AiPromptPayload, onChunk: (chunk: string) => void, onError: (msg: string) => void): Promise<void>
     analyze(payload: { documentContent: string; assignmentContext?: string }): Promise<AnalysisResult>
     globalStreamPrompt(

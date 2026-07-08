@@ -850,14 +850,6 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
     scheduleSave()
   }, [pushHistory, scheduleSave])
 
-  const handleReplaceCurrentSlide = useCallback((replacement: Slide): void => {
-    setSlides((prev) => {
-      pushHistory(prev)
-      return updateSlide(prev, activeSlideIndex, () => replacement)
-    })
-    scheduleSave()
-  }, [activeSlideIndex, pushHistory, scheduleSave])
-
   // Arm shape tool — user then clicks or drags to place
   const handleInsertShape = useCallback((shapeType: import('@/types/slides').ShapeType): void => {
     setPendingShapeType(shapeType)
@@ -1224,7 +1216,6 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
                 onUpdateElement={handleUpdateElement}
                 onInsertElement={handleInsertElement}
                 onInsertSlides={handleInsertSlides}
-                onReplaceCurrentSlide={handleReplaceCurrentSlide}
                 onUpdateCurrentSlide={changeActiveSlide}
               />
             )}

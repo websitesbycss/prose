@@ -1,5 +1,9 @@
 // Shared utilities for Slides AI features.
-import type { Slide, SlideElement, PresentationTheme } from '@/types/slides'
+import type { Slide, SlideElement, ImageElement, PresentationTheme } from '@/types/slides'
+import { SLIDE_BASE_WIDTH, SLIDE_BASE_HEIGHT } from '@/types/slides'
+import type { ChartType } from '@/types/sheet'
+import { renderAdHocChartSnapshot } from '@/lib/chartSnapshot'
+import { useAppStore } from '@/store/appStore'
 
 // ── Plain-text extraction ────────────────────────────────────────────────────
 // Strips all positional/size data; sends only text to Ollama. Never sends base64.
@@ -43,6 +47,15 @@ export function parseAiJson<T>(response: string): T {
 
 // ── AI-generated slide schema ─────────────────────────────────────────────────
 
+export interface AiChartSchema {
+  chartType: ChartType
+  title?: string
+  labels: string[]
+  datasets: { label: string; data: (number | null)[] }[]
+  xAxisLabel?: string
+  yAxisLabel?: string
+}
+
 export interface AiSlideSchema {
   title: string
   layout: 'title' | 'title-content' | 'two-column' | 'section-header' | 'image-caption'
@@ -50,6 +63,8 @@ export interface AiSlideSchema {
   speakerNotes: string
   suggestedImageDescription: string | null
   backgroundColor: string | null
+  /** Present when a spreadsheet source gives the model real numbers worth charting. */
+  chart?: AiChartSchema | null
 }
 
 // ── Convert AI-generated JSON to Prose slides ─────────────────────────────────
@@ -109,12 +124,30 @@ export function aiSlideToProseSlide(ai: AiSlideSchema, theme: PresentationTheme)
       // Reserve the right third of the slide for a generated visual when one
       // was suggested, so the text doesn't need to be reflowed after the
       // (async) graphic comes back.
-      const hasImage = ai.layout === 'image-caption' && !!ai.suggestedImageDescription
+      const hasImage = (ai.layout === 'image-caption' && !!ai.suggestedImageDescription) || !!ai.chart
       const bodyWidth = hasImage ? 55 : 90
       elements.push(makeTextEl(crypto.randomUUID(), ai.title, 5, 4, 90, 14, 40, theme.textColor))
       elements.push(makeTextEl(crypto.randomUUID(), contentToText(ai.content), 5, 22, bodyWidth, 68, 22, theme.textColor))
       break
     }
+  }
+
+  // Chart snapshots render synchronously (no model round-trip), so they're
+  // attached here rather than in the async attachGeneratedVisuals pass.
+  if (ai.chart) {
+    const isDark = useAppStore.getState().theme === 'dark'
+    const snapshot = renderAdHocChartSnapshot(ai.chart, isDark)
+    const imgAspect = snapshot.width / snapshot.height
+    const slideAspect = SLIDE_BASE_WIDTH / SLIDE_BASE_HEIGHT
+    const el: ImageElement = {
+      id: crypto.randomUUID(), type: 'image',
+      x: AI_VISUAL_REGION.x, y: AI_VISUAL_REGION.y,
+      width: AI_VISUAL_REGION.width, height: (AI_VISUAL_REGION.width * slideAspect) / imgAspect,
+      rotate: 0, opacity: 1, zIndex: 1000, flipH: false, flipV: false, locked: false, hidden: false,
+      src: snapshot.dataUrl, altText: ai.chart.title ?? 'Chart', borderRadius: 0,
+      filters: { brightness: 100, contrast: 100, saturation: 100, blur: 0 },
+    }
+    elements.push(el)
   }
 
   return {
@@ -141,7 +174,7 @@ export async function attachGeneratedVisuals(
   const withVisuals = await Promise.all(
     aiSlides.map(async (ai, i) => {
       const slide = prosSlides[i]
-      if (!slide || ai.layout !== 'image-caption' || !ai.suggestedImageDescription) return slide
+      if (!slide || ai.layout !== 'image-caption' || !ai.suggestedImageDescription || ai.chart) return slide
       const visual = await generateSlideVisual(ai.suggestedImageDescription, theme)
       if (!visual) return slide
       const graphic: SlideElement = {
@@ -168,7 +201,8 @@ Schema for each slide object:
   "content": string | string[] | { left: string[], right: string[] },
   "speakerNotes": string,
   "suggestedImageDescription": string | null,
-  "backgroundColor": string | null
+  "backgroundColor": string | null,
+  "chart": { "chartType": "bar"|"barHorizontal"|"line"|"area"|"pie"|"doughnut"|"scatter"|"radar", "title": string, "labels": string[], "datasets": [{"label": string, "data": (number|null)[]}], "xAxisLabel": string, "yAxisLabel": string } | null
 }
 
 Rules:
@@ -178,6 +212,7 @@ Rules:
 - Keep body text concise — maximum 6 bullet points per slide, maximum 10 words per bullet
 - Speaker notes should be 2-4 sentences elaborating on the slide content
 - Use layout "image-caption" (with a concrete, specific suggestedImageDescription) for any slide where a diagram, icon, or illustration would genuinely help — a real image will be generated from that description and placed on the slide. Use it generously where visuals add value, not just for literal photos. For all other layouts, set suggestedImageDescription to null.
+- Set "chart" only when a spreadsheet source gives you real numeric data worth visualizing — restate the actual numbers from that source (never invent data). Match chart type to data shape: categories → bar, time series → line/area, parts-of-a-whole ≤8 slices → pie/doughnut, two numeric variables → scatter. A slide should have at most one of "chart" or "suggestedImageDescription", not both. Otherwise set "chart" to null.
 - backgroundColor is null to use the theme default, or a hex color for accent slides
 - Maximum 20 slides`
 

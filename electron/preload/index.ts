@@ -56,6 +56,7 @@ contextBridge.exposeInMainWorld('prose', {
   ai: {
     prompt: (payload: Record<string, unknown>) => ipcRenderer.invoke('ai:prompt', payload),
     getStatus: () => ipcRenderer.invoke('ai:getStatus'),
+    getModelCapabilities: () => ipcRenderer.invoke('ai:getModelCapabilities'),
     streamPrompt: (
       payload: Record<string, unknown>,
       onChunk: (chunk: string) => void,

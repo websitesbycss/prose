@@ -135,6 +135,7 @@ Available actions:
   - {"kind":"code","code":"print('hi')","language":"python","x":8,"y":24,"w":84,"h":45}
   - {"kind":"equation","latex":"E = mc^2","x":30,"y":40,"w":40,"h":15}
   - {"kind":"svg","svg":"<svg viewBox=\\"0 0 400 300\\">…</svg>","description":"what it shows","x":55,"y":22,"w":38,"h":56} — flat, minimal illustration, 5–15 shapes, theme colors only.
+  - {"kind":"chart","chartType":"bar|barHorizontal|line|area|pie|doughnut|scatter|radar","title":"Revenue by quarter","labels":["Q1","Q2","Q3"],"datasets":[{"label":"Revenue","data":[120,150,90]}],"xAxisLabel":"Quarter","yAxisLabel":"Revenue ($k)","x":10,"y":24,"w":80,"h":50} — inserts a rendered chart image built from the literal numbers you provide. Use real numbers from the document/spreadsheet context when available; never invent data. Match chart type to data shape like the Sheets assistant does: categories → bar, time series → line/area, parts-of-a-whole ≤8 slices → pie/doughnut, two numeric variables → scatter.
 - updateText — replace text on the current slide: {"type":"updateText","find":"exact text that exists on the slide","replace":"improved text"}.
 - setNotes — {"type":"setNotes","notes":"speaker notes for the current slide"}.
 - setBackground — {"type":"setBackground","color":"#0f172a"} on the current slide.
@@ -528,22 +529,50 @@ function relativeDate(iso: string): string {
 
 // ── Handlers ─────────────────────────────────────────────────────────────────
 
+// ── Image attachment sanitization ─────────────────────────────────────────────
+// Defense in depth: the renderer already caps attachment count/size, but a
+// compromised or buggy renderer shouldn't be able to flood Ollama with an
+// unbounded number of huge payloads.
+
+const MAX_IMAGES_PER_TURN = 4
+const MAX_IMAGE_BASE64_CHARS = 8_000_000 // ~6MB decoded
+
+function sanitizeImages(raw: unknown): string[] | undefined {
+  if (!Array.isArray(raw)) return undefined
+  const out: string[] = []
+  for (const img of raw) {
+    if (typeof img !== 'string' || !img) continue
+    if (img.length > MAX_IMAGE_BASE64_CHARS) continue
+    if (!/^[A-Za-z0-9+/]+=*$/.test(img)) continue
+    out.push(img)
+    if (out.length >= MAX_IMAGES_PER_TURN) break
+  }
+  return out.length > 0 ? out : undefined
+}
+
 export function registerAiHandlers(manager: OllamaManager): void {
   ipcMain.handle('ai:getStatus', (): string => manager.getStatus())
+
+  ipcMain.handle('ai:getModelCapabilities', async (): Promise<{ model: string; multimodal: boolean }> => {
+    const model = getModel()
+    const caps = await manager.getModelCapabilities(model)
+    return { model, multimodal: caps.includes('vision') }
+  })
 
   ipcMain.handle('ai:prompt', async (_, payload: unknown): Promise<string> => {
     if (!checkRateLimit('ai:prompt', 40)) return ''
     if (!payload || typeof payload !== 'object') return ''
-    const p = payload as { documentContent?: string; request?: string; assignmentContext?: string; history?: unknown; selectionContent?: string; fileType?: string }
+    const p = payload as { documentContent?: string; request?: string; assignmentContext?: string; history?: unknown; selectionContent?: string; fileType?: string; images?: unknown }
     if (typeof p.documentContent !== 'string' || typeof p.request !== 'string') return ''
     if (!p.request.trim()) return ''
     const history = Array.isArray(p.history) ? (p.history as HistoryMessage[]) : []
     const fileType = typeof p.fileType === 'string' && SYSTEM_PROMPTS[p.fileType] ? p.fileType : 'document'
     const systemPrompt = SYSTEM_PROMPTS[fileType] ?? CHAT_SYSTEM_PROMPT
+    const images = sanitizeImages(p.images)
     const model = getModel()
     let result = ''
     try {
-      for await (const chunk of manager.streamChat(model, systemPrompt, buildConversationMessages(p.documentContent, p.request, p.assignmentContext, history, p.selectionContent, fileType))) {
+      for await (const chunk of manager.streamChat(model, systemPrompt, buildConversationMessages(p.documentContent, p.request, p.assignmentContext, history, p.selectionContent, fileType), undefined, images)) {
         result += chunk
         if (result.length > 50_000) break
       }
@@ -556,12 +585,13 @@ export function registerAiHandlers(manager: OllamaManager): void {
   ipcMain.handle('ai:streamPrompt', async (event, payload: unknown): Promise<void> => {
     if (!checkRateLimit('ai:streamPrompt', 40)) return
     if (!payload || typeof payload !== 'object') return
-    const p = payload as { documentContent?: string; request?: string; assignmentContext?: string; history?: unknown; selectionContent?: string; fileType?: string }
+    const p = payload as { documentContent?: string; request?: string; assignmentContext?: string; history?: unknown; selectionContent?: string; fileType?: string; images?: unknown }
     if (typeof p.documentContent !== 'string' || typeof p.request !== 'string') return
     if (!p.request.trim()) return
     const history = Array.isArray(p.history) ? (p.history as HistoryMessage[]) : []
     const fileType = typeof p.fileType === 'string' && SYSTEM_PROMPTS[p.fileType] ? p.fileType : 'document'
     const systemPrompt = SYSTEM_PROMPTS[fileType] ?? CHAT_SYSTEM_PROMPT
+    const images = sanitizeImages(p.images)
     const sender: WebContents = event.sender
     const model = getModel()
     let totalLen = 0
@@ -572,7 +602,7 @@ export function registerAiHandlers(manager: OllamaManager): void {
       }
     }, 30_000)
     try {
-      for await (const chunk of manager.streamChat(model, systemPrompt, buildConversationMessages(p.documentContent, p.request, p.assignmentContext, history, p.selectionContent, fileType))) {
+      for await (const chunk of manager.streamChat(model, systemPrompt, buildConversationMessages(p.documentContent, p.request, p.assignmentContext, history, p.selectionContent, fileType), undefined, images)) {
         if (!firstChunk) { firstChunk = true; clearTimeout(firstChunkTimeout) }
         if (sender.isDestroyed()) break
         totalLen += chunk.length

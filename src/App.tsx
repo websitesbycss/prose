@@ -92,6 +92,21 @@ export default function App(): JSX.Element {
     }
   }, [ollamaStatus, downloadStatus])
 
+  // Re-check multimodal (vision) capability whenever Ollama becomes ready.
+  // Switching models in Settings doesn't flip ollamaStatus, so SettingsModal
+  // separately re-triggers this check right after saving a model change.
+  const setMultimodalCapable = useAppStore((s) => s.setMultimodalCapable)
+  useEffect(() => {
+    if (ollamaStatus !== 'ready') return
+    let cancelled = false
+    void window.prose.ai.getModelCapabilities().then((caps) => {
+      if (!cancelled) setMultimodalCapable(caps.multimodal)
+    }).catch(() => {
+      if (!cancelled) setMultimodalCapable(false)
+    })
+    return () => { cancelled = true }
+  }, [ollamaStatus, setMultimodalCapable])
+
   // Poll Ollama status until ready
   useEffect(() => {
     let cancelled = false

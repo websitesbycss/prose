@@ -58,7 +58,7 @@ function balanceLatexBraces(inner: string): string {
   return depth > 0 ? inner.slice(0, lastBalancedPos) : inner
 }
 
-function normaliseMath(text: string): string {
+export function normaliseMath(text: string): string {
   let t = text
 
   // Convert LaTeX list environments to markdown so they render correctly
@@ -103,7 +103,7 @@ function normaliseMath(text: string): string {
   return t
 }
 
-function AiMarkdown({ children }: { children: string }): JSX.Element {
+export function AiMarkdown({ children }: { children: string }): JSX.Element {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkMath]}
@@ -303,9 +303,9 @@ function extractMarkdownTable(content: string): string[][] | null {
 
 // ── Action preview card ───────────────────────────────────────────────────────
 
-type ActionCardState = { status: 'idle' } | { status: 'applying' } | { status: 'applied' } | { status: 'error'; message: string }
+export type ActionCardState = { status: 'idle' } | { status: 'applying' } | { status: 'applied' } | { status: 'error'; message: string }
 
-function ActionCard({
+export function ActionCard({
   validated,
   state,
   onApply,
@@ -371,7 +371,7 @@ function ActionCard({
 // Splits an assistant message into displayable text + (optionally) a validated
 // action block. While the fence is still streaming in, the partial JSON is
 // hidden behind a "building" indicator instead of raw JSON flooding the bubble.
-function splitAssistantContent(
+export function splitAssistantContent(
   content: string,
   surface: ActionSurface | null,
 ): { text: string; validated: ValidatedActions | null; building: boolean } {

@@ -14,9 +14,12 @@ export interface PullProgress {
   status: string
 }
 
+const CAPABILITIES_CACHE_TTL_MS = 60_000
+
 export class OllamaManager {
   private proc: ChildProcess | null = null
   private status: OllamaStatus = 'loading'
+  private capabilitiesCache = new Map<string, { caps: string[]; at: number }>()
 
   async start(): Promise<void> {
     if (await this.healthCheck()) {
@@ -76,6 +79,28 @@ export class OllamaManager {
     }
   }
 
+  /** Model capabilities per Ollama's /api/show (e.g. "completion", "vision", "tools"). Cached briefly per model. */
+  async getModelCapabilities(model: string): Promise<string[]> {
+    const cached = this.capabilitiesCache.get(model)
+    if (cached && Date.now() - cached.at < CAPABILITIES_CACHE_TTL_MS) return cached.caps
+
+    try {
+      const res = await fetch(`${OLLAMA_HOST}/api/show`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model }),
+        signal: AbortSignal.timeout(3_000),
+      })
+      if (!res.ok) return []
+      const data = (await res.json()) as { capabilities?: string[] }
+      const caps = Array.isArray(data.capabilities) ? data.capabilities : []
+      this.capabilitiesCache.set(model, { caps, at: Date.now() })
+      return caps
+    } catch {
+      return []
+    }
+  }
+
   async *pull(model: string): AsyncGenerator<PullProgress> {
     const res = await fetch(`${OLLAMA_HOST}/api/pull`, {
       method: 'POST',
@@ -122,7 +147,15 @@ export class OllamaManager {
     systemPrompt: string,
     messages: Array<{ role: 'user' | 'assistant'; content: string }>,
     optionsOverride?: { temperature?: number; seed?: number },
+    images?: string[],
   ): AsyncGenerator<string> {
+    // Images (base64, no data: prefix) attach only to the last message in the
+    // conversation — the current turn — mirroring Ollama's /api/chat contract.
+    const chatMessages = messages.map((m, i) =>
+      images && images.length > 0 && i === messages.length - 1
+        ? { ...m, images }
+        : m,
+    )
     const res = await fetch(`${OLLAMA_HOST}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -130,7 +163,7 @@ export class OllamaManager {
         model,
         messages: [
           { role: 'system', content: systemPrompt },
-          ...messages,
+          ...chatMessages,
         ],
         stream: true,
         keep_alive: '10m',

@@ -537,7 +537,14 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
                     {models.length > 0 ? (
                       <Select
                         value={settings.ollamaModel}
-                        onValueChange={(v) => void save({ ollamaModel: v })}
+                        onValueChange={(v) => {
+                          void save({ ollamaModel: v })
+                          // ollamaStatus doesn't change on a model swap, so refresh
+                          // the multimodal flag directly instead of relying on App.tsx's status-driven check.
+                          void window.prose.ai.getModelCapabilities()
+                            .then((caps) => useAppStore.getState().setMultimodalCapable(caps.multimodal))
+                            .catch(() => useAppStore.getState().setMultimodalCapable(false))
+                        }}
                       >
                         <SelectTrigger className="h-8 w-44 text-xs">
                           <SelectValue />

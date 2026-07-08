@@ -1,11 +1,21 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useAppStore } from '@/store/appStore'
 import type { FileType } from '@/lib/aiConfig'
+import type { AttachedImage } from '@/components/slides/ai/imageAttachments'
+
+export interface ChatMessageImage {
+  id: string
+  url: string
+  name: string
+  width: number
+  height: number
+}
 
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
+  images?: ChatMessageImage[]
 }
 
 export interface AiChatState {
@@ -22,6 +32,7 @@ export interface AiChatControls {
     assignmentContext?: string,
     selectionContent?: string,
     fileType?: FileType,
+    images?: AttachedImage[],
   ): Promise<void>
   clearMessages(): void
 }
@@ -46,13 +57,19 @@ export function useAi(): AiChatState & AiChatControls {
       assignmentContext?: string,
       selectionContent?: string,
       fileType?: FileType,
+      images?: AttachedImage[],
     ): Promise<void> => {
       if (ollamaStatus !== 'ready') return
 
       // Capture history before adding the new turn
       const history = messagesRef.current.map(({ role, content }) => ({ role, content }))
 
-      const userMsg: ChatMessage = { id: crypto.randomUUID(), role: 'user', content: request }
+      const userMsg: ChatMessage = {
+        id: crypto.randomUUID(), role: 'user', content: request,
+        images: images && images.length > 0
+          ? images.map(({ id, url, name, width, height }) => ({ id, url, name, width, height }))
+          : undefined,
+      }
       const assistantId = crypto.randomUUID()
       assistantIdRef.current = assistantId
       const assistantMsg: ChatMessage = { id: assistantId, role: 'assistant', content: '' }
@@ -69,8 +86,9 @@ export function useAi(): AiChatState & AiChatControls {
       }, 1500)
 
       try {
+        const imagePayload = images && images.length > 0 ? images.map((i) => i.base64) : undefined
         await window.prose.ai.streamPrompt(
-          { documentContent, assignmentContext, request, history, selectionContent, fileType },
+          { documentContent, assignmentContext, request, history, selectionContent, fileType, images: imagePayload },
           (chunk) => {
             if (!firstChunkRef.current) {
               firstChunkRef.current = true

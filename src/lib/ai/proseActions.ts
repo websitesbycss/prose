@@ -201,6 +201,17 @@ export interface SlideSvgElementSpec {
   x?: number; y?: number; w?: number; h?: number
 }
 
+export interface SlideChartElementSpec {
+  kind: 'chart'
+  chartType: (typeof SHEET_CHART_TYPES)[number]
+  title?: string
+  labels: string[]
+  datasets: { label: string; data: (number | null)[] }[]
+  xAxisLabel?: string
+  yAxisLabel?: string
+  x?: number; y?: number; w?: number; h?: number
+}
+
 export type SlideElementSpec =
   | SlideTextElementSpec
   | SlideShapeElementSpec
@@ -208,6 +219,7 @@ export type SlideElementSpec =
   | SlideCodeElementSpec
   | SlideEquationElementSpec
   | SlideSvgElementSpec
+  | SlideChartElementSpec
 
 export const SLIDE_LAYOUT_SPECS = ['title', 'title-content', 'two-column', 'section-header', 'quote', 'blank'] as const
 export type SlideLayoutSpec = (typeof SLIDE_LAYOUT_SPECS)[number]
@@ -455,7 +467,7 @@ const MAX_SLIDES_PER_BATCH = 20
 
 function validateSlideElementSpec(raw: unknown, warnings: string[]): SlideElementSpec | null {
   if (!isRecord(raw)) return null
-  const kind = oneOf(raw.kind ?? raw.type, ['text', 'shape', 'table', 'code', 'equation', 'svg'] as const)
+  const kind = oneOf(raw.kind ?? raw.type, ['text', 'shape', 'table', 'code', 'equation', 'svg', 'chart'] as const)
   if (!kind) { warnings.push('Dropped element with unknown kind'); return null }
 
   const x = optNum(raw.x, 0, 98)
@@ -519,7 +531,35 @@ function validateSlideElementSpec(raw: unknown, warnings: string[]): SlideElemen
       if (!svg || !svg.trimStart().startsWith('<svg')) { warnings.push('Dropped invalid SVG element'); return null }
       return { kind, svg, description: str(raw.description, 300) ?? undefined, x, y, w, h }
     }
+    case 'chart': {
+      const chartType = oneOf(raw.chartType ?? raw.type, SHEET_CHART_TYPES)
+      if (!chartType) { warnings.push('Dropped chart with unknown type'); return null }
+      const labels = strArray(raw.labels, 50, 100) ?? []
+      const datasets = validateChartDatasets(raw.datasets)
+      if (datasets.length === 0) { warnings.push('Dropped chart with no valid data'); return null }
+      return {
+        kind, chartType, labels, datasets,
+        title: str(raw.title, 150) ?? undefined,
+        xAxisLabel: str(raw.xAxisLabel, 60) ?? undefined,
+        yAxisLabel: str(raw.yAxisLabel, 60) ?? undefined,
+        x, y, w, h,
+      }
+    }
   }
+}
+
+function validateChartDatasets(raw: unknown): { label: string; data: (number | null)[] }[] {
+  if (!Array.isArray(raw)) return []
+  const out: { label: string; data: (number | null)[] }[] = []
+  for (const d of raw.slice(0, 8)) {
+    if (!isRecord(d) || !Array.isArray(d.data)) continue
+    const label = str(d.label, 60) ?? `Series ${out.length + 1}`
+    const data = d.data
+      .slice(0, 50)
+      .map((v: unknown) => (typeof v === 'number' && isFinite(v) ? v : null))
+    out.push({ label, data })
+  }
+  return out
 }
 
 function strArray(v: unknown, maxItems: number, maxLen: number): string[] | undefined {

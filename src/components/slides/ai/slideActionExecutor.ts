@@ -2,13 +2,16 @@
 // after the user clicks Apply on an action card — see src/lib/ai/proseActions.ts
 // for the validation layer these actions have already passed through.
 import type {
-  Slide, SlideElement, TextElement, ShapeElement, TableElement, TableCell,
+  Slide, SlideElement, TextElement, ShapeElement, TableElement, TableCell, ImageElement,
   PresentationTheme, ElementAnimation,
 } from '@/types/slides'
+import { SLIDE_BASE_WIDTH, SLIDE_BASE_HEIGHT } from '@/types/slides'
 import type {
   SlidesAction, SlideSpec, SlideElementSpec, TextRole,
 } from '@/lib/ai/proseActions'
 import type { AiActionHandler, AiActionResult } from '@/components/editor/AiPanel'
+import { renderAdHocChartSnapshot } from '@/lib/chartSnapshot'
+import { useAppStore } from '@/store/appStore'
 
 // ── Context builder ───────────────────────────────────────────────────────────
 // What the model sees: theme colors (so generated colors match), a deck
@@ -221,6 +224,40 @@ async function materializeElement(
         svgContent: safe,
         description: spec.description ?? 'AI-generated graphic',
       }
+    }
+    case 'chart': {
+      // Rendered as a frozen PNG snapshot (same approach as the manual "Insert
+      // chart" picker) rather than a live element — no Chart.js instance stays
+      // mounted per slide, keeping the deck light while editing/scrolling.
+      const isDark = useAppStore.getState().theme === 'dark'
+      const snapshot = renderAdHocChartSnapshot({
+        chartType: spec.chartType,
+        title: spec.title,
+        labels: spec.labels,
+        datasets: spec.datasets,
+        xAxisLabel: spec.xAxisLabel,
+        yAxisLabel: spec.yAxisLabel,
+      }, isDark)
+
+      let w = spec.w
+      let h = spec.h
+      if (w === undefined || h === undefined) {
+        const imgAspect = snapshot.width / snapshot.height
+        const slideAspect = SLIDE_BASE_WIDTH / SLIDE_BASE_HEIGHT
+        w = 50
+        h = (w * slideAspect) / imgAspect
+        if (h > 70) { h = 70; w = (h * imgAspect) / slideAspect }
+      }
+      const x = spec.x ?? Math.max(0, (100 - w) / 2)
+      const y = spec.y ?? Math.max(0, (100 - h) / 2)
+
+      const el: ImageElement = {
+        ...baseElement(x, y, w, h, zIndex),
+        type: 'image',
+        src: snapshot.dataUrl, altText: spec.title ?? 'Chart', borderRadius: 0,
+        filters: { brightness: 100, contrast: 100, saturation: 100, blur: 0 },
+      }
+      return el
     }
   }
 }

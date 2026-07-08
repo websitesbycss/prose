@@ -46,6 +46,7 @@ interface AppState {
   settingsOpen: boolean
   pomodoroState: PomodoroState
   ollamaStatus: OllamaStatus
+  multimodalCapable: boolean
   pendingAiPrompt: string | null
   pendingAiAttachment: AiSelectionAttachment | null
   issueCount: number
@@ -79,6 +80,7 @@ interface AppState {
   setSettingsOpen(open: boolean): void
   setPomodoroState(state: Partial<PomodoroState>): void
   setOllamaStatus(status: OllamaStatus): void
+  setMultimodalCapable(capable: boolean): void
   setPendingAiPrompt(prompt: string | null): void
   setPendingAiAttachment(attachment: AiSelectionAttachment | null): void
   setIssueCount(n: number): void
@@ -116,6 +118,7 @@ export const useAppStore = create<AppState>()((set) => ({
   settingsOpen: false,
   pomodoroState: DEFAULT_POMODORO,
   ollamaStatus: 'loading',
+  multimodalCapable: false,
   pendingAiPrompt: null,
   pendingAiAttachment: null,
   issueCount: 0,
@@ -275,6 +278,7 @@ export const useAppStore = create<AppState>()((set) => ({
   setPomodoroState: (state) =>
     set((s) => ({ pomodoroState: { ...s.pomodoroState, ...state } })),
   setOllamaStatus: (status) => set({ ollamaStatus: status }),
+  setMultimodalCapable: (capable) => set({ multimodalCapable: capable }),
   setPendingAiPrompt: (prompt) => set({ pendingAiPrompt: prompt }),
   setPendingAiAttachment: (attachment) => set({ pendingAiAttachment: attachment }),
   setIssueCount: (n) => set({ issueCount: n }),
