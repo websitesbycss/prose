@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { AnimatePresence } from 'motion/react'
 import { Toaster } from 'sonner'
 import { useAppStore } from '@/store/appStore'
 import { applyAccentColors, DEFAULT_LIGHT_ACCENT, DEFAULT_DARK_ACCENT } from '@/lib/accentColor'
@@ -252,7 +253,12 @@ export default function App(): JSX.Element {
           </div>
         </ErrorBoundary>
       )}
-      {musicPanelOpen && <MusicPanel music={music} />}
+      {/* AnimatePresence is required for MusicPanel's exit animation to play —
+          without it, plain conditional rendering unmounts instantly on close,
+          skipping the exit entirely and leaving open with no matching close. */}
+      <AnimatePresence>
+        {musicPanelOpen && <MusicPanel music={music} />}
+      </AnimatePresence>
       <Toaster theme={theme} richColors position="bottom-right" offset={32} />
       <GlobalNewDocumentModal />
     </MusicContext.Provider>

@@ -875,16 +875,25 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
             </Excalidraw>
           </div>
 
-          {/* AI panel */}
-          {aiPanelOpen && (
-            <div className="shrink-0" style={{ width: AI_PANEL_WIDTH }}>
-              <BoardsAIPanel
-                getBoardContext={getBoardContext}
-                onInsert={addBrainstormNotes}
-                actionHandler={boardActionHandler}
-              />
-            </div>
-          )}
+          {/* AI panel — same fade+slide open/close as Documents' AI/Citations panel (Editor.tsx) */}
+          <AnimatePresence>
+            {aiPanelOpen && (
+              <motion.div
+                className="shrink-0"
+                style={{ width: AI_PANEL_WIDTH }}
+                initial={{ opacity: 0, x: 16 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 16 }}
+                transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
+              >
+                <BoardsAIPanel
+                  getBoardContext={getBoardContext}
+                  onInsert={addBrainstormNotes}
+                  actionHandler={boardActionHandler}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 

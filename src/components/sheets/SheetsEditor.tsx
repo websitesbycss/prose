@@ -1,4 +1,5 @@
 import { useRef, useState, useMemo, useCallback, useEffect } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
 import {
   Copy, Clipboard, Trash2, EyeOff, Eye, Eraser,
   ArrowUpAZ, ArrowDownAZ, Filter, Image as ImageIcon, Link2,
@@ -747,30 +748,39 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
             />
           </div>
 
-          {/* AI panel */}
-          {aiPanelOpen && (
-            <div className="shrink-0 overflow-y-auto" style={{ width: AI_PANEL_WIDTH }}>
-              <AiPanel
-                editor={null}
-                fileType="sheet"
-                getDocumentContent={getSheetContext}
-                onInsertFormula={onInsertFormula}
-                onInsertTableData={onInsertTableData}
-                actionHandler={aiActionHandler}
-                extraTab={{
-                  label: 'Insights',
-                  icon: Lightbulb,
-                  content: (
-                    <SheetInsightsTab
-                      getSheetContext={getSheetContext}
-                      onInsertFormula={insightsInsertFormula}
-                      onInsertChart={insightsInsertChart}
-                    />
-                  ),
-                }}
-              />
-            </div>
-          )}
+          {/* AI panel — same fade+slide open/close as Documents' AI/Citations panel (Editor.tsx) */}
+          <AnimatePresence>
+            {aiPanelOpen && (
+              <motion.div
+                className="shrink-0 overflow-y-auto"
+                style={{ width: AI_PANEL_WIDTH }}
+                initial={{ opacity: 0, x: 16 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 16 }}
+                transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
+              >
+                <AiPanel
+                  editor={null}
+                  fileType="sheet"
+                  getDocumentContent={getSheetContext}
+                  onInsertFormula={onInsertFormula}
+                  onInsertTableData={onInsertTableData}
+                  actionHandler={aiActionHandler}
+                  extraTab={{
+                    label: 'Insights',
+                    icon: Lightbulb,
+                    content: (
+                      <SheetInsightsTab
+                        getSheetContext={getSheetContext}
+                        onInsertFormula={insightsInsertFormula}
+                        onInsertChart={insightsInsertChart}
+                      />
+                    ),
+                  }}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         <SheetTabBar

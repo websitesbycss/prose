@@ -18,7 +18,11 @@ import { useAppStore } from '@/store/appStore'
 // outline, and the current slide's elements WITH their ids so updateText and
 // animate actions can reference them precisely.
 
-function stripHtml(s: string): string {
+// Slide content can end up malformed (partial PPTX import, older save format,
+// an element mid-edit) — every caller here treats content as optional so one
+// bad element can't crash the whole context builder.
+function stripHtml(s: string | null | undefined): string {
+  if (!s) return ''
   return s.replace(/<[^>]+>/g, '').trim()
 }
 
@@ -395,7 +399,7 @@ export async function applySlideActions(actions: SlidesAction[], ctx: SlideActio
       case 'updateText': {
         if (!sim) break
         const target = sim.elements.find((e) =>
-          (e.type === 'text' && (e.content.includes(action.find) || stripHtml(e.content).includes(action.find))) ||
+          (e.type === 'text' && ((e.content ?? '').includes(action.find) || stripHtml(e.content).includes(action.find))) ||
           (e.type === 'shape' && !!e.content && e.content.includes(action.find)),
         )
         if (!target) { failures.push(`Text "${action.find.slice(0, 30)}…" not found on this slide`); break }
@@ -404,8 +408,8 @@ export async function applySlideActions(actions: SlidesAction[], ctx: SlideActio
           elements: sim.elements.map((e) => {
             if (e.id !== target.id) return e
             if (e.type === 'text') {
-              const content = e.content.includes(action.find)
-                ? e.content.replace(action.find, action.replace)
+              const content = (e.content ?? '').includes(action.find)
+                ? (e.content ?? '').replace(action.find, action.replace)
                 : stripHtml(e.content).replace(action.find, action.replace)
               return { ...e, content }
             }

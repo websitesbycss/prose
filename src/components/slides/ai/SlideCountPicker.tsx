@@ -40,7 +40,7 @@ export function SlideCountPicker({ value, onChange }: Props): JSX.Element {
         </button>
         {isCustom && (
           <div className="flex items-center overflow-hidden rounded-md border border-border">
-            <button type="button" className="flex h-7 w-6.5 items-center justify-center text-sm hover:bg-accent" onClick={() => setCount(value - 1)}>−</button>
+            <button type="button" className="flex h-7 items-center justify-center px-1.5 text-sm hover:bg-accent" onClick={() => setCount(value - 1)}>−</button>
             <input
               type="number"
               min={1}
@@ -50,7 +50,7 @@ export function SlideCountPicker({ value, onChange }: Props): JSX.Element {
               onChange={(e) => setCount(parseInt(e.target.value, 10))}
               onFocus={(e) => e.target.select()}
             />
-            <button type="button" className="flex h-7 w-6.5 items-center justify-center text-sm hover:bg-accent" onClick={() => setCount(value + 1)}>+</button>
+            <button type="button" className="flex h-7 items-center justify-center px-1.5 text-sm hover:bg-accent" onClick={() => setCount(value + 1)}>+</button>
           </div>
         )}
       </div>

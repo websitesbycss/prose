@@ -19,11 +19,12 @@ interface Props {
   onMouseDown(e: React.MouseEvent): void
   onClick(): void
   onContextMenu(e: React.MouseEvent): void
+  onKeyDown(e: React.KeyboardEvent): void
 }
 
 export const SlideThumbnail = memo(function SlideThumbnail({
   slide, slideNumber, theme, isActive, isDragOver,
-  onMouseDown, onClick, onContextMenu,
+  onMouseDown, onClick, onContextMenu, onKeyDown,
 }: Props): JSX.Element {
   const ref = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
@@ -43,14 +44,17 @@ export const SlideThumbnail = memo(function SlideThumbnail({
 
   return (
     <div
+      tabIndex={0}
       className={cn(
         'flex cursor-pointer flex-col items-center gap-1 rounded-sm px-2 pt-2 pb-1',
+        'outline-none focus-visible:ring-2 focus-visible:ring-primary/50',
         isActive && 'bg-accent dark:bg-white/15',
         isDragOver && 'bg-primary/10',
       )}
       onMouseDown={onMouseDown}
       onClick={onClick}
       onContextMenu={onContextMenu}
+      onKeyDown={onKeyDown}
     >
       {/* Thumbnail frame */}
       <div

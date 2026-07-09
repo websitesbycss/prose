@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { Slide, SlideElement } from '@/types/slides'
+import { SLIDE_BASE_WIDTH, SLIDE_BASE_HEIGHT } from '@/types/slides'
 import type { SlideHistory } from './useSlideHistory'
 import { bumpZIndex } from '@/components/slides/slideElementOps'
 
@@ -159,12 +160,16 @@ export function useSlideKeyboardShortcuts({
         changeSlide((s) => ({ ...s, elements: bumpZIndex(s.elements, p.selectedIds, dir) }))
         return
       }
-      // Nudge
+      // Nudge — x/y are both percentages, but of different-sized axes (the
+      // slide isn't square), so an equal percentage step moves noticeably
+      // farther horizontally than vertically. Scale the vertical step by the
+      // aspect ratio so left/right and up/down cover the same pixel distance.
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && p.selectedIds.length > 0) {
         e.preventDefault()
         const step = e.shiftKey ? 0.1 : 1
+        const stepY = step * (SLIDE_BASE_WIDTH / SLIDE_BASE_HEIGHT)
         const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
-        const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
+        const dy = e.key === 'ArrowUp' ? -stepY : e.key === 'ArrowDown' ? stepY : 0
         changeSlide((s) => ({ ...s, elements: nudgeElements(s.elements, p.selectedIds, dx, dy) }))
         return
       }

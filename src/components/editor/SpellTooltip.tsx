@@ -173,8 +173,9 @@ export function SpellTooltip({ editor, documentId }: SpellTooltipProps): JSX.Ele
   }
 
   // state.y is the top of the full line box (which includes leading above glyphs).
-  // Offset by ~20% of line height to position the tooltip closer to the glyph.
-  const top = Math.round(state.y - TOOLTIP_HEIGHT + state.lineHeight * 0.2)
+  // Offset by ~20% of line height to position the tooltip closer to the glyph,
+  // then nudge up another few px so it doesn't read as floating too low.
+  const top = Math.round(state.y - TOOLTIP_HEIGHT + state.lineHeight * 0.2) - 5
 
   return createPortal(
     <motion.div

@@ -608,6 +608,16 @@ export function SheetToolbar({
           <TooltipContent side="bottom" className="text-xs">{state.isMerged ? 'Unmerge cells' : 'Merge cells'}</TooltipContent>
         </Tooltip>
 
+        {/* Insert chart */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onInsertChart}>
+              <BarChart3 className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">Insert chart</TooltipContent>
+        </Tooltip>
+
         <Separator orientation="vertical" className="mx-0.5 h-5" />
 
         {/* Row/col operations */}
@@ -676,18 +686,6 @@ export function SheetToolbar({
             </Tooltip>
           </>
         )}
-
-        <Separator orientation="vertical" className="mx-0.5 h-5" />
-
-        {/* Insert chart */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onInsertChart}>
-              <BarChart3 className="h-3.5 w-3.5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="text-xs">Insert chart</TooltipContent>
-        </Tooltip>
 
         <Separator orientation="vertical" className="mx-0.5 h-5" />
 

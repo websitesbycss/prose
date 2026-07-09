@@ -354,11 +354,11 @@ export function DocumentTabBar({
       grabOffsetX,
       grabOffsetY,
     }
-    setLocalTabs([...openTabs])
-    setDraggingId(tab.id)
-    setDragDeltaX(0)
-    setVisualInsertIdx(originIdx)
-    document.body.style.userSelect = 'none'
+    // Deliberately NOT setting draggingId/localTabs/visualInsertIdx here — that
+    // flips on the drop-indicator line and dims the tab's opacity immediately,
+    // which flashed on every plain click before the 4px move threshold below
+    // ever ran. Those visual-drag states now only turn on in handlePointerMove,
+    // the first time real movement is detected.
   }
 
   function handlePointerMove(tabId: string, e: React.PointerEvent): void {
@@ -367,8 +367,14 @@ export function DocumentTabBar({
 
     const dx = e.clientX - d.startX
     const dy = e.clientY - d.startY
-    if (!d.hasMoved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return
-    d.hasMoved = true
+    if (!d.hasMoved) {
+      if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return
+      d.hasMoved = true
+      setLocalTabs([...openTabs])
+      setDraggingId(d.tabId)
+      setVisualInsertIdx(d.originIdx)
+      document.body.style.userSelect = 'none'
+    }
 
     const stripRect = tabStripRef.current?.getBoundingClientRect()
     const THRESHOLD = 30
@@ -431,7 +437,7 @@ export function DocumentTabBar({
     if (!d || d.tabId !== tabId || d.pointerId !== e.pointerId) return
 
     if (!d.hasMoved) {
-      void handleSelectTab(tabId)
+      handleSelectTab(tabId)
       endDrag()
       return
     }
@@ -494,20 +500,25 @@ export function DocumentTabBar({
 
   // ── Tab actions ──────────────────────────────────────────────────────────
 
-  async function handleSelectTab(id: string): Promise<void> {
+  // Tab chrome switches immediately — the previous document's save is fired
+  // (its synchronous flush captures the content to write) but never awaited,
+  // so a slow disk write can't stall the switch. Editors stay mounted-but-hidden
+  // (see EditorTabHost's HiddenTabPane), so there's normally nothing to wait on
+  // anyway; any real load time shows up inside that editor's own content area.
+  function handleSelectTab(id: string): void {
     if (id === activeDocumentId && !showDashboard) return
-    await saveActiveDocument?.()
+    void saveActiveDocument?.()
     activateDocumentTab(id)
   }
 
-  async function handleCloseTab(id: string, e: React.MouseEvent): Promise<void> {
+  function handleCloseTab(id: string, e: React.MouseEvent): void {
     e.stopPropagation()
-    if (id === activeDocumentId) await saveActiveDocument?.()
+    if (id === activeDocumentId) void saveActiveDocument?.()
     closeDocumentTab(id)
   }
 
-  async function handleHome(): Promise<void> {
-    await saveActiveDocument?.()
+  function handleHome(): void {
+    void saveActiveDocument?.()
     goToDashboard()
   }
 
@@ -601,7 +612,7 @@ export function DocumentTabBar({
                         type="button"
                         className="document-tab__close"
                         aria-label={`Close ${tab.title}`}
-                        onClick={(e) => { void handleCloseTab(tab.id, e) }}
+                        onClick={(e) => handleCloseTab(tab.id, e)}
                       >
                         <X className="h-3 w-3" />
                       </button>

@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { toast } from 'sonner'
+import { motion } from 'motion/react'
+import { cn } from '@/lib/utils'
 import { DashboardTabBar } from '@/components/editor/DashboardTabBar'
 import { useDocument } from '@/hooks/useDocument'
 import { useAppStore } from '@/store/appStore'
@@ -155,6 +157,11 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   const setMusicPanelOpen = useAppStore((s) => s.setMusicPanelOpen)
   const setMusicPanelTab = useAppStore((s) => s.setMusicPanelTab)
   const [rightPanelWidth, setRightPanelWidth] = useState(340)
+  // Width normally animates on open/close (see the motion.div below), but
+  // that transition must be suppressed while actively drag-resizing — else
+  // every mousemove retargets a 0.2s eased animation and the panel edge lags
+  // behind the cursor instead of tracking it 1:1.
+  const [isResizingRightPanel, setIsResizingRightPanel] = useState(false)
   const rightPanelDragRef = useRef<{ x: number; width: number } | null>(null)
   const rightPanelWidthRef = useRef(340)
   const [selectedAnimationId, setSelectedAnimationId] = useState<string | null>(null)
@@ -249,6 +256,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
     function onMouseUp(): void {
       if (!rightPanelDragRef.current) return
       rightPanelDragRef.current = null
+      setIsResizingRightPanel(false)
       void window.prose.settings.set({ slidesRightPanelWidth: rightPanelWidthRef.current })
       if (globalThis.document?.body) {
         globalThis.document.body.style.cursor = ''
@@ -1042,21 +1050,10 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   }, [activeSlideIndex, selectedAnimationId, slides])
 
   // ── Loading state ─────────────────────────────────────────────────────────────
-
-  if (presenting && slides.length > 0) {
-    return (
-      <PresentationMode
-        slides={slides}
-        theme={theme}
-        settings={settings}
-        startIndex={activeSlideIndex}
-        onExit={(idx) => {
-          setPresenting(false)
-          setActiveSlideIndex(idx)
-        }}
-      />
-    )
-  }
+  // Presentation mode renders as an overlay below (not an early return here) —
+  // an early return would unmount the whole editor tree, including the AI
+  // panel, wiping its chat/generate state every time someone presents. Instead
+  // the normal editor stays mounted underneath, just hidden via CSS.
 
   if (!loaded) {
     return (
@@ -1079,7 +1076,19 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
 
   return (
     <TooltipProvider delayDuration={400}>
-    <div className="flex h-screen flex-col bg-background text-foreground">
+    {presenting && slides.length > 0 && (
+      <PresentationMode
+        slides={slides}
+        theme={theme}
+        settings={settings}
+        startIndex={activeSlideIndex}
+        onExit={(idx) => {
+          setPresenting(false)
+          setActiveSlideIndex(idx)
+        }}
+      />
+    )}
+    <div className={cn('flex h-screen flex-col bg-background text-foreground', presenting && 'hidden')}>
       <DashboardTabBar />
 
       {/* Toolbar */}
@@ -1193,51 +1202,74 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
 
         </div>
 
-        {/* Right: shared AI / animations panel */}
-        {rightPanelOpen && (
-          <div className="relative shrink-0 overflow-hidden border-l border-border" style={{ width: rightPanelWidth }}>
-            <div
-              className="absolute left-0 top-0 z-10 h-full w-1 cursor-col-resize transition-colors hover:bg-primary/30"
-              onMouseDown={(e) => {
-                rightPanelDragRef.current = { x: e.clientX, width: rightPanelWidth }
-                globalThis.document.body.style.cursor = 'col-resize'
-                globalThis.document.body.style.userSelect = 'none'
+        {/* Right: shared AI / animations panel. Both panels stay mounted at
+            all times — width/opacity/position animate instead of anything
+            mounting or unmounting — so switching between them, closing this
+            panel, or presenting never wipes the AI panel's chat/generate
+            state. It only ever resets when this SlidesEditor instance itself
+            unmounts (file closed) or the app restarts. Quick 0.12s slide from
+            the right, same feel as the music panel's tab crossfade. */}
+        <motion.div
+          className="relative shrink-0 overflow-hidden border-l border-border"
+          initial={false}
+          animate={{ width: rightPanelOpen ? rightPanelWidth : 0 }}
+          transition={{ duration: isResizingRightPanel ? 0 : 0.12, ease: 'easeOut' }}
+          style={{ pointerEvents: rightPanelOpen ? 'auto' : 'none' }}
+        >
+          <div
+            className="absolute left-0 top-0 z-10 h-full w-1 cursor-col-resize transition-colors hover:bg-primary/30"
+            onMouseDown={(e) => {
+              rightPanelDragRef.current = { x: e.clientX, width: rightPanelWidth }
+              setIsResizingRightPanel(true)
+              globalThis.document.body.style.cursor = 'col-resize'
+              globalThis.document.body.style.userSelect = 'none'
+            }}
+          />
+          <motion.div
+            className="absolute inset-0"
+            style={{ width: rightPanelWidth, pointerEvents: aiPanelOpen ? 'auto' : 'none' }}
+            initial={false}
+            animate={{ opacity: aiPanelOpen ? 1 : 0, x: aiPanelOpen ? 0 : 16 }}
+            transition={{ duration: 0.12, ease: 'easeOut' }}
+          >
+            <SlidesAIPanel
+              slide={activeSlide}
+              slides={slides}
+              activeSlideIndex={activeSlideIndex}
+              theme={theme}
+              settings={settings}
+              onClose={() => setAiPanelOpen(false)}
+              onUpdateNotes={handleNotesChange}
+              onUpdateElement={handleUpdateElement}
+              onInsertElement={handleInsertElement}
+              onInsertSlides={handleInsertSlides}
+              onUpdateCurrentSlide={changeActiveSlide}
+            />
+          </motion.div>
+          <motion.div
+            className="absolute inset-0"
+            style={{ width: rightPanelWidth, pointerEvents: slidesAnimationsPanelOpen ? 'auto' : 'none' }}
+            initial={false}
+            animate={{ opacity: slidesAnimationsPanelOpen ? 1 : 0, x: slidesAnimationsPanelOpen ? 0 : 16 }}
+            transition={{ duration: 0.12, ease: 'easeOut' }}
+          >
+            <AnimationsPanel
+              slide={activeSlide}
+              selectedElementId={selectedElementId}
+              selectedAnimationId={selectedAnimationId}
+              onSelectAnimation={setSelectedAnimationId}
+              onAddAnimation={addAnimation}
+              onRemoveAnimation={removeAnimation}
+              onUpdateAnimation={updateAnimation}
+              onReorderAnimations={reorderAnimations}
+              onUpdateTransition={updateSlideTransition}
+              onPreview={() => {
+                setPreviewNonce((value) => value + 1)
+                setPreviewOpen(true)
               }}
             />
-            {aiPanelOpen && (
-              <SlidesAIPanel
-                slide={activeSlide}
-                slides={slides}
-                activeSlideIndex={activeSlideIndex}
-                theme={theme}
-                settings={settings}
-                onClose={() => setAiPanelOpen(false)}
-                onUpdateNotes={handleNotesChange}
-                onUpdateElement={handleUpdateElement}
-                onInsertElement={handleInsertElement}
-                onInsertSlides={handleInsertSlides}
-                onUpdateCurrentSlide={changeActiveSlide}
-              />
-            )}
-            {slidesAnimationsPanelOpen && (
-              <AnimationsPanel
-                slide={activeSlide}
-                selectedElementId={selectedElementId}
-                selectedAnimationId={selectedAnimationId}
-                onSelectAnimation={setSelectedAnimationId}
-                onAddAnimation={addAnimation}
-                onRemoveAnimation={removeAnimation}
-                onUpdateAnimation={updateAnimation}
-                onReorderAnimations={reorderAnimations}
-                onUpdateTransition={updateSlideTransition}
-                onPreview={() => {
-                  setPreviewNonce((value) => value + 1)
-                  setPreviewOpen(true)
-                }}
-              />
-            )}
-          </div>
-        )}
+          </motion.div>
+        </motion.div>
       </div>
 
       {/* Status bar */}

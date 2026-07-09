@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { FileText, Table2, Image as ImageIcon, ChevronLeft, Plus, Search, X, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useAppStore } from '@/store/appStore'
 import { isSheetContent } from '@/types/sheet'
 import { computeUsedRange } from './sheetSource'
 import { IMAGE_CAP, openImagePicker, type AttachedImage } from './imageAttachments'
@@ -47,6 +48,7 @@ interface Props {
 }
 
 export function SlideSourcePicker({ attachments, onAdd, onRemove, onRangeChange }: Props): JSX.Element {
+  const multimodalCapable = useAppStore((s) => s.multimodalCapable)
   const [open, setOpen] = useState(false)
   const [view, setView] = useState<'menu' | 'document' | 'sheet'>('menu')
   const [search, setSearch] = useState('')
@@ -109,9 +111,9 @@ export function SlideSourcePicker({ attachments, onAdd, onRemove, onRangeChange 
   return (
     <div>
       <div className="mb-2 flex items-center gap-1.5">
-        <p className="text-[11px] text-muted-foreground">Sources</p>
-        <span className="group relative inline-flex items-center" tabIndex={0}>
-          <Info className="h-3 w-3 text-muted-foreground" />
+        <p className="text-[11px] leading-none text-muted-foreground">Sources</p>
+        <span className="group relative inline-flex items-center leading-none" tabIndex={0}>
+          <Info className="h-3.5 w-3.5 text-muted-foreground" />
           <span className="pointer-events-none absolute left-0 top-full z-30 mt-1.5 w-48 rounded-md border border-border bg-popover p-2 text-[11px] leading-snug text-popover-foreground opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus:opacity-100">
             Add up to 5 sources for the AI to read: documents, spreadsheets, or images.
           </span>
@@ -178,9 +180,11 @@ export function SlideSourcePicker({ attachments, onAdd, onRemove, onRangeChange 
             <button className="flex items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs font-medium text-popover-foreground hover:bg-accent" onClick={() => setView('sheet')}>
               <Table2 className="h-3.5 w-3.5" /> Spreadsheets
             </button>
-            <button className="flex items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs font-medium text-popover-foreground hover:bg-accent" onClick={pickImages}>
-              <ImageIcon className="h-3.5 w-3.5" /> Images
-            </button>
+            {multimodalCapable && (
+              <button className="flex items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs font-medium text-popover-foreground hover:bg-accent" onClick={pickImages}>
+                <ImageIcon className="h-3.5 w-3.5" /> Images
+              </button>
+            )}
           </div>
         )}
 

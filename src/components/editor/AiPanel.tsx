@@ -201,7 +201,7 @@ function ChatSelectionAttachmentChip({
 
 // ── Issue colors ──────────────────────────────────────────────────────────────
 
-const ISSUE_COLORS: Record<Issue['type'], string> = {
+export const ISSUE_COLORS: Record<Issue['type'], string> = {
   error:   'bg-red-500',
   clarity: 'bg-amber-500',
   style:   'bg-violet-500',
@@ -234,7 +234,7 @@ interface AiPanelProps {
 
 // ── Shared apply logic ────────────────────────────────────────────────────────
 
-function applyIssueSuggestion(editor: Editor, issue: Issue): void {
+export function applyIssueSuggestion(editor: Editor, issue: Issue): void {
   if (!issue.suggestion) return
   const docText = editor.state.doc.textContent
   const idx = findQuoteIndex(docText, issue.quote)
@@ -1015,110 +1015,6 @@ function IssueCard({
         </span>
       </div>
     </button>
-  )
-}
-
-// ── Issue tooltip ─────────────────────────────────────────────────────────────
-
-export function IssueTooltip({
-  editor,
-  issues,
-}: {
-  editor: Editor | null
-  issues: Issue[]
-}): JSX.Element {
-  const [tooltip, setTooltip] = useState<{ issue: Issue; x: number; y: number } | null>(null)
-  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const isOverTooltipRef = useRef(false)
-
-  const scheduleHide = useCallback((): void => {
-    if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
-    hideTimerRef.current = setTimeout(() => {
-      if (!isOverTooltipRef.current) setTooltip(null)
-    }, 150)
-  }, [])
-
-  const cancelHide = useCallback((): void => {
-    if (hideTimerRef.current) {
-      clearTimeout(hideTimerRef.current)
-      hideTimerRef.current = null
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!editor || !editor.view) return
-
-    function onMouseMove(e: MouseEvent): void {
-      const target = e.target as HTMLElement
-      const el = target.closest('[data-issue-id]') as HTMLElement | null
-      if (!el) { scheduleHide(); return }
-      cancelHide()
-      const issueId = el.getAttribute('data-issue-id')
-      const issue = issues.find((i) => i.id === issueId)
-      if (!issue) { scheduleHide(); return }
-      // Position tooltip right above cursor's current line
-      setTooltip({ issue, x: e.clientX, y: e.clientY })
-    }
-
-    function onMouseLeave(): void { scheduleHide() }
-
-    const dom = editor.view.dom as HTMLElement
-    dom.addEventListener('mousemove', onMouseMove)
-    dom.addEventListener('mouseleave', onMouseLeave)
-    return () => {
-      dom.removeEventListener('mousemove', onMouseMove)
-      dom.removeEventListener('mouseleave', onMouseLeave)
-      cancelHide()
-    }
-  }, [editor, issues, scheduleHide, cancelHide])
-
-  return (
-    <AnimatePresence>
-      {tooltip && (
-        <motion.div
-          key="issue-tooltip"
-          initial={{ opacity: 0, scale: 0.96, y: 6 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.96, y: 6 }}
-          transition={{ duration: 0.13, ease: [0.25, 0.1, 0.25, 1] }}
-          className="pointer-events-auto fixed z-[9999] -translate-x-1/2 -translate-y-full"
-          style={{ left: tooltip.x, top: tooltip.y - 10 }}
-          onMouseEnter={() => { isOverTooltipRef.current = true; cancelHide() }}
-          onMouseLeave={() => { isOverTooltipRef.current = false; scheduleHide() }}
-        >
-          <div className="rounded-lg border border-border bg-background px-3 py-2.5 shadow-lg max-w-[280px]">
-            <div className="flex items-center gap-1.5 mb-1">
-              <div className={cn('h-1.5 w-1.5 rounded-full shrink-0', ISSUE_COLORS[tooltip.issue.type])} />
-              <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                {tooltip.issue.category}
-              </span>
-            </div>
-            <p className="text-xs font-medium leading-snug">{tooltip.issue.message}</p>
-            {tooltip.issue.suggestion && (
-              <>
-                <p className="mt-1.5 text-[10px] text-muted-foreground leading-relaxed">
-                  <span className="text-foreground">{tooltip.issue.suggestion}</span>
-                </p>
-                <button
-                  className="mt-2 w-full rounded-md bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary transition-colors hover:bg-primary/20 text-left"
-                  onClick={() => {
-                    if (editor) applyIssueSuggestion(editor, tooltip.issue)
-                    setTooltip(null)
-                  }}
-                >
-                  Apply suggestion
-                </button>
-              </>
-            )}
-          </div>
-          {/* Arrow pointing down toward text */}
-          <div
-            className="rotate-45 border-b border-r border-border bg-background"
-            style={{ width: 8, height: 8, marginLeft: 'calc(50% - 4px)', marginTop: -1 }}
-          />
-        </motion.div>
-      )}
-    </AnimatePresence>
   )
 }
 

@@ -72,6 +72,44 @@ export function SlidePanel({
     setCtxMenu({ index: idx, x: e.clientX, y: e.clientY })
   }, [])
 
+  // Moves DOM focus to the newly active thumbnail so repeated arrow presses
+  // keep stepping from the current slide instead of the originally-clicked
+  // one (every thumbnail already exists in the DOM — only its "active"
+  // styling changes — so this can focus synchronously, no need to wait for
+  // the isActive re-render).
+  const focusThumbnail = useCallback((idx: number): void => {
+    listRef.current?.querySelector<HTMLElement>(`[data-slide-idx="${idx}"] [tabindex]`)?.focus()
+  }, [])
+
+  // Newly added slides (via the "Add slide" button, "Add slide after", or
+  // Duplicate) always land as the active slide with nothing selected on the
+  // canvas — focus its thumbnail so Delete/arrow keys work on it immediately.
+  const prevSlideCountRef = useRef(slides.length)
+  useEffect(() => {
+    if (slides.length > prevSlideCountRef.current) focusThumbnail(activeIndex)
+    prevSlideCountRef.current = slides.length
+  }, [slides.length, activeIndex, focusThumbnail])
+
+  // A focused thumbnail (clicked, not mid-drag/rename) can be deleted or
+  // navigated away from with the keyboard — mirrors the context menu's
+  // "Delete slide" and clicking a neighboring thumbnail.
+  const handleThumbnailKeyDown = useCallback((e: React.KeyboardEvent, idx: number): void => {
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      e.preventDefault()
+      onDeleteSlide(idx)
+      return
+    }
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      if (idx > 0) { onNavigate(idx - 1); focusThumbnail(idx - 1) }
+      return
+    }
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      e.preventDefault()
+      if (idx < slides.length - 1) { onNavigate(idx + 1); focusThumbnail(idx + 1) }
+    }
+  }, [onDeleteSlide, onNavigate, slides.length, focusThumbnail])
+
   // Dismiss on outside pointer — menu stops propagation so item clicks work
   useEffect(() => {
     if (!ctxMenu) return
@@ -103,6 +141,7 @@ export function SlidePanel({
               onMouseDown={(e) => handleThumbnailMouseDown(e, idx)}
               onClick={() => onNavigate(idx)}
               onContextMenu={(e) => handleContextMenu(e, idx)}
+              onKeyDown={(e) => handleThumbnailKeyDown(e, idx)}
             />
           </div>
         ))}

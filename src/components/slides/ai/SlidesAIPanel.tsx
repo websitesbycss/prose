@@ -139,26 +139,26 @@ export function SlidesAIPanel({
 
       <Separator />
 
-      {/* Content */}
+      {/* Content — both tabs stay mounted (hidden via CSS, not unmounted) so
+          chat history, sources, and instructions survive switching tabs. */}
       <div className="min-h-0 flex-1 overflow-hidden">
-        {tab === 'chat' ? (
+        <div className={cn('h-full', tab !== 'chat' && 'hidden')}>
           <SlidesChatTab
             getDocumentContent={getSlidesContext}
             assignmentContext={assignmentContext}
             actionHandler={actionHandler}
           />
-        ) : (
-          <div className="h-full overflow-y-auto">
-            <SlideGenerateTab
-              slides={slides}
-              activeSlideIndex={activeSlideIndex}
-              theme={theme}
-              settings={settings}
-              assignmentContext={assignmentContext}
-              onInsertSlides={onInsertSlides}
-            />
-          </div>
-        )}
+        </div>
+        <div className={cn('h-full overflow-y-auto', tab !== 'generate' && 'hidden')}>
+          <SlideGenerateTab
+            slides={slides}
+            activeSlideIndex={activeSlideIndex}
+            theme={theme}
+            settings={settings}
+            assignmentContext={assignmentContext}
+            onInsertSlides={onInsertSlides}
+          />
+        </div>
       </div>
     </div>
   )

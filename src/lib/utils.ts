@@ -5,6 +5,38 @@ export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs))
 }
 
+// getBoundingClientRect()/getClientRects() are computed in Chromium BEFORE any
+// ancestor's CSS `zoom` is applied, so a rect from inside a zoomed container
+// (e.g. the document editor's page-zoom control) reports coordinates in that
+// container's un-zoomed local space, not real viewport pixels — anything
+// positioned with `position: fixed` off those raw numbers ends up increasingly
+// offset the further the rect is from the zoom container's origin. Walk up
+// from `startEl` for the nearest ancestor with an inline `style.zoom` and
+// rescale the rect relative to that container's own (correct) viewport rect.
+export function zoomCorrectedRect(
+  startEl: HTMLElement,
+  rect: { left: number; top: number; width: number; height: number },
+): { left: number; top: number; width: number; height: number } {
+  let el: HTMLElement | null = startEl
+  while (el) {
+    const zoomStr = el.style.zoom
+    if (zoomStr) {
+      const zoom = parseFloat(zoomStr)
+      if (!isNaN(zoom) && zoom !== 1) {
+        const c = el.getBoundingClientRect()
+        return {
+          left: c.left + (rect.left - c.left) * zoom,
+          top: c.top + (rect.top - c.top) * zoom,
+          width: rect.width * zoom,
+          height: rect.height * zoom,
+        }
+      }
+    }
+    el = el.parentElement
+  }
+  return rect
+}
+
 export function formatRelativeTime(isoString: string): string {
   const diff = Date.now() - new Date(isoString).getTime()
   const minutes = Math.floor(diff / 60_000)
