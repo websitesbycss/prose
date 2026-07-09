@@ -13,8 +13,8 @@ import {
 } from '@/components/editor/AiPanel'
 import type { AiActionHandler, ActionCardState } from '@/components/editor/AiPanel'
 import type { ValidatedActions } from '@/lib/ai/proseActions'
-import { IMAGE_CAP, openImagePicker, type AttachedImage } from './imageAttachments'
-import { ImagePill, SentImagePill, ImageEnlargeModal, type ImagePreview } from './ImagePill'
+import { IMAGE_CAP, openImagePicker, type AttachedImage } from '@/components/editor/imageAttachments'
+import { ImagePill, SentImagePill, ImageEnlargeModal, type ImagePreview } from '@/components/editor/ImagePill'
 
 const SLIDES_SUGGESTIONS = [
   'Improve this slide',

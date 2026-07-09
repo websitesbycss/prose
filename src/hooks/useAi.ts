@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useAppStore } from '@/store/appStore'
 import type { FileType } from '@/lib/aiConfig'
-import type { AttachedImage } from '@/components/slides/ai/imageAttachments'
+import type { AttachedImage } from '@/components/editor/imageAttachments'
 
 export interface ChatMessageImage {
   id: string

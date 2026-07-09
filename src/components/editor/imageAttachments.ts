@@ -1,8 +1,8 @@
-// Shared image-attachment primitives for the Slides AI panel — used by the
-// Chat composer and the Generate tab's source picker. Images are read once as
-// both an object URL (for on-screen previews) and a raw base64 payload (for
-// sending to Ollama's multimodal /api/chat endpoint) so neither path has to
-// re-read the File later.
+// Shared image-attachment primitives for AI chat composers (Documents, Slides
+// Chat + Generate source picker, ...). Images are read once as both an object
+// URL (for on-screen previews) and a raw base64 payload (for sending to
+// Ollama's multimodal /api/chat endpoint) so neither path has to re-read the
+// File later.
 
 export interface AttachedImage {
   id: string

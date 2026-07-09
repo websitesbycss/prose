@@ -58,7 +58,7 @@ export function IssueTooltip({
     // with `position: fixed` — correct for it (see SpellTooltip's
     // resolveViewportCoords for the same issue on the suggestion popup).
     const corrected = zoomCorrectedRect(dom, anchor)
-    return { x: corrected.left, y: corrected.top - 48 }
+    return { x: corrected.left + corrected.width / 2, y: corrected.top }
   }, [])
 
   useEffect(() => {
@@ -124,17 +124,28 @@ export function IssueTooltip({
   // one, which would otherwise make "fixed" act like "absolute" relative to
   // that (scaled, scrolled) box instead of the real viewport. Portaling to
   // document.body sidesteps that entirely (same approach SpellTooltip uses).
+  // Anchoring vs. animation must live on SEPARATE elements: the bottom-center
+  // anchoring is done with a CSS translate, and framer-motion writes its own
+  // inline `transform` (for the scale/y entrance) that would silently clobber
+  // any translate classes on the same element — which left the tooltip's
+  // top-LEFT corner at the anchor point instead of its bottom-center (i.e.
+  // shifted to the bottom-right of the highlight by half its width + full
+  // height). So: outer div owns fixed position + anchoring translate, inner
+  // motion.div only animates.
   return createPortal((
     <AnimatePresence>
       {tooltip && (
-        <motion.div
+        <div
           key="issue-tooltip"
+          className="fixed z-[9999] -translate-x-1/2 -translate-y-full"
+          style={{ left: tooltip.x + 52, top: tooltip.y - 4 }}
+        >
+        <motion.div
           initial={{ opacity: 0, scale: 0.96, y: 6 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 6 }}
           transition={{ duration: 0.13, ease: [0.25, 0.1, 0.25, 1] }}
-          className="pointer-events-auto fixed z-[9999] -translate-x-1/2 -translate-y-full"
-          style={{ left: tooltip.x, top: tooltip.y - 10 }}
+          className="pointer-events-auto"
           onMouseEnter={() => { isOverTooltipRef.current = true; cancelHide() }}
           onMouseLeave={() => { isOverTooltipRef.current = false; scheduleHide() }}
         >
@@ -169,6 +180,7 @@ export function IssueTooltip({
             style={{ width: 8, height: 8, marginLeft: 'calc(50% - 4px)', marginTop: -1 }}
           />
         </motion.div>
+        </div>
       )}
     </AnimatePresence>
   ), document.body)

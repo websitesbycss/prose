@@ -20,8 +20,10 @@ import {
 import type { ActionSurface, ProseAction, ValidatedActions } from '@/lib/ai/proseActions'
 import {
   Send, Loader2, Sparkles, WandSparkles, MessageSquare, ScanText, X, TextSelect,
-  Wand2, Check, AlertTriangle,
+  Wand2, Check, AlertTriangle, Paperclip,
 } from 'lucide-react'
+import { IMAGE_CAP, openImagePicker, type AttachedImage } from './imageAttachments'
+import { ImagePill, SentImagePill, ImageEnlargeModal, type ImagePreview } from './ImagePill'
 
 // ── AI action execution bridge ────────────────────────────────────────────────
 // Editors that support prose-actions pass a handler; the ChatTab parses action
@@ -205,12 +207,6 @@ export const ISSUE_COLORS: Record<Issue['type'], string> = {
   error:   'bg-red-500',
   clarity: 'bg-amber-500',
   style:   'bg-violet-500',
-}
-
-const ISSUE_BADGE_COLORS: Record<Issue['type'], string> = {
-  error:   'bg-red-500/10 text-red-500',
-  clarity: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-  style:   'bg-violet-500/10 text-violet-500',
 }
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -414,6 +410,7 @@ export function ChatTab({
   hideContext?: boolean
 }): JSX.Element {
   const ollamaStatus = useAppStore((s) => s.ollamaStatus)
+  const multimodalCapable = useAppStore((s) => s.multimodalCapable)
   const pendingAiPrompt = useAppStore((s) => s.pendingAiPrompt)
   const setPendingAiPrompt = useAppStore((s) => s.setPendingAiPrompt)
   const pendingAiAttachment = useAppStore((s) => s.pendingAiAttachment)
@@ -425,6 +422,8 @@ export function ChatTab({
   const [attachment, setAttachment] = useState<AiSelectionAttachment | null>(null)
   const [attachmentActive, setAttachmentActive] = useState(false)
   const [actionStates, setActionStates] = useState<Record<string, ActionCardState>>({})
+  const [images, setImages] = useState<AttachedImage[]>([])
+  const [enlarged, setEnlarged] = useState<ImagePreview | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -495,20 +494,26 @@ export function ChatTab({
 
   async function send(text: string): Promise<void> {
     const t = text.trim()
-    if (!t || busy || unavailable) return
+    if ((!t && images.length === 0) || busy || unavailable) return
     // Compute document context at send-time, not on every render
     const docText = getDocumentContentRef.current
       ? getDocumentContentRef.current()
       : (editorRef.current ? editorRef.current.getText() : '')
     const selectionContent = attachment?.text
+    const sentImages = images
     setInput('')
+    setImages([])
     dismissAttachment()
     if (inputRef.current) {
       inputRef.current.style.height = ''
       inputRef.current.style.overflowY = 'hidden'
     }
-    await sendMessage(t, docText, assignmentContext || undefined, selectionContent, fileType)
+    await sendMessage(t, docText, assignmentContext || undefined, selectionContent, fileType, sentImages)
   }
+
+  const addImages = useCallback((imgs: AttachedImage[]) => {
+    setImages((prev) => [...prev, ...imgs].slice(0, IMAGE_CAP))
+  }, [])
 
   async function applyActions(messageId: string, validated: ValidatedActions): Promise<void> {
     if (!actionHandler) return
@@ -612,6 +617,13 @@ export function ChatTab({
           const showBubble = msg.role === 'user' || displayText || (!validated && !building)
           return (
             <div key={msg.id} className={cn('flex flex-col', msg.role === 'user' ? 'items-end' : 'items-start')}>
+              {msg.role === 'user' && msg.images && msg.images.length > 0 && (
+                <div className="mb-1 flex max-w-[85%] gap-1.5 overflow-x-auto pb-1">
+                  {msg.images.map((img) => (
+                    <SentImagePill key={img.id} image={img} onOpen={setEnlarged} />
+                  ))}
+                </div>
+              )}
               {showBubble && (
               <div
                 className={cn(
@@ -719,7 +731,30 @@ export function ChatTab({
               />
             </div>
           )}
-          <div className="flex gap-1.5 px-2 py-1.5">
+          {images.length > 0 && (
+            <div className="flex gap-1.5 overflow-x-auto border-b border-border px-2 py-1.5 pb-2">
+              {images.map((img) => (
+                <ImagePill
+                  key={img.id}
+                  image={img}
+                  onOpen={setEnlarged}
+                  onRemove={(id) => setImages((prev) => prev.filter((i) => i.id !== id))}
+                />
+              ))}
+            </div>
+          )}
+          <div className="flex items-center gap-1 px-2 py-1.5">
+            {multimodalCapable && (
+              <button
+                type="button"
+                disabled={unavailable || busy || images.length >= IMAGE_CAP}
+                className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-30"
+                onClick={() => openImagePicker(IMAGE_CAP - images.length, addImages)}
+                title="Attach images"
+              >
+                <Paperclip className="h-3.5 w-3.5" />
+              </button>
+            )}
             <textarea
               ref={inputRef}
               rows={1}
@@ -745,7 +780,7 @@ export function ChatTab({
               }}
             />
             <button
-              disabled={!input.trim() || unavailable || busy}
+              disabled={(!input.trim() && images.length === 0) || unavailable || busy}
               className="shrink-0 text-muted-foreground transition-colors hover:text-primary disabled:opacity-30"
               onClick={() => void send(input)}
             >
@@ -758,35 +793,163 @@ export function ChatTab({
           </div>
         </div>
       </div>
+
+      <ImageEnlargeModal image={enlarged} onClose={() => setEnlarged(null)} />
     </div>
   )
 }
 
 // ── Analysis tab ──────────────────────────────────────────────────────────────
+// Interactive "Scanning document" → "Reviewing findings" step tracker mirrors
+// the pacing pattern used by Slides' Generate tab (SlideGenerateTab.tsx) —
+// cosmetic sub-steps run alongside the real analyze() call, but completion is
+// always gated on that real promise, never on the animation finishing first.
+
+const ANALYZE_STEPS = [
+  { id: 'grammar', title: 'Grammar & mechanics' },
+  { id: 'clarity', title: 'Clarity & flow' },
+  { id: 'style', title: 'Style & tone' },
+  { id: 'argument', title: 'Argument structure' },
+] as const
+
+const REVIEW_CAPTIONS = [
+  'Comparing against your thesis…',
+  'Checking sentence structure…',
+  'Flagging passive voice…',
+  'Finalizing suggestions…',
+]
+
+const wait = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
+
+type AnalyzeSubStatus = 'pending' | 'checking' | 'done'
+
+function AnalyzeStepIcon({ status }: { status: 'pending' | 'active' | 'done' }): JSX.Element {
+  if (status === 'done') {
+    return (
+      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary">
+        <Check className="h-2.5 w-2.5 text-primary-foreground" />
+      </span>
+    )
+  }
+  if (status === 'active') {
+    return (
+      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full">
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+      </span>
+    )
+  }
+  return (
+    <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full">
+      <span className="h-3 w-3 rounded-full border border-border" />
+    </span>
+  )
+}
+
+function AnalyzingSteps({
+  subStatuses,
+  phase,
+  caption,
+}: {
+  subStatuses: Record<string, AnalyzeSubStatus>
+  phase: 'scanning' | 'reviewing'
+  caption: string
+}): JSX.Element {
+  return (
+    <div className="flex flex-col gap-1 p-3">
+      <div className="flex items-center gap-2">
+        <AnalyzeStepIcon status={phase === 'scanning' ? 'active' : 'done'} />
+        <span className="text-xs font-medium text-foreground">Scanning document</span>
+      </div>
+
+      <div className="ml-2 flex flex-col gap-1.5 border-l border-border py-1 pl-2">
+        {ANALYZE_STEPS.map((step) => {
+          const st = subStatuses[step.id] ?? 'pending'
+          return (
+            <div key={step.id} className="flex items-center gap-1.5">
+              <span className={cn(
+                'flex h-3 w-3 shrink-0 items-center justify-center rounded-full border',
+                st === 'done' ? 'border-primary bg-primary' : 'border-border',
+              )}>
+                {st === 'done' && <Check className="h-2 w-2 text-primary-foreground" />}
+                {st === 'checking' && <Loader2 className="h-2 w-2 animate-spin text-primary" />}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-[11px] text-foreground">{step.title}</span>
+              <span className="shrink-0 text-[10px] text-muted-foreground">
+                {st === 'done' ? 'Done' : st === 'checking' ? 'Checking…' : 'Waiting…'}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+
+      <div className={cn('mt-1 flex items-center gap-2', phase !== 'reviewing' && 'opacity-40')}>
+        <AnalyzeStepIcon status={phase === 'reviewing' ? 'active' : 'pending'} />
+        <span className="text-xs font-medium text-foreground">Reviewing findings</span>
+      </div>
+      {phase === 'reviewing' && <p className="ml-6 text-[11px] text-muted-foreground">{caption}</p>}
+    </div>
+  )
+}
 
 function AnalysisTab({
   editor,
   analysis,
   assignmentContext,
-  setAssignmentContext,
 }: {
   editor: Editor | null
   analysis: AnalysisState & AnalysisControls
   assignmentContext: string
-  setAssignmentContext: (v: string) => void
 }): JSX.Element {
   const ollamaStatus = useAppStore((s) => s.ollamaStatus)
   const analyzeOnSave = useAppStore((s) => s.analyzeOnSave)
   const setAnalyzeOnSave = useAppStore((s) => s.setAnalyzeOnSave)
-  const { issues, tone, analyzing, error, hasRun, analyze, clearIssues } = analysis
+  const { issues, error, hasRun, analyze, clearIssues } = analysis
 
-  const [contextOpen, setContextOpen] = useState(false)
+  // Deliberately local, not the hook's own `analyzing` flag — that flips false
+  // the moment the real analyze() call resolves, which can easily happen
+  // before the cosmetic step animation below finishes (or vice versa). This
+  // stays true for the full duration of both, so the loading view can't be
+  // cut short by whichever one happens to finish first.
+  const [uiBusy, setUiBusy] = useState(false)
+  const [phase, setPhase] = useState<'scanning' | 'reviewing'>('scanning')
+  const [subStatuses, setSubStatuses] = useState<Record<string, AnalyzeSubStatus>>({})
+  const [caption, setCaption] = useState(REVIEW_CAPTIONS[0])
+  const captionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
   const unavailable = ollamaStatus === 'unavailable'
   const loading = ollamaStatus === 'loading'
 
+  useEffect(() => () => { if (captionTimerRef.current) clearInterval(captionTimerRef.current) }, [])
+
   const handleAnalyze = useCallback(async (): Promise<void> => {
     if (!editor) return
-    await analyze(editor.getText(), assignmentContext || undefined)
+    setPhase('scanning')
+    const init: Record<string, AnalyzeSubStatus> = {}
+    ANALYZE_STEPS.forEach((s) => { init[s.id] = 'pending' })
+    setSubStatuses(init)
+    setUiBusy(true)
+
+    try {
+      const analyzePromise = analyze(editor.getText(), assignmentContext || undefined)
+
+      for (const step of ANALYZE_STEPS) {
+        setSubStatuses((s) => ({ ...s, [step.id]: 'checking' }))
+        await wait(280 + Math.random() * 220)
+        setSubStatuses((s) => ({ ...s, [step.id]: 'done' }))
+      }
+
+      setPhase('reviewing')
+      let ci = 0
+      setCaption(REVIEW_CAPTIONS[0])
+      captionTimerRef.current = setInterval(() => {
+        ci = (ci + 1) % REVIEW_CAPTIONS.length
+        setCaption(REVIEW_CAPTIONS[ci])
+      }, 750)
+      await analyzePromise
+    } finally {
+      if (captionTimerRef.current) { clearInterval(captionTimerRef.current); captionTimerRef.current = null }
+      setUiBusy(false)
+    }
   }, [editor, analyze, assignmentContext])
 
   function scrollToIssue(issue: Issue): void {
@@ -812,59 +975,25 @@ function AnalysisTab({
     }
   }
 
+  if (uiBusy) {
+    return (
+      <div className="flex h-full flex-col">
+        <AnalyzingSteps subStatuses={subStatuses} phase={phase} caption={caption} />
+      </div>
+    )
+  }
+
   return (
     <div className="flex h-full flex-col">
       {/* Controls */}
       <div className="shrink-0 px-3 pt-2 pb-3 space-y-2">
-        {/* Document context */}
-        <div>
-          <button
-            className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
-            onClick={() => setContextOpen((o) => !o)}
-          >
-            <span className={cn('transition-transform', contextOpen && 'rotate-90')}>›</span>
-            Document context
-          </button>
-          <AnimatePresence>
-            {contextOpen && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.15 }}
-                className="overflow-hidden"
-              >
-                <textarea
-                  className={cn(
-                    'mt-1.5 w-full resize-none rounded-md border border-input bg-transparent px-2 py-1.5',
-                    'text-xs placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring',
-                    'min-h-[60px]'
-                  )}
-                  placeholder="What's this document about? Topic, audience, goals…"
-                  value={assignmentContext}
-                  onChange={(e) => setAssignmentContext(e.target.value)}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
         <Button
           className="w-full gap-2 h-8 text-xs"
-          disabled={unavailable || loading || analyzing || !editor}
+          disabled={unavailable || loading || !editor}
           onClick={() => void handleAnalyze()}
         >
-          {analyzing ? (
-            <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Analyzing…
-            </>
-          ) : (
-            <>
-              <WandSparkles className="h-3.5 w-3.5" />
-              Analyze document
-            </>
-          )}
+          <WandSparkles className="h-3.5 w-3.5" />
+          {hasRun ? 'Rerun analysis' : 'Analyze document'}
         </Button>
 
         <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -894,7 +1023,7 @@ function AnalysisTab({
 
       {/* Results */}
       <div className="flex-1 overflow-y-auto">
-        {!hasRun && !analyzing && (
+        {!hasRun && (
           <div className="px-3 pt-6 text-center">
             <ScanText className="mx-auto h-8 w-8 text-muted-foreground/30 mb-2" />
             <p className="text-xs text-muted-foreground">
@@ -903,28 +1032,10 @@ function AnalysisTab({
           </div>
         )}
 
-        {hasRun && !analyzing && (
+        {hasRun && (
           <>
-            {/* Stats row */}
-            <div className="flex gap-2 px-3 pt-3 pb-2">
-              <div className="flex-1 rounded-lg border border-border bg-muted/30 px-3 py-2 text-center">
-                <div className="text-lg font-semibold leading-none">{issues.length}</div>
-                <div className="mt-0.5 text-[9px] uppercase tracking-wider text-muted-foreground">
-                  Issues
-                </div>
-              </div>
-              {tone && (
-                <div className="flex-1 rounded-lg border border-border bg-muted/30 px-3 py-2 text-center">
-                  <div className="text-sm font-semibold leading-none truncate">{tone}</div>
-                  <div className="mt-0.5 text-[9px] uppercase tracking-wider text-muted-foreground">
-                    Tone
-                  </div>
-                </div>
-              )}
-            </div>
-
             {issues.length > 0 && (
-              <div className="flex items-center justify-between px-3 pb-1">
+              <div className="flex items-center justify-between px-3 pb-1 pt-3">
                 <span className="text-[10px] text-muted-foreground">{issues.length} issue{issues.length !== 1 ? 's' : ''}</span>
                 <button
                   className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
@@ -938,7 +1049,7 @@ function AnalysisTab({
               </div>
             )}
 
-            <div className="px-3 pb-3 space-y-2">
+            <div className={cn('px-3 pb-3 space-y-2', issues.length === 0 && 'pt-3')}>
               {issues.length === 0 && (
                 <p className="rounded-md bg-green-500/10 px-3 py-2.5 text-xs text-green-600 dark:text-green-400">
                   No issues found — your document looks great!
@@ -974,6 +1085,8 @@ function AnalysisTab({
   )
 }
 
+// Category kicker (small dot + label) + title + italicized quote, apply pill
+// revealed on hover — no stats tiles, no large color dot next to the title.
 function IssueCard({
   issue,
   onClick,
@@ -985,35 +1098,33 @@ function IssueCard({
 }): JSX.Element {
   return (
     <button
-      className="w-full rounded-lg border border-border bg-background p-2.5 text-left transition-colors hover:bg-accent/50 group"
+      className="group w-full rounded-lg border border-border bg-background p-2.5 text-left transition-colors hover:border-primary/45"
       onClick={onClick}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-start gap-2 min-w-0">
-          <div className={cn('mt-0.5 h-2 w-2 shrink-0 rounded-full', ISSUE_COLORS[issue.type])} />
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium leading-snug">{issue.message}</p>
-            <p className="mt-0.5 text-[10px] text-muted-foreground truncate">
-              &ldquo;{issue.quote.length > 40 ? issue.quote.slice(0, 40) + '…' : issue.quote}&rdquo;
-            </p>
-            {issue.suggestion && (
-              <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-200 ease-out">
-                <div className="overflow-hidden min-h-0">
-                  <button
-                    className="mt-1.5 w-full rounded-md bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary text-left leading-relaxed hover:bg-primary/20"
-                    onClick={(e) => { e.stopPropagation(); onApply() }}
-                  >
-                    Apply: &ldquo;{issue.suggestion}&rdquo;
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-        <span className={cn('shrink-0 rounded px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide', ISSUE_BADGE_COLORS[issue.type])}>
+      <div className="mb-1 flex items-center gap-1.5">
+        <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', ISSUE_COLORS[issue.type])} />
+        <span className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
           {issue.category}
         </span>
       </div>
+      <p className="text-xs font-semibold leading-snug text-foreground">{issue.message}</p>
+      <blockquote className="relative mt-1.5 pl-3 text-[11px] italic leading-snug text-muted-foreground">
+        <span className="absolute left-0 top-0 font-serif text-base not-italic leading-none text-muted-foreground/50">&ldquo;</span>
+        {issue.quote.length > 72 ? issue.quote.slice(0, 72) + '…' : issue.quote}
+      </blockquote>
+      {issue.suggestion && (
+        <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-200 ease-out">
+          <div className="overflow-hidden min-h-0">
+            <button
+              className="mt-2 flex w-full items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-left text-[10.5px] font-medium leading-relaxed text-primary hover:bg-primary/20"
+              onClick={(e) => { e.stopPropagation(); onApply() }}
+            >
+              <Check className="h-2.5 w-2.5 shrink-0" />
+              {issue.suggestion.length > 40 ? issue.suggestion.slice(0, 40) + '…' : issue.suggestion}
+            </button>
+          </div>
+        </div>
+      )}
     </button>
   )
 }
@@ -1027,6 +1138,7 @@ export default function AiPanel({ editor, analysis, fileType = 'document', getDo
   const issueCount = useAppStore((s) => s.issueCount)
   const assignmentContext = useAppStore((s) => s.assignmentContext)
   const setAssignmentContext = useAppStore((s) => s.setAssignmentContext)
+  const [contextOpen, setContextOpen] = useState(false)
   // Local tab state for the optional extra tab (file types without analysis).
   const [extraTabActive, setExtraTabActive] = useState(false)
 
@@ -1096,6 +1208,42 @@ export default function AiPanel({ editor, analysis, fileType = 'document', getDo
 
       <Separator />
 
+      {/* Document context — lives in the shared header so it stays in place and
+          keeps its value regardless of which tab (Chat / Issues) is active. */}
+      <div className="shrink-0 px-3 pt-2 pb-1">
+        <button
+          className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+          onClick={() => setContextOpen((o) => !o)}
+        >
+          <span className={cn('transition-transform', contextOpen && 'rotate-90')}>›</span>
+          {FILE_TYPE_AI_CONFIG[fileType].contextLabel}
+        </button>
+        <AnimatePresence>
+          {contextOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="overflow-hidden"
+            >
+              <textarea
+                className={cn(
+                  'mt-1.5 w-full resize-none rounded-md border border-input bg-transparent px-2 py-1.5',
+                  'text-xs placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring',
+                  'min-h-[60px]',
+                )}
+                placeholder={FILE_TYPE_AI_CONFIG[fileType].contextPlaceholder}
+                value={assignmentContext}
+                onChange={(e) => setAssignmentContext(e.target.value)}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      <Separator />
+
       {/* Tab content */}
       <div className="flex-1 overflow-hidden">
         {!hasAnalysis && extraTab && extraTabActive ? (
@@ -1110,13 +1258,13 @@ export default function AiPanel({ editor, analysis, fileType = 'document', getDo
             onInsertFormula={onInsertFormula}
             onInsertTableData={onInsertTableData}
             actionHandler={actionHandler}
+            hideContext
           />
         ) : (
           <AnalysisTab
             editor={editor}
             analysis={analysis!}
             assignmentContext={assignmentContext}
-            setAssignmentContext={setAssignmentContext}
           />
         )}
       </div>
