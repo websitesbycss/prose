@@ -17,6 +17,7 @@ import { isSheetContent } from '@/types/sheet'
 import { extractPlainText } from '@/lib/utils'
 import { useAppStore } from '@/store/appStore'
 import { cn } from '@/lib/utils'
+import { waitForModelWarm } from '@/lib/ai/modelWarmup'
 
 const THUMB_W = 160
 const THUMB_H = 90
@@ -46,7 +47,7 @@ interface Props {
 
 type SubStatus = 'pending' | 'summarizing' | 'done'
 type GenState = 'idle' | 'generating' | 'preview'
-type GenPhase = 'reading' | 'designing'
+type GenPhase = 'starting' | 'reading' | 'designing'
 
 export function SlideGenerateTab({
   slides: _slides, activeSlideIndex, theme, settings: _settings, assignmentContext,
@@ -108,13 +109,22 @@ export function SlideGenerateTab({
   async function generate(): Promise<void> {
     if (!canGenerate) return
     setError(null)
-    setGenPhase('reading')
     setGenState('generating')
     const initStatuses: Record<string, SubStatus> = {}
     for (const a of attachments) initStatuses[a.id] = 'pending'
     setSubStatuses(initStatuses)
 
     try {
+      // Concrete check (Ollama's /api/ps — models actually resident in
+      // memory), not a guess: only shown when we know for certain the model
+      // still needs to load, so "Reading sources" never lies about what's
+      // actually happening during a cold start.
+      if (!(await window.prose.ai.isModelLoaded())) {
+        setGenPhase('starting')
+        await waitForModelWarm()
+      }
+      setGenPhase('reading')
+
       const sections: string[] = []
       const images: string[] = []
       for (const a of attachments) {
@@ -190,9 +200,20 @@ export function SlideGenerateTab({
   if (genState === 'generating') {
     return (
       <div className="flex flex-col gap-1 p-3">
-        <div className="flex items-center gap-2">
-          <span className={cn('flex h-4 w-4 shrink-0 items-center justify-center rounded-full', genPhase === 'reading' ? '' : 'bg-primary')}>
-            {genPhase === 'reading' ? <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" /> : <Check className="h-2.5 w-2.5 text-primary-foreground" />}
+        {genPhase === 'starting' && (
+          <div className="flex items-center gap-2 pb-1">
+            <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full">
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+            </span>
+            <span className="text-xs font-medium text-foreground">Starting AI model…</span>
+          </div>
+        )}
+
+        <div className={cn('flex items-center gap-2', genPhase === 'starting' && 'opacity-40')}>
+          <span className={cn('flex h-4 w-4 shrink-0 items-center justify-center rounded-full', genPhase === 'reading' ? '' : genPhase === 'starting' ? '' : 'bg-primary')}>
+            {genPhase === 'starting' && <span className="h-3 w-3 rounded-full border border-border" />}
+            {genPhase === 'reading' && <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />}
+            {genPhase === 'designing' && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
           </span>
           <span className="text-xs font-medium text-foreground">Reading sources</span>
         </div>

@@ -3,7 +3,7 @@ import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import type { Issue } from '@/types'
-import { findQuoteIndex } from '@/lib/quoteMatch'
+import { buildCharPositions } from '@/lib/issueSpan'
 
 export const issueHighlightKey = new PluginKey<DecorationSet>('issueHighlight')
 
@@ -16,36 +16,16 @@ declare module '@tiptap/core' {
   }
 }
 
-// Build a flat array of { char, docPos } so we can find a quote across nodes.
-function buildPosMap(doc: PMNode): { text: string; positions: number[] } {
-  const positions: number[] = []
-  let text = ''
-  doc.descendants((node, pos) => {
-    if (node.isText && node.text) {
-      for (let i = 0; i < node.text.length; i++) {
-        positions.push(pos + i)
-        text += node.text[i]
-      }
-    }
-  })
-  return { text, positions }
-}
-
 function buildDecorations(doc: PMNode, issues: Issue[]): DecorationSet {
-  const { text, positions } = buildPosMap(doc)
+  const positions = buildCharPositions(doc)
   const decos: Decoration[] = []
 
   for (const issue of issues) {
-    const quote = issue.quote.trim()
-    if (!quote || quote.length < 2) continue
-    const idx = findQuoteIndex(text, quote)
-    if (idx === -1 || idx + quote.length > positions.length) continue
-
-    const from = positions[idx]!
-    const to = positions[idx + quote.length - 1]! + 1
+    const { start, end } = issue.span
+    if (start < 0 || end <= start || end > positions.length) continue
 
     decos.push(
-      Decoration.inline(from, to, {
+      Decoration.inline(positions[start]!, positions[end - 1]! + 1, {
         class: `issue-highlight issue-highlight--${issue.type}`,
         'data-issue-id': issue.id,
       })

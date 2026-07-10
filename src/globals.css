@@ -1448,19 +1448,29 @@
   text-decoration-thickness: 1.5px;
 }
 
-.issue-highlight--error {
+.issue-highlight--spelling {
   background-color: rgba(239, 68, 68, 0.12);
   text-decoration-color: rgb(239, 68, 68);
 }
 
-.issue-highlight--clarity {
+.issue-highlight--wordChoice {
+  background-color: rgba(16, 185, 129, 0.12);
+  text-decoration-color: rgb(16, 185, 129);
+}
+
+.issue-highlight--style {
   background-color: rgba(245, 158, 11, 0.12);
   text-decoration-color: rgb(245, 158, 11);
 }
 
-.issue-highlight--style {
-  background-color: rgba(139, 92, 246, 0.12);
-  text-decoration-color: rgb(139, 92, 246);
+.issue-highlight--repetition {
+  background-color: rgba(29, 78, 216, 0.12);
+  text-decoration-color: rgb(29, 78, 216);
+}
+
+.issue-highlight--misc {
+  background-color: rgba(56, 189, 248, 0.12);
+  text-decoration-color: rgb(56, 189, 248);
 }
 
 /* AI chat selection attachment highlight */

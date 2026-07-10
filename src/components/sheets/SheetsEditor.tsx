@@ -1,5 +1,5 @@
 import { useRef, useState, useMemo, useCallback, useEffect } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
+import { motion } from 'motion/react'
 import {
   Copy, Clipboard, Trash2, EyeOff, Eye, Eraser,
   ArrowUpAZ, ArrowDownAZ, Filter, Image as ImageIcon, Link2,
@@ -176,6 +176,47 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
   const setPendingAiPrompt = useAppStore((s) => s.setPendingAiPrompt)
   const setAiPanelOpen = useAppStore((s) => s.setAiPanelOpen)
 
+  // AI panel width — resizable via drag handle, same behavior as Documents'
+  // AI panel (Editor.tsx), persisted to the same localStorage key so the
+  // width preference is shared across file types.
+  const [aiPanelWidth, setAiPanelWidth] = useState(() => {
+    const v = localStorage.getItem('prose-ai-panel-width')
+    return v ? Math.max(240, parseInt(v)) : AI_PANEL_WIDTH
+  })
+  const aiPanelDragRef = useRef<{ x: number; width: number } | null>(null)
+  const aiPanelWidthRef = useRef(aiPanelWidth)
+  useEffect(() => { aiPanelWidthRef.current = aiPanelWidth }, [aiPanelWidth])
+  // Suppresses the panel's open/close width transition while actively
+  // drag-resizing — else every mousemove retargets an eased animation and the
+  // panel edge lags behind the cursor instead of tracking it 1:1.
+  const [isResizingAiPanel, setIsResizingAiPanel] = useState(false)
+
+  useEffect(() => {
+    function onMouseMove(e: MouseEvent): void {
+      if (!aiPanelDragRef.current) return
+      const delta = aiPanelDragRef.current.x - e.clientX
+      const width = Math.min(600, Math.max(240, aiPanelDragRef.current.width + delta))
+      setAiPanelWidth(width)
+      aiPanelWidthRef.current = width
+    }
+    function onMouseUp(): void {
+      if (!aiPanelDragRef.current) return
+      aiPanelDragRef.current = null
+      setIsResizingAiPanel(false)
+      localStorage.setItem('prose-ai-panel-width', String(aiPanelWidthRef.current))
+      if (globalThis.document?.body) {
+        globalThis.document.body.style.cursor = ''
+        globalThis.document.body.style.userSelect = ''
+      }
+    }
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [])
+
   // Music
   const music = useMusicContext()
   const activeAmbient = AMBIENT_LAYERS.filter((l) => music?.ambientEnabled[l.id])
@@ -217,6 +258,18 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
   const redoDepthRef = useRef(0)
   const pendingUndoRedoRef = useRef<'undo' | 'redo' | null>(null)
   const undoCountTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Safety net for `pendingUndoRedoRef`: if FortuneSheet's real internal stack
+  // didn't actually have anything to undo/redo (our mirrored depth had
+  // drifted), no onChange follows to clear the flag — left unhandled, it would
+  // stay stuck and silently misclassify the NEXT genuine edit as this undo/redo.
+  const pendingClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // FortuneSheet fires onChange once while it finishes initializing the sheet
+  // it was just given — not a real user edit — which was being miscounted as
+  // the first "undo-able" edit, leaving Undo enabled (but non-functional)
+  // immediately after opening a sheet. Skip depth tracking for onChange calls
+  // that land within this grace window after (re)loading a document.
+  const loadedAtRef = useRef(0)
+  const INIT_GRACE_MS = 600
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
 
@@ -380,6 +433,8 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
     redoDepthRef.current = 0
     pendingUndoRedoRef.current = null
     if (undoCountTimerRef.current) { clearTimeout(undoCountTimerRef.current); undoCountTimerRef.current = null }
+    if (pendingClearTimerRef.current) { clearTimeout(pendingClearTimerRef.current); pendingClearTimerRef.current = null }
+    loadedAtRef.current = Date.now()
     setCanUndo(false)
     setCanRedo(false)
 
@@ -460,24 +515,59 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
     setActiveTabId(tabId)
   }, [])
 
+  // Marks the next onChange as consuming this undo/redo (see handleChange)
+  // rather than being a genuine edit. Armed with a short safety timeout: if
+  // our mirrored depth was wrong and FortuneSheet's real stack had nothing to
+  // do, no onChange follows to clear the flag, so clear it ourselves instead
+  // of leaving it stuck to misclassify the next real edit.
+  const armPendingUndoRedo = useCallback((action: 'undo' | 'redo') => {
+    if (undoCountTimerRef.current) { clearTimeout(undoCountTimerRef.current); undoCountTimerRef.current = null }
+    if (pendingClearTimerRef.current) clearTimeout(pendingClearTimerRef.current)
+    pendingUndoRedoRef.current = action
+    pendingClearTimerRef.current = setTimeout(() => {
+      pendingUndoRedoRef.current = null
+      pendingClearTimerRef.current = null
+    }, 250)
+  }, [])
+
   // FortuneSheet has no public undo()/redo() API — it only responds to a real
   // keydown on its hidden cell-editor element, so locate that within this
   // sheet's own wrapper and dispatch there.
   const handleUndo = useCallback(() => {
     if (undoDepthRef.current === 0) return
-    if (undoCountTimerRef.current) { clearTimeout(undoCountTimerRef.current); undoCountTimerRef.current = null }
-    pendingUndoRedoRef.current = 'undo'
+    armPendingUndoRedo('undo')
     const target = workbookWrapperRef.current?.querySelector('.luckysheet-cell-input')
     dispatchUndoRedoKey(target, 'undo')
-  }, [])
+  }, [armPendingUndoRedo])
 
   const handleRedo = useCallback(() => {
     if (redoDepthRef.current === 0) return
-    if (undoCountTimerRef.current) { clearTimeout(undoCountTimerRef.current); undoCountTimerRef.current = null }
-    pendingUndoRedoRef.current = 'redo'
+    armPendingUndoRedo('redo')
     const target = workbookWrapperRef.current?.querySelector('.luckysheet-cell-input')
     dispatchUndoRedoKey(target, 'redo')
-  }, [])
+  }, [armPendingUndoRedo])
+
+  // A native Ctrl+Z/Ctrl+Y keypress goes straight to FortuneSheet's own
+  // keydown handler on its hidden cell-input, bypassing handleUndo/handleRedo
+  // (and armPendingUndoRedo) entirely — so it used to always fall into
+  // handleChange's "genuine edit" branch, corrupting the mirrored depth
+  // counters relative to FortuneSheet's real stack. Intercept in the CAPTURE
+  // phase (fires before FortuneSheet's bubble-phase handler) so native hotkeys
+  // go through the exact same bookkeeping as the toolbar buttons.
+  useEffect(() => {
+    if (!ready || !isActive) return
+    const wrapper = workbookWrapperRef.current
+    if (!wrapper) return
+    function onKeyCapture(e: KeyboardEvent): void {
+      if (!e.ctrlKey || (e.code !== 'KeyZ' && e.code !== 'KeyY')) return
+      const isRedo = e.code === 'KeyY' || e.shiftKey
+      const depthRef = isRedo ? redoDepthRef : undoDepthRef
+      if (depthRef.current === 0) return
+      armPendingUndoRedo(isRedo ? 'redo' : 'undo')
+    }
+    wrapper.addEventListener('keydown', onKeyCapture, true)
+    return () => wrapper.removeEventListener('keydown', onKeyCapture, true)
+  }, [ready, isActive, armPendingUndoRedo])
 
   const addTab = useCallback(() => {
     const wb = workbookRef.current; if (!wb) return
@@ -615,17 +705,21 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
 
     // Undo/redo depth tracking — see comment near the refs' declaration.
     if (pendingUndoRedoRef.current === 'undo') {
+      if (pendingClearTimerRef.current) { clearTimeout(pendingClearTimerRef.current); pendingClearTimerRef.current = null }
       undoDepthRef.current = Math.max(0, undoDepthRef.current - 1)
       redoDepthRef.current += 1
       pendingUndoRedoRef.current = null
       setCanUndo(undoDepthRef.current > 0)
       setCanRedo(true)
     } else if (pendingUndoRedoRef.current === 'redo') {
+      if (pendingClearTimerRef.current) { clearTimeout(pendingClearTimerRef.current); pendingClearTimerRef.current = null }
       redoDepthRef.current = Math.max(0, redoDepthRef.current - 1)
       undoDepthRef.current += 1
       pendingUndoRedoRef.current = null
       setCanUndo(true)
       setCanRedo(redoDepthRef.current > 0)
+    } else if (Date.now() - loadedAtRef.current < INIT_GRACE_MS) {
+      // FortuneSheet settling in after (re)loading a document — not a real edit.
     } else {
       // A genuine edit. Debounce briefly so a continuous drag (range fill,
       // multi-cell paste) collapses into one counted undo step instead of one
@@ -748,39 +842,53 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
             />
           </div>
 
-          {/* AI panel — same fade+slide open/close as Documents' AI/Citations panel (Editor.tsx) */}
-          <AnimatePresence>
-            {aiPanelOpen && (
-              <motion.div
-                className="shrink-0 overflow-y-auto"
-                style={{ width: AI_PANEL_WIDTH }}
-                initial={{ opacity: 0, x: 16 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 16 }}
-                transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
-              >
-                <AiPanel
-                  editor={null}
-                  fileType="sheet"
-                  getDocumentContent={getSheetContext}
-                  onInsertFormula={onInsertFormula}
-                  onInsertTableData={onInsertTableData}
-                  actionHandler={aiActionHandler}
-                  extraTab={{
-                    label: 'Insights',
-                    icon: Lightbulb,
-                    content: (
-                      <SheetInsightsTab
-                        getSheetContext={getSheetContext}
-                        onInsertFormula={insightsInsertFormula}
-                        onInsertChart={insightsInsertChart}
-                      />
-                    ),
-                  }}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {/* AI panel — resizable, same width-animated open/close as Slides'
+              right panel (SlidesEditor.tsx). Stays mounted at all times so
+              chat/analysis state survives closing and reopening the panel. */}
+          <motion.div
+            className="relative shrink-0 overflow-hidden border-l border-border"
+            initial={false}
+            animate={{ width: aiPanelOpen ? aiPanelWidth : 0 }}
+            transition={{ duration: isResizingAiPanel ? 0 : 0.12, ease: 'easeOut' }}
+            style={{ pointerEvents: aiPanelOpen ? 'auto' : 'none' }}
+          >
+            <div
+              className="absolute left-0 top-0 z-10 h-full w-1 cursor-col-resize transition-colors hover:bg-primary/30"
+              onMouseDown={(e) => {
+                aiPanelDragRef.current = { x: e.clientX, width: aiPanelWidth }
+                setIsResizingAiPanel(true)
+                globalThis.document.body.style.cursor = 'col-resize'
+                globalThis.document.body.style.userSelect = 'none'
+              }}
+            />
+            <motion.div
+              className="absolute inset-0 overflow-y-auto"
+              style={{ width: aiPanelWidth }}
+              initial={false}
+              animate={{ opacity: aiPanelOpen ? 1 : 0, x: aiPanelOpen ? 0 : 16 }}
+              transition={{ duration: 0.12, ease: 'easeOut' }}
+            >
+              <AiPanel
+                editor={null}
+                fileType="sheet"
+                getDocumentContent={getSheetContext}
+                onInsertFormula={onInsertFormula}
+                onInsertTableData={onInsertTableData}
+                actionHandler={aiActionHandler}
+                extraTab={{
+                  label: 'Insights',
+                  icon: Lightbulb,
+                  content: (
+                    <SheetInsightsTab
+                      getSheetContext={getSheetContext}
+                      onInsertFormula={insightsInsertFormula}
+                      onInsertChart={insightsInsertChart}
+                    />
+                  ),
+                }}
+              />
+            </motion.div>
+          </motion.div>
         </div>
 
         <SheetTabBar

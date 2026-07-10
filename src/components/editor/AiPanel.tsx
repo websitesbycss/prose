@@ -13,13 +13,13 @@ import { FILE_TYPE_AI_CONFIG } from '@/lib/aiConfig'
 import type { FileType } from '@/lib/aiConfig'
 import type { Issue, AiSelectionAttachment } from '@/types'
 import type { AnalysisState, AnalysisControls } from '@/hooks/useAnalysis'
-import { findQuoteIndex } from '@/lib/quoteMatch'
+import { charSpanToDocRange } from '@/lib/issueSpan'
 import {
   extractActionBlock, stripActionBlock, hasOpenActionFence, validateActions, describeAction,
 } from '@/lib/ai/proseActions'
 import type { ActionSurface, ProseAction, ValidatedActions } from '@/lib/ai/proseActions'
 import {
-  Send, Loader2, Sparkles, WandSparkles, MessageSquare, ScanText, X, TextSelect,
+  Send, Loader2, Sparkles, MessageSquare, ScanText, X, TextSelect,
   Wand2, Check, AlertTriangle, Paperclip,
 } from 'lucide-react'
 import { IMAGE_CAP, openImagePicker, type AttachedImage } from './imageAttachments'
@@ -143,6 +143,53 @@ export function AiMarkdown({ children }: { children: string }): JSX.Element {
   )
 }
 
+// ── Waiting-for-response indicator ───────────────────────────────────────────
+// Two distinct states, shown in place of the assistant bubble before any
+// content has streamed in:
+//  - reloading: a concrete "model not resident in memory yet" signal (see
+//    useAi's isModelLoaded()/waitForModelWarm() check) — cold starts can take
+//    a while, so this gets its own static, more informative message.
+//  - otherwise: the model is already warm and actively generating — bouncing
+//    dots plus a caption that rotates every second, similar in spirit to
+//    Claude Code's own "Clauding…"/"Compacting…" status words.
+
+const WRITING_CAPTIONS = [
+  'Writing…', 'Forming…', 'Prose-ifying…', 'Composing…', 'Drafting…', 'Thinking…', 'Designing…', 'Generating…', 'Synthesizing…', 'Creating…', 'Formulating…', 'Constructing…',
+]
+
+export function AiWaitingIndicator({ reloading }: { reloading: boolean }): JSX.Element {
+  const [captionIdx, setCaptionIdx] = useState(0)
+
+  useEffect(() => {
+    if (reloading) return
+    const id = setInterval(() => setCaptionIdx((i) => (i + 1) % WRITING_CAPTIONS.length), 1000)
+    return () => clearInterval(id)
+  }, [reloading])
+
+  if (reloading) {
+    return (
+      <span className="flex items-center gap-1.5 text-muted-foreground">
+        <Loader2 className="h-2.5 w-2.5 shrink-0 animate-spin" />
+        <span className="flex flex-col">
+          <span>Loading model.</span>
+          <span className="text-[10px] opacity-75">This can take a while for larger models.</span>
+        </span>
+      </span>
+    )
+  }
+
+  return (
+    <span className="flex items-center gap-1.5 text-muted-foreground">
+      <span className="flex gap-0.5">
+        <span className="animate-bounce" style={{ animationDelay: '0ms' }}>·</span>
+        <span className="animate-bounce" style={{ animationDelay: '150ms' }}>·</span>
+        <span className="animate-bounce" style={{ animationDelay: '300ms' }}>·</span>
+      </span>
+      {WRITING_CAPTIONS[captionIdx]}
+    </span>
+  )
+}
+
 // ── Suggestion chips ──────────────────────────────────────────────────────────
 
 function attachmentPreview(text: string, maxLen = 24): string {
@@ -204,9 +251,11 @@ function ChatSelectionAttachmentChip({
 // ── Issue colors ──────────────────────────────────────────────────────────────
 
 export const ISSUE_COLORS: Record<Issue['type'], string> = {
-  error:   'bg-red-500',
-  clarity: 'bg-amber-500',
-  style:   'bg-violet-500',
+  spelling:   'bg-red-500',
+  wordChoice: 'bg-emerald-500',
+  style:      'bg-amber-500',
+  repetition: 'bg-blue-700',
+  misc:       'bg-sky-400',
 }
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -232,29 +281,9 @@ interface AiPanelProps {
 
 export function applyIssueSuggestion(editor: Editor, issue: Issue): void {
   if (!issue.suggestion) return
-  const docText = editor.state.doc.textContent
-  const idx = findQuoteIndex(docText, issue.quote)
-  if (idx === -1) return
-  let textOffset = 0
-  let from: number | null = null
-  let to: number | null = null
-  editor.state.doc.descendants((node, pos): boolean | void => {
-    if (from !== null && to !== null) return false
-    if (node.isText && node.text) {
-      const end = textOffset + node.text.length
-      if (from === null && textOffset <= idx && idx < end) {
-        from = pos + (idx - textOffset)
-      }
-      const quoteEnd = idx + issue.quote.length
-      if (from !== null && to === null && quoteEnd <= end) {
-        to = pos + (quoteEnd - textOffset)
-      }
-      textOffset += node.text.length
-    }
-  })
-  if (from !== null && to !== null) {
-    editor.chain().focus().deleteRange({ from, to }).insertContentAt(from, issue.suggestion).run()
-  }
+  const range = charSpanToDocRange(editor.state.doc, issue.span.start, issue.span.end)
+  if (!range) return
+  editor.chain().focus().deleteRange(range).insertContentAt(range.from, issue.suggestion).run()
 }
 
 // ── Formula extraction (Sheets) ───────────────────────────────────────────────
@@ -635,22 +664,7 @@ export function ChatTab({
               >
                 {msg.role === 'assistant' && displayText ? (
                   <AiMarkdown>{normaliseMath(displayText)}</AiMarkdown>
-                ) : msg.content || (
-                  <span className="flex items-center gap-1 text-muted-foreground">
-                    {reloading ? (
-                      <>
-                        <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                        Reloading model…
-                      </>
-                    ) : (
-                      <span className="flex gap-0.5">
-                        <span className="animate-bounce" style={{ animationDelay: '0ms' }}>·</span>
-                        <span className="animate-bounce" style={{ animationDelay: '150ms' }}>·</span>
-                        <span className="animate-bounce" style={{ animationDelay: '300ms' }}>·</span>
-                      </span>
-                    )}
-                  </span>
-                )}
+                ) : msg.content || <AiWaitingIndicator reloading={reloading} />}
               </div>
               )}
               {building && (
@@ -800,188 +814,54 @@ export function ChatTab({
 }
 
 // ── Analysis tab ──────────────────────────────────────────────────────────────
-// Interactive "Scanning document" → "Reviewing findings" step tracker mirrors
-// the pacing pattern used by Slides' Generate tab (SlideGenerateTab.tsx) —
-// cosmetic sub-steps run alongside the real analyze() call, but completion is
-// always gated on that real promise, never on the animation finishing first.
+// Powered by Harper (harper.js), a local grammar/style engine — linting runs
+// fully offline in a Web Worker and returns in milliseconds, so there's no
+// "cold start" case to mask with a fake multi-step loading animation the way
+// the old Ollama-backed analysis needed. A brief spinner covers the rare case
+// of a very large document taking a moment.
 
-const ANALYZE_STEPS = [
-  { id: 'grammar', title: 'Grammar & mechanics' },
-  { id: 'clarity', title: 'Clarity & flow' },
-  { id: 'style', title: 'Style & tone' },
-  { id: 'argument', title: 'Argument structure' },
-] as const
-
-const REVIEW_CAPTIONS = [
-  'Comparing against your thesis…',
-  'Checking sentence structure…',
-  'Flagging passive voice…',
-  'Finalizing suggestions…',
-]
-
-const wait = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
-
-type AnalyzeSubStatus = 'pending' | 'checking' | 'done'
-
-function AnalyzeStepIcon({ status }: { status: 'pending' | 'active' | 'done' }): JSX.Element {
-  if (status === 'done') {
-    return (
-      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary">
-        <Check className="h-2.5 w-2.5 text-primary-foreground" />
-      </span>
-    )
+// Groups issues by their Harper category (e.g. "Spelling", "Repetition") for
+// the "Problems" summary row, preserving each category's color group.
+function summarizeByCategory(issues: Issue[]): { category: string; type: Issue['type']; count: number }[] {
+  const order: string[] = []
+  const counts = new Map<string, { type: Issue['type']; count: number }>()
+  for (const issue of issues) {
+    const existing = counts.get(issue.category)
+    if (existing) {
+      existing.count++
+    } else {
+      counts.set(issue.category, { type: issue.type, count: 1 })
+      order.push(issue.category)
+    }
   }
-  if (status === 'active') {
-    return (
-      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full">
-        <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-      </span>
-    )
-  }
-  return (
-    <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full">
-      <span className="h-3 w-3 rounded-full border border-border" />
-    </span>
-  )
-}
-
-function AnalyzingSteps({
-  subStatuses,
-  phase,
-  caption,
-}: {
-  subStatuses: Record<string, AnalyzeSubStatus>
-  phase: 'scanning' | 'reviewing'
-  caption: string
-}): JSX.Element {
-  return (
-    <div className="flex flex-col gap-1 p-3">
-      <div className="flex items-center gap-2">
-        <AnalyzeStepIcon status={phase === 'scanning' ? 'active' : 'done'} />
-        <span className="text-xs font-medium text-foreground">Scanning document</span>
-      </div>
-
-      <div className="ml-2 flex flex-col gap-1.5 border-l border-border py-1 pl-2">
-        {ANALYZE_STEPS.map((step) => {
-          const st = subStatuses[step.id] ?? 'pending'
-          return (
-            <div key={step.id} className="flex items-center gap-1.5">
-              <span className={cn(
-                'flex h-3 w-3 shrink-0 items-center justify-center rounded-full border',
-                st === 'done' ? 'border-primary bg-primary' : 'border-border',
-              )}>
-                {st === 'done' && <Check className="h-2 w-2 text-primary-foreground" />}
-                {st === 'checking' && <Loader2 className="h-2 w-2 animate-spin text-primary" />}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-[11px] text-foreground">{step.title}</span>
-              <span className="shrink-0 text-[10px] text-muted-foreground">
-                {st === 'done' ? 'Done' : st === 'checking' ? 'Checking…' : 'Waiting…'}
-              </span>
-            </div>
-          )
-        })}
-      </div>
-
-      <div className={cn('mt-1 flex items-center gap-2', phase !== 'reviewing' && 'opacity-40')}>
-        <AnalyzeStepIcon status={phase === 'reviewing' ? 'active' : 'pending'} />
-        <span className="text-xs font-medium text-foreground">Reviewing findings</span>
-      </div>
-      {phase === 'reviewing' && <p className="ml-6 text-[11px] text-muted-foreground">{caption}</p>}
-    </div>
-  )
+  return order.map((category) => ({ category, ...counts.get(category)! }))
 }
 
 function AnalysisTab({
   editor,
   analysis,
-  assignmentContext,
 }: {
   editor: Editor | null
   analysis: AnalysisState & AnalysisControls
-  assignmentContext: string
 }): JSX.Element {
-  const ollamaStatus = useAppStore((s) => s.ollamaStatus)
   const analyzeOnSave = useAppStore((s) => s.analyzeOnSave)
   const setAnalyzeOnSave = useAppStore((s) => s.setAnalyzeOnSave)
-  const { issues, error, hasRun, analyze, clearIssues } = analysis
+  const { issues, analyzing, error, hasRun, analyze, clearIssues } = analysis
 
-  // Deliberately local, not the hook's own `analyzing` flag — that flips false
-  // the moment the real analyze() call resolves, which can easily happen
-  // before the cosmetic step animation below finishes (or vice versa). This
-  // stays true for the full duration of both, so the loading view can't be
-  // cut short by whichever one happens to finish first.
-  const [uiBusy, setUiBusy] = useState(false)
-  const [phase, setPhase] = useState<'scanning' | 'reviewing'>('scanning')
-  const [subStatuses, setSubStatuses] = useState<Record<string, AnalyzeSubStatus>>({})
-  const [caption, setCaption] = useState(REVIEW_CAPTIONS[0])
-  const captionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  const unavailable = ollamaStatus === 'unavailable'
-  const loading = ollamaStatus === 'loading'
-
-  useEffect(() => () => { if (captionTimerRef.current) clearInterval(captionTimerRef.current) }, [])
-
-  const handleAnalyze = useCallback(async (): Promise<void> => {
+  const handleAnalyze = useCallback((): void => {
     if (!editor) return
-    setPhase('scanning')
-    const init: Record<string, AnalyzeSubStatus> = {}
-    ANALYZE_STEPS.forEach((s) => { init[s.id] = 'pending' })
-    setSubStatuses(init)
-    setUiBusy(true)
-
-    try {
-      const analyzePromise = analyze(editor.getText(), assignmentContext || undefined)
-
-      for (const step of ANALYZE_STEPS) {
-        setSubStatuses((s) => ({ ...s, [step.id]: 'checking' }))
-        await wait(280 + Math.random() * 220)
-        setSubStatuses((s) => ({ ...s, [step.id]: 'done' }))
-      }
-
-      setPhase('reviewing')
-      let ci = 0
-      setCaption(REVIEW_CAPTIONS[0])
-      captionTimerRef.current = setInterval(() => {
-        ci = (ci + 1) % REVIEW_CAPTIONS.length
-        setCaption(REVIEW_CAPTIONS[ci])
-      }, 750)
-      await analyzePromise
-    } finally {
-      if (captionTimerRef.current) { clearInterval(captionTimerRef.current); captionTimerRef.current = null }
-      setUiBusy(false)
-    }
-  }, [editor, analyze, assignmentContext])
+    void analyze(editor.state.doc.textContent)
+  }, [editor, analyze])
 
   function scrollToIssue(issue: Issue): void {
     if (!editor) return
-    const docText = editor.state.doc.textContent
-    const idx = findQuoteIndex(docText, issue.quote)
-    if (idx === -1) return
-    let textOffset = 0
-    let targetPos: number | null = null
-    editor.state.doc.descendants((node, pos): boolean | void => {
-      if (targetPos !== null) return false
-      if (node.isText && node.text) {
-        if (textOffset <= idx && idx < textOffset + node.text.length) {
-          targetPos = pos + (idx - textOffset)
-          return false
-        }
-        textOffset += node.text.length
-      }
-    })
-    if (targetPos !== null) {
-      editor.commands.setTextSelection(targetPos)
-      editor.commands.scrollIntoView()
-    }
+    const range = charSpanToDocRange(editor.state.doc, issue.span.start, issue.span.end)
+    if (!range) return
+    editor.commands.setTextSelection(range.from)
+    editor.commands.scrollIntoView()
   }
 
-  if (uiBusy) {
-    return (
-      <div className="flex h-full flex-col">
-        <AnalyzingSteps subStatuses={subStatuses} phase={phase} caption={caption} />
-      </div>
-    )
-  }
+  const summary = summarizeByCategory(issues)
 
   return (
     <div className="flex h-full flex-col">
@@ -989,10 +869,9 @@ function AnalysisTab({
       <div className="shrink-0 px-3 pt-2 pb-3 space-y-2">
         <Button
           className="w-full gap-2 h-8 text-xs"
-          disabled={unavailable || loading || !editor}
-          onClick={() => void handleAnalyze()}
+          disabled={!editor || analyzing}
+          onClick={handleAnalyze}
         >
-          <WandSparkles className="h-3.5 w-3.5" />
           {hasRun ? 'Rerun analysis' : 'Analyze document'}
         </Button>
 
@@ -1023,7 +902,7 @@ function AnalysisTab({
 
       {/* Results */}
       <div className="flex-1 overflow-y-auto">
-        {!hasRun && (
+        {!hasRun && !analyzing && (
           <div className="px-3 pt-6 text-center">
             <ScanText className="mx-auto h-8 w-8 text-muted-foreground/30 mb-2" />
             <p className="text-xs text-muted-foreground">
@@ -1032,24 +911,43 @@ function AnalysisTab({
           </div>
         )}
 
+        {analyzing && !hasRun && (
+          <div className="flex flex-col items-center gap-2 px-3 pt-8 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span className="text-xs">Checking document…</span>
+          </div>
+        )}
+
         {hasRun && (
           <>
             {issues.length > 0 && (
-              <div className="flex items-center justify-between px-3 pb-1 pt-3">
-                <span className="text-[10px] text-muted-foreground">{issues.length} issue{issues.length !== 1 ? 's' : ''}</span>
-                <button
-                  className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-                  onClick={() => {
-                    clearIssues()
-                    editor?.commands.clearAnalysisIssues()
-                  }}
-                >
-                  dismiss all
-                </button>
+              <div className="px-3 pb-1 pt-3 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-medium text-foreground">
+                    {issues.length} problem{issues.length !== 1 ? 's' : ''}
+                  </span>
+                  <button
+                    className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={() => {
+                      clearIssues()
+                      editor?.commands.clearAnalysisIssues()
+                    }}
+                  >
+                    dismiss all
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-x-2.5 gap-y-1">
+                  {summary.map(({ category, type, count }) => (
+                    <span key={category} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', ISSUE_COLORS[type])} />
+                      {category} <span className="font-medium text-foreground">{count}</span>
+                    </span>
+                  ))}
+                </div>
               </div>
             )}
 
-            <div className={cn('px-3 pb-3 space-y-2', issues.length === 0 && 'pt-3')}>
+            <div className={cn('px-3 pb-3 space-y-2', issues.length === 0 ? 'pt-3' : 'pt-2')}>
               {issues.length === 0 && (
                 <p className="rounded-md bg-green-500/10 px-3 py-2.5 text-xs text-green-600 dark:text-green-400">
                   No issues found — your document looks great!
@@ -1070,14 +968,6 @@ function AnalysisTab({
         {error && (
           <div className="px-3 pt-3">
             <p className="rounded-md bg-destructive/10 px-2.5 py-2 text-xs text-destructive">{error}</p>
-          </div>
-        )}
-
-        {unavailable && (
-          <div className="px-3 pt-3">
-            <p className="rounded-md bg-muted/40 p-2.5 text-xs text-muted-foreground">
-              Ollama is not running. Install it to enable AI analysis.
-            </p>
           </div>
         )}
       </div>
@@ -1264,7 +1154,6 @@ export default function AiPanel({ editor, analysis, fileType = 'document', getDo
           <AnalysisTab
             editor={editor}
             analysis={analysis!}
-            assignmentContext={assignmentContext}
           />
         )}
       </div>

@@ -152,7 +152,7 @@ export function AnimationsPanel({
         )}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto p-2">
+      <div className="min-h-0 flex-1 overflow-auto p-3">
         {slide.animations.length === 0 && (
           <div className="rounded-md border border-dashed border-border p-3 text-[11px] text-muted-foreground">
             No animations yet.

@@ -55,6 +55,7 @@
     "docx-preview": "^0.3.7",
     "dompurify": "^3.4.8",
     "electron-updater": "^6.8.3",
+    "harper.js": "^2.4.0",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "jszip": "^3.10.1",

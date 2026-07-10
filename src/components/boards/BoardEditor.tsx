@@ -223,6 +223,47 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
 
   const boardSidebarWidth = 240
 
+  // AI panel width — resizable via drag handle, same behavior as Documents'
+  // AI panel (Editor.tsx), persisted to the same localStorage key so the
+  // width preference is shared across file types.
+  const [aiPanelWidth, setAiPanelWidth] = useState(() => {
+    const v = localStorage.getItem('prose-ai-panel-width')
+    return v ? Math.max(240, parseInt(v)) : AI_PANEL_WIDTH
+  })
+  const aiPanelDragRef = useRef<{ x: number; width: number } | null>(null)
+  const aiPanelWidthRef = useRef(aiPanelWidth)
+  useEffect(() => { aiPanelWidthRef.current = aiPanelWidth }, [aiPanelWidth])
+  // Suppresses the panel's open/close width transition while actively
+  // drag-resizing — else every mousemove retargets an eased animation and the
+  // panel edge lags behind the cursor instead of tracking it 1:1.
+  const [isResizingAiPanel, setIsResizingAiPanel] = useState(false)
+
+  useEffect(() => {
+    function onMouseMove(e: MouseEvent): void {
+      if (!aiPanelDragRef.current) return
+      const delta = aiPanelDragRef.current.x - e.clientX
+      const width = Math.min(600, Math.max(240, aiPanelDragRef.current.width + delta))
+      setAiPanelWidth(width)
+      aiPanelWidthRef.current = width
+    }
+    function onMouseUp(): void {
+      if (!aiPanelDragRef.current) return
+      aiPanelDragRef.current = null
+      setIsResizingAiPanel(false)
+      localStorage.setItem('prose-ai-panel-width', String(aiPanelWidthRef.current))
+      if (globalThis.document?.body) {
+        globalThis.document.body.style.cursor = ''
+        globalThis.document.body.style.userSelect = ''
+      }
+    }
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [])
+
   // Thumbnail generation — fired by the main process after every successful
   // content auto-save. Unlike Documents/Sheets this never goes through
   // captureRegion — Excalidraw renders its own export via exportToBlob, which
@@ -295,6 +336,11 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
   const redoDepthRef = useRef(0)
   const pendingUndoRedoRef = useRef<'undo' | 'redo' | null>(null)
   const undoCountTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Safety net for `pendingUndoRedoRef`: if our mirrored depth had drifted and
+  // Excalidraw's real stack had nothing to undo/redo, no onChange follows to
+  // clear the flag — without this it would stay stuck and misclassify the
+  // next genuine edit as this undo/redo.
+  const pendingClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
 
@@ -423,12 +469,14 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
       // library fires on mount, which isn't a user edit.
       if (last !== null && elements !== last.elements) {
         if (pendingUndoRedoRef.current === 'undo') {
+          if (pendingClearTimerRef.current) { clearTimeout(pendingClearTimerRef.current); pendingClearTimerRef.current = null }
           undoDepthRef.current = Math.max(0, undoDepthRef.current - 1)
           redoDepthRef.current += 1
           pendingUndoRedoRef.current = null
           setCanUndo(undoDepthRef.current > 0)
           setCanRedo(true)
         } else if (pendingUndoRedoRef.current === 'redo') {
+          if (pendingClearTimerRef.current) { clearTimeout(pendingClearTimerRef.current); pendingClearTimerRef.current = null }
           redoDepthRef.current = Math.max(0, redoDepthRef.current - 1)
           undoDepthRef.current += 1
           pendingUndoRedoRef.current = null
@@ -688,24 +736,60 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
     scheduleSave,
   }), [addFileCard, scheduleSave])
 
+  // Marks the next onChange as consuming this undo/redo (see handleChange)
+  // rather than being a genuine edit. Armed with a short safety timeout: if
+  // our mirrored depth was wrong and Excalidraw's real stack had nothing to
+  // do, no onChange follows to clear the flag, so clear it ourselves instead
+  // of leaving it stuck to misclassify the next real edit.
+  const armPendingUndoRedo = useCallback((action: 'undo' | 'redo') => {
+    if (undoCountTimerRef.current) { clearTimeout(undoCountTimerRef.current); undoCountTimerRef.current = null }
+    if (pendingClearTimerRef.current) clearTimeout(pendingClearTimerRef.current)
+    pendingUndoRedoRef.current = action
+    pendingClearTimerRef.current = setTimeout(() => {
+      pendingUndoRedoRef.current = null
+      pendingClearTimerRef.current = null
+    }, 250)
+  }, [])
+
   // Excalidraw has no public undo()/redo() API — it only responds to a real
   // keydown on its own root container (.excalidraw-container), so locate that
   // element within this board's own wrapper and dispatch there.
   const handleUndo = useCallback(() => {
     if (undoDepthRef.current === 0) return
-    if (undoCountTimerRef.current) { clearTimeout(undoCountTimerRef.current); undoCountTimerRef.current = null }
-    pendingUndoRedoRef.current = 'undo'
+    armPendingUndoRedo('undo')
     const root = excalidrawWrapperRef.current?.querySelector('.excalidraw-container')
     dispatchUndoRedoKey(root, 'undo')
-  }, [])
+  }, [armPendingUndoRedo])
 
   const handleRedo = useCallback(() => {
     if (redoDepthRef.current === 0) return
-    if (undoCountTimerRef.current) { clearTimeout(undoCountTimerRef.current); undoCountTimerRef.current = null }
-    pendingUndoRedoRef.current = 'redo'
+    armPendingUndoRedo('redo')
     const root = excalidrawWrapperRef.current?.querySelector('.excalidraw-container')
     dispatchUndoRedoKey(root, 'redo')
-  }, [])
+  }, [armPendingUndoRedo])
+
+  // A native Ctrl+Z/Ctrl+Y keypress goes straight to Excalidraw's own keydown
+  // handler on its root container, bypassing handleUndo/handleRedo (and
+  // armPendingUndoRedo) entirely — so it used to always fall into
+  // handleChange's "genuine edit" branch, corrupting the mirrored depth
+  // counters relative to Excalidraw's real stack. Intercept in the CAPTURE
+  // phase (fires before Excalidraw's bubble-phase handler) so native hotkeys
+  // go through the exact same bookkeeping as the toolbar buttons.
+  useEffect(() => {
+    if (!isActive || !excalidrawAPIState) return
+    const root = excalidrawWrapperRef.current?.querySelector('.excalidraw-container')
+    if (!root) return
+    function onKeyCapture(e: Event): void {
+      const ke = e as KeyboardEvent
+      if (!ke.ctrlKey || (ke.code !== 'KeyZ' && ke.code !== 'KeyY')) return
+      const isRedo = ke.code === 'KeyY' || ke.shiftKey
+      const depthRef = isRedo ? redoDepthRef : undoDepthRef
+      if (depthRef.current === 0) return
+      armPendingUndoRedo(isRedo ? 'redo' : 'undo')
+    }
+    root.addEventListener('keydown', onKeyCapture, true)
+    return () => root.removeEventListener('keydown', onKeyCapture, true)
+  }, [isActive, excalidrawAPIState, armPendingUndoRedo])
 
   // ── Sidebar ────────────────────────────────────────────────────────────────
 
@@ -875,25 +959,39 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
             </Excalidraw>
           </div>
 
-          {/* AI panel — same fade+slide open/close as Documents' AI/Citations panel (Editor.tsx) */}
-          <AnimatePresence>
-            {aiPanelOpen && (
-              <motion.div
-                className="shrink-0"
-                style={{ width: AI_PANEL_WIDTH }}
-                initial={{ opacity: 0, x: 16 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 16 }}
-                transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
-              >
-                <BoardsAIPanel
-                  getBoardContext={getBoardContext}
-                  onInsert={addBrainstormNotes}
-                  actionHandler={boardActionHandler}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {/* AI panel — resizable, same width-animated open/close as Slides'
+              right panel (SlidesEditor.tsx). Stays mounted at all times so
+              chat state survives closing and reopening the panel. */}
+          <motion.div
+            className="relative shrink-0 overflow-hidden border-l border-border"
+            initial={false}
+            animate={{ width: aiPanelOpen ? aiPanelWidth : 0 }}
+            transition={{ duration: isResizingAiPanel ? 0 : 0.12, ease: 'easeOut' }}
+            style={{ pointerEvents: aiPanelOpen ? 'auto' : 'none' }}
+          >
+            <div
+              className="absolute left-0 top-0 z-10 h-full w-1 cursor-col-resize transition-colors hover:bg-primary/30"
+              onMouseDown={(e) => {
+                aiPanelDragRef.current = { x: e.clientX, width: aiPanelWidth }
+                setIsResizingAiPanel(true)
+                globalThis.document.body.style.cursor = 'col-resize'
+                globalThis.document.body.style.userSelect = 'none'
+              }}
+            />
+            <motion.div
+              className="absolute inset-0"
+              style={{ width: aiPanelWidth }}
+              initial={false}
+              animate={{ opacity: aiPanelOpen ? 1 : 0, x: aiPanelOpen ? 0 : 16 }}
+              transition={{ duration: 0.12, ease: 'easeOut' }}
+            >
+              <BoardsAIPanel
+                getBoardContext={getBoardContext}
+                onInsert={addBrainstormNotes}
+                actionHandler={boardActionHandler}
+              />
+            </motion.div>
+          </motion.div>
         </div>
       </div>
 

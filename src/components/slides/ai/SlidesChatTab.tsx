@@ -9,7 +9,7 @@ import { useAppStore } from '@/store/appStore'
 import { useAi } from '@/hooks/useAi'
 import { cn } from '@/lib/utils'
 import {
-  AiMarkdown, normaliseMath, ActionCard, splitAssistantContent,
+  AiMarkdown, normaliseMath, ActionCard, splitAssistantContent, AiWaitingIndicator,
 } from '@/components/editor/AiPanel'
 import type { AiActionHandler, ActionCardState } from '@/components/editor/AiPanel'
 import type { ValidatedActions } from '@/lib/ai/proseActions'
@@ -140,22 +140,7 @@ export function SlidesChatTab({ getDocumentContent, assignmentContext, actionHan
                 >
                   {msg.role === 'assistant' && displayText ? (
                     <AiMarkdown>{normaliseMath(displayText)}</AiMarkdown>
-                  ) : msg.content || (
-                    <span className="flex items-center gap-1 text-muted-foreground">
-                      {reloading ? (
-                        <>
-                          <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                          Reloading model…
-                        </>
-                      ) : (
-                        <span className="flex gap-0.5">
-                          <span className="animate-bounce" style={{ animationDelay: '0ms' }}>·</span>
-                          <span className="animate-bounce" style={{ animationDelay: '150ms' }}>·</span>
-                          <span className="animate-bounce" style={{ animationDelay: '300ms' }}>·</span>
-                        </span>
-                      )}
-                    </span>
-                  )}
+                  ) : msg.content || <AiWaitingIndicator reloading={reloading} />}
                 </div>
               )}
               {building && (

@@ -57,6 +57,7 @@ contextBridge.exposeInMainWorld('prose', {
     prompt: (payload: Record<string, unknown>) => ipcRenderer.invoke('ai:prompt', payload),
     getStatus: () => ipcRenderer.invoke('ai:getStatus'),
     getModelCapabilities: () => ipcRenderer.invoke('ai:getModelCapabilities'),
+    isModelLoaded: () => ipcRenderer.invoke('ai:isModelLoaded'),
     streamPrompt: (
       payload: Record<string, unknown>,
       onChunk: (chunk: string) => void,
@@ -69,23 +70,6 @@ contextBridge.exposeInMainWorld('prose', {
       return ipcRenderer.invoke('ai:streamPrompt', payload).finally(() => {
         ipcRenderer.removeListener('ai:stream-chunk', chunkListener)
         ipcRenderer.removeListener('ai:stream-error', errorListener)
-      })
-    },
-    analyze: (payload: { documentContent: string; assignmentContext?: string }) =>
-      ipcRenderer.invoke('ai:analyze', payload),
-    globalStreamPrompt: (
-      request: string,
-      history: Array<{ role: 'user' | 'assistant'; content: string }>,
-      onChunk: (chunk: string) => void,
-      onError: (msg: string) => void,
-    ): Promise<void> => {
-      const chunkListener = (_: Electron.IpcRendererEvent, chunk: string): void => onChunk(chunk)
-      const errorListener = (_: Electron.IpcRendererEvent, msg: string): void => onError(msg)
-      ipcRenderer.on('ai:global-stream-chunk', chunkListener)
-      ipcRenderer.on('ai:global-stream-error', errorListener)
-      return ipcRenderer.invoke('ai:globalStreamPrompt', { request, history }).finally(() => {
-        ipcRenderer.removeListener('ai:global-stream-chunk', chunkListener)
-        ipcRenderer.removeListener('ai:global-stream-error', errorListener)
       })
     },
   },

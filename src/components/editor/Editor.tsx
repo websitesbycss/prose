@@ -112,6 +112,10 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
     return v ? Math.max(240, parseInt(v)) : AI_PANEL_WIDTH
   })
   const dragStartRef = useRef<{ x: number; width: number } | null>(null)
+  // Suppresses the right panel's open/close width transition while actively
+  // drag-resizing — else every mousemove retargets an eased animation and the
+  // panel edge lags behind the cursor instead of tracking it 1:1.
+  const [isResizingRightPanel, setIsResizingRightPanel] = useState(false)
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const v = localStorage.getItem('prose-sidebar-width')
     return v ? Math.max(180, parseInt(v)) : 270
@@ -287,11 +291,21 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
     editor.commands.clearAiSelectionHighlight()
     useAppStore.getState().setAssignmentContext('')
     setPageMargins(doc.pageMargins ?? DEFAULT_PAGE_MARGINS)
+    // Loading a document's stored content is not a user edit — excluded from
+    // undo history (`addToHistory: false`) so Undo is correctly disabled
+    // right after a document opens instead of "undoing" back to an empty
+    // editor.
     try {
       const parsed = JSON.parse(doc.content || '{}') as object
-      editor.commands.setContent(parsed, { emitUpdate: false })
+      editor.chain()
+        .command(({ tr }) => { tr.setMeta('addToHistory', false); return true })
+        .setContent(parsed, { emitUpdate: false })
+        .run()
     } catch {
-      editor.commands.setContent('')
+      editor.chain()
+        .command(({ tr }) => { tr.setMeta('addToHistory', false); return true })
+        .setContent('')
+        .run()
     }
 
     loadedContentKeyRef.current = contentKey
@@ -330,7 +344,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
         e.preventDefault()
         void saveNow(editor)
         if (useAppStore.getState().analyzeOnSave) {
-          void analysis.analyze(editor.getText(), useAppStore.getState().assignmentContext)
+          void analysis.analyze(editor.state.doc.textContent)
         }
       }
       if (e.key === 'F11') {
@@ -384,6 +398,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
       if (sidebarDragRef.current) localStorage.setItem('prose-sidebar-width', String(sidebarWidthRef.current))
       dragStartRef.current = null
       sidebarDragRef.current = null
+      setIsResizingRightPanel(false)
       if (globalThis.document?.body) {
         globalThis.document.body.style.cursor = ''
         globalThis.document.body.style.userSelect = ''
@@ -836,35 +851,48 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
           </div>{/* end editorScrollRef */}
           </div>{/* end relative canvas wrapper */}
 
-          {/* Right panel — AI or Citations (hidden in focus mode) */}
+          {/* Right panel — AI / Citations (hidden in focus mode). Both panels
+              stay mounted at all times — width/opacity/position animate
+              instead of anything mounting or unmounting — so switching
+              between them or closing this panel never wipes the AI panel's
+              chat/analysis state. */}
           {!focusModeActive && (
-            <AnimatePresence mode="wait">
-              {(aiPanelOpen || citationPanelOpen) && (
-                <motion.div
-                  key={aiPanelOpen ? 'ai' : 'citations'}
-                  className="relative shrink-0 overflow-hidden"
-                  style={{ width: aiPanelWidth }}
-                  initial={{ opacity: 0, x: 16 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 16 }}
-                  transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
-                >
-                  {/* Drag handle */}
-                  <div
-                    className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/30 transition-colors z-10"
-                    onMouseDown={(e) => {
-                      dragStartRef.current = { x: e.clientX, width: aiPanelWidth }
-                      globalThis.document.body.style.cursor = 'col-resize'
-                      globalThis.document.body.style.userSelect = 'none'
-                    }}
-                  />
-                  {aiPanelOpen && <AiPanel editor={editor} analysis={analysis} />}
-                  {citationPanelOpen && (
-                    <CitationPanel documentId={documentId} format={format} editor={editor} />
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <motion.div
+              className="relative shrink-0 overflow-hidden border-l border-border"
+              initial={false}
+              animate={{ width: (aiPanelOpen || citationPanelOpen) ? aiPanelWidth : 0 }}
+              transition={{ duration: isResizingRightPanel ? 0 : 0.12, ease: 'easeOut' }}
+              style={{ pointerEvents: (aiPanelOpen || citationPanelOpen) ? 'auto' : 'none' }}
+            >
+              {/* Drag handle */}
+              <div
+                className="absolute left-0 top-0 z-10 h-full w-1 cursor-col-resize transition-colors hover:bg-primary/30"
+                onMouseDown={(e) => {
+                  dragStartRef.current = { x: e.clientX, width: aiPanelWidth }
+                  setIsResizingRightPanel(true)
+                  globalThis.document.body.style.cursor = 'col-resize'
+                  globalThis.document.body.style.userSelect = 'none'
+                }}
+              />
+              <motion.div
+                className="absolute inset-0"
+                style={{ width: aiPanelWidth, pointerEvents: aiPanelOpen ? 'auto' : 'none' }}
+                initial={false}
+                animate={{ opacity: aiPanelOpen ? 1 : 0, x: aiPanelOpen ? 0 : 16 }}
+                transition={{ duration: 0.12, ease: 'easeOut' }}
+              >
+                <AiPanel editor={editor} analysis={analysis} />
+              </motion.div>
+              <motion.div
+                className="absolute inset-0"
+                style={{ width: aiPanelWidth, pointerEvents: citationPanelOpen ? 'auto' : 'none' }}
+                initial={false}
+                animate={{ opacity: citationPanelOpen ? 1 : 0, x: citationPanelOpen ? 0 : 16 }}
+                transition={{ duration: 0.12, ease: 'easeOut' }}
+              >
+                <CitationPanel documentId={documentId} format={format} editor={editor} />
+              </motion.div>
+            </motion.div>
           )}
         </div>
 

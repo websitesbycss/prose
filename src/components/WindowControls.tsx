@@ -78,9 +78,13 @@ export function WindowControls(): JSX.Element | null {
     void window.prose.win.setSnapLayout(id)
   }
 
+  // bg-muted is barely distinguishable from the light-mode titlebar background
+  // (both near-white), making hover state nearly invisible — bg-foreground/10
+  // scales with the foreground color instead (dark overlay in light mode,
+  // light overlay in dark mode), giving consistent contrast in both themes.
   const btnBase =
     'flex h-full items-center justify-center px-4 transition-colors outline-none ' +
-    'text-foreground/50 hover:bg-muted/70 hover:text-foreground'
+    'text-foreground/60 hover:bg-foreground/10 hover:text-foreground'
 
   return (
     <div className="flex shrink-0 items-stretch self-stretch">

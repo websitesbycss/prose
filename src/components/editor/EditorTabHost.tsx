@@ -1,4 +1,4 @@
-import { lazy, Suspense, useRef, type ReactNode } from 'react'
+import { lazy, Suspense, type ReactNode } from 'react'
 import { AlertCircle } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
@@ -72,21 +72,18 @@ function HiddenTabPane({
 }
 
 /**
- * Keeps sheet and board editors mounted while their tabs are open so switching
- * file types does not tear down heavy runtimes (FortuneSheet, Excalidraw).
- * Document tabs share one Editor instance — same as before.
+ * Keeps every open tab's editor mounted (hidden via CSS) so switching file
+ * types or tabs never tears down heavy runtimes (Tiptap, FortuneSheet,
+ * Excalidraw, the Slides canvas) — each tab gets its own dedicated editor
+ * instance, so per-editor state (undo/redo history above all) is isolated
+ * per tab and never bleeds into a different tab's document.
  */
 export function EditorTabHost(): JSX.Element | null {
   const openTabs = useAppStore((s) => s.openTabs)
   const activeDocumentId = useAppStore((s) => s.activeDocumentId)
   const showDashboard = useAppStore((s) => s.showDashboard)
 
-  const lastDocumentIdRef = useRef<string | null>(null)
-
   if (showDashboard || !activeDocumentId) return null
-
-  const activeTab = openTabs.find((t) => t.id === activeDocumentId) ?? null
-  const activeFileType = activeTab?.fileType ?? 'document'
 
   const documentTabs = openTabs.filter((t) => (t.fileType ?? 'document') === 'document')
   const sheetTabs = openTabs.filter((t) => t.fileType === 'sheet')
@@ -96,26 +93,17 @@ export function EditorTabHost(): JSX.Element | null {
     (t) => t.fileType && t.fileType !== 'document' && t.fileType !== 'sheet' && t.fileType !== 'board' && t.fileType !== 'slides',
   )
 
-  if (activeFileType === 'document') {
-    lastDocumentIdRef.current = activeDocumentId
-  }
-
-  const editorDocumentId: string =
-    activeFileType === 'document'
-      ? activeDocumentId
-      : (lastDocumentIdRef.current ?? documentTabs[0]?.id ?? activeDocumentId)
-
   return (
     <div className="relative h-screen w-full overflow-hidden">
-      {documentTabs.length > 0 && (
-        <HiddenTabPane active={activeFileType === 'document'}>
+      {documentTabs.map((tab) => (
+        <HiddenTabPane key={tab.id} active={tab.id === activeDocumentId}>
           <ErrorBoundary label="Editor">
             <Suspense fallback={<EditorChromeFallback />}>
-              <Editor documentId={editorDocumentId} />
+              <Editor documentId={tab.id} />
             </Suspense>
           </ErrorBoundary>
         </HiddenTabPane>
-      )}
+      ))}
 
       {sheetTabs.map((tab) => (
         <HiddenTabPane key={tab.id} active={tab.id === activeDocumentId}>

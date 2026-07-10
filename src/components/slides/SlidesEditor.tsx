@@ -945,7 +945,11 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
     setSelectedIds,
     scheduleSave,
     onSave: flushAndSave,
-    disabled: previewOpen,
+    // Every open Slides tab stays mounted (hidden via CSS), so each instance's
+    // own `window` keydown listener would otherwise fire even while a
+    // different tab is the one actually focused — gate on tab-active state,
+    // not just the preview overlay.
+    disabled: previewOpen || !isActive,
   })
 
   // ── Clipboard paste (images) ─────────────────────────────────────────────────

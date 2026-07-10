@@ -1,7 +1,8 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useAppStore } from '@/store/appStore'
 import type { FileType } from '@/lib/aiConfig'
 import type { AttachedImage } from '@/components/editor/imageAttachments'
+import { waitForModelWarm } from '@/lib/ai/modelWarmup'
 
 export interface ChatMessageImage {
   id: string
@@ -43,12 +44,15 @@ export function useAi(): AiChatState & AiChatControls {
   const [streaming, setStreaming] = useState(false)
   const [reloading, setReloading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const firstChunkRef = useRef(false)
-  const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const assistantIdRef = useRef('')
   // Ref keeps a fresh copy of messages so sendMessage can read history without
   // needing messages in its dependency array (which would recreate it every chunk).
   const messagesRef = useRef<ChatMessage[]>([])
+  // The main process's "took too long to respond" warning doesn't actually
+  // abort generation — a slow-but-working model can still send real chunks
+  // afterward. Tracks whether the bubble currently holds that stale warning
+  // so the next real chunk replaces it instead of appending onto it.
+  const staleWarningRef = useRef(false)
 
   const sendMessage = useCallback(
     async (
@@ -79,36 +83,42 @@ export function useAi(): AiChatState & AiChatControls {
       setStreaming(true)
       setReloading(false)
       setError(null)
-      firstChunkRef.current = false
-
-      reloadTimerRef.current = setTimeout(() => {
-        if (!firstChunkRef.current) setReloading(true)
-      }, 1500)
+      staleWarningRef.current = false
 
       try {
+        // Concrete check (Ollama's /api/ps — models actually resident in
+        // memory), not a guess: only shown when we know for certain the model
+        // still needs to load, same signal used by Slides Generate and the
+        // old Documents Issues analysis loading UI.
+        if (!(await window.prose.ai.isModelLoaded())) {
+          setReloading(true)
+          await waitForModelWarm()
+          setReloading(false)
+        }
+
         const imagePayload = images && images.length > 0 ? images.map((i) => i.base64) : undefined
         await window.prose.ai.streamPrompt(
           { documentContent, assignmentContext, request, history, selectionContent, fileType, images: imagePayload },
           (chunk) => {
-            if (!firstChunkRef.current) {
-              firstChunkRef.current = true
-              setReloading(false)
-              if (reloadTimerRef.current) {
-                clearTimeout(reloadTimerRef.current)
-                reloadTimerRef.current = null
-              }
-            }
+            const wasStale = staleWarningRef.current
+            staleWarningRef.current = false
             setMessages((prev) => {
               const next = prev.map((m) =>
-                m.id === assistantIdRef.current ? { ...m, content: m.content + chunk } : m
+                m.id === assistantIdRef.current
+                  ? { ...m, content: (wasStale ? '' : m.content) + chunk }
+                  : m
               )
               messagesRef.current = next
               return next
             })
           },
           (errMsg) => {
-            // Error signal from main process — show it as the assistant message content
+            // Error signal from main process — show it as the assistant message
+            // content. This doesn't necessarily mean generation has stopped
+            // (see the "took too long" warning) — a subsequent real chunk will
+            // replace this instead of appending onto it.
             setReloading(false)
+            staleWarningRef.current = true
             setMessages((prev) => {
               const next = prev.map((m) =>
                 m.id === assistantIdRef.current ? { ...m, content: errMsg } : m
@@ -127,10 +137,6 @@ export function useAi(): AiChatState & AiChatControls {
           return next
         })
       } finally {
-        if (reloadTimerRef.current) {
-          clearTimeout(reloadTimerRef.current)
-          reloadTimerRef.current = null
-        }
         // If the assistant message is still empty after streaming ended, show a fallback
         setMessages((prev) => {
           const next = prev.map((m) =>
@@ -152,12 +158,6 @@ export function useAi(): AiChatState & AiChatControls {
     messagesRef.current = []
     setMessages([])
     setError(null)
-  }, [])
-
-  useEffect(() => {
-    return () => {
-      if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current)
-    }
   }, [])
 
   return { messages, streaming, reloading, error, sendMessage, clearMessages }

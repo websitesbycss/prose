@@ -79,6 +79,25 @@ export class OllamaManager {
     }
   }
 
+  /**
+   * Whether `model` is currently resident in memory, per Ollama's /api/ps
+   * (lists actively-loaded models, distinct from /api/tags' full downloaded
+   * list). A model not in this list will incur a cold-load delay on its next
+   * request — this lets callers show an honest "starting the model" state
+   * instead of misrepresenting load time as generation time.
+   */
+  async isModelLoaded(model: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${OLLAMA_HOST}/api/ps`, { signal: AbortSignal.timeout(3_000) })
+      if (!res.ok) return false
+      const data = (await res.json()) as { models: Array<{ name: string }> }
+      const base = model.split(':')[0]
+      return data.models.some((m) => m.name === model || m.name.startsWith(base + ':'))
+    } catch {
+      return false
+    }
+  }
+
   /** Model capabilities per Ollama's /api/show (e.g. "completion", "vision", "tools"). Cached briefly per model. */
   async getModelCapabilities(model: string): Promise<string[]> {
     const cached = this.capabilitiesCache.get(model)

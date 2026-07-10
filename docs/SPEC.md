@@ -604,7 +604,7 @@ User request:
 
 The active model is determined by the RAM picker during onboarding and stored in `AppSettings.ollamaModel`. The user can change it at any time in Settings → AI.
 
-**Keep-alive:** All Ollama API requests include `keep_alive: "10m"`. After 10 minutes of inactivity the model unloads from RAM automatically; it reloads on the next AI request with a brief 2–3 second delay. The first time a reload happens during a session, the AI panel shows a subtle inline status indicator (e.g., a small spinner next to the active indicator dot with the text "Reloading model…") — not a toast. The indicator disappears once the response starts streaming.
+**Keep-alive:** All Ollama API requests include `keep_alive: "10m"`. After 10 minutes of inactivity the model unloads from RAM automatically; it reloads on the next AI request with a brief 2–3 second delay. The first time a reload happens during a session, the AI panel shows a subtle inline status indicator (e.g., a small spinner next to the active indicator dot with the text "Loading model. This can take a while for larger models."), not a toast. The indicator disappears once the response starts streaming.
 
 ---
 

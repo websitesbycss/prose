@@ -5,14 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!--
       Content Security Policy:
-        script-src 'self'      — no inline scripts, no remote scripts
+        script-src 'self' 'wasm-unsafe-eval' — no inline/remote scripts; wasm-unsafe-eval
+                                only permits compiling WebAssembly (Harper's grammar
+                                engine), not arbitrary string eval
+        worker-src 'self' blob: — harper.js's WorkerLinter spins up its worker from a
+                                blob: URL rather than a same-origin script file
         style-src  'unsafe-inline' — required by KaTeX and Tailwind utility classes
         connect-src 'self'     — renderer cannot make arbitrary network requests
         object-src / frame-src 'none' — block plugin and iframe injection
     -->
     <meta http-equiv="Content-Security-Policy" content="
       default-src 'self';
-      script-src 'self';
+      script-src 'self' 'wasm-unsafe-eval';
+      worker-src 'self' blob:;
       style-src 'self' 'unsafe-inline';
       font-src 'self' data:;
       img-src 'self' data: blob:;

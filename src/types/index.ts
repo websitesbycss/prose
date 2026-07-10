@@ -140,18 +140,19 @@ export interface AiPromptPayload {
   images?: string[]
 }
 
+/** Color group an issue is bucketed into for the Issues panel + highlights. */
+export type IssueColorGroup = 'spelling' | 'wordChoice' | 'style' | 'repetition' | 'misc'
+
 export interface Issue {
   id: string
-  type: 'error' | 'clarity' | 'style'
+  type: IssueColorGroup
+  /** Harper's human-readable lint category, e.g. "Spelling", "Repetition". */
   category: string
   quote: string
   message: string
   suggestion: string
-}
-
-export interface AnalysisResult {
-  issues: Issue[]
-  tone: string
+  /** Character offsets into the document's flat text content (see src/lib/issueSpan.ts). */
+  span: { start: number; end: number }
 }
 
 export interface DownloadStatus {
@@ -262,14 +263,8 @@ export interface ProseAPI {
     prompt(payload: AiPromptPayload): Promise<string>
     getStatus(): Promise<OllamaStatus>
     getModelCapabilities(): Promise<{ model: string; multimodal: boolean }>
+    isModelLoaded(): Promise<boolean>
     streamPrompt(payload: AiPromptPayload, onChunk: (chunk: string) => void, onError: (msg: string) => void): Promise<void>
-    analyze(payload: { documentContent: string; assignmentContext?: string }): Promise<AnalysisResult>
-    globalStreamPrompt(
-      request: string,
-      history: Array<{ role: 'user' | 'assistant'; content: string }>,
-      onChunk: (chunk: string) => void,
-      onError: (msg: string) => void,
-    ): Promise<void>
   }
   export: {
     getPreviewHtml(id: string, opts: ExportOptions): Promise<string | null>
