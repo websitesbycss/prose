@@ -80,6 +80,7 @@ export async function isDocumentsFolderAccessible(): Promise<boolean> {
 
 export function sanitizeFilename(title: string): string {
   return title
+    // eslint-disable-next-line no-control-regex -- deliberately stripping control characters, not a mistake
     .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
     .replace(/\s+/g, ' ')
     .trim()
@@ -588,7 +589,7 @@ export async function importMarkdownFile(filePath: string): Promise<ProseFileDoc
 }
 
 export async function importDocxFile(filePath: string): Promise<ProseFileDocument> {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  // eslint-disable-next-line @typescript-eslint/no-var-requires -- mammoth ships no ESM build usable here
   const mammoth = require('mammoth') as { convertToHtml(input: { path: string }): Promise<{ value: string }> }
   const result = await mammoth.convertToHtml({ path: filePath })
   const content = htmlToTiptap(result.value)

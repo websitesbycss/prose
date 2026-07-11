@@ -20,7 +20,7 @@ interface SpellTooltipProps {
   documentId: string
 }
 
-const TOOLTIP_HEIGHT = 36
+const TOOLTIP_HEIGHT = 28
 
 // coordsAtPos uses getBoundingClientRect() internally. In Chromium, CSS `zoom`
 // on an ancestor causes those calls to return un-zoomed layout coords instead of

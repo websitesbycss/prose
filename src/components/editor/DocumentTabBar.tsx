@@ -257,7 +257,7 @@ export function DocumentTabBar({
     return items.length
   }
 
-  function updateInternalDropIndicator(insertIdx: number, draggingTabId: string): void {
+  function updateInternalDropIndicator(insertIdx: number): void {
     const strip = tabStripRef.current
     if (!strip) return
     const items = Array.from(strip.querySelectorAll<HTMLElement>('.document-tab-item'))
@@ -291,15 +291,29 @@ export function DocumentTabBar({
   // Uses snapshotted widths + gap so it never reads mid-animation DOM state.
   // "others" = displayTabs in their CURRENT logical order, minus the dragging tab.
 
+  // Retargeting only happens once the cursor is close to where the drop
+  // line would actually render — not the instant it crosses some tab's
+  // midpoint — so the indicator tracks the mouse itself instead of jumping
+  // around based on the dragged tab's own (possibly off-center) edges.
+  const REORDER_SNAP_THRESHOLD = 25
+
   function computeInsertIdx(clientX: number, d: DragInfo): number {
     const others = displayTabs.filter((t) => t.id !== d.tabId)
+    // boundaries[i] is the x position of the drop line for inserting at index i.
+    const boundaries: number[] = [d.stripLeft]
     let x = d.stripLeft
     for (let i = 0; i < others.length; i++) {
-      const w = d.tabWidths.get(others[i]!.id) ?? 100
-      if (clientX < x + w / 2) return i
-      x += w + d.tabGap
+      x += (d.tabWidths.get(others[i]!.id) ?? 100) + d.tabGap
+      boundaries.push(x)
     }
-    return others.length
+
+    let closestIdx = 0
+    let closestDist = Infinity
+    for (let i = 0; i < boundaries.length; i++) {
+      const dist = Math.abs(clientX - boundaries[i]!)
+      if (dist < closestDist) { closestDist = dist; closestIdx = i }
+    }
+    return closestDist <= REORDER_SNAP_THRESHOLD ? closestIdx : d.visualInsertIdx
   }
 
   function commitReorder(d: DragInfo): void {
@@ -418,7 +432,7 @@ export function DocumentTabBar({
         d.visualInsertIdx = idx
         setVisualInsertIdx(idx)
       }
-      updateInternalDropIndicator(idx, d.tabId)
+      updateInternalDropIndicator(idx)
     }
   }
 
@@ -561,7 +575,7 @@ export function DocumentTabBar({
             />
           )}
           <AnimatePresence initial={false} mode="popLayout">
-            {displayTabs.map((tab, tabIndex) => {
+            {displayTabs.map((tab) => {
               const isActive = !showDashboard && tab.id === activeDocumentId
               const isDraggingThis = tab.id === draggingId
               const translateX = isDraggingThis ? dragDeltaX : 0

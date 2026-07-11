@@ -167,7 +167,7 @@ export default function CitationPanel({ documentId, format, editor }: CitationPa
   }, [editor, citations, heading, formatKey])
 
   return (
-    <div className="flex h-full flex-col border-l border-border">
+    <div className="flex h-full w-full flex-col border-l border-border bg-background">
       {/* Header */}
       <div className="flex h-10 shrink-0 items-center justify-between px-3">
         <span className="text-xs font-medium">Citations</span>

@@ -23,7 +23,7 @@ import { registerSlidesImportHandlers } from './ipc/slidesImport'
 import { registerThumbnailHandlers } from './ipc/thumbnails'
 import { registerFileAssociation } from './services/fileAssociation'
 import { registerWindowHandlers, initPaths } from './ipc/windows'
-import { windowChromeOptions, applyTitleBarOverlay } from './windowChrome'
+import { windowChromeOptions } from './windowChrome'
 import { autoUpdater } from 'electron-updater'
 
 const APP_ICON = join(__dirname, '../../resources/icons/prose.ico')

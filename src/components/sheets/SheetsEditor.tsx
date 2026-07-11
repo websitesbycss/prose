@@ -443,6 +443,24 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc?.id])
 
+  // FortuneSheet only re-measures its grid on a window resize event — it
+  // doesn't observe its own container resizing — so it needs a nudge: once at
+  // mount (container settling into its initial layout) and again whenever the
+  // AI panel's width actually changes (drag-resize or open/close), once that
+  // change has visually settled (150ms covers both a debounced drag and the
+  // panel's own 0.12s open/close animation).
+  useEffect(() => {
+    if (!ready) return
+    const id = requestAnimationFrame(() => window.dispatchEvent(new Event('resize')))
+    return () => cancelAnimationFrame(id)
+  }, [ready])
+
+  useEffect(() => {
+    if (!ready) return
+    const id = setTimeout(() => window.dispatchEvent(new Event('resize')), 150)
+    return () => clearTimeout(id)
+  }, [ready, aiPanelWidth, aiPanelOpen])
+
   // Context menu AI events
   useEffect(() => {
     if (!isActive) return
@@ -807,7 +825,10 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
           canRedo={canRedo}
         />
 
-        {/* Grid + AI panel row */}
+        {/* Grid + AI panel row. The grid shrinks to fill whatever space the
+            AI panel leaves — FortuneSheet doesn't observe its own container
+            resizing, so a window-resize event is dispatched below on every
+            width change (drag, open/close) to force it to re-measure. */}
         <div className="flex min-h-0 flex-1">
           {/* FortuneSheet container */}
           <div

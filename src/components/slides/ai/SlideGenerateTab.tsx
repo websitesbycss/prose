@@ -349,7 +349,7 @@ export function SlideGenerateTab({
         onClick={() => void generate()}
         disabled={!canGenerate}
       >
-        Generate presentation
+        Generate slides
       </button>
 
       {error && <p className="rounded-md bg-destructive/10 px-3 py-2 text-[11px] text-destructive">{error}</p>}

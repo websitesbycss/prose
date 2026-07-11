@@ -69,7 +69,7 @@ function FilePickerPopover({ excalidrawAPI, onAddFileCard }: FilePickerProps): J
 
   useEffect(() => {
     if (!open) return
-    function handleClickOutside(e: MouseEvent) {
+    function handleClickOutside(e: MouseEvent): void {
       if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
         setOpen(false)
       }
@@ -82,7 +82,7 @@ function FilePickerPopover({ excalidrawAPI, onAddFileCard }: FilePickerProps): J
     f.title.toLowerCase().includes(search.toLowerCase())
   )
 
-  function handleSelectFile(file: DashboardDocument) {
+  function handleSelectFile(file: DashboardDocument): void {
     if (!excalidrawAPI) return
     setOpen(false)
     void window.prose.documents.getById(file.id).then((doc) => {
@@ -92,7 +92,7 @@ function FilePickerPopover({ excalidrawAPI, onAddFileCard }: FilePickerProps): J
         const content = typeof doc.content === 'string' ? JSON.parse(doc.content) : doc.content
         if (content?.content) {
           const texts: string[] = []
-          function walk(node: { text?: string; content?: unknown[] }) {
+          const walk = (node: { text?: string; content?: unknown[] }): void => {
             if (node.text) texts.push(node.text)
             if (node.content) node.content.forEach((n) => walk(n as { text?: string; content?: unknown[] }))
           }

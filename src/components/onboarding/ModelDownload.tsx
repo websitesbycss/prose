@@ -64,7 +64,7 @@ export default function ModelDownload({ onComplete }: ModelDownloadProps): JSX.E
       ? customModel.trim()
       : (SUGGESTED_MODELS[selectedSuggested]?.model ?? 'llama3.2:3b')
 
-  const useInstalled = useCallback(async (): Promise<void> => {
+  const confirmInstalledModel = useCallback(async (): Promise<void> => {
     if (!selectedInstalled) return
     await window.prose.settings.set({ ollamaModel: selectedInstalled })
     onComplete()
@@ -150,7 +150,7 @@ export default function ModelDownload({ onComplete }: ModelDownloadProps): JSX.E
                 ))}
                 <Button
                   className="w-full"
-                  onClick={() => void useInstalled()}
+                  onClick={() => void confirmInstalledModel()}
                   disabled={!selectedInstalled}
                 >
                   Use {selectedInstalled ?? 'selected model'}

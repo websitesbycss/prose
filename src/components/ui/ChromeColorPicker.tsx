@@ -304,14 +304,18 @@ export function ChromeColorPicker({
     pushToInputs({ h: hv, s: sv, v: vv })
   }
 
-  function clampRef(ref: React.RefObject<HTMLInputElement>, max: number) {
+  function clampRef(ref: React.RefObject<HTMLInputElement>, max: number): void {
     if (ref.current) ref.current.value = String(Math.max(0, Math.min(max, parseInt(ref.current.value) || 0)))
   }
 
-  async function handleEyedropper() {
-    if (!('EyeDropper' in window)) return
+  async function handleEyedropper(): Promise<void> {
+    // Not yet in TypeScript's lib.dom.d.ts — https://developer.mozilla.org/en-US/docs/Web/API/EyeDropper
+    const EyeDropperCtor = (window as unknown as {
+      EyeDropper?: new () => { open(): Promise<{ sRGBHex: string }> }
+    }).EyeDropper
+    if (!EyeDropperCtor) return
     try {
-      const result = await (new (window as any).EyeDropper() as { open: () => Promise<{ sRGBHex: string }> }).open()
+      const result = await new EyeDropperCtor().open()
       const parsed = hexToHsv(result.sRGBHex)
       if (parsed) applyHsv(parsed)
     } catch { /* cancelled */ }

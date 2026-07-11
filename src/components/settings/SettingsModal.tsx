@@ -464,7 +464,7 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
                       {spellWords.length === 0 && (
                         <p className="mb-3 text-xs text-muted-foreground italic">No custom words yet.</p>
                       )}
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 pb-4">
                         <Input
                           className="h-8 flex-1 text-xs"
                           placeholder="Add a word…"
@@ -495,7 +495,7 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
                     </>
                   )}
                   <Separator />
-                  <SectionTitle>Pomodoro</SectionTitle>
+                  <div className="pt-4"><SectionTitle>Pomodoro</SectionTitle></div>
                   <SettingRow label="Work duration">
                     <div className="flex items-center gap-2">
                       <Input

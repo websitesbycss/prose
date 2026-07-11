@@ -61,6 +61,7 @@ export async function downloadAndInstallOllama(): Promise<void> {
   const fileStream = createWriteStream(dest)
 
   let received = 0
+  // eslint-disable-next-line no-constant-condition -- reads until the stream reports done
   while (true) {
     const { done, value } = await reader.read()
     if (done) break

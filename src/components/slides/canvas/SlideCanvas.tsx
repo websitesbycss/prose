@@ -11,7 +11,6 @@ import type { SnapOverlayHandle } from './SnapOverlay'
 import type { SnapHook } from './useCanvasDrag'
 import type { SnapSettings } from './snapUtils'
 import { ShapeElementRenderer } from '../elements/ShapeElementRenderer'
-import { renderSlideElement } from '../elements/renderSlideElement'
 import type { HandleType, ElementMove, ElementResize, ElementRotate, MarqueeRect } from './types'
 
 export type CanvasToolMode = 'select' | 'text' | 'shape' | 'image' | 'table' | 'equation' | 'code' | 'video'

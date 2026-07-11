@@ -600,7 +600,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
         const matchMid = (coords.top + coords.bottom) / 2
         const boxMid = (box.top + box.bottom) / 2
         scrollEl.scrollTop += matchMid - boxMid
-      } catch {}
+      } catch { /* coordsAtPos can throw on a stale position mid-edit */ }
     })
   }, [editor])
 

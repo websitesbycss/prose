@@ -41,9 +41,9 @@ export function formatMla(type: CitationType, f: CitationFields): string {
       return `${a}${em(f.title)}. ${esc(f.publisher)}, ${esc(f.year) || 'n.d.'}.`
     case 'article':
     case 'journal': {
-      const vol = f.volume ? ` vol. ${esc(f.volume)},` : ''
-      const iss = f.issue ? ` no. ${esc(f.issue)},` : ''
-      const pp = f.pages ? ` pp. ${esc(f.pages)}.` : '.'
+      const vol = f.volume ? ` vol. ${esc(f.volume)},` : ''
+      const iss = f.issue ? ` no. ${esc(f.issue)},` : ''
+      const pp = f.pages ? ` pp. ${esc(f.pages)}.` : '.'
       return `${a}${q(f.title)} ${em(f.journal)},${vol}${iss} ${esc(f.year) || 'n.d.'},${pp}`
     }
     case 'website':
@@ -81,7 +81,7 @@ export function formatChicago(type: CitationType, f: CitationFields): string {
     case 'article':
     case 'journal': {
       const vol = f.volume ? ` ${esc(f.volume)},` : ''
-      const iss = f.issue ? ` no. ${esc(f.issue)}` : ''
+      const iss = f.issue ? ` no. ${esc(f.issue)}` : ''
       const yr = f.year ? ` (${esc(f.year)}):` : ''
       const pp = f.pages ? ` ${esc(f.pages)}.` : '.'
       return `${a}${q(f.title)} ${em(f.journal)},${vol}${iss}${yr}${pp}`
@@ -100,9 +100,9 @@ export function formatIeee(type: CitationType, f: CitationFields): string {
       return `${a}${em(f.title)}. ${esc(f.publisher)}, ${esc(f.year) || 'n.d.'}.`
     case 'article':
     case 'journal': {
-      const vol = f.volume ? ` vol. ${esc(f.volume)},` : ''
-      const iss = f.issue ? ` no. ${esc(f.issue)},` : ''
-      const pp = f.pages ? ` pp. ${esc(f.pages)},` : ','
+      const vol = f.volume ? ` vol. ${esc(f.volume)},` : ''
+      const iss = f.issue ? ` no. ${esc(f.issue)},` : ''
+      const pp = f.pages ? ` pp. ${esc(f.pages)},` : ','
       return `${a}“${esc(f.title)},” ${em(f.journal)},${vol}${iss}${pp} ${esc(f.year) || 'n.d.'}.`
     }
     case 'website':

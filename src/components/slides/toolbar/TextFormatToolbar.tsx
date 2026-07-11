@@ -272,7 +272,7 @@ export function TextFormatToolbar({ element, onUpdate, compact = false }: Props)
 
   function wrapToggle(tag: string, openTag: string, closeTag: string, test: boolean) {
     if (test) {
-      onUpdate({ content: element.content.replace(new RegExp(`<${tag}>|<\/${tag}>`, 'gi'), '') })
+      onUpdate({ content: element.content.replace(new RegExp(`<${tag}>|</${tag}>`, 'gi'), '') })
     } else {
       onUpdate({ content: `<${openTag}>${element.content}</${closeTag}>` })
     }

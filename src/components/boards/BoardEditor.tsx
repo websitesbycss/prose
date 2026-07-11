@@ -142,6 +142,7 @@ function buildBoardContext(elements: ExcalidrawElements): string {
   const others = elements.filter((el: any) => el.type !== 'embeddable' && el.type !== 'text' && !el.isDeleted)
 
   const parts: string[] = [
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     `Board has ${elements.filter((e: any) => !e.isDeleted).length} elements:`,
     `  - ${cards.length} file card(s)`,
     `  - ${texts.length} text note(s)`,
@@ -412,9 +413,8 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
   }, [flushAndSave])
 
   // Parse initial board content ───────────────────────────────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [initialData, setInitialData] = useState<{
-    elements: any[]
+    elements: ExcalidrawElements
     appState: Record<string, unknown>
   } | null>(null)
   const initialLoadedRef = useRef(false)
