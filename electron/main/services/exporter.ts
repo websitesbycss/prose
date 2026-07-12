@@ -642,7 +642,7 @@ function zoneToElectronTemplate(
     if (!firstPara) return '<span></span>'
     const nodes = firstPara.content ?? []
     const align = (firstPara.attrs?.textAlign as string) ?? fallbackAlign
-    const renderNodes = (ns: JSONContent[]) =>
+    const renderNodes = (ns: JSONContent[]): string =>
       ns.map((n) => {
         if (n.type === 'pageNumber') {
           const marks = n.marks ?? []

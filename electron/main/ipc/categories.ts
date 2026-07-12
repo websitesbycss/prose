@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import { randomUUID } from 'crypto'
 import { getIndexDb } from '../services/indexDb'
+import type Database from 'better-sqlite3'
 
 interface CategoryRow {
   id: string
@@ -23,7 +24,7 @@ function rowToCategory(row: CategoryRow): CategoryOut {
 }
 
 export function registerCategoryHandlers(): void {
-  const db = () => getIndexDb()
+  const db = (): Database.Database => getIndexDb()
 
   ipcMain.handle('categories:getAll', (): CategoryOut[] =>
     (db().prepare('SELECT * FROM categories ORDER BY name ASC').all() as CategoryRow[]).map(rowToCategory)

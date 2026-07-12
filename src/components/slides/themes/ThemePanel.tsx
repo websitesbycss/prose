@@ -31,7 +31,7 @@ function applyThemeToSlides(slides: Slide[], oldTheme: PresentationTheme, newThe
 }
 
 export function ThemePanel({ theme, slides, onApplyTheme, onClose, anchorRect }: Props): JSX.Element {
-  function handleSelect(t: PresentationTheme) {
+  function handleSelect(t: PresentationTheme): void {
     const updatedSlides = applyThemeToSlides(slides, theme, t)
     onApplyTheme(t, updatedSlides)
     onClose()

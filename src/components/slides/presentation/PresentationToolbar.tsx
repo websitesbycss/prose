@@ -25,7 +25,7 @@ export function PresentationToolbar({
   }, [])
 
   useEffect(() => {
-    function onMove(e: MouseEvent) {
+    function onMove(e: MouseEvent): void {
       if (e.clientY > window.innerHeight - 80) show()
     }
     window.addEventListener('mousemove', onMove)

@@ -9,7 +9,7 @@ type Format = 'hex' | 'rgb' | 'hsl' | 'cmyk'
 
 function hsvToRgb(h: number, s: number, v: number): [number, number, number] {
   s /= 100; v /= 100
-  const f = (n: number) => {
+  const f = (n: number): number => {
     const k = (n + h / 60) % 6
     return v - v * s * Math.max(0, Math.min(k, 4 - k, 1))
   }
@@ -67,7 +67,7 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
   if (s === 0) { const v = Math.round(l * 255); return [v, v, v] }
   const q = l < 0.5 ? l * (1 + s) : l + s - l * s
   const p = 2 * l - q
-  const hue = (t: number) => {
+  const hue = (t: number): number => {
     if (t < 0) t += 1; if (t > 1) t -= 1
     if (t < 1/6) return p + (q - p) * 6 * t
     if (t < 1/2) return q
@@ -105,13 +105,13 @@ function hexToHsv(hex: string): Hsv | null {
 
 // ── Shared drag hook ──────────────────────────────────────────────────────────
 
-function useDrag(onMove: (e: PointerEvent) => void) {
+function useDrag(onMove: (e: PointerEvent) => void): React.MutableRefObject<boolean> {
   const active = useRef(false)
   const cb = useRef(onMove)
   useEffect(() => { cb.current = onMove })
   useEffect(() => {
-    const move = (e: PointerEvent) => { if (active.current) cb.current(e) }
-    const up = () => { active.current = false }
+    const move = (e: PointerEvent): void => { if (active.current) cb.current(e) }
+    const up = (): void => { active.current = false }
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
     return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up) }
@@ -121,11 +121,11 @@ function useDrag(onMove: (e: PointerEvent) => void) {
 
 // ── Saturation box ────────────────────────────────────────────────────────────
 
-function SaturationBox({ h, s, v, onChange }: { h: number; s: number; v: number; onChange: (s: number, v: number) => void }) {
+function SaturationBox({ h, s, v, onChange }: { h: number; s: number; v: number; onChange: (s: number, v: number) => void }): JSX.Element {
   const ref = useRef<HTMLDivElement>(null)
   const active = useDrag((e) => pick(e.clientX, e.clientY))
 
-  function pick(cx: number, cy: number) {
+  function pick(cx: number, cy: number): void {
     const el = ref.current; if (!el) return
     const r = el.getBoundingClientRect()
     onChange(Math.max(0, Math.min(100, (cx - r.left) / r.width * 100)), Math.max(0, Math.min(100, (1 - (cy - r.top) / r.height) * 100)))
@@ -150,11 +150,11 @@ function SaturationBox({ h, s, v, onChange }: { h: number; s: number; v: number;
 
 // ── Hue slider ────────────────────────────────────────────────────────────────
 
-function HueSlider({ h, onChange }: { h: number; onChange: (h: number) => void }) {
+function HueSlider({ h, onChange }: { h: number; onChange: (h: number) => void }): JSX.Element {
   const ref = useRef<HTMLDivElement>(null)
   const active = useDrag((e) => pick(e.clientX))
 
-  function pick(cx: number) {
+  function pick(cx: number): void {
     const el = ref.current; if (!el) return
     const r = el.getBoundingClientRect()
     onChange(Math.max(0, Math.min(360, (cx - r.left) / r.width * 360)))
@@ -189,7 +189,19 @@ export interface ChromeColorPickerProps {
 
 const FORMAT_LABELS: Record<Format, string> = { hex: 'Hex', rgb: 'RGB', hsl: 'HSL', cmyk: 'CMYK' }
 
-function hsvToDisplayVals(c: Hsv) {
+function hsvToDisplayVals(c: Hsv): {
+  hex: string
+  r: number
+  g: number
+  b: number
+  hh: number
+  hs: number
+  hl: number
+  cm: number
+  mm: number
+  ym: number
+  km: number
+} {
   const [r, g, b] = hsvToRgb(c.h, c.s, c.v)
   const hex = rgbToHex(r, g, b).replace('#', '').toUpperCase()
   const [hl, sl, ll] = rgbToHsl(r, g, b)
@@ -205,7 +217,7 @@ export function ChromeColorPicker({
   onReset,
   resetLabel = 'Reset',
   current = '',
-}: ChromeColorPickerProps) {
+}: ChromeColorPickerProps): JSX.Element {
   const init = hexToHsv(color) ?? { h: 0, s: 0, v: 0 }
   const [hsv, setHsv] = useState<Hsv>(init)
   const [format, setFormat] = useState<Format>('hex')
@@ -226,10 +238,10 @@ export function ChromeColorPicker({
   const kRef   = useRef<HTMLInputElement>(null)
 
   // Imperatively update input DOM values; skipFocused=true preserves user edits in the active field
-  function pushToInputs(c: Hsv, skipFocused = true) {
+  function pushToInputs(c: Hsv, skipFocused = true): void {
     const v = hsvToDisplayVals(c)
     const active = skipFocused ? document.activeElement : null
-    const set = (ref: React.RefObject<HTMLInputElement>, val: string) => {
+    const set = (ref: React.RefObject<HTMLInputElement>, val: string): void => {
       if (ref.current && ref.current !== active) ref.current.value = val
     }
     set(hexRef, v.hex)
@@ -246,7 +258,7 @@ export function ChromeColorPicker({
     if (parsed) { setHsv(parsed); pushToInputs(parsed) }
   }, [color]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  function applyHsv(next: Hsv) {
+  function applyHsv(next: Hsv): void {
     setHsv(next)
     const hex = hsvToHex(next)
     prevColor.current = hex
@@ -255,7 +267,7 @@ export function ChromeColorPicker({
   }
 
   // ── Hex ──
-  function onHexChange(raw: string) {
+  function onHexChange(raw: string): void {
     const clean = raw.replace(/[^0-9a-fA-F]/g, '').slice(0, 6)
     const full = clean.length === 3 ? clean.split('').map((c) => c + c).join('') : clean
     if (full.length === 6) {
@@ -263,7 +275,7 @@ export function ChromeColorPicker({
       if (parsed) { setHsv(parsed); prevColor.current = '#' + full; onChange('#' + full); pushToInputs(parsed) }
     }
   }
-  function onHexBlur() {
+  function onHexBlur(): void {
     const raw = hexRef.current?.value ?? ''
     const full = raw.replace(/[^0-9a-fA-F]/g, '').padEnd(6, '0').slice(0, 6)
     const parsed = hexToHsv('#' + full)
@@ -272,7 +284,7 @@ export function ChromeColorPicker({
   }
 
   // ── RGB ──
-  function onRgbChange() {
+  function onRgbChange(): void {
     const r = Math.min(255, parseInt(rRef.current?.value ?? '0') || 0)
     const g = Math.min(255, parseInt(gRef.current?.value ?? '0') || 0)
     const b = Math.min(255, parseInt(bRef.current?.value ?? '0') || 0)
@@ -282,7 +294,7 @@ export function ChromeColorPicker({
   }
 
   // ── HSL ──
-  function onHslChange() {
+  function onHslChange(): void {
     const h = Math.min(360, parseInt(hhRef.current?.value ?? '0') || 0)
     const s = Math.min(100, parseInt(hsRef.current?.value ?? '0') || 0)
     const l = Math.min(100, parseInt(hlRef.current?.value ?? '0') || 0)
@@ -293,7 +305,7 @@ export function ChromeColorPicker({
   }
 
   // ── CMYK ──
-  function onCmykChange() {
+  function onCmykChange(): void {
     const c = Math.min(100, parseInt(cRef.current?.value ?? '0') || 0)
     const m = Math.min(100, parseInt(mRef.current?.value ?? '0') || 0)
     const y = Math.min(100, parseInt(yRef.current?.value ?? '0') || 0)

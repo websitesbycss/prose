@@ -66,7 +66,7 @@ export function useCanvasDrag({
   onRotateElement,
   onMarqueeSelect,
   snapHookRef,
-}: Params) {
+}: Params): { startDrag: (state: DragState) => void; dragStateRef: React.MutableRefObject<DragState | null> } {
   const dragStateRef = useRef<DragState | null>(null)
 
   // Callbacks stored in ref so closures in startDrag never go stale.

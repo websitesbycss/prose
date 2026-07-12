@@ -16,7 +16,7 @@ declare module '@tiptap/core' {
   }
 }
 
-function InlineMathView({ node, selected }: NodeViewProps) {
+function InlineMathView({ node, selected }: NodeViewProps): JSX.Element {
   const containerRef = useRef<HTMLSpanElement>(null)
 
   let html = ''
@@ -71,7 +71,7 @@ function InlineMathView({ node, selected }: NodeViewProps) {
   )
 }
 
-function BlockMathView({ node, selected }: NodeViewProps) {
+function BlockMathView({ node, selected }: NodeViewProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
 
   let html = ''

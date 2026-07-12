@@ -63,7 +63,7 @@ export function ShapePickerPopover({ children, selectedShapeType, onSelect }: Pr
 
   useEffect(() => {
     if (!open) return
-    function onDown(e: MouseEvent) {
+    function onDown(e: MouseEvent): void {
       if (popRef.current?.contains(e.target as Node)) return
       if (triggerRef.current?.contains(e.target as Node)) return
       setOpen(false)
@@ -72,7 +72,7 @@ export function ShapePickerPopover({ children, selectedShapeType, onSelect }: Pr
     return () => window.removeEventListener('mousedown', onDown)
   }, [open])
 
-  function handleOpen() {
+  function handleOpen(): void {
     if (!triggerRef.current) return
     const r = triggerRef.current.getBoundingClientRect()
     setPos({ top: r.bottom + 4, left: r.left })

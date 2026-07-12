@@ -109,7 +109,7 @@ function loadSettings(): AppSettingsOut {
     editorFontSize: Math.max(8, Math.min(72, get('editorFontSize', DEFAULTS.editorFontSize))),
     headingFontSizes: (() => {
       const v = get('headingFontSizes', DEFAULTS.headingFontSizes)
-      const clamp = (n: number) => Math.max(8, Math.min(96, n))
+      const clamp = (n: number): number => Math.max(8, Math.min(96, n))
       return { h1: clamp(v.h1 ?? DEFAULTS.headingFontSizes.h1), h2: clamp(v.h2 ?? DEFAULTS.headingFontSizes.h2), h3: clamp(v.h3 ?? DEFAULTS.headingFontSizes.h3) }
     })(),
     lightAccentColor: get('lightAccentColor', DEFAULTS.lightAccentColor),

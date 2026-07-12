@@ -41,7 +41,7 @@ interface Props {
 
 // ── Font family picker ────────────────────────────────────────────────────────
 
-function FontFamilyPicker({ fontFamily, onApply }: { fontFamily: string; onApply: (ff: string) => void }) {
+function FontFamilyPicker({ fontFamily, onApply }: { fontFamily: string; onApply: (ff: string) => void }): JSX.Element {
   const [open, setOpen] = useState(false)
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -84,11 +84,11 @@ function FontFamilyPicker({ fontFamily, onApply }: { fontFamily: string; onApply
 
 // ── Font size picker ──────────────────────────────────────────────────────────
 
-function FontSizePicker({ fontSize, onApply }: { fontSize: number; onApply: (fs: number) => void }) {
+function FontSizePicker({ fontSize, onApply }: { fontSize: number; onApply: (fs: number) => void }): JSX.Element {
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState('')
 
-  function apply(val: string) {
+  function apply(val: string): void {
     const num = parseInt(val)
     if (!isNaN(num) && num >= 6 && num <= 200) onApply(num)
     setOpen(false)
@@ -168,7 +168,7 @@ function SpacingBars({ value }: { value: number }): JSX.Element {
   )
 }
 
-function LineHeightPicker({ lineHeight, onChange }: { lineHeight: number; onChange: (v: number) => void }) {
+function LineHeightPicker({ lineHeight, onChange }: { lineHeight: number; onChange: (v: number) => void }): JSX.Element {
   const [open, setOpen] = useState(false)
   const [showCustom, setShowCustom] = useState(false)
   const [customDraft, setCustomDraft] = useState('')
@@ -270,7 +270,7 @@ export function TextFormatToolbar({ element, onUpdate, compact = false }: Props)
   const isBulletList = /<ul[\s>]/i.test(element.content)
   const isOrderedList = /<ol[\s>]/i.test(element.content)
 
-  function wrapToggle(tag: string, openTag: string, closeTag: string, test: boolean) {
+  function wrapToggle(tag: string, openTag: string, closeTag: string, test: boolean): void {
     if (test) {
       onUpdate({ content: element.content.replace(new RegExp(`<${tag}>|</${tag}>`, 'gi'), '') })
     } else {
@@ -279,7 +279,7 @@ export function TextFormatToolbar({ element, onUpdate, compact = false }: Props)
   }
 
   // Fallback for when no editor is focused: toggle the entire content
-  function toggleListContent(listTag: 'ul' | 'ol') {
+  function toggleListContent(listTag: 'ul' | 'ol'): void {
     const otherTag = listTag === 'ul' ? 'ol' : 'ul'
     const isCurrent = listTag === 'ul' ? isBulletList : isOrderedList
     const isOther = listTag === 'ul' ? isOrderedList : isBulletList
@@ -306,7 +306,7 @@ export function TextFormatToolbar({ element, onUpdate, compact = false }: Props)
     }
   }
 
-  function handleListMouseDown(listTag: 'ul' | 'ol', e: React.MouseEvent) {
+  function handleListMouseDown(listTag: 'ul' | 'ol', e: React.MouseEvent): void {
     const active = document.activeElement as HTMLElement
     if (active?.isContentEditable && active.classList.contains('slide-text-content')) {
       // Editor is focused — keep focus and apply list toggle at the cursor position

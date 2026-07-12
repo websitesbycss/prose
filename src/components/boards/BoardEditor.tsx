@@ -83,7 +83,7 @@ function ProseFileCardView({
   width: number
   height: number
   onOpen: () => void
-}) {
+}): JSX.Element {
   const typeLabel: Record<string, string> = { document: 'DOC', sheet: 'SHEET', board: 'BOARD' }
   const countLabel: Record<string, string> = { sheet: 'cells', board: 'elements' }
   const unit = countLabel[data.fileType] ?? 'words'
@@ -206,7 +206,7 @@ interface BoardEditorProps {
   documentId: string
 }
 
-export function BoardEditor({ documentId }: BoardEditorProps) {
+export function BoardEditor({ documentId }: BoardEditorProps): JSX.Element {
   useContextMenuIcons('.context-menu-item__label', EXCALIDRAW_CONTEXT_MENU_ICONS)
   const isActive = useIsActiveTab(documentId)
   const { document: doc } = useDocument(documentId)
@@ -392,7 +392,7 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
   // Ctrl+S / Cmd+S — flush immediately; Ctrl+F — block (disabled for boards)
   useEffect(() => {
     if (!isActive) return
-    function onKeyDown(e: KeyboardEvent) {
+    function onKeyDown(e: KeyboardEvent): void {
       if (e.key === 's' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault()
         void flushAndSave()
@@ -523,7 +523,7 @@ export function BoardEditor({ documentId }: BoardEditorProps) {
       if (!element.customData?.proseFileCard) return null
       const data = element.customData as ProseFileCardData
 
-      const openFile = async () => {
+      const openFile = async (): Promise<void> => {
         try {
           const d = await window.prose.documents.getById(data.fileId)
           if (d) openDocumentTab({ id: d.id, title: d.title, format: d.format })

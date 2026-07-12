@@ -10,6 +10,7 @@ import {
   getDocumentsFolder,
   setDocumentsFolder,
   type ProseFileDocument,
+  type DashboardDocument,
 } from '../services/fileService'
 import { getAllIndexRows } from '../services/indexDb'
 import { shell, dialog, BrowserWindow } from 'electron'
@@ -18,7 +19,20 @@ import { validateFolderPath } from '../lib/pathValidation'
 const VALID_FORMATS = new Set(['none', 'mla', 'apa', 'chicago', 'ieee'])
 const VALID_FILE_TYPES = new Set(['document', 'sheet', 'board', 'slides'])
 
-function docToOut(doc: ProseFileDocument) {
+function docToOut(doc: ProseFileDocument): {
+  id: string
+  title: string
+  content: string
+  format: string
+  fileType: string
+  wordCountGoal: number | null
+  createdAt: string
+  updatedAt: string
+  categoryId: string | null
+  headerContent: string | null
+  footerContent: string | null
+  pageMargins: { top: number; right: number; bottom: number; left: number } | null
+} {
   return {
     id: doc.id,
     title: doc.title,
@@ -35,7 +49,21 @@ function docToOut(doc: ProseFileDocument) {
   }
 }
 
-function dashboardDocToOut(doc: ReturnType<typeof getAllDocumentsFromIndex>[0]) {
+function dashboardDocToOut(doc: DashboardDocument): {
+  id: string
+  title: string
+  content: string
+  format: string
+  fileType: 'document' | 'sheet' | 'board' | 'slides'
+  wordCountGoal: null
+  createdAt: string
+  updatedAt: string
+  categoryId: string | null
+  headerContent: null
+  footerContent: null
+  wordCount: number
+  hasThumbnail: boolean
+} {
   return {
     id: doc.id,
     title: doc.title,

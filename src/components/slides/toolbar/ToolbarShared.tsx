@@ -51,7 +51,7 @@ export function ColorPickerDropdown({ trigger, tooltip, children }: {
   trigger: React.ReactNode
   tooltip: string
   children: (close: () => void) => React.ReactNode
-}) {
+}): JSX.Element {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState({ top: 0, left: 0 })
   const btnRef = useRef<HTMLDivElement>(null)
@@ -60,18 +60,18 @@ export function ColorPickerDropdown({ trigger, tooltip, children }: {
 
   useEffect(() => {
     if (!open) return
-    function onDown(e: MouseEvent) {
+    function onDown(e: MouseEvent): void {
       if (pickerRef.current?.contains(e.target as Node)) return
       if (btnRef.current?.contains(e.target as Node)) return
       setOpen(false)
     }
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') setOpen(false) }
+    function onKey(e: KeyboardEvent): void { if (e.key === 'Escape') setOpen(false) }
     document.addEventListener('mousedown', onDown)
     document.addEventListener('keydown', onKey)
     return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey) }
   }, [open])
 
-  function handleClick() {
+  function handleClick(): void {
     if (!btnRef.current) return
     const r = btnRef.current.getBoundingClientRect()
     const left = Math.max(4, r.left + r.width / 2 - 110)
@@ -125,17 +125,17 @@ export function CompactGroup({
   const dropRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!open) return
-    function onDown(e: MouseEvent) {
+    function onDown(e: MouseEvent): void {
       if (dropRef.current?.contains(e.target as Node)) return
       if (btnRef.current?.contains(e.target as Node)) return
       setOpen(false)
     }
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') setOpen(false) }
+    function onKey(e: KeyboardEvent): void { if (e.key === 'Escape') setOpen(false) }
     document.addEventListener('mousedown', onDown)
     document.addEventListener('keydown', onKey)
     return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey) }
   }, [open])
-  function handleOpen() {
+  function handleOpen(): void {
     if (!btnRef.current) return
     const r = btnRef.current.getBoundingClientRect()
     setPos({ top: r.bottom + 4, left: r.left })
@@ -171,7 +171,7 @@ export function CompactGroup({
 export function BorderWeightPicker({ currentWidth, onApply }: {
   currentWidth: number
   onApply(w: number | undefined): void
-}) {
+}): JSX.Element {
   const [open, setOpen] = useState(false)
   return (
     <Popover open={open} onOpenChange={setOpen}>

@@ -101,12 +101,12 @@ function ThreeDotsMenu({
 
   useEffect(() => {
     if (!open) return
-    function onDown(e: MouseEvent) {
+    function onDown(e: MouseEvent): void {
       if (menuRef.current?.contains(e.target as Node)) return
       if (btnRef.current?.contains(e.target as Node)) return
       setOpen(false)
     }
-    function onKey(e: KeyboardEvent) {
+    function onKey(e: KeyboardEvent): void {
       if (e.key === 'Escape') setOpen(false)
     }
     document.addEventListener('mousedown', onDown)
@@ -117,21 +117,21 @@ function ThreeDotsMenu({
     }
   }, [open])
 
-  function handleOpen() {
+  function handleOpen(): void {
     if (!btnRef.current) return
     const r = btnRef.current.getBoundingClientRect()
     setPos({ top: r.bottom + 4, right: window.innerWidth - r.right })
     setOpen((o) => !o)
   }
 
-  function dispatchZoom(key: string) {
+  function dispatchZoom(key: string): void {
     document.dispatchEvent(
       new KeyboardEvent('keydown', { key, ctrlKey: true, bubbles: true, cancelable: true }),
     )
     setOpen(false)
   }
 
-  async function handleDelete() {
+  async function handleDelete(): Promise<void> {
     if (!documentId) return
     setOpen(false)
     if (!window.confirm('Delete this file? This cannot be undone.')) return

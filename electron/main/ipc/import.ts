@@ -35,7 +35,19 @@ const IMPORT_DIALOG_FILTERS: Electron.FileFilter[] = [
   { name: 'Presentations', extensions: ['pptx', 'ppt'] },
 ]
 
-function docToOut(doc: ProseFileDocument) {
+function docToOut(doc: ProseFileDocument): {
+  id: string
+  title: string
+  content: string
+  format: string
+  fileType: string
+  wordCountGoal: number | null
+  createdAt: string
+  updatedAt: string
+  categoryId: string | null
+  headerContent: string | null
+  footerContent: string | null
+} {
   return {
     id: doc.id,
     title: doc.title,

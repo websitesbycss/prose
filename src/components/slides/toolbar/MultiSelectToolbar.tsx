@@ -17,7 +17,7 @@ interface Props {
 export function MultiSelectToolbar({ selectedIds, slide, onAlignElements }: Props): JSX.Element {
   const elements = slide.elements.filter((e) => selectedIds.includes(e.id))
 
-  function align(type: 'left' | 'center-h' | 'right' | 'top' | 'center-v' | 'bottom' | 'dist-h' | 'dist-v') {
+  function align(type: 'left' | 'center-h' | 'right' | 'top' | 'center-v' | 'bottom' | 'dist-h' | 'dist-v'): void {
     if (elements.length < 2) return
 
     const minX = Math.min(...elements.map((e) => e.x))

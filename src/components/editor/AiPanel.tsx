@@ -1043,7 +1043,7 @@ export default function AiPanel({ editor, analysis, fileType = 'document', getDo
   )
 
   return (
-    <div className="flex h-full flex-col border-l border-border">
+    <div className="flex h-full w-full flex-col border-l border-border bg-background">
       {/* Header */}
       <div className="flex h-10 shrink-0 items-center gap-2 pl-3 pr-1.5">
         <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />

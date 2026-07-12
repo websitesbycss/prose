@@ -1231,7 +1231,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
           />
           <motion.div
             className="absolute inset-0"
-            style={{ width: rightPanelWidth, pointerEvents: aiPanelOpen ? 'auto' : 'none' }}
+            style={{ pointerEvents: aiPanelOpen ? 'auto' : 'none' }}
             initial={false}
             animate={{ opacity: aiPanelOpen ? 1 : 0, x: aiPanelOpen ? 0 : 16 }}
             transition={{ duration: 0.12, ease: 'easeOut' }}
@@ -1252,7 +1252,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
           </motion.div>
           <motion.div
             className="absolute inset-0"
-            style={{ width: rightPanelWidth, pointerEvents: slidesAnimationsPanelOpen ? 'auto' : 'none' }}
+            style={{ pointerEvents: slidesAnimationsPanelOpen ? 'auto' : 'none' }}
             initial={false}
             animate={{ opacity: slidesAnimationsPanelOpen ? 1 : 0, x: slidesAnimationsPanelOpen ? 0 : 16 }}
             transition={{ duration: 0.12, ease: 'easeOut' }}

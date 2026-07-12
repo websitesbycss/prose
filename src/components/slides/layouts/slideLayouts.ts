@@ -19,7 +19,7 @@ export interface SlideLayout {
   createElement(theme: PresentationTheme): SlideElement[]
 }
 
-function uuid() { return crypto.randomUUID() }
+function uuid(): string { return crypto.randomUUID() }
 
 function textEl(overrides: Partial<import('@/types/slides').TextElement>): SlideElement {
   return {

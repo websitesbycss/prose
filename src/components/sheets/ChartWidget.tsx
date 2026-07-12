@@ -95,10 +95,10 @@ export function ChartWidget({
     const startX = e.clientX - chart.x
     const startY = e.clientY - chart.y
 
-    function handleMouseMove(ev: PointerEvent) {
+    function handleMouseMove(ev: PointerEvent): void {
       onMove({ ...chart, x: ev.clientX - startX, y: ev.clientY - startY })
     }
-    function handleMouseUp() {
+    function handleMouseUp(): void {
       window.removeEventListener('pointermove', handleMouseMove)
       window.removeEventListener('pointerup', handleMouseUp)
     }
@@ -116,14 +116,14 @@ export function ChartWidget({
     const startW = chart.width
     const startH = chart.height
 
-    function handleResizeMove(ev: PointerEvent) {
+    function handleResizeMove(ev: PointerEvent): void {
       onResize({
         ...chart,
         width: Math.max(220, startW + (ev.clientX - startX)),
         height: Math.max(160, startH + (ev.clientY - startY)),
       })
     }
-    function handleResizeUp() {
+    function handleResizeUp(): void {
       window.removeEventListener('pointermove', handleResizeMove)
       window.removeEventListener('pointerup', handleResizeUp)
     }

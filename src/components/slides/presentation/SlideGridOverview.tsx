@@ -13,7 +13,7 @@ interface Props {
 
 export function SlideGridOverview({ slides, theme, settings, currentIndex, onSelect, onClose }: Props): JSX.Element {
   useEffect(() => {
-    function onKey(e: KeyboardEvent) {
+    function onKey(e: KeyboardEvent): void {
       if (e.key === 'Escape' || e.key === 'g' || e.key === 'G') { e.preventDefault(); onClose() }
     }
     window.addEventListener('keydown', onKey)

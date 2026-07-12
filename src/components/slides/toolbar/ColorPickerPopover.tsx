@@ -24,7 +24,7 @@ export function ColorPickerPopover({ value, onChange, children, label }: Props):
   // Sync external value
   useEffect(() => { setHex(value) }, [value])
 
-  function handleOpen() {
+  function handleOpen(): void {
     if (!triggerRef.current) return
     const r = triggerRef.current.getBoundingClientRect()
     setPos({ top: r.bottom + 4, left: r.left })
@@ -33,7 +33,7 @@ export function ColorPickerPopover({ value, onChange, children, label }: Props):
 
   useEffect(() => {
     if (!open) return
-    function onDown(e: MouseEvent) {
+    function onDown(e: MouseEvent): void {
       if (popoverRef.current?.contains(e.target as Node)) return
       if (triggerRef.current?.contains(e.target as Node)) return
       setOpen(false)
@@ -42,12 +42,12 @@ export function ColorPickerPopover({ value, onChange, children, label }: Props):
     return () => window.removeEventListener('mousedown', onDown)
   }, [open])
 
-  function handleHexChange(v: string) {
+  function handleHexChange(v: string): void {
     setHex(v)
     onChange(v)
   }
 
-  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>): void {
     const v = e.target.value
     setHex(v)
     if (/^#[0-9a-fA-F]{6}$/.test(v)) onChange(v)

@@ -81,13 +81,13 @@ export default function MathModal({ open, onClose, onInsert, initialLatex = '', 
     }, 0)
   }, [latex])
 
-  function handleClose() {
+  function handleClose(): void {
     setLatex('')
     setDisplayMode(false)
     onClose()
   }
 
-  function handleInsert() {
+  function handleInsert(): void {
     if (!latex.trim() || previewError) return
     onInsert(latex.trim(), displayMode)
     setLatex('')

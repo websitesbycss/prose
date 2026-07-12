@@ -152,7 +152,7 @@ interface SheetsEditorProps {
   documentId: string
 }
 
-export function SheetsEditor({ documentId }: SheetsEditorProps) {
+export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
   useContextMenuIcons('.fortune-menuitem-row, .luckysheet-cols-menuitem-content', FORTUNE_CONTEXT_MENU_ICONS)
   const isActive = useIsActiveTab(documentId)
   const { document: doc, saveStatus, notifySaveStatus } = useDocument(documentId)
@@ -382,7 +382,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
   // Ctrl+S manual save + Ctrl+0 reset zoom
   useEffect(() => {
     if (!isActive) return
-    const onKey = (e: KeyboardEvent) => {
+    const onKey = (e: KeyboardEvent): void => {
       if (e.ctrlKey && e.key === 's') {
         e.preventDefault()
         if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
@@ -464,12 +464,12 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
   // Context menu AI events
   useEffect(() => {
     if (!isActive) return
-    const onExplain = (e: Event) => {
+    const onExplain = (e: Event): void => {
       const { formula } = (e as CustomEvent<{ formula: string }>).detail
       setAiPanelOpen(true)
       setPendingAiPrompt(`Explain this formula: ${formula}`)
     }
-    const onGenerate = () => {
+    const onGenerate = (): void => {
       setAiPanelOpen(true)
       setPendingAiPrompt('Generate a formula for this column. Describe what you want to calculate:')
     }
@@ -884,7 +884,6 @@ export function SheetsEditor({ documentId }: SheetsEditorProps) {
             />
             <motion.div
               className="absolute inset-0 overflow-y-auto"
-              style={{ width: aiPanelWidth }}
               initial={false}
               animate={{ opacity: aiPanelOpen ? 1 : 0, x: aiPanelOpen ? 0 : 16 }}
               transition={{ duration: 0.12, ease: 'easeOut' }}

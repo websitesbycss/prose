@@ -142,7 +142,7 @@ export function SheetTabBar({
   saveStatus,
   nowPlaying,
   ambientPlaying,
-}: SheetTabBarProps) {
+}: SheetTabBarProps): JSX.Element {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
@@ -156,7 +156,7 @@ export function SheetTabBar({
     : saveStatus === 'error' ? 'Save failed'
     : ''
 
-  const startRename = (tab: TabInfo, e: React.MouseEvent) => {
+  const startRename = (tab: TabInfo, e: React.MouseEvent): void => {
     e.stopPropagation()
     setEditingId(tab.id)
     setEditValue(tab.name)
@@ -166,7 +166,7 @@ export function SheetTabBar({
     }, 0)
   }
 
-  const commitRename = () => {
+  const commitRename = (): void => {
     if (editingId && editValue.trim()) {
       onRenameTab(editingId, editValue.trim())
     }

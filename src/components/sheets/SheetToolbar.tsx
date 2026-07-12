@@ -80,7 +80,7 @@ function ColorPickerDropdown({
   trigger: React.ReactNode
   tooltip: string
   children: (close: () => void) => React.ReactNode
-}) {
+}): JSX.Element {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState({ top: 0, left: 0 })
   const btnRef = useRef<HTMLDivElement>(null)
@@ -89,18 +89,18 @@ function ColorPickerDropdown({
 
   useEffect(() => {
     if (!open) return
-    function onDown(e: MouseEvent) {
+    function onDown(e: MouseEvent): void {
       if (pickerRef.current?.contains(e.target as Node)) return
       if (btnRef.current?.contains(e.target as Node)) return
       setOpen(false)
     }
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') setOpen(false) }
+    function onKey(e: KeyboardEvent): void { if (e.key === 'Escape') setOpen(false) }
     document.addEventListener('mousedown', onDown)
     document.addEventListener('keydown', onKey)
     return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey) }
   }, [open])
 
-  function handleClick() {
+  function handleClick(): void {
     if (!btnRef.current) return
     const r = btnRef.current.getBoundingClientRect()
     const left = Math.max(4, r.left + r.width / 2 - 110)
@@ -152,7 +152,7 @@ function FontFamilyPicker({
 }: {
   fontFamily: string
   onApply: (ff: string) => void
-}) {
+}): JSX.Element {
   const [open, setOpen] = useState(false)
 
   return (
@@ -209,11 +209,11 @@ function FontSizePicker({
 }: {
   fontSize: number
   onApply: (fs: number) => void
-}) {
+}): JSX.Element {
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState('')
 
-  function apply(val: string) {
+  function apply(val: string): void {
     const num = parseInt(val)
     if (!isNaN(num) && num >= 6 && num <= 96) onApply(num)
     setOpen(false)
@@ -294,17 +294,17 @@ function CompactGroup({
   const dropRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!open) return
-    function onDown(e: MouseEvent) {
+    function onDown(e: MouseEvent): void {
       if (dropRef.current?.contains(e.target as Node)) return
       if (btnRef.current?.contains(e.target as Node)) return
       setOpen(false)
     }
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') setOpen(false) }
+    function onKey(e: KeyboardEvent): void { if (e.key === 'Escape') setOpen(false) }
     document.addEventListener('mousedown', onDown)
     document.addEventListener('keydown', onKey)
     return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey) }
   }, [open])
-  function handleOpen() {
+  function handleOpen(): void {
     if (!btnRef.current) return
     const r = btnRef.current.getBoundingClientRect()
     setPos({ top: r.bottom + 4, left: r.left })
@@ -355,9 +355,9 @@ export function SheetToolbar({
   onRedo,
   canUndo,
   canRedo,
-}: SheetToolbarProps) {
+}: SheetToolbarProps): JSX.Element {
   const theme = useAppStore((s) => s.theme)
-  const wb = () => workbookRef.current
+  const wb = (): WorkbookInstance | null => workbookRef.current
 
   const toolbarScrollRef = useRef<HTMLDivElement>(null)
   const [toolbarWidth, setToolbarWidth] = useState(9999)
@@ -370,7 +370,7 @@ export function SheetToolbar({
     return () => obs.disconnect()
   }, [])
 
-  function applyToSelection(attr: string, value: unknown) {
+  function applyToSelection(attr: string, value: unknown): void {
     const w = wb(); if (!w) return
     const sel = w.getSelection(); if (!sel?.length) return
     for (const range of sel) {
@@ -379,63 +379,63 @@ export function SheetToolbar({
     onFormatChange()
   }
 
-  const toggleBold = () => applyToSelection('bl', state.bold ? 0 : 1)
-  const toggleItalic = () => applyToSelection('it', state.italic ? 0 : 1)
-  const toggleUnderline = () => applyToSelection('un', state.underline ? 0 : 1)
-  const toggleWrap = () => applyToSelection('tb', state.wrap ? '0' : '2')
+  const toggleBold = (): void => applyToSelection('bl', state.bold ? 0 : 1)
+  const toggleItalic = (): void => applyToSelection('it', state.italic ? 0 : 1)
+  const toggleUnderline = (): void => applyToSelection('un', state.underline ? 0 : 1)
+  const toggleWrap = (): void => applyToSelection('tb', state.wrap ? '0' : '2')
 
-  const setAlign = (align: 'left' | 'center' | 'right') => {
+  const setAlign = (align: 'left' | 'center' | 'right'): void => {
     const newHt = state.align === align ? undefined : alignToHt(align)
     applyToSelection('ht', newHt)
   }
 
-  const applyFontFamily = (ff: string) => {
+  const applyFontFamily = (ff: string): void => {
     applyToSelection('ff', ff === 'Calibri' ? undefined : ff)
   }
 
-  const applyFontSize = (fs: number) => applyToSelection('fs', fs)
+  const applyFontSize = (fs: number): void => applyToSelection('fs', fs)
 
-  const applyTextColor = (fc: string) => applyToSelection('fc', fc)
-  const applyBgColor = (bg: string) => applyToSelection('bg', bg)
+  const applyTextColor = (fc: string): void => applyToSelection('fc', fc)
+  const applyBgColor = (bg: string): void => applyToSelection('bg', bg)
 
   const themedColorPalette = COLOR_PALETTE.map((c) =>
     theme === 'dark' && c === '#000000' ? '#ffffff' : c
   )
 
-  const insertRowAbove = () => {
+  const insertRowAbove = (): void => {
     const w = wb(); if (!w) return
     const sel = w.getSelection(); if (!sel?.length) return
     w.insertRowOrColumn('row', sel[0].row[0]!, 1, 'lefttop')
   }
-  const insertRowBelow = () => {
+  const insertRowBelow = (): void => {
     const w = wb(); if (!w) return
     const sel = w.getSelection(); if (!sel?.length) return
     w.insertRowOrColumn('row', sel[0].row[sel[0].row.length - 1]!, 1, 'rightbottom')
   }
-  const insertColLeft = () => {
+  const insertColLeft = (): void => {
     const w = wb(); if (!w) return
     const sel = w.getSelection(); if (!sel?.length) return
     w.insertRowOrColumn('column', sel[0].column[0]!, 1, 'lefttop')
   }
-  const insertColRight = () => {
+  const insertColRight = (): void => {
     const w = wb(); if (!w) return
     const sel = w.getSelection(); if (!sel?.length) return
     w.insertRowOrColumn('column', sel[0].column[sel[0].column.length - 1]!, 1, 'rightbottom')
   }
-  const deleteRow = () => {
+  const deleteRow = (): void => {
     const w = wb(); if (!w) return
     const sel = w.getSelection(); if (!sel?.length) return
     const rows = sel[0].row
     w.deleteRowOrColumn('row', Math.min(...rows), Math.max(...rows))
   }
-  const deleteCol = () => {
+  const deleteCol = (): void => {
     const w = wb(); if (!w) return
     const sel = w.getSelection(); if (!sel?.length) return
     const cols = sel[0].column
     w.deleteRowOrColumn('column', Math.min(...cols), Math.max(...cols))
   }
 
-  const toggleMerge = () => {
+  const toggleMerge = (): void => {
     const w = wb(); if (!w) return
     const sel = w.getSelection(); if (!sel?.length) return
     if (state.isMerged) { w.cancelMerge(sel) } else { w.mergeCells(sel, 'merge-all') }

@@ -437,7 +437,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   // set before any character is typed on an empty selection).
   useEffect(() => {
     if (!editor) return
-    function syncCaretColor() {
+    function syncCaretColor(): void {
       const storedColor = editor.state.storedMarks
         ?.find((m) => m.type.name === 'textStyle')?.attrs.color as string | undefined
       const color = storedColor ?? (editor.getAttributes('textStyle').color as string | undefined) ?? ''
@@ -874,9 +874,13 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                   globalThis.document.body.style.userSelect = 'none'
                 }}
               />
+              {/* inset-0 alone sizes these to the outer wrapper's current
+                  (possibly still-animating) width — an explicit pixel width
+                  here too would conflict with that, over-constraining the
+                  box and risking a stale/mismatched content width. */}
               <motion.div
                 className="absolute inset-0"
-                style={{ width: aiPanelWidth, pointerEvents: aiPanelOpen ? 'auto' : 'none' }}
+                style={{ pointerEvents: aiPanelOpen ? 'auto' : 'none' }}
                 initial={false}
                 animate={{ opacity: aiPanelOpen ? 1 : 0, x: aiPanelOpen ? 0 : 16 }}
                 transition={{ duration: 0.12, ease: 'easeOut' }}
@@ -885,7 +889,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
               </motion.div>
               <motion.div
                 className="absolute inset-0"
-                style={{ width: aiPanelWidth, pointerEvents: citationPanelOpen ? 'auto' : 'none' }}
+                style={{ pointerEvents: citationPanelOpen ? 'auto' : 'none' }}
                 initial={false}
                 animate={{ opacity: citationPanelOpen ? 1 : 0, x: citationPanelOpen ? 0 : 16 }}
                 transition={{ duration: 0.12, ease: 'easeOut' }}

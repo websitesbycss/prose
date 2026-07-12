@@ -52,8 +52,8 @@ export function DocContextMenu({
   // Dismiss on Escape / click outside all panels
   useEffect(() => {
     if (!position) return
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') dismiss() }
-    function onDown(e: MouseEvent) {
+    function onKey(e: KeyboardEvent): void { if (e.key === 'Escape') dismiss() }
+    function onDown(e: MouseEvent): void {
       const t = e.target as Node
       if (menuRef.current?.contains(t)) return
       if (catMenuRef.current?.contains(t)) return
@@ -98,7 +98,7 @@ export function DocContextMenu({
     el.style.top  = `${y}px`
   }, [activeSubmenu, catPos, addingCat]) // re-run when form toggles (height changes)
 
-  function openSubmenu(name: 'category') {
+  function openSubmenu(name: 'category'): void {
     if (closeTimer.current) clearTimeout(closeTimer.current)
     const trigger = catTrigger.current
     if (!trigger) return
@@ -107,15 +107,15 @@ export function DocContextMenu({
     setActiveSubmenu(name)
   }
 
-  function scheduleClose() {
+  function scheduleClose(): void {
     closeTimer.current = setTimeout(() => setActiveSubmenu(null), 120)
   }
 
-  function cancelClose() {
+  function cancelClose(): void {
     if (closeTimer.current) clearTimeout(closeTimer.current)
   }
 
-  async function handleCreateCategory() {
+  async function handleCreateCategory(): Promise<void> {
     const name = newCatName.trim()
     if (!name) return
     await onCreateCategory(name, newCatColor)

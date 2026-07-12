@@ -299,7 +299,7 @@ export function BoardToolbar({
   canUndo,
   canRedo,
 }: BoardToolbarProps): JSX.Element {
-  function setTool(type: ExcalidrawToolType) {
+  function setTool(type: ExcalidrawToolType): void {
     if (!excalidrawAPI) return
     try {
       excalidrawAPI.setActiveTool({ type })

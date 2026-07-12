@@ -21,7 +21,7 @@ export function FindWidget({ editor, open, onClose, onNavigate }: FindWidgetProp
   // Sync match info from editor on every transaction
   useEffect(() => {
     if (!editor) return
-    const update = () => {
+    const update = (): void => {
       const s = getFindState(editor)
       setMatchInfo({ count: s.results.length, index: s.currentIndex })
     }
@@ -51,7 +51,7 @@ export function FindWidget({ editor, open, onClose, onNavigate }: FindWidgetProp
     }
   }, [query, editor])
 
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>): void {
     if (e.key === 'Enter') {
       e.preventDefault()
       if (e.shiftKey) {
