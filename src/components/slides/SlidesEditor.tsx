@@ -166,13 +166,21 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   const rightPanelWidthRef = useRef(340)
   // The right panel mounts and does its first paint while its container is
   // still 0-width or mid open-animation, which can leave a stale/incorrectly
-  // sized composited layer — only self-corrects the next time something
-  // unrelated forces a re-render, which isn't reliable. Force one extra
-  // render pass shortly after mount instead of waiting on an incidental
-  // trigger.
-  const [, forceRightPanelRepaint] = useState(0)
+  // sized composited layer. A plain re-render doesn't fix it — what actually
+  // fixes it (confirmed empirically, e.g. by reordering the tab) is physically
+  // moving the panel's DOM node, which forces the browser to discard and
+  // rebuild the compositing layer. Reproduce that with a real detach/reattach
+  // shortly after mount instead of relying on an incidental re-render.
+  const rightPanelRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    const id = requestAnimationFrame(() => forceRightPanelRepaint((n) => n + 1))
+    const id = requestAnimationFrame(() => {
+      const el = rightPanelRef.current
+      if (!el) return
+      const prevDisplay = el.style.display
+      el.style.display = 'none'
+      void el.offsetHeight
+      el.style.display = prevDisplay
+    })
     return () => cancelAnimationFrame(id)
   }, [])
   const [selectedAnimationId, setSelectedAnimationId] = useState<string | null>(null)
@@ -1225,6 +1233,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
             unmounts (file closed) or the app restarts. Quick 0.12s slide from
             the right, same feel as the music panel's tab crossfade. */}
         <motion.div
+          ref={rightPanelRef}
           className="relative shrink-0 overflow-hidden border-l border-border"
           initial={false}
           animate={{ width: rightPanelOpen ? rightPanelWidth : 0 }}

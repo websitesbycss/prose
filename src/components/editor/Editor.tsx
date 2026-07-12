@@ -126,15 +126,23 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
 
   // The right panel (AI/Citations) mounts and does its first paint while its
   // container is still 0-width or mid open-animation, which can leave a
-  // stale/incorrectly-sized composited layer — observed to only self-correct
-  // the next time something UNRELATED forces a re-render (ollamaStatus
-  // resolving from 'loading' to 'ready', an analysis completing, etc.), which
-  // isn't reliable since it depends entirely on the timing of some other
-  // feature. Force one extra render pass shortly after mount instead of
-  // waiting on an incidental trigger.
-  const [, forceRightPanelRepaint] = useState(0)
+  // stale/incorrectly-sized composited layer. A plain React re-render doesn't
+  // fix it — what actually fixes it (confirmed empirically) is physically
+  // moving the panel's DOM node, e.g. by reordering its tab, which forces the
+  // browser to fully discard and rebuild the compositing layer for that
+  // subtree. Reproduce that same effect programmatically shortly after mount
+  // — a real detach/reflow/reattach — instead of relying on an incidental
+  // re-render or the user having to reorder tabs.
+  const rightPanelRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    const id = requestAnimationFrame(() => forceRightPanelRepaint((n) => n + 1))
+    const id = requestAnimationFrame(() => {
+      const el = rightPanelRef.current
+      if (!el) return
+      const prevDisplay = el.style.display
+      el.style.display = 'none'
+      void el.offsetHeight // force a synchronous reflow between the two writes
+      el.style.display = prevDisplay
+    })
     return () => cancelAnimationFrame(id)
   }, [])
 
@@ -873,6 +881,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
               panel crossfade (SlidesEditor.tsx). */}
           {!focusModeActive && (
             <motion.div
+              ref={rightPanelRef}
               className="relative shrink-0 overflow-hidden border-l border-border"
               initial={false}
               animate={{ width: (aiPanelOpen || citationPanelOpen) ? aiPanelWidth : 0 }}

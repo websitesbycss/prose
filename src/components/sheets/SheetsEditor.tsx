@@ -193,13 +193,21 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
 
   // The AI panel mounts and does its first paint while its container is
   // still 0-width or mid open-animation, which can leave a stale/incorrectly
-  // sized composited layer — only self-corrects the next time something
-  // unrelated forces a re-render, which isn't reliable. Force one extra
-  // render pass shortly after mount instead of waiting on an incidental
-  // trigger.
-  const [, forceAiPanelRepaint] = useState(0)
+  // sized composited layer. A plain re-render doesn't fix it — what actually
+  // fixes it (confirmed empirically, e.g. by reordering the tab) is physically
+  // moving the panel's DOM node, which forces the browser to discard and
+  // rebuild the compositing layer. Reproduce that with a real detach/reattach
+  // shortly after mount instead of relying on an incidental re-render.
+  const aiPanelRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    const id = requestAnimationFrame(() => forceAiPanelRepaint((n) => n + 1))
+    const id = requestAnimationFrame(() => {
+      const el = aiPanelRef.current
+      if (!el) return
+      const prevDisplay = el.style.display
+      el.style.display = 'none'
+      void el.offsetHeight
+      el.style.display = prevDisplay
+    })
     return () => cancelAnimationFrame(id)
   }, [])
 
@@ -879,6 +887,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
               right panel (SlidesEditor.tsx). Stays mounted at all times so
               chat/analysis state survives closing and reopening the panel. */}
           <motion.div
+            ref={aiPanelRef}
             className="relative shrink-0 overflow-hidden border-l border-border"
             initial={false}
             animate={{ width: aiPanelOpen ? aiPanelWidth : 0 }}
