@@ -500,15 +500,30 @@ export function ChatTab({
   }, [pendingAiPrompt, setPendingAiPrompt])
 
   // Sync textarea height whenever input changes from any source (including
-  // programmatic setInput calls like pendingAiPrompt fill-ins).
+  // programmatic setInput calls like pendingAiPrompt fill-ins), AND whenever
+  // the textarea's own rendered width changes. The panel this composer lives
+  // in is mounted (and this effect's initial run happens) while its width is
+  // still 0 or mid-animation — measuring scrollHeight against that near-zero
+  // width can make even empty content (the placeholder) look like it wraps
+  // across many lines, baking in a too-tall height that never gets corrected
+  // since this effect otherwise only reruns when `input` changes. A
+  // ResizeObserver re-syncs once the real width is known, instead of relying
+  // on some unrelated future re-render to accidentally fix it.
   useEffect(() => {
     const el = inputRef.current
     if (!el) return
-    el.style.height = '0'
-    const full = el.scrollHeight
-    const max = 128
-    el.style.height = `${Math.min(full, max)}px`
-    el.style.overflowY = full > max ? 'auto' : 'hidden'
+    function sync(): void {
+      if (!el) return
+      el.style.height = '0'
+      const full = el.scrollHeight
+      const max = 128
+      el.style.height = `${Math.min(full, max)}px`
+      el.style.overflowY = full > max ? 'auto' : 'hidden'
+    }
+    sync()
+    const ro = new ResizeObserver(sync)
+    ro.observe(el)
+    return () => ro.disconnect()
   }, [input])
 
   const config = FILE_TYPE_AI_CONFIG[fileType]
@@ -567,7 +582,7 @@ export function ChatTab({
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full w-full flex-col">
       {/* Document context — hidden when the host panel renders its own (Slides) */}
       {!hideContext && (
         <>
@@ -1036,6 +1051,7 @@ export default function AiPanel({ editor, analysis, fileType = 'document', getDo
   // If the current tab is 'analysis' but this file type doesn't support it, switch to chat.
   const resolvedTab = !hasAnalysis && activeAiTab === 'analysis' ? 'chat' : activeAiTab
   const hasTabs = hasAnalysis || !!extraTab
+  const chatVisible = hasAnalysis ? resolvedTab === 'chat' : extraTab ? !extraTabActive : true
 
   const tabPillClass = (active: boolean): string => cn(
     'flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium transition-colors',
@@ -1134,11 +1150,12 @@ export default function AiPanel({ editor, analysis, fileType = 'document', getDo
 
       <Separator />
 
-      {/* Tab content */}
+      {/* Tab content — every tab stays mounted (hidden via CSS, never
+          unmounted) so an in-progress analysis/insights run, or anything
+          else with local state, keeps running and its result lands even if
+          the user switches tabs or does something else in the meantime. */}
       <div className="flex-1 overflow-hidden">
-        {!hasAnalysis && extraTab && extraTabActive ? (
-          extraTab.content
-        ) : resolvedTab === 'chat' || !hasAnalysis ? (
+        <div className={cn('h-full', !chatVisible && 'hidden')}>
           <ChatTab
             editor={editor}
             fileType={fileType}
@@ -1150,11 +1167,19 @@ export default function AiPanel({ editor, analysis, fileType = 'document', getDo
             actionHandler={actionHandler}
             hideContext
           />
-        ) : (
-          <AnalysisTab
-            editor={editor}
-            analysis={analysis!}
-          />
+        </div>
+        {hasAnalysis && (
+          <div className={cn('h-full', chatVisible && 'hidden')}>
+            <AnalysisTab
+              editor={editor}
+              analysis={analysis!}
+            />
+          </div>
+        )}
+        {extraTab && (
+          <div className={cn('h-full', chatVisible && 'hidden')}>
+            {extraTab.content}
+          </div>
         )}
       </div>
     </div>

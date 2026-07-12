@@ -191,6 +191,18 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
   // panel edge lags behind the cursor instead of tracking it 1:1.
   const [isResizingAiPanel, setIsResizingAiPanel] = useState(false)
 
+  // The AI panel mounts and does its first paint while its container is
+  // still 0-width or mid open-animation, which can leave a stale/incorrectly
+  // sized composited layer — only self-corrects the next time something
+  // unrelated forces a re-render, which isn't reliable. Force one extra
+  // render pass shortly after mount instead of waiting on an incidental
+  // trigger.
+  const [, forceAiPanelRepaint] = useState(0)
+  useEffect(() => {
+    const id = requestAnimationFrame(() => forceAiPanelRepaint((n) => n + 1))
+    return () => cancelAnimationFrame(id)
+  }, [])
+
   useEffect(() => {
     function onMouseMove(e: MouseEvent): void {
       if (!aiPanelDragRef.current) return

@@ -265,6 +265,18 @@ export function BoardEditor({ documentId }: BoardEditorProps): JSX.Element {
     }
   }, [])
 
+  // The AI panel mounts and does its first paint while its container is
+  // still 0-width or mid open-animation, which can leave a stale/incorrectly
+  // sized composited layer — only self-corrects the next time something
+  // unrelated forces a re-render, which isn't reliable. Force one extra
+  // render pass shortly after mount instead of waiting on an incidental
+  // trigger.
+  const [, forceAiPanelRepaint] = useState(0)
+  useEffect(() => {
+    const id = requestAnimationFrame(() => forceAiPanelRepaint((n) => n + 1))
+    return () => cancelAnimationFrame(id)
+  }, [])
+
   // Thumbnail generation — fired by the main process after every successful
   // content auto-save. Unlike Documents/Sheets this never goes through
   // captureRegion — Excalidraw renders its own export via exportToBlob, which

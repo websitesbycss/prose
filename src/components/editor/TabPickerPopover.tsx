@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Search, Pin, FileText, Table2, Shapes, Plus, GalleryVerticalEnd } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { loadPinnedIds } from '@/lib/pinnedDocs'
 import { FORMAT_LABELS } from '@/lib/documentFormat'
 import { cn, formatRelativeTime } from '@/lib/utils'
@@ -119,8 +118,8 @@ export function TabPickerPopover({ onOpenDocument, onNewDocument }: TabPickerPop
         </div>
       </div>
 
-      <ScrollArea className="max-h-[340px]">
-        <div className="space-y-3 px-2 pt-2 pb-4">
+      <div className="max-h-[340px] overflow-y-auto">
+        <div className="w-full min-w-0 space-y-3 px-2 pt-2 pb-4">
           {loading && (
             <p className="px-2 py-4 text-center text-xs text-muted-foreground">Loading…</p>
           )}
@@ -155,7 +154,7 @@ export function TabPickerPopover({ onOpenDocument, onNewDocument }: TabPickerPop
             </section>
           )}
         </div>
-      </ScrollArea>
+      </div>
 
       <div className="border-t border-border p-2">
         <button

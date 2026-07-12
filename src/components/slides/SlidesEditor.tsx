@@ -164,6 +164,17 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   const [isResizingRightPanel, setIsResizingRightPanel] = useState(false)
   const rightPanelDragRef = useRef<{ x: number; width: number } | null>(null)
   const rightPanelWidthRef = useRef(340)
+  // The right panel mounts and does its first paint while its container is
+  // still 0-width or mid open-animation, which can leave a stale/incorrectly
+  // sized composited layer — only self-corrects the next time something
+  // unrelated forces a re-render, which isn't reliable. Force one extra
+  // render pass shortly after mount instead of waiting on an incidental
+  // trigger.
+  const [, forceRightPanelRepaint] = useState(0)
+  useEffect(() => {
+    const id = requestAnimationFrame(() => forceRightPanelRepaint((n) => n + 1))
+    return () => cancelAnimationFrame(id)
+  }, [])
   const [selectedAnimationId, setSelectedAnimationId] = useState<string | null>(null)
   const [previewNonce, setPreviewNonce] = useState(0)
   const [previewOpen, setPreviewOpen] = useState(false)

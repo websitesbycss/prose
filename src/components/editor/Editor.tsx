@@ -124,6 +124,20 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   const aiPanelWidthRef = useRef(aiPanelWidth)
   const sidebarWidthRef = useRef(sidebarWidth)
 
+  // The right panel (AI/Citations) mounts and does its first paint while its
+  // container is still 0-width or mid open-animation, which can leave a
+  // stale/incorrectly-sized composited layer — observed to only self-correct
+  // the next time something UNRELATED forces a re-render (ollamaStatus
+  // resolving from 'loading' to 'ready', an analysis completing, etc.), which
+  // isn't reliable since it depends entirely on the timing of some other
+  // feature. Force one extra render pass shortly after mount instead of
+  // waiting on an incidental trigger.
+  const [, forceRightPanelRepaint] = useState(0)
+  useEffect(() => {
+    const id = requestAnimationFrame(() => forceRightPanelRepaint((n) => n + 1))
+    return () => cancelAnimationFrame(id)
+  }, [])
+
   // Tracks when header/footer content should be forcibly reset in the child editors
   const [headerContentKey, setHeaderContentKey] = useState(() => crypto.randomUUID())
   const [footerContentKey, setFooterContentKey] = useState(() => crypto.randomUUID())
@@ -855,7 +869,8 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
               stay mounted at all times — width/opacity/position animate
               instead of anything mounting or unmounting — so switching
               between them or closing this panel never wipes the AI panel's
-              chat/analysis state. */}
+              chat/analysis state. Same pattern as Slides' AI/Animations
+              panel crossfade (SlidesEditor.tsx). */}
           {!focusModeActive && (
             <motion.div
               className="relative shrink-0 overflow-hidden border-l border-border"
@@ -874,10 +889,6 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                   globalThis.document.body.style.userSelect = 'none'
                 }}
               />
-              {/* inset-0 alone sizes these to the outer wrapper's current
-                  (possibly still-animating) width — an explicit pixel width
-                  here too would conflict with that, over-constraining the
-                  box and risking a stale/mismatched content width. */}
               <motion.div
                 className="absolute inset-0"
                 style={{ pointerEvents: aiPanelOpen ? 'auto' : 'none' }}

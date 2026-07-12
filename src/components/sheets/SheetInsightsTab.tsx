@@ -3,12 +3,11 @@
 // formulas placed into empty cells), and chart recommendations the user can
 // insert directly. The model's JSON is fully re-validated here before any of
 // it can reach the workbook.
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { Loader2, Lightbulb, BarChart3, Sigma, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { useAppStore } from '@/store/appStore'
-import { cn } from '@/lib/utils'
 import type { ChartType } from '@/types/sheet'
 import { parseCellRef, parseCellRange, SHEET_CHART_TYPES } from '@/lib/ai/proseActions'
 import type { CellRef } from '@/lib/ai/proseActions'
@@ -101,9 +100,26 @@ function validateInsights(data: unknown): Insights | null {
 export function SheetInsightsTab({ getSheetContext, onInsertFormula, onInsertChart }: Props): JSX.Element {
   const ollamaStatus = useAppStore((s) => s.ollamaStatus)
   const [loading, setLoading] = useState(false)
+  const [hasRun, setHasRun] = useState(false)
   const [insights, setInsights] = useState<Insights | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [inserted, setInserted] = useState<Record<string, boolean>>({})
+  // Briefly flashes "Inserted" + a checkmark on the same button, then reverts
+  // — not a permanent state swap to a different-colored element.
+  const [flashed, setFlashed] = useState<Record<string, boolean>>({})
+  const flashTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+
+  useEffect(() => () => {
+    Object.values(flashTimers.current).forEach(clearTimeout)
+  }, [])
+
+  const flashInserted = useCallback((key: string): void => {
+    if (flashTimers.current[key]) clearTimeout(flashTimers.current[key])
+    setFlashed((s) => ({ ...s, [key]: true }))
+    flashTimers.current[key] = setTimeout(() => {
+      setFlashed((s) => ({ ...s, [key]: false }))
+      delete flashTimers.current[key]
+    }, 1000)
+  }, [])
 
   const unavailable = ollamaStatus === 'unavailable'
 
@@ -111,7 +127,6 @@ export function SheetInsightsTab({ getSheetContext, onInsertFormula, onInsertCha
     if (ollamaStatus !== 'ready') return
     setLoading(true)
     setError(null)
-    setInserted({})
     try {
       const resp = await window.prose.ai.prompt({
         documentContent: getSheetContext(),
@@ -128,6 +143,7 @@ export function SheetInsightsTab({ getSheetContext, onInsertFormula, onInsertCha
       setError('Analysis failed. Is Ollama running?')
     } finally {
       setLoading(false)
+      setHasRun(true)
     }
   }, [ollamaStatus, getSheetContext])
 
@@ -144,12 +160,7 @@ export function SheetInsightsTab({ getSheetContext, onInsertFormula, onInsertCha
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
               Analyzing…
             </>
-          ) : (
-            <>
-              <Lightbulb className="h-3.5 w-3.5" />
-              Analyze sheet
-            </>
-          )}
+          ) : hasRun ? 'Rerun analysis' : 'Analyze sheet'}
         </Button>
       </div>
 
@@ -202,21 +213,21 @@ export function SheetInsightsTab({ getSheetContext, onInsertFormula, onInsertCha
                             <code className="min-w-0 flex-1 truncate font-mono text-[10px] text-muted-foreground">
                               {stat.cellA1 ?? ''}: {stat.formula}
                             </code>
-                            {inserted[key] ? (
-                              <span className="flex shrink-0 items-center gap-0.5 text-[10px] font-medium text-green-600 dark:text-green-400">
-                                <Check className="h-2.5 w-2.5" /> Inserted
-                              </span>
-                            ) : (
-                              <button
-                                className="shrink-0 rounded bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/20"
-                                onClick={() => {
-                                  onInsertFormula(stat.cell!, stat.formula!)
-                                  setInserted((s) => ({ ...s, [key]: true }))
-                                }}
-                              >
-                                Insert formula
-                              </button>
-                            )}
+                            <button
+                              className="flex shrink-0 items-center gap-0.5 rounded bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/20"
+                              onClick={() => {
+                                onInsertFormula(stat.cell!, stat.formula!)
+                                flashInserted(key)
+                              }}
+                            >
+                              {flashed[key] ? (
+                                <>
+                                  <Check className="h-2.5 w-2.5" /> Inserted
+                                </>
+                              ) : (
+                                'Insert formula'
+                              )}
+                            </button>
                           </div>
                         )}
                       </div>
@@ -244,23 +255,21 @@ export function SheetInsightsTab({ getSheetContext, onInsertFormula, onInsertCha
                           <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground">{chart.reason}</p>
                         )}
                         <div className="mt-1.5">
-                          {inserted[key] ? (
-                            <span className="flex items-center gap-0.5 text-[10px] font-medium text-green-600 dark:text-green-400">
-                              <Check className="h-2.5 w-2.5" /> Inserted
-                            </span>
-                          ) : (
-                            <button
-                              className={cn(
-                                'rounded bg-primary px-2.5 py-1 text-[10px] font-medium text-primary-foreground hover:bg-primary/90',
-                              )}
-                              onClick={() => {
-                                onInsertChart({ type: chart.chartType, dataRange: chart.dataRange, title: chart.title })
-                                setInserted((s) => ({ ...s, [key]: true }))
-                              }}
-                            >
-                              Insert chart
-                            </button>
-                          )}
+                          <button
+                            className="flex items-center gap-0.5 rounded bg-primary px-2.5 py-1 text-[10px] font-medium text-primary-foreground hover:bg-primary/90"
+                            onClick={() => {
+                              onInsertChart({ type: chart.chartType, dataRange: chart.dataRange, title: chart.title })
+                              flashInserted(key)
+                            }}
+                          >
+                            {flashed[key] ? (
+                              <>
+                                <Check className="h-2.5 w-2.5" /> Inserted
+                              </>
+                            ) : (
+                              'Insert chart'
+                            )}
+                          </button>
                         </div>
                       </div>
                     )
