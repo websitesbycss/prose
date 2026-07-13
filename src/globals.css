@@ -1045,6 +1045,17 @@
   background-color: hsl(var(--muted-foreground) / 0.7);
 }
 
+/* Chart insert/edit dialog (ChartDialog) — same low-contrast issue as the
+   Documents canvas above: the plain --border thumb barely shows against this
+   dialog's flat white (light mode) surface. */
+.chart-dialog-scroll::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--muted-foreground) / 0.4);
+}
+
+.chart-dialog-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--muted-foreground) / 0.7);
+}
+
 /* Sheets (FortuneSheet) — both its horizontal and vertical scrollbars share the
    .luckysheet-scrollbar-ltr class. Override the vendor's hardcoded gray thumb
    with Prose's standard border/hover-to-muted-foreground treatment; !important

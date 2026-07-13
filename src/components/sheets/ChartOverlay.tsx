@@ -15,6 +15,10 @@ interface ChartOverlayProps {
    * sitting fixed on top of it. */
   scrollX: number
   scrollY: number
+  /** Bumped once FortuneSheet's cell data has actually finished hydrating
+   * after (re)loading a document — forces every chart to rebuild against
+   * real data even if none of its own fields changed. */
+  dataReadyTick: number
 }
 
 export function ChartOverlay({
@@ -26,6 +30,7 @@ export function ChartOverlay({
   onEditChart,
   scrollX,
   scrollY,
+  dataReadyTick,
 }: ChartOverlayProps): JSX.Element {
   const visible = charts.filter(c => c.sheetId === activeSheetId)
 
@@ -43,6 +48,7 @@ export function ChartOverlay({
             onResize={onUpdateChart}
             onEdit={onEditChart}
             onDelete={onDeleteChart}
+            dataReadyTick={dataReadyTick}
           />
         </div>
       ))}

@@ -24,6 +24,8 @@ interface InsightChart {
   chartType: ChartType
   dataRange: string
   title: string
+  xAxisLabel?: string
+  yAxisLabel?: string
   reason: string
 }
 
@@ -36,7 +38,7 @@ interface Insights {
 interface Props {
   getSheetContext(): string
   onInsertFormula(cell: CellRef, formula: string): void
-  onInsertChart(chart: { type: ChartType; dataRange: string; title: string }): void
+  onInsertChart(chart: { type: ChartType; dataRange: string; title: string; xAxisLabel?: string; yAxisLabel?: string }): void
 }
 
 function extractJsonObject(raw: string): unknown {
@@ -88,6 +90,8 @@ function validateInsights(data: unknown): Insights | null {
         chartType,
         dataRange,
         title: typeof c.title === 'string' ? c.title.slice(0, 120) : '',
+        xAxisLabel: typeof c.xAxisLabel === 'string' ? c.xAxisLabel.trim().slice(0, 60) || undefined : undefined,
+        yAxisLabel: typeof c.yAxisLabel === 'string' ? c.yAxisLabel.trim().slice(0, 60) || undefined : undefined,
         reason: typeof c.reason === 'string' ? c.reason.slice(0, 200) : '',
       })
     }
@@ -258,7 +262,13 @@ export function SheetInsightsTab({ getSheetContext, onInsertFormula, onInsertCha
                           <button
                             className="flex items-center gap-0.5 rounded bg-primary px-2.5 py-1 text-[10px] font-medium text-primary-foreground hover:bg-primary/90"
                             onClick={() => {
-                              onInsertChart({ type: chart.chartType, dataRange: chart.dataRange, title: chart.title })
+                              onInsertChart({
+                                type: chart.chartType,
+                                dataRange: chart.dataRange,
+                                title: chart.title,
+                                xAxisLabel: chart.xAxisLabel,
+                                yAxisLabel: chart.yAxisLabel,
+                              })
                               flashInserted(key)
                             }}
                           >

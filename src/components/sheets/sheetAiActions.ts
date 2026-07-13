@@ -83,6 +83,13 @@ export function applySheetActions(actions: SheetAction[], deps: SheetActionDeps)
             title: action.title,
             ...(action.xAxisLabel ? { xAxisLabel: action.xAxisLabel } : {}),
             ...(action.yAxisLabel ? { yAxisLabel: action.yAxisLabel } : {}),
+            ...(action.showLegend !== undefined ? { showLegend: action.showLegend } : {}),
+            ...(action.showXAxisLabels !== undefined ? { showXAxisLabels: action.showXAxisLabels } : {}),
+            ...(action.showYAxisLabels !== undefined ? { showYAxisLabels: action.showYAxisLabels } : {}),
+            ...(action.colors ? { colors: action.colors } : {}),
+            ...(action.doughnutCutout !== undefined ? { doughnutCutout: action.doughnutCutout } : {}),
+            ...(action.straightLines !== undefined ? { straightLines: action.straightLines } : {}),
+            ...(action.textScale !== undefined ? { textScale: action.textScale } : {}),
           })
           appliedCount++
           break

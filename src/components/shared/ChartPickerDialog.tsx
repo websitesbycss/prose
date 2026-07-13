@@ -38,10 +38,29 @@ function ChartThumb({
     const rng = parseRange(chart.dataRange)
     const extracted = rng ? extractChartData(grid, rng, chart.type) : { labels: [], datasets: [] }
     const config = buildChartConfig(chart, extracted, isDark)
-    config.options = { ...config.options, responsive: false, maintainAspectRatio: false, animation: false }
 
-    canvas.width = 240
-    canvas.height = 150
+    // Thumbnail-only overrides: no legend/title/axis-label clutter at this
+    // size, no animation replay on every re-render. Left as `responsive: true`
+    // (buildChartConfig's default) with the canvas filling a CSS aspect-ratio
+    // box below, instead of forcing a fixed intrinsic resolution — that
+    // mismatched the actually-displayed box and stretched/squished the chart.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const options = config.options as any
+    options.animation = false
+    options.plugins = {
+      ...options.plugins,
+      legend: { display: false },
+      title: { display: false },
+      tooltip: { enabled: false },
+    }
+    if (options.scales) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const scale of Object.values(options.scales) as any[]) {
+        if (scale.ticks) scale.ticks.display = false
+        if (scale.title) scale.title.display = false
+        if (scale.pointLabels) scale.pointLabels.display = false
+      }
+    }
 
     const orphan = Chart.getChart(canvas)
     if (orphan) orphan.destroy()
@@ -55,7 +74,9 @@ function ChartThumb({
       className="flex flex-col gap-1.5 rounded-lg border border-border bg-muted/20 p-2 text-left transition-colors hover:border-primary/60 hover:bg-accent"
       onClick={onSelect}
     >
-      <canvas ref={canvasRef} style={{ width: '100%', height: 110, display: 'block' }} />
+      <div className="relative aspect-[8/5] w-full overflow-hidden rounded-md bg-background">
+        <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
+      </div>
       <p className="truncate text-xs text-muted-foreground">
         {chart.title.trim() || `${chart.type} chart`}
       </p>

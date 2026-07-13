@@ -16,6 +16,11 @@ interface ChartWidgetProps {
   onResize: (chart: ChartDef) => void
   onEdit: (chart: ChartDef) => void
   onDelete: (id: string) => void
+  /** Bumped once FortuneSheet's cell data has actually finished hydrating —
+   * forces a rebuild even though none of the chart's own fields changed, so
+   * the chart doesn't stay stuck on the blank data it saw the instant it
+   * first rendered (before hydration landed). */
+  dataReadyTick: number
 }
 
 export function ChartWidget({
@@ -25,6 +30,7 @@ export function ChartWidget({
   onResize,
   onEdit,
   onDelete,
+  dataReadyTick,
 }: ChartWidgetProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const chartRef = useRef<Chart | null>(null)
@@ -76,7 +82,7 @@ export function ChartWidget({
   }, [
     chartId, sheetId, chartType, dataRange, chartTitle, workbookRef, isDark,
     xAxisLabel, yAxisLabel, showXAxisLabels, showYAxisLabels, showLegend,
-    colorsKey, doughnutCutout, straightLines, textScale,
+    colorsKey, doughnutCutout, straightLines, textScale, dataReadyTick,
   ])
 
   useEffect(() => {

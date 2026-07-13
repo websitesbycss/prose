@@ -394,7 +394,7 @@ export function ChartDialog({
 
         <div className="flex min-h-0" style={{ height: 600 }}>
           {/* Left: chart type list */}
-          <div className="w-44 shrink-0 border-r border-border overflow-y-auto py-1.5">
+          <div className="chart-dialog-scroll w-44 shrink-0 border-r border-border overflow-y-auto py-1.5">
             {CHART_TYPES.map((ct) => (
               <button
                 key={ct.id}
@@ -421,7 +421,7 @@ export function ChartDialog({
               the dialog's edge; right breathing room comes from pr-4 on the
               scrollable element itself, inside its own padding box. */}
           <div className="flex flex-1 min-w-0 flex-col py-4 pl-4">
-            <div className="flex flex-1 min-h-0 flex-col gap-3 overflow-y-auto pr-4">
+            <div className="chart-dialog-scroll flex flex-1 min-h-0 flex-col gap-3 overflow-y-auto pr-4">
               {/* Config fields */}
               <div className="flex gap-3 shrink-0">
                 <div className="flex-1 min-w-0">

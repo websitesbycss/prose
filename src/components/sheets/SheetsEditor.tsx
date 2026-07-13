@@ -171,6 +171,16 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
   // elements internally, .luckysheet-scrollbar-x/-y, so we read scroll
   // position directly from those.
   const [gridScroll, setGridScroll] = useState({ x: 0, y: 0 })
+  // FortuneSheet hydrates a freshly-mounted Workbook's cell data (`sheet.data`)
+  // in its own effect, asynchronously after mount — chart widgets that read
+  // `workbookRef.current.getAllSheets()` on their very first render can run
+  // before that hydration lands and silently extract nothing, rendering
+  // blank. Bumped once handleChange first fires after (re)loading a document
+  // (a real signal that FortuneSheet's data is actually ready), forcing every
+  // ChartWidget to rebuild against real data even if none of its own fields
+  // changed.
+  const chartDataReadyRef = useRef(false)
+  const [chartDataReadyTick, setChartDataReadyTick] = useState(0)
   const aiPanelOpen = useAppStore((s) => s.aiPanelOpen)
   const theme = useAppStore((s) => s.theme)
   const setPendingAiPrompt = useAppStore((s) => s.setPendingAiPrompt)
@@ -385,17 +395,40 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
     const wrapper = workbookWrapperRef.current
     if (!wrapper) return
 
-    const scrollerX = wrapper.querySelector('.luckysheet-scrollbar-x')
-    const scrollerY = wrapper.querySelector('.luckysheet-scrollbar-y')
-    if (!scrollerX || !scrollerY) return
+    let scrollerX: Element | null = null
+    let scrollerY: Element | null = null
+    const onScrollX = (): void => setGridScroll((s) => ({ ...s, x: (scrollerX as HTMLElement).scrollLeft }))
+    const onScrollY = (): void => setGridScroll((s) => ({ ...s, y: (scrollerY as HTMLElement).scrollTop }))
 
-    const onScrollX = (): void => setGridScroll((s) => ({ ...s, x: scrollerX.scrollLeft }))
-    const onScrollY = (): void => setGridScroll((s) => ({ ...s, y: scrollerY.scrollTop }))
-    scrollerX.addEventListener('scroll', onScrollX)
-    scrollerY.addEventListener('scroll', onScrollY)
+    // FortuneSheet recreates its internal scrollbar DOM nodes on sheet-tab
+    // switches, zoom changes, and other internal re-layouts — attaching once
+    // on mount left listeners on detached nodes after the first such change,
+    // silently freezing chart scroll-tracking. Re-query and re-attach
+    // whenever the wrapper's subtree changes instead of assuming the nodes
+    // found on mount stay valid forever.
+    function attach(): void {
+      const nextX = wrapper!.querySelector('.luckysheet-scrollbar-x')
+      const nextY = wrapper!.querySelector('.luckysheet-scrollbar-y')
+      if (nextX !== scrollerX) {
+        scrollerX?.removeEventListener('scroll', onScrollX)
+        scrollerX = nextX
+        scrollerX?.addEventListener('scroll', onScrollX)
+      }
+      if (nextY !== scrollerY) {
+        scrollerY?.removeEventListener('scroll', onScrollY)
+        scrollerY = nextY
+        scrollerY?.addEventListener('scroll', onScrollY)
+      }
+    }
+
+    attach()
+    const observer = new MutationObserver(attach)
+    observer.observe(wrapper, { childList: true, subtree: true })
+
     return () => {
-      scrollerX.removeEventListener('scroll', onScrollX)
-      scrollerY.removeEventListener('scroll', onScrollY)
+      observer.disconnect()
+      scrollerX?.removeEventListener('scroll', onScrollX)
+      scrollerY?.removeEventListener('scroll', onScrollY)
     }
   }, [ready])
 
@@ -457,6 +490,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
     loadedAtRef.current = Date.now()
     setCanUndo(false)
     setCanRedo(false)
+    chartDataReadyRef.current = false
 
     setReady(true)
   // Only re-initialize when the document ID changes (opening a different file)
@@ -699,12 +733,14 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
     scheduleSave()
   }, [scheduleSave])
 
-  const insightsInsertChart = useCallback((chart: { type: ChartType; dataRange: string; title: string }) => {
+  const insightsInsertChart = useCallback((chart: { type: ChartType; dataRange: string; title: string; xAxisLabel?: string; yAxisLabel?: string }) => {
     handleInsertChart({
       sheetId: activeTabIdRef.current,
       type: chart.type,
       dataRange: chart.dataRange,
       title: chart.title,
+      ...(chart.xAxisLabel ? { xAxisLabel: chart.xAxisLabel } : {}),
+      ...(chart.yAxisLabel ? { yAxisLabel: chart.yAxisLabel } : {}),
     })
   }, [handleInsertChart])
 
@@ -713,6 +749,11 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
   // onChange: sync tab bar, zoom, and schedule save
   const handleChange = useCallback((data: Sheet[]) => {
     pendingDataRef.current = data
+
+    if (!chartDataReadyRef.current) {
+      chartDataReadyRef.current = true
+      setChartDataReadyTick((t) => t + 1)
+    }
 
     const newTabs = data.map((s) => ({ id: String(s.id ?? ''), name: s.name }))
     const prevTabs = tabsRef.current
@@ -867,6 +908,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
               onEditChart={handleEditChart}
               scrollX={gridScroll.x}
               scrollY={gridScroll.y}
+              dataReadyTick={chartDataReadyTick}
             />
             <Workbook
               key={documentId}

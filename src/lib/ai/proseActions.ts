@@ -52,6 +52,12 @@ function color(v: unknown): string | undefined {
   return HEX_COLOR.test(c) ? c : undefined
 }
 
+function colorArray(v: unknown, maxItems: number): string[] | undefined {
+  if (!Array.isArray(v)) return undefined
+  const out = v.map(color).filter((c): c is string => c !== undefined).slice(0, maxItems)
+  return out.length > 0 ? out : undefined
+}
+
 function oneOf<T extends string>(v: unknown, allowed: readonly T[]): T | undefined {
   return typeof v === 'string' && (allowed as readonly string[]).includes(v) ? (v as T) : undefined
 }
@@ -346,6 +352,13 @@ export interface SheetAddChartAction {
   title: string
   xAxisLabel?: string
   yAxisLabel?: string
+  showLegend?: boolean
+  showXAxisLabels?: boolean
+  showYAxisLabels?: boolean
+  colors?: string[]
+  doughnutCutout?: number
+  straightLines?: boolean
+  textScale?: number
 }
 
 export type SheetAction =
@@ -722,6 +735,13 @@ function validateSheetAction(raw: Record<string, unknown>, warnings: string[]): 
         title: str(raw.title, 120) ?? '',
         xAxisLabel: str(raw.xAxisLabel, 60) ?? undefined,
         yAxisLabel: str(raw.yAxisLabel, 60) ?? undefined,
+        showLegend: bool(raw.showLegend),
+        showXAxisLabels: bool(raw.showXAxisLabels),
+        showYAxisLabels: bool(raw.showYAxisLabels),
+        colors: colorArray(raw.colors, 8),
+        doughnutCutout: optNum(raw.doughnutCutout, 0, 90),
+        straightLines: bool(raw.straightLines),
+        textScale: optNum(raw.textScale, 0.75, 2),
       }
     }
     default:
