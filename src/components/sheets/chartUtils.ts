@@ -42,6 +42,14 @@ Chart.register(
   Title,
 )
 
+// ── Grid chrome bounds ───────────────────────────────────────────────────────
+// FortuneSheet's fixed row-number column / column-letter row / scrollbar
+// strips — charts must stay clipped to (and draggable/resizable only within)
+// the actual scrollable content area, never on top of this chrome.
+export const SHEET_ROW_HEADER_WIDTH = 46
+export const SHEET_COL_HEADER_HEIGHT = 20
+export const SHEET_SCROLLBAR_THICKNESS = 14
+
 // ── Colors ────────────────────────────────────────────────────────────────────
 
 export const CHART_COLOR_HEX = [

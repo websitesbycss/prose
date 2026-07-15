@@ -28,7 +28,6 @@ function docToOut(doc: ProseFileDocument): {
   wordCountGoal: number | null
   createdAt: string
   updatedAt: string
-  categoryId: string | null
   headerContent: string | null
   footerContent: string | null
   pageMargins: { top: number; right: number; bottom: number; left: number } | null
@@ -42,7 +41,6 @@ function docToOut(doc: ProseFileDocument): {
     wordCountGoal: doc.wordCountGoal,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
-    categoryId: doc.categoryId,
     headerContent: doc.headerContent != null ? JSON.stringify(doc.headerContent) : null,
     footerContent: doc.footerContent != null ? JSON.stringify(doc.footerContent) : null,
     pageMargins: doc.pageMargins ?? null,
@@ -58,7 +56,6 @@ function dashboardDocToOut(doc: DashboardDocument): {
   wordCountGoal: null
   createdAt: string
   updatedAt: string
-  categoryId: string | null
   headerContent: null
   footerContent: null
   wordCount: number
@@ -73,7 +70,6 @@ function dashboardDocToOut(doc: DashboardDocument): {
     wordCountGoal: null,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
-    categoryId: doc.categoryId,
     headerContent: null,
     footerContent: null,
     wordCount: doc.wordCount,
@@ -102,7 +98,6 @@ export function registerDocumentHandlers(): void {
     const format = typeof d.format === 'string' && VALID_FORMATS.has(d.format) ? d.format : 'none'
     const _wcg = d.wordCountGoal != null ? Number(d.wordCountGoal) : null
     const wordCountGoal = _wcg != null && isFinite(_wcg) ? Math.max(0, Math.min(999_999, Math.round(_wcg))) : null
-    const categoryId = typeof d.categoryId === 'string' ? d.categoryId : null
     const headerContent = d.headerContent != null ? parseJsonField(d.headerContent) : null
     const footerContent = d.footerContent != null ? parseJsonField(d.footerContent) : null
     const pageMargins = isValidMargins(d.pageMargins) ? (d.pageMargins as { top: number; right: number; bottom: number; left: number }) : null
@@ -121,7 +116,6 @@ export function registerDocumentHandlers(): void {
       footerContent,
       pageMargins,
       wordCountGoal,
-      categoryId,
     })
 
     return docToOut(doc)
@@ -151,7 +145,6 @@ export function registerDocumentHandlers(): void {
       const _wcg2 = d.wordCountGoal != null ? Number(d.wordCountGoal) : null
       patch.wordCountGoal = _wcg2 != null && isFinite(_wcg2) ? Math.max(0, Math.min(999_999, Math.round(_wcg2))) : null
     }
-    if ('categoryId' in d) patch.categoryId = typeof d.categoryId === 'string' ? d.categoryId : null
     if ('headerContent' in d) {
       patch.headerContent = d.headerContent != null ? parseJsonField(d.headerContent) : null
     }

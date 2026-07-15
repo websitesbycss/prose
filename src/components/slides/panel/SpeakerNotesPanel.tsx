@@ -60,15 +60,15 @@ export function SpeakerNotesPanel({ notes, onChange }: Props): JSX.Element {
       style={{ height, flexShrink: 0 }}
       className="flex flex-col border-t border-border bg-background"
     >
-      {/* Drag handle */}
+      {/* Drag handle — same thin hover-highlighted strip as the right panels'
+          resize handles (e.g. Slides AI panel), just horizontal instead of
+          vertical. */}
       <div
-        className="flex h-3 shrink-0 cursor-row-resize items-center justify-center hover:bg-accent/40"
+        className="h-1 shrink-0 cursor-row-resize transition-colors hover:bg-primary/30"
         onMouseDown={handleDragMouseDown}
-      >
-        <div className="h-0.5 w-8 rounded-full bg-border/70" />
-      </div>
+      />
 
-      <div className="flex shrink-0 items-center px-3">
+      <div className="flex shrink-0 items-center px-3 pt-2">
         <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
           Speaker notes
         </span>

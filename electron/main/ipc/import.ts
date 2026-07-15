@@ -44,7 +44,6 @@ function docToOut(doc: ProseFileDocument): {
   wordCountGoal: number | null
   createdAt: string
   updatedAt: string
-  categoryId: string | null
   headerContent: string | null
   footerContent: string | null
 } {
@@ -57,7 +56,6 @@ function docToOut(doc: ProseFileDocument): {
     wordCountGoal: doc.wordCountGoal,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
-    categoryId: doc.categoryId,
     headerContent: doc.headerContent != null ? JSON.stringify(doc.headerContent) : null,
     footerContent: doc.footerContent != null ? JSON.stringify(doc.footerContent) : null,
   }

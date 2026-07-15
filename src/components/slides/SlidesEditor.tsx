@@ -34,6 +34,7 @@ import SettingsModal from '@/components/settings/SettingsModal'
 import { useMusicContext } from '@/contexts/MusicContext'
 import { AMBIENT_LAYERS } from '@/hooks/useMusic'
 import { useIsActiveTab } from '@/hooks/useIsActiveTab'
+import { useForceRepaintOnMount } from '@/hooks/useForceRepaintOnMount'
 import { AUTO_SAVE_DEBOUNCE_MS } from '@/constants'
 import { ChartPickerDialog } from '@/components/shared/ChartPickerDialog'
 import type { ChartSnapshot } from '@/lib/chartSnapshot'
@@ -164,25 +165,8 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   const [isResizingRightPanel, setIsResizingRightPanel] = useState(false)
   const rightPanelDragRef = useRef<{ x: number; width: number } | null>(null)
   const rightPanelWidthRef = useRef(340)
-  // The right panel mounts and does its first paint while its container is
-  // still 0-width or mid open-animation, which can leave a stale/incorrectly
-  // sized composited layer. A plain re-render doesn't fix it — what actually
-  // fixes it (confirmed empirically, e.g. by reordering the tab) is physically
-  // moving the panel's DOM node, which forces the browser to discard and
-  // rebuild the compositing layer. Reproduce that with a real detach/reattach
-  // shortly after mount instead of relying on an incidental re-render.
   const rightPanelRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const id = requestAnimationFrame(() => {
-      const el = rightPanelRef.current
-      if (!el) return
-      const prevDisplay = el.style.display
-      el.style.display = 'none'
-      void el.offsetHeight
-      el.style.display = prevDisplay
-    })
-    return () => cancelAnimationFrame(id)
-  }, [])
+  useForceRepaintOnMount(rightPanelRef)
   const [selectedAnimationId, setSelectedAnimationId] = useState<string | null>(null)
   const [previewNonce, setPreviewNonce] = useState(0)
   const [previewOpen, setPreviewOpen] = useState(false)

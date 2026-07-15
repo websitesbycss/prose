@@ -4,7 +4,7 @@ import { join } from 'path'
 import { app } from 'electron'
 import { randomUUID } from 'crypto'
 import { getSetting, setSetting } from '../services/settingsDb'
-import { getIndexDb, upsertIndex } from '../services/indexDb'
+import { upsertIndex } from '../services/indexDb'
 import {
   writeProseFile,
   sanitizeFilename,
@@ -92,17 +92,6 @@ async function runMigration(): Promise<void> {
   let migratedCount = 0
 
   try {
-    // Categories → index db
-    const oldCats = oldDb.prepare('SELECT * FROM categories').all() as Array<{
-      id: string; name: string; color: string; created_at: string
-    }>
-    const indexDb = getIndexDb()
-    for (const cat of oldCats) {
-      indexDb.prepare(
-        'INSERT OR IGNORE INTO categories (id, name, color, created_at) VALUES (?, ?, ?, ?)'
-      ).run(cat.id, cat.name, cat.color, cat.created_at)
-    }
-
     // Settings → settings db
     const oldSettings = oldDb.prepare('SELECT key, value FROM settings').all() as Array<{ key: string; value: string }>
     for (const row of oldSettings) setSetting(row.key, row.value)
@@ -111,7 +100,7 @@ async function runMigration(): Promise<void> {
     const docs = oldDb.prepare('SELECT * FROM documents ORDER BY created_at ASC').all() as Array<{
       id: string; title: string; content: string; format: string;
       word_count_goal: number | null; created_at: string; updated_at: string;
-      category_id: string | null; header_content: string | null; footer_content: string | null
+      header_content: string | null; footer_content: string | null
     }>
 
     broadcast({ status: 'running', current: 0, total: docs.length, label: `Migrating ${docs.length} document${docs.length !== 1 ? 's' : ''}…` })
@@ -144,7 +133,6 @@ async function runMigration(): Promise<void> {
         headerContent: row.header_content ? parseJson(row.header_content, null) : null,
         footerContent: row.footer_content ? parseJson(row.footer_content, null) : null,
         wordCountGoal: row.word_count_goal,
-        categoryId: row.category_id,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
         citations: citations.map((c) => ({
@@ -174,7 +162,6 @@ async function runMigration(): Promise<void> {
         file_path: destPath,
         format: row.format,
         word_count: countWordsFromContent(parsedContent),
-        category_id: row.category_id,
         created_at: row.created_at,
         updated_at: row.updated_at,
         file_type: 'document',

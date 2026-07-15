@@ -45,14 +45,6 @@ contextBridge.exposeInMainWorld('prose', {
     folderAccessible: () => ipcRenderer.invoke('documents:folderAccessible'),
   },
 
-  categories: {
-    getAll: () => ipcRenderer.invoke('categories:getAll'),
-    create: (data: Record<string, unknown>) => ipcRenderer.invoke('categories:create', data),
-    update: (id: string, data: Record<string, unknown>) =>
-      ipcRenderer.invoke('categories:update', id, data),
-    delete: (id: string) => ipcRenderer.invoke('categories:delete', id),
-  },
-
   ai: {
     prompt: (payload: Record<string, unknown>) => ipcRenderer.invoke('ai:prompt', payload),
     getStatus: () => ipcRenderer.invoke('ai:getStatus'),

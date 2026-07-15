@@ -28,6 +28,7 @@ import { cn } from '@/lib/utils'
 import { useMusicContext } from '@/contexts/MusicContext'
 import { AMBIENT_LAYERS } from '@/hooks/useMusic'
 import { useIsActiveTab } from '@/hooks/useIsActiveTab'
+import { useForceRepaintOnMount } from '@/hooks/useForceRepaintOnMount'
 import SettingsModal from '@/components/settings/SettingsModal'
 import { SheetExportModal } from './SheetExportModal'
 import { ChartDialog } from './ChartDialog'
@@ -201,25 +202,8 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
   // panel edge lags behind the cursor instead of tracking it 1:1.
   const [isResizingAiPanel, setIsResizingAiPanel] = useState(false)
 
-  // The AI panel mounts and does its first paint while its container is
-  // still 0-width or mid open-animation, which can leave a stale/incorrectly
-  // sized composited layer. A plain re-render doesn't fix it — what actually
-  // fixes it (confirmed empirically, e.g. by reordering the tab) is physically
-  // moving the panel's DOM node, which forces the browser to discard and
-  // rebuild the compositing layer. Reproduce that with a real detach/reattach
-  // shortly after mount instead of relying on an incidental re-render.
   const aiPanelRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const id = requestAnimationFrame(() => {
-      const el = aiPanelRef.current
-      if (!el) return
-      const prevDisplay = el.style.display
-      el.style.display = 'none'
-      void el.offsetHeight
-      el.style.display = prevDisplay
-    })
-    return () => cancelAnimationFrame(id)
-  }, [])
+  useForceRepaintOnMount(aiPanelRef)
 
   useEffect(() => {
     function onMouseMove(e: MouseEvent): void {
@@ -903,11 +887,13 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
               charts={charts}
               activeSheetId={activeTabId}
               workbookRef={workbookRef}
+              containerRef={workbookWrapperRef}
               onUpdateChart={handleUpdateChart}
               onDeleteChart={handleDeleteChart}
               onEditChart={handleEditChart}
               scrollX={gridScroll.x}
               scrollY={gridScroll.y}
+              zoom={zoom}
               dataReadyTick={chartDataReadyTick}
             />
             <Workbook

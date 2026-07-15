@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { FileText, Table2, Shapes, GalleryVerticalEnd, X } from 'lucide-react'
+import { FileText, Table2, Shapes, GalleryVerticalEnd, X, Upload, ChevronLeft } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import NewDocumentModal from '@/components/dashboard/NewDocumentModal'
 import { useAppStore } from '@/store/appStore'
-import type { Category, Document, FileType } from '@/types'
+import type { Document, FileType, ImportResult } from '@/types'
 
 /** Type picker card shown before creating a Sheet or Board (Document uses its own modal). */
 function SimpleNewFileModal({
@@ -84,10 +85,33 @@ function SimpleNewFileModal({
 function TypePickerModal({
   onSelect,
   onClose,
+  onImported,
 }: {
   onSelect: (type: FileType) => void
   onClose: () => void
+  onImported: (docs: Document[]) => void
 }): JSX.Element {
+  const [importing, setImporting] = useState(false)
+
+  async function handleImport(): Promise<void> {
+    if (importing) return
+    setImporting(true)
+    try {
+      const result = await window.prose.documents.importFiles() as ImportResult
+      if (result.imported.length > 0) {
+        onImported(result.imported as Document[])
+        toast.success(`Imported ${result.imported.length} file${result.imported.length !== 1 ? 's' : ''}`)
+      }
+      if (result.errors.length > 0) {
+        toast.error(`${result.errors.length} file${result.errors.length !== 1 ? 's' : ''} could not be imported`)
+      }
+    } catch {
+      toast.error('Import failed')
+    } finally {
+      setImporting(false)
+    }
+  }
+
   const types: Array<{ type: FileType; Icon: React.FC<{ className?: string }>; label: string; description: string }> = [
     {
       type: 'document',
@@ -111,7 +135,7 @@ function TypePickerModal({
       type: 'slides',
       Icon: GalleryVerticalEnd,
       label: 'Slides',
-      description: 'Create presentations with slides, shapes, images, and AI-generated content.',
+      description: 'Create presentations with slides, shapes, images, and more.',
     },
   ]
 
@@ -128,7 +152,7 @@ function TypePickerModal({
         className="w-full max-w-md rounded-xl border border-border bg-background p-5 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-2">
           <h2 className="text-sm font-semibold">New file</h2>
           <button
             className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
@@ -154,6 +178,23 @@ function TypePickerModal({
             </button>
           ))}
         </div>
+
+        <div className="mt-4 flex items-center justify-between">
+          <Button size="sm" variant="outline" className="h-9 gap-1.5 text-[13.5px] font-medium leading-none hover:border-primary/50 hover:bg-accent/40" onClick={onClose}>
+            <ChevronLeft className="h-3.5 w-3.5 shrink-0" />
+            <span className="mt-0.5">Cancel</span>
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-9 gap-1.5 text-[13.5px] font-medium leading-none hover:border-primary/50 hover:bg-accent/40"
+            onClick={() => void handleImport()}
+            disabled={importing}
+          >
+            <Upload className="h-3.5 w-3.5 shrink-0" />
+            <span>Import</span>
+          </Button>
+        </div>
       </motion.div>
     </div>
   )
@@ -165,20 +206,27 @@ export function GlobalNewDocumentModal(): JSX.Element {
   const initialType = useAppStore((s) => s.newDocumentModalInitialType)
   const setOpen = useAppStore((s) => s.setNewDocumentModalOpen)
   const openDocumentTab = useAppStore((s) => s.openDocumentTab)
-  const [categories, setCategories] = useState<Category[]>([])
   const [selectedType, setSelectedType] = useState<FileType | null>(null)
 
   useEffect(() => {
     if (!open) { setSelectedType(null); return }
     setSelectedType(initialType)
-    void window.prose.categories.getAll().then((cats) => setCategories(cats as Category[]))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
+  }, [open, initialType])
 
   function handleCreated(doc: Document): void {
     setOpen(false)
     openDocumentTab({ id: doc.id, title: doc.title, format: doc.format, fileType: doc.fileType ?? 'document' })
     window.dispatchEvent(new CustomEvent('prose-document-created', { detail: doc }))
+  }
+
+  function handleImported(docs: Document[]): void {
+    setOpen(false)
+    // Open every imported file as a tab immediately — landing on the last one
+    // imported — same as picking Document/Sheet/Board/Slides above.
+    for (const doc of docs) {
+      openDocumentTab({ id: doc.id, title: doc.title, format: doc.format, fileType: doc.fileType ?? 'document' })
+      window.dispatchEvent(new CustomEvent('prose-document-created', { detail: doc }))
+    }
   }
 
   if (!open) return <></>
@@ -192,6 +240,7 @@ export function GlobalNewDocumentModal(): JSX.Element {
             <TypePickerModal
               onSelect={setSelectedType}
               onClose={() => setOpen(false)}
+              onImported={handleImported}
             />
           )}
 
@@ -199,7 +248,6 @@ export function GlobalNewDocumentModal(): JSX.Element {
           {selectedType === 'document' && (
             <NewDocumentModal
               open
-              categories={categories}
               onClose={() => setOpen(false)}
               onCreated={handleCreated}
             />

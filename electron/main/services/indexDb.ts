@@ -13,7 +13,6 @@ const SCHEMA = `
     file_path TEXT NOT NULL,
     format TEXT NOT NULL DEFAULT 'none',
     word_count INTEGER NOT NULL DEFAULT 0,
-    category_id TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     file_type TEXT NOT NULL DEFAULT 'document',
@@ -21,14 +20,6 @@ const SCHEMA = `
   );
 
   CREATE INDEX IF NOT EXISTS idx_documents_updated ON documents(updated_at DESC);
-  CREATE INDEX IF NOT EXISTS idx_documents_category ON documents(category_id);
-
-  CREATE TABLE IF NOT EXISTS categories (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    color TEXT NOT NULL DEFAULT '#7F77DD',
-    created_at TEXT NOT NULL
-  );
 `
 
 export function initIndexDb(): void {
@@ -41,6 +32,13 @@ export function initIndexDb(): void {
   try { db.exec(`ALTER TABLE documents ADD COLUMN file_type TEXT NOT NULL DEFAULT 'document'`) } catch { /* already exists */ }
   // Migration: add has_thumbnail column to existing databases
   try { db.exec(`ALTER TABLE documents ADD COLUMN has_thumbnail INTEGER NOT NULL DEFAULT 0`) } catch { /* already exists */ }
+  // Migration: remove leftover Categories feature state from existing databases.
+  // The `categories` table and `documents.category_id` column are no longer part
+  // of the schema above (CREATE TABLE IF NOT EXISTS is a no-op on existing DBs,
+  // so old rows/columns would otherwise persist and keep leaking into the UI).
+  try { db.exec('DROP TABLE IF EXISTS categories') } catch { /* already gone */ }
+  try { db.exec('DROP INDEX IF EXISTS idx_documents_category') } catch { /* already gone */ }
+  try { db.exec('ALTER TABLE documents DROP COLUMN category_id') } catch { /* already gone, or sqlite too old */ }
 }
 
 export function getIndexDb(): Database.Database {
@@ -59,7 +57,6 @@ export interface IndexRow {
   file_path: string
   format: string
   word_count: number
-  category_id: string | null
   created_at: string
   updated_at: string
   file_type: string
@@ -72,17 +69,16 @@ export interface IndexRow {
 
 export function upsertIndex(row: IndexRow): void {
   getIndexDb()
-    .prepare(`INSERT INTO documents (id, title, file_path, format, word_count, category_id, created_at, updated_at, file_type)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    .prepare(`INSERT INTO documents (id, title, file_path, format, word_count, created_at, updated_at, file_type)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
               ON CONFLICT(id) DO UPDATE SET
                 title = excluded.title,
                 file_path = excluded.file_path,
                 format = excluded.format,
                 word_count = excluded.word_count,
-                category_id = excluded.category_id,
                 updated_at = excluded.updated_at,
                 file_type = excluded.file_type`)
-    .run(row.id, row.title, row.file_path, row.format, row.word_count, row.category_id, row.created_at, row.updated_at, row.file_type)
+    .run(row.id, row.title, row.file_path, row.format, row.word_count, row.created_at, row.updated_at, row.file_type)
 }
 
 export function removeFromIndex(id: string): void {

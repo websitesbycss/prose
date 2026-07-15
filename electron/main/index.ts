@@ -7,7 +7,6 @@ import { ensureDocumentsFolderExists, isDocumentsFolderAccessible, rebuildIndexF
 import { ollamaManager } from './services/ollama'
 import { registerDocumentHandlers } from './ipc/documents'
 import { registerSettingsHandlers } from './ipc/settings'
-import { registerCategoryHandlers } from './ipc/categories'
 import { registerCitationHandlers } from './ipc/citations'
 import { registerAiHandlers } from './ipc/ai'
 import { registerExportHandlers } from './ipc/export'
@@ -159,7 +158,6 @@ app.whenReady().then(async () => {
 
     registerDocumentHandlers()
     registerSettingsHandlers()
-    registerCategoryHandlers()
     registerCitationHandlers()
     registerAiHandlers(ollamaManager)
     registerExportHandlers()

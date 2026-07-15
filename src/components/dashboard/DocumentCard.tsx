@@ -4,12 +4,11 @@ import { Pencil, Download, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { formatRelativeTime, extractWordCount } from '@/lib/utils'
-import type { Document, Category } from '@/types'
+import type { Document } from '@/types'
 import ExportModal from '@/components/editor/ExportModal'
 
 interface DocumentCardProps {
   document: Document
-  categories: Category[]
   onOpen: (id: string) => void
   onRename: (id: string, title: string) => void
   onDelete: (id: string) => void
@@ -29,12 +28,10 @@ export const cardVariants = {
 
 export default function DocumentCard({
   document,
-  categories,
   onOpen,
   onRename,
   onDelete,
 }: DocumentCardProps): JSX.Element {
-  const category = categories.find((c) => c.id === document.categoryId)
   const wordCount = document.wordCount ?? extractWordCount(document.content)
   const formatLabel = FORMAT_LABELS[document.format]
 
@@ -61,13 +58,6 @@ export default function DocumentCard({
       className="group relative flex flex-col gap-3 rounded-lg border border-border bg-card p-4 cursor-pointer hover:border-primary/40 transition-colors"
       onClick={() => { if (!editing) onOpen(document.id) }}
     >
-      {category && (
-        <span
-          className="absolute left-0 top-3 bottom-3 w-0.5 rounded-full"
-          style={{ backgroundColor: category.color }}
-        />
-      )}
-
       <div className="pr-16">
         {editing ? (
           <input

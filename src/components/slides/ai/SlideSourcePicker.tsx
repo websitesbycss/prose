@@ -115,7 +115,7 @@ export function SlideSourcePicker({ attachments, onAdd, onRemove, onRangeChange 
         <span className="group relative inline-flex items-center leading-none" tabIndex={0}>
           <Info className="h-3.5 w-3.5 text-muted-foreground" />
           <span className="pointer-events-none absolute left-0 top-full z-30 mt-1.5 w-48 rounded-md border border-border bg-popover p-2 text-[11px] leading-snug text-popover-foreground opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus:opacity-100">
-            Add up to 5 sources for the AI to read: documents, spreadsheets, or images.
+            Add up to 5 sources for the AI to read: documents, spreadsheets, or images (if applicable).
           </span>
         </span>
       </div>

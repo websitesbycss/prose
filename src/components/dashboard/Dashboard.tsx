@@ -77,7 +77,7 @@ const TYPE_CONFIG = {
     darkBg: 'rgba(251,191,36,.13)',
     Icon: GalleryVerticalEnd,
     newLabel: 'New slideshow',
-    newDesc: 'Presentations with slides, shapes, and images',
+    newDesc: 'Slides, shapes, and images',
     continueLabel: 'Continue presenting',
   },
 } as const satisfies Record<FileType, {
@@ -332,12 +332,18 @@ export default function Dashboard({ embedded: _embedded = false }: { embedded?: 
 
   const handleImportResult = useCallback((result: ImportResult) => {
     if (result.imported.length > 0) {
-      setDocuments((prev) => [...result.imported as Document[], ...prev])
-      toast.success(`Imported ${result.imported.length} file${result.imported.length !== 1 ? 's' : ''}`)
+      const imported = result.imported as Document[]
+      setDocuments((prev) => [...imported, ...prev])
+      toast.success(`Imported ${imported.length} file${imported.length !== 1 ? 's' : ''}`)
+      // Open every imported file as a tab immediately — same as manually
+      // opening it from the grid — landing on the last one imported.
+      for (const doc of imported) {
+        openDocumentTab({ id: doc.id, title: doc.title, format: doc.format, fileType: doc.fileType ?? 'document' })
+      }
     }
     if (result.errors.length > 0)
       toast.error(`${result.errors.length} file${result.errors.length !== 1 ? 's' : ''} could not be imported`)
-  }, [])
+  }, [openDocumentTab])
 
   async function handleImport(): Promise<void> {
     if (importing) return
@@ -682,15 +688,12 @@ export default function Dashboard({ embedded: _embedded = false }: { embedded?: 
       <DocContextMenu
         doc={ctxMenu?.doc ?? null}
         pinned={ctxMenu ? pinnedIds.has(ctxMenu.doc.id) : false}
-        categories={[]}
         position={ctxMenu ? { x: ctxMenu.x, y: ctxMenu.y } : null}
         onDismiss={() => setCtxMenu(null)}
         onPin={() => ctxMenu && togglePin(ctxMenu.doc.id)}
         onRename={() => ctxMenu && setRenamingId(ctxMenu.doc.id)}
         onDelete={() => ctxMenu && setDeleteTarget(ctxMenu.doc)}
         onExport={() => handleCtxExport()}
-        onSetCategory={async () => {}}
-        onCreateCategory={async () => {}}
       />
 
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />

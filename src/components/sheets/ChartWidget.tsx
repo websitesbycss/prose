@@ -5,17 +5,32 @@ import type { RefObject } from 'react'
 import type { WorkbookInstance } from '@fortune-sheet/react'
 import { useAppStore } from '@/store/appStore'
 import type { ChartDef } from '@/types/sheet'
-import { parseRange, extractChartData, buildChartConfig } from './chartUtils'
+import {
+  parseRange, extractChartData, buildChartConfig,
+  SHEET_ROW_HEADER_WIDTH, SHEET_COL_HEADER_HEIGHT, SHEET_SCROLLBAR_THICKNESS,
+} from './chartUtils'
 
 // ── ChartWidget ───────────────────────────────────────────────────────────────
+
+const MIN_CHART_WIDTH = 220
+const MIN_CHART_HEIGHT = 160
 
 interface ChartWidgetProps {
   chart: ChartDef
   workbookRef: RefObject<WorkbookInstance | null>
+  /** The grid's own scrollable wrapper — measured to clamp drag/resize to the
+   * actual content viewport (never under the headers or scrollbars). */
+  containerRef: RefObject<HTMLDivElement | null>
   onMove: (chart: ChartDef) => void
   onResize: (chart: ChartDef) => void
   onEdit: (chart: ChartDef) => void
   onDelete: (id: string) => void
+  scrollX: number
+  scrollY: number
+  /** Current zoom percentage (10-400) — chart x/y/width/height are stored at
+   * the 100% zoom baseline; mouse deltas (real screen pixels) are converted
+   * to that baseline so drag/resize track the cursor 1:1 at any zoom. */
+  zoom: number
   /** Bumped once FortuneSheet's cell data has actually finished hydrating —
    * forces a rebuild even though none of the chart's own fields changed, so
    * the chart doesn't stay stuck on the blank data it saw the instant it
@@ -26,10 +41,14 @@ interface ChartWidgetProps {
 export function ChartWidget({
   chart,
   workbookRef,
+  containerRef,
   onMove,
   onResize,
   onEdit,
   onDelete,
+  scrollX,
+  scrollY,
+  zoom,
   dataReadyTick,
 }: ChartWidgetProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -93,16 +112,49 @@ export function ChartWidget({
     }
   }, [rebuildChart])
 
+  // Keep the latest scroll/zoom readable inside drag/resize listeners without
+  // having to tear down and re-add them on every scroll or zoom change.
+  const scrollXRef = useRef(scrollX)
+  const scrollYRef = useRef(scrollY)
+  const zoomRef = useRef(zoom)
+  useEffect(() => { scrollXRef.current = scrollX; scrollYRef.current = scrollY; zoomRef.current = zoom })
+
+  // Charts are clamped to the grid's actual scrollable content viewport at
+  // the CURRENT scroll position — never draggable/resizable under the
+  // row-number column, column-letter row, or either scrollbar strip. Reads
+  // only refs, so it's stable across renders without needing to appear in
+  // any dependency array.
+  const contentBounds = useCallback((): { minX: number; minY: number; maxRight: number; maxBottom: number } | null => {
+    const rect = containerRef.current?.getBoundingClientRect()
+    if (!rect) return null
+    const zoomFraction = zoomRef.current / 100
+    return {
+      minX: (scrollXRef.current + SHEET_ROW_HEADER_WIDTH) / zoomFraction,
+      minY: (scrollYRef.current + SHEET_COL_HEADER_HEIGHT) / zoomFraction,
+      maxRight: (scrollXRef.current + rect.width - SHEET_SCROLLBAR_THICKNESS) / zoomFraction,
+      maxBottom: (scrollYRef.current + rect.height - SHEET_SCROLLBAR_THICKNESS) / zoomFraction,
+    }
+  }, [containerRef])
+
   // ── Drag to move ─────────────────────────────────────────────────────────────
 
   const handleDragStart = useCallback((e: React.PointerEvent) => {
     if ((e.target as Element).closest('[data-resize-handle]')) return
     e.preventDefault()
-    const startX = e.clientX - chart.x
-    const startY = e.clientY - chart.y
+    const zoomFraction = zoomRef.current / 100
+    const startX = e.clientX - chart.x * zoomFraction
+    const startY = e.clientY - chart.y * zoomFraction
 
     function handleMouseMove(ev: PointerEvent): void {
-      onMove({ ...chart, x: ev.clientX - startX, y: ev.clientY - startY })
+      const bounds = contentBounds()
+      const zf = zoomRef.current / 100
+      let x = (ev.clientX - startX) / zf
+      let y = (ev.clientY - startY) / zf
+      if (bounds) {
+        x = Math.min(Math.max(x, bounds.minX), bounds.maxRight - chart.width)
+        y = Math.min(Math.max(y, bounds.minY), bounds.maxBottom - chart.height)
+      }
+      onMove({ ...chart, x, y })
     }
     function handleMouseUp(): void {
       window.removeEventListener('pointermove', handleMouseMove)
@@ -110,7 +162,7 @@ export function ChartWidget({
     }
     window.addEventListener('pointermove', handleMouseMove)
     window.addEventListener('pointerup', handleMouseUp)
-  }, [chart, onMove])
+  }, [chart, onMove, contentBounds])
 
   // ── Drag to resize (bottom-right corner) ──────────────────────────────────
 
@@ -123,11 +175,17 @@ export function ChartWidget({
     const startH = chart.height
 
     function handleResizeMove(ev: PointerEvent): void {
-      onResize({
-        ...chart,
-        width: Math.max(220, startW + (ev.clientX - startX)),
-        height: Math.max(160, startH + (ev.clientY - startY)),
-      })
+      const bounds = contentBounds()
+      const zf = zoomRef.current / 100
+      let width = startW + (ev.clientX - startX) / zf
+      let height = startH + (ev.clientY - startY) / zf
+      width = Math.max(MIN_CHART_WIDTH, width)
+      height = Math.max(MIN_CHART_HEIGHT, height)
+      if (bounds) {
+        width = Math.min(width, bounds.maxRight - chart.x)
+        height = Math.min(height, bounds.maxBottom - chart.y)
+      }
+      onResize({ ...chart, width, height })
     }
     function handleResizeUp(): void {
       window.removeEventListener('pointermove', handleResizeMove)
@@ -135,7 +193,7 @@ export function ChartWidget({
     }
     window.addEventListener('pointermove', handleResizeMove)
     window.addEventListener('pointerup', handleResizeUp)
-  }, [chart, onResize])
+  }, [chart, onResize, contentBounds])
 
   const titleLabel = chart.title.trim() || (chart.type.charAt(0).toUpperCase() + chart.type.slice(1) + ' chart')
 

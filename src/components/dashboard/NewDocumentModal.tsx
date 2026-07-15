@@ -18,14 +18,13 @@ import {
 } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { ChevronRight, ChevronDown } from 'lucide-react'
-import type { Category, Document, DocumentFormat, PageMargins } from '@/types'
+import type { Document, DocumentFormat, PageMargins } from '@/types'
 import { DEFAULT_PAGE_MARGINS, PAGE_MARGIN_MIN_IN, PAGE_MARGIN_MAX_IN } from '@/constants'
 import { buildMlaContent, buildApaContent } from '@/lib/templates'
 import { buildMlaHeaderContent, buildApaHeaderContent } from '@/components/editor/HeaderFooterEditor'
 
 interface NewDocumentModalProps {
   open: boolean
-  categories: Category[]
   onClose: () => void
   onCreated: (doc: Document) => void
 }
@@ -42,13 +41,11 @@ const HEADER_FORMATS = new Set<DocumentFormat>(['mla', 'apa'])
 
 export default function NewDocumentModal({
   open,
-  categories,
   onClose,
   onCreated,
 }: NewDocumentModalProps): JSX.Element {
   const [title, setTitle] = useState('')
   const [format, setFormat] = useState<DocumentFormat>('none')
-  const [categoryId, setCategoryId] = useState<string>('none')
   const [studentName, setStudentName] = useState('')
   const [instructorName, setInstructorName] = useState('')
   const [courseName, setCourseName] = useState('')
@@ -74,7 +71,6 @@ export default function NewDocumentModal({
   function reset(): void {
     setTitle('')
     setFormat('none')
-    setCategoryId('none')
     setStudentName('')
     setInstructorName('')
     setCourseName('')
@@ -129,7 +125,6 @@ export default function NewDocumentModal({
       const doc = await window.prose.documents.create({
         title: title.trim(),
         format,
-        categoryId: categoryId === 'none' ? null : categoryId,
         content: contentStr,
         wordCountGoal: defaultWordCountGoal,
         pageMargins,
@@ -169,45 +164,20 @@ export default function NewDocumentModal({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium">Format</label>
-              <Select value={format} onValueChange={(v) => setFormat(v as DocumentFormat)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {FORMATS.map((f) => (
-                    <SelectItem key={f.value} value={f.value}>
-                      {f.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium">Category</label>
-              <Select value={categoryId} onValueChange={setCategoryId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="None" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {categories.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      <span className="flex items-center gap-2">
-                        <span
-                          className="inline-block h-2 w-2 rounded-full"
-                          style={{ backgroundColor: c.color }}
-                        />
-                        {c.name}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium">Format</label>
+            <Select value={format} onValueChange={(v) => setFormat(v as DocumentFormat)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {FORMATS.map((f) => (
+                  <SelectItem key={f.value} value={f.value}>
+                    {f.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <Separator />

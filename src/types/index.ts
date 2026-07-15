@@ -31,20 +31,12 @@ export interface Document {
   wordCountGoal: number | null
   createdAt: string
   updatedAt: string
-  categoryId: string | null
   headerContent: string | null
   footerContent: string | null
   pageMargins: PageMargins | null
   // Present on dashboard listing (pre-computed from index)
   wordCount?: number
   hasThumbnail?: boolean
-}
-
-export interface Category {
-  id: string
-  name: string
-  color: string
-  createdAt: string
 }
 
 export interface Citation {
@@ -94,7 +86,6 @@ export interface CreateDocumentInput {
   content?: string
   fileType?: FileType
   format?: DocumentFormat
-  categoryId?: string | null
   wordCountGoal?: number | null
   headerContent?: string | null
   footerContent?: string | null
@@ -106,20 +97,9 @@ export interface UpdateDocumentInput {
   content?: string
   format?: DocumentFormat
   wordCountGoal?: number | null
-  categoryId?: string | null
   headerContent?: string | null
   footerContent?: string | null
   pageMargins?: PageMargins | null
-}
-
-export interface CreateCategoryInput {
-  name: string
-  color: string
-}
-
-export interface UpdateCategoryInput {
-  name?: string
-  color?: string
 }
 
 export interface AiSelectionAttachment {
@@ -252,12 +232,6 @@ export interface ProseAPI {
     importFiles(filePaths?: string[]): Promise<ImportResult>
     openByPath(filePath: string): Promise<Document>
     folderAccessible(): Promise<boolean>
-  }
-  categories: {
-    getAll(): Promise<Category[]>
-    create(data: CreateCategoryInput): Promise<Category>
-    update(id: string, data: UpdateCategoryInput): Promise<Category>
-    delete(id: string): Promise<void>
   }
   ai: {
     prompt(payload: AiPromptPayload): Promise<string>

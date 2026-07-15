@@ -81,6 +81,7 @@ import { List, Timer, BarChart2, History, ChevronLeft, ChevronRight, Settings } 
 import { AI_PANEL_WIDTH, DEFAULT_PAGE_MARGINS } from '@/constants'
 import { getDocumentScroll, setDocumentScroll } from '@/lib/documentTabCache'
 import { useIsActiveTab } from '@/hooks/useIsActiveTab'
+import { useForceRepaintOnMount } from '@/hooks/useForceRepaintOnMount'
 
 type SidebarPanel = 'outline' | 'pomodoro' | 'stats' | 'history'
 
@@ -124,27 +125,8 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   const aiPanelWidthRef = useRef(aiPanelWidth)
   const sidebarWidthRef = useRef(sidebarWidth)
 
-  // The right panel (AI/Citations) mounts and does its first paint while its
-  // container is still 0-width or mid open-animation, which can leave a
-  // stale/incorrectly-sized composited layer. A plain React re-render doesn't
-  // fix it — what actually fixes it (confirmed empirically) is physically
-  // moving the panel's DOM node, e.g. by reordering its tab, which forces the
-  // browser to fully discard and rebuild the compositing layer for that
-  // subtree. Reproduce that same effect programmatically shortly after mount
-  // — a real detach/reflow/reattach — instead of relying on an incidental
-  // re-render or the user having to reorder tabs.
   const rightPanelRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const id = requestAnimationFrame(() => {
-      const el = rightPanelRef.current
-      if (!el) return
-      const prevDisplay = el.style.display
-      el.style.display = 'none'
-      void el.offsetHeight // force a synchronous reflow between the two writes
-      el.style.display = prevDisplay
-    })
-    return () => cancelAnimationFrame(id)
-  }, [])
+  useForceRepaintOnMount(rightPanelRef)
 
   // Tracks when header/footer content should be forcibly reset in the child editors
   const [headerContentKey, setHeaderContentKey] = useState(() => crypto.randomUUID())

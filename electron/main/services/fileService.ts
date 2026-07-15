@@ -43,7 +43,6 @@ export interface ProseFileDocument {
   footerContent: unknown | null
   pageMargins: { top: number; right: number; bottom: number; left: number } | null
   wordCountGoal: number | null
-  categoryId: string | null
   createdAt: string
   updatedAt: string
   citations: ProseFileCitation[]
@@ -197,7 +196,6 @@ export async function resolveDocument(id: string): Promise<{ doc: ProseFileDocum
     file_path: found.filePath,
     format: found.doc.format,
     word_count: countWordsFromContent(found.doc.content),
-    category_id: found.doc.categoryId,
     created_at: found.doc.createdAt,
     updated_at: found.doc.updatedAt,
     file_type: found.doc.fileType ?? 'document',
@@ -232,7 +230,6 @@ export async function createDocument(data: {
   footerContent?: unknown | null
   pageMargins?: { top: number; right: number; bottom: number; left: number } | null
   wordCountGoal?: number | null
-  categoryId?: string | null
 }): Promise<ProseFileDocument> {
   const folder = getDocumentsFolder()
   await mkdir(folder, { recursive: true })
@@ -258,7 +255,6 @@ export async function createDocument(data: {
     footerContent: data.footerContent ?? null,
     pageMargins: data.pageMargins ?? null,
     wordCountGoal: data.wordCountGoal ?? null,
-    categoryId: data.categoryId ?? null,
     createdAt: now,
     updatedAt: now,
     citations: [],
@@ -274,7 +270,6 @@ export async function createDocument(data: {
     file_path: filePath,
     format: doc.format,
     word_count: countUnitsFromContent(content, fileType),
-    category_id: doc.categoryId,
     created_at: now,
     updated_at: now,
     file_type: fileType,
@@ -317,7 +312,6 @@ export async function updateDocument(
       file_path: filePath,
       format: updated.format,
       word_count: 'content' in patch ? countUnitsFromContent(updated.content, updated.fileType ?? 'document') : getIndexRow(id)?.word_count ?? 0,
-      category_id: updated.categoryId,
       created_at: updated.createdAt,
       updated_at: now,
       file_type: updated.fileType ?? 'document',
@@ -341,7 +335,6 @@ export interface DashboardDocument {
   format: string
   fileType: 'document' | 'sheet' | 'board' | 'slides'
   wordCount: number
-  categoryId: string | null
   createdAt: string
   updatedAt: string
   hasThumbnail: boolean
@@ -359,7 +352,6 @@ function rowToDashboard(row: IndexRow): DashboardDocument {
     format: row.format,
     fileType: (ft === 'sheet' || ft === 'board' || ft === 'slides') ? ft : 'document',
     wordCount: row.word_count,
-    categoryId: row.category_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     hasThumbnail: !!row.has_thumbnail,
@@ -394,7 +386,6 @@ export async function rebuildIndexFromFolder(): Promise<void> {
         file_path: filePath,
         format: doc.format,
         word_count: countWordsFromContent(doc.content),
-        category_id: doc.categoryId,
         created_at: doc.createdAt,
         updated_at: doc.updatedAt,
         file_type: doc.fileType ?? 'document',
@@ -434,7 +425,6 @@ export async function renameUuidSuffixedFiles(): Promise<void> {
         file_path: newPath,
         format: doc.format,
         word_count: getIndexRow(doc.id)?.word_count ?? countUnitsFromContent(doc.content, doc.fileType ?? 'document'),
-        category_id: doc.categoryId,
         created_at: doc.createdAt,
         updated_at: doc.updatedAt,
         file_type: doc.fileType ?? 'document',
@@ -535,7 +525,6 @@ export async function importProseFile(filePath: string): Promise<ProseFileDocume
     file_path: destPath,
     format: newDoc.format,
     word_count: countUnitsFromContent(newDoc.content, newDoc.fileType ?? 'document'),
-    category_id: newDoc.categoryId,
     created_at: newDoc.createdAt,
     updated_at: newDoc.updatedAt,
     file_type: newDoc.fileType ?? 'document',
@@ -564,7 +553,6 @@ export async function importMarkdownFile(filePath: string): Promise<ProseFileDoc
     footerContent: null,
     pageMargins: null,
     wordCountGoal: null,
-    categoryId: null,
     createdAt: now,
     updatedAt: now,
     citations: [],
@@ -580,7 +568,6 @@ export async function importMarkdownFile(filePath: string): Promise<ProseFileDoc
     file_path: destPath,
     format: doc.format,
     word_count: countWordsFromContent(content),
-    category_id: null,
     created_at: now,
     updated_at: now,
     file_type: 'document',
@@ -611,7 +598,6 @@ export async function importDocxFile(filePath: string): Promise<ProseFileDocumen
     footerContent: null,
     pageMargins: null,
     wordCountGoal: null,
-    categoryId: null,
     createdAt: now,
     updatedAt: now,
     citations: [],
@@ -627,7 +613,6 @@ export async function importDocxFile(filePath: string): Promise<ProseFileDocumen
     file_path: destPath,
     format: doc.format,
     word_count: countWordsFromContent(content),
-    category_id: null,
     created_at: now,
     updated_at: now,
     file_type: 'document',
@@ -654,7 +639,6 @@ export async function importSpreadsheetFile(filePath: string): Promise<ProseFile
     footerContent: null,
     pageMargins: null,
     wordCountGoal: null,
-    categoryId: null,
     createdAt: now,
     updatedAt: now,
     citations: [],
@@ -670,7 +654,6 @@ export async function importSpreadsheetFile(filePath: string): Promise<ProseFile
     file_path: destPath,
     format: doc.format,
     word_count: countSheetCells(content),
-    category_id: null,
     created_at: now,
     updated_at: now,
     file_type: 'sheet',
@@ -697,7 +680,6 @@ export async function importPptxFile(filePath: string): Promise<ProseFileDocumen
     footerContent: null,
     pageMargins: null,
     wordCountGoal: null,
-    categoryId: null,
     createdAt: now,
     updatedAt: now,
     citations: [],
@@ -713,7 +695,6 @@ export async function importPptxFile(filePath: string): Promise<ProseFileDocumen
     file_path: destPath,
     format: doc.format,
     word_count: isSlidesContent(content) ? countSlidesInContent(content) : 0,
-    category_id: null,
     created_at: now,
     updated_at: now,
     file_type: 'slides',
