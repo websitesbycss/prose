@@ -72,14 +72,10 @@ export function SheetExportModal({ open, onClose, sheetTitle, workbookRef }: She
         // Export active sheet only
         const active = sheets.find((s) => s.status === 1) ?? sheets[0]
         if (!active) return
-        const aoa = sheetToAoa(active.data)
-        const ws = XLSX.utils.aoa_to_sheet(aoa)
-        XLSX.utils.book_append_sheet(xlsxWb, ws, active.name || 'Sheet1')
+        XLSX.utils.book_append_sheet(xlsxWb, sheetToWorksheet(active), active.name || 'Sheet1')
       } else {
         for (const sheet of sheets) {
-          const aoa = sheetToAoa(sheet.data)
-          const ws = XLSX.utils.aoa_to_sheet(aoa)
-          XLSX.utils.book_append_sheet(xlsxWb, ws, sheet.name || 'Sheet')
+          XLSX.utils.book_append_sheet(xlsxWb, sheetToWorksheet(sheet), sheet.name || 'Sheet')
         }
       }
 
@@ -154,19 +150,80 @@ export function SheetExportModal({ open, onClose, sheetTitle, workbookRef }: She
   )
 }
 
-// Convert fortune-sheet 2D cell data to an array-of-arrays for SheetJS
-function sheetToAoa(data: unknown[][] | undefined | null): unknown[][] {
-  if (!data) return []
-  return data.map((row) => {
+// Convert a FortuneSheet sheet to a SheetJS worksheet, preserving computed
+// values, live formulas, merged cells, and column widths / row heights.
+// (Formulas used to be exported as literal text — "=SUM(A1:B2)" showed up in
+// Excel as a string instead of a working formula, and CSV files got formula
+// source instead of values.)
+function sheetToWorksheet(sheet: {
+  data?: unknown[][] | null
+  config?: {
+    merge?: Record<string, { r: number; c: number; rs: number; cs: number }>
+    columnlen?: Record<string, number>
+    rowlen?: Record<string, number>
+  }
+}): XLSX.WorkSheet {
+  const data = sheet.data ?? []
+
+  // Values first (computed results — what CSV and cached xlsx values need)
+  const aoa: unknown[][] = data.map((row) => {
     if (!row) return []
     return row.map((cell) => {
       if (!cell || typeof cell !== 'object') return null
       const c = cell as Record<string, unknown>
-      // Use formula if present, otherwise raw value, then computed display
-      if (typeof c['f'] === 'string' && c['f']) return `=${c['f']}`
       if (c['v'] !== undefined && c['v'] !== null) return c['v']
       if (c['m'] !== undefined && c['m'] !== null) return c['m']
       return null
     })
   })
+  const ws = XLSX.utils.aoa_to_sheet(aoa)
+
+  // Attach formulas as real formulas (SheetJS `f`, without the leading '=') so
+  // Excel shows the computed value AND keeps the formula editable.
+  for (let r = 0; r < data.length; r++) {
+    const row = data[r]
+    if (!row) continue
+    for (let c = 0; c < row.length; c++) {
+      const cell = row[c]
+      if (!cell || typeof cell !== 'object') continue
+      const f = (cell as Record<string, unknown>)['f']
+      if (typeof f === 'string' && f) {
+        const addr = XLSX.utils.encode_cell({ r, c })
+        const existing = ws[addr] as XLSX.CellObject | undefined
+        if (existing) existing.f = f.startsWith('=') ? f.slice(1) : f
+        else ws[addr] = { t: 's', v: '', f: f.startsWith('=') ? f.slice(1) : f } as XLSX.CellObject
+      }
+    }
+  }
+
+  // Merged cells
+  const merge = sheet.config?.merge
+  if (merge) {
+    ws['!merges'] = Object.values(merge).map((m) => ({
+      s: { r: m.r, c: m.c },
+      e: { r: m.r + m.rs - 1, c: m.c + m.cs - 1 },
+    }))
+  }
+
+  // Column widths / row heights (FortuneSheet stores px)
+  const columnlen = sheet.config?.columnlen
+  if (columnlen && Object.keys(columnlen).length > 0) {
+    const cols: XLSX.ColInfo[] = []
+    for (const [idx, px] of Object.entries(columnlen)) {
+      const i = parseInt(idx, 10)
+      if (!isNaN(i) && px > 0) cols[i] = { wpx: px }
+    }
+    ws['!cols'] = cols
+  }
+  const rowlen = sheet.config?.rowlen
+  if (rowlen && Object.keys(rowlen).length > 0) {
+    const rows: XLSX.RowInfo[] = []
+    for (const [idx, px] of Object.entries(rowlen)) {
+      const i = parseInt(idx, 10)
+      if (!isNaN(i) && px > 0) rows[i] = { hpx: px }
+    }
+    ws['!rows'] = rows
+  }
+
+  return ws
 }

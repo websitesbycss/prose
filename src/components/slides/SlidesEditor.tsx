@@ -1220,7 +1220,12 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
           ref={rightPanelRef}
           className="relative shrink-0 overflow-hidden border-l border-border"
           initial={false}
-          animate={{ width: rightPanelOpen ? rightPanelWidth : 0 }}
+          // visibility:hidden while closed prevents the compositor from
+          // keeping a (potentially stale) layer for the closed panel — see the
+          // matching comment in Editor.tsx's right panel.
+          animate={rightPanelOpen
+            ? { width: rightPanelWidth, visibility: 'visible' }
+            : { width: 0, transitionEnd: { visibility: 'hidden' } }}
           transition={{ duration: isResizingRightPanel ? 0 : 0.12, ease: 'easeOut' }}
           style={{ pointerEvents: rightPanelOpen ? 'auto' : 'none' }}
         >

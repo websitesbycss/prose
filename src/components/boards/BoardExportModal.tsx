@@ -162,6 +162,8 @@ export function BoardExportModal({
   const [margins,     setMargins]     = useState<PageMargins>(DEFAULT_MARGINS)
   const [scale,       setScale]       = useState<Scale>('2')
   const [background,  setBackground]  = useState(true)
+  // Exports default to light mode regardless of the app theme; dark is opt-in.
+  const [darkMode,    setDarkMode]    = useState(false)
 
   const [previewLoading, setPreviewLoading] = useState(true)
   const [pngPreviewUrl,  setPngPreviewUrl]  = useState('')
@@ -188,6 +190,7 @@ export function BoardExportModal({
     setMargins(DEFAULT_MARGINS)
     setScale('2')
     setBackground(true)
+    setDarkMode(false)
     setPreviewLoading(true)
     setPngPreviewUrl('')
     setPdfPages([])
@@ -221,7 +224,7 @@ export function BoardExportModal({
           const blob = await exportToBlob({
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             elements:      elements as any,
-            appState:      { ...appState, exportBackground: background },
+            appState:      { ...appState, exportBackground: background, exportWithDarkMode: darkMode },
             files,
             mimeType:      'image/png',
             getDimensions: (w: number, h: number) => ({ width: w * sc, height: h * sc, scale: 1 }),
@@ -235,7 +238,7 @@ export function BoardExportModal({
           const blob = await exportToBlob({
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             elements:      elements as any,
-            appState:      { ...appState, exportBackground: background },
+            appState:      { ...appState, exportBackground: background, exportWithDarkMode: darkMode },
             files,
             mimeType:      'image/png',
             getDimensions: (w: number, h: number) => ({ width: w * 3, height: h * 3, scale: 1 }),
@@ -257,7 +260,7 @@ export function BoardExportModal({
       }
     }, 400)
     return () => clearTimeout(timer)
-  }, [open, format, pageSize, orientation, margins, scale, background]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, format, pageSize, orientation, margins, scale, background, darkMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleExport(): Promise<void> {
     setExporting(true)
@@ -267,32 +270,33 @@ export function BoardExportModal({
       const appState = excalidrawAPI.getAppState()
       const files    = excalidrawAPI.getFiles()
 
+      // Both formats go through the native save dialog (same flow as
+      // Documents/Sheets/Slides exports) instead of a silent browser-style
+      // download into the default Downloads folder.
       if (format === 'png') {
         const sc   = parseInt(scale, 10)
         const blob = await exportToBlob({
           elements,
-          appState:      { ...appState, exportBackground: background },
+          appState:      { ...appState, exportBackground: background, exportWithDarkMode: darkMode },
           files,
           mimeType:      'image/png',
           getDimensions: (w: number, h: number) => ({ width: w * sc, height: h * sc, scale: 1 }),
         })
-        const url = URL.createObjectURL(blob)
-        const a   = document.createElement('a')
-        a.href     = url
-        a.download = `${baseName}.png`
-        a.click()
-        setTimeout(() => URL.revokeObjectURL(url), 1000)
+        const dataUrl = await blobToDataUrl(blob)
+        await window.prose.slides.saveExportBytes(dataUrl.split(',')[1] ?? '', `${baseName}.png`, 'png')
       } else {
         const blob = await exportToBlob({
           elements,
-          appState:      { ...appState, exportBackground: background },
+          appState:      { ...appState, exportBackground: background, exportWithDarkMode: darkMode },
           files,
           mimeType:      'image/png',
           getDimensions: (w: number, h: number) => ({ width: w * 3, height: h * 3, scale: 1 }),
         })
         const dataUrl      = await blobToDataUrl(blob)
         const [imgW, imgH] = await getImageDimensions(dataUrl)
-        buildPdf(dataUrl, imgW, imgH, pageSize, orientation, margins).save(`${baseName}.pdf`)
+        const pdf          = buildPdf(dataUrl, imgW, imgH, pageSize, orientation, margins)
+        const b64          = (pdf.output('datauristring') as string).split(',')[1] ?? ''
+        await window.prose.slides.saveExportBytes(b64, `${baseName}.pdf`, 'pdf')
       }
       onClose()
     } catch (err) {
@@ -499,6 +503,9 @@ export function BoardExportModal({
                   <SectionHeader>Image</SectionHeader>
                   <Row label="Background">
                     <Switch checked={background} onCheckedChange={setBackground} />
+                  </Row>
+                  <Row label="Dark mode">
+                    <Switch checked={darkMode} onCheckedChange={setDarkMode} />
                   </Row>
                 </div>
 

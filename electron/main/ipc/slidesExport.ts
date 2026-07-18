@@ -44,7 +44,10 @@ export function registerSlidesExportHandlers(): void {
     if (typeof filename !== 'string') throw new Error('Invalid filename')
     if (typeof format !== 'string') throw new Error('Invalid format')
 
-    const extMap: Record<string, string> = { pdf: 'PDF File', png: 'PNG Image', zip: 'ZIP Archive' }
+    const extMap: Record<string, string> = {
+      pdf: 'PDF File', png: 'PNG Image', zip: 'ZIP Archive',
+      xlsx: 'Excel Workbook', csv: 'CSV File',
+    }
     const result = await dialog.showSaveDialog({
       defaultPath: filename,
       filters: [{ name: extMap[format] ?? format.toUpperCase(), extensions: [format] }],

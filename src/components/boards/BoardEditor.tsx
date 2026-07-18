@@ -970,7 +970,12 @@ export function BoardEditor({ documentId }: BoardEditorProps): JSX.Element {
             ref={aiPanelRef}
             className="relative shrink-0 overflow-hidden border-l border-border"
             initial={false}
-            animate={{ width: aiPanelOpen ? aiPanelWidth : 0 }}
+            // visibility:hidden while closed prevents the compositor from
+            // keeping a (potentially stale) layer for the closed panel — see
+            // the matching comment in Editor.tsx's right panel.
+            animate={aiPanelOpen
+              ? { width: aiPanelWidth, visibility: 'visible' }
+              : { width: 0, transitionEnd: { visibility: 'hidden' } }}
             transition={{ duration: isResizingAiPanel ? 0 : 0.12, ease: 'easeOut' }}
             style={{ pointerEvents: aiPanelOpen ? 'auto' : 'none' }}
           >

@@ -42,9 +42,6 @@ interface DragInfo {
   startY: number
   hasMoved: boolean
   mode: 'strip' | 'detached' | 'windowMove'
-  tabWidths: Map<string, number>
-  tabGap: number
-  stripLeft: number
   originIdx: number
   visualInsertIdx: number
   grabOffsetX: number
@@ -288,24 +285,22 @@ export function DocumentTabBar({
   }
 
   // ── Insert-index computation ────────────────────────────────────────────
-  // Uses snapshotted widths + gap so it never reads mid-animation DOM state.
-  // "others" = displayTabs in their CURRENT logical order, minus the dragging tab.
-
-  // Retargeting only happens once the cursor is close to where the drop
-  // line would actually render — not the instant it crosses some tab's
-  // midpoint — so the indicator tracks the mouse itself instead of jumping
-  // around based on the dragged tab's own (possibly off-center) edges.
-  const REORDER_SNAP_THRESHOLD = 25
-
-  function computeInsertIdx(clientX: number, d: DragInfo): number {
-    const others = displayTabs.filter((t) => t.id !== d.tabId)
-    // boundaries[i] is the x position of the drop line for inserting at index i.
-    const boundaries: number[] = [d.stripLeft]
-    let x = d.stripLeft
-    for (let i = 0; i < others.length; i++) {
-      x += (d.tabWidths.get(others[i]!.id) ?? 100) + d.tabGap
-      boundaries.push(x)
-    }
+  // The drop target is always the boundary NEAREST the mouse, measured from
+  // the same real rendered tab edges the indicator line is drawn against
+  // (updateInternalDropIndicator) — never a synthetic re-packed layout. The
+  // two used to disagree by a full tab width past the dragged tab's original
+  // slot (the dragged tab still occupies its space in the DOM during the
+  // drag), which made the line land far from the cursor.
+  function computeInsertIdx(clientX: number): number {
+    const strip = tabStripRef.current
+    if (!strip) return 0
+    const items = Array.from(strip.querySelectorAll<HTMLElement>('.document-tab-item'))
+      .filter((el) => !el.classList.contains('document-tab-item--dragging'))
+    if (items.length === 0) return 0
+    // boundaries[i] = where the drop line renders when inserting at index i
+    // among the non-dragged tabs.
+    const boundaries = items.map((el) => el.getBoundingClientRect().left)
+    boundaries.push(items[items.length - 1]!.getBoundingClientRect().right)
 
     let closestIdx = 0
     let closestDist = Infinity
@@ -313,7 +308,7 @@ export function DocumentTabBar({
       const dist = Math.abs(clientX - boundaries[i]!)
       if (dist < closestDist) { closestDist = dist; closestIdx = i }
     }
-    return closestDist <= REORDER_SNAP_THRESHOLD ? closestIdx : d.visualInsertIdx
+    return closestIdx
   }
 
   function commitReorder(d: DragInfo): void {
@@ -334,20 +329,9 @@ export function DocumentTabBar({
     e.preventDefault()
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
 
-    // Snapshot stable geometry for the insert-index computation.
     const items = Array.from(
       tabStripRef.current?.querySelectorAll<HTMLElement>('.document-tab-item') ?? [],
     )
-    const tabWidths = new Map<string, number>()
-    openTabs.forEach((t, i) => {
-      tabWidths.set(t.id, items[i]?.getBoundingClientRect().width ?? 100)
-    })
-    const tabGap =
-      items.length >= 2
-        ? items[1]!.getBoundingClientRect().left -
-          (items[0]!.getBoundingClientRect().left + (tabWidths.get(openTabs[0]!.id) ?? 100))
-        : 4
-    const stripLeft = items[0]?.getBoundingClientRect().left ?? 0
     const originIdx = openTabs.findIndex((t) => t.id === tab.id)
     const tabRect = items[originIdx]?.getBoundingClientRect()
     const grabOffsetX = tabRect ? e.clientX - tabRect.left : 0
@@ -360,9 +344,6 @@ export function DocumentTabBar({
       startY: e.clientY,
       hasMoved: false,
       mode: 'strip',
-      tabWidths,
-      tabGap: Math.max(tabGap, 0),
-      stripLeft,
       originIdx,
       visualInsertIdx: originIdx,
       grabOffsetX,
@@ -427,7 +408,7 @@ export function DocumentTabBar({
 
     if (d.mode === 'strip') {
       setDragDeltaX(e.clientX - d.startX)
-      const idx = computeInsertIdx(e.clientX, d)
+      const idx = computeInsertIdx(e.clientX)
       if (idx !== d.visualInsertIdx) {
         d.visualInsertIdx = idx
         setVisualInsertIdx(idx)
@@ -492,7 +473,7 @@ export function DocumentTabBar({
       if (!d || d.mode !== 'detached') return
       d.mode = 'strip'
       setIsDetached(false)
-      const idx = computeInsertIdx(screenXToClientX(screenX), d)
+      const idx = computeInsertIdx(screenXToClientX(screenX))
       d.visualInsertIdx = idx
       setVisualInsertIdx(idx)
       setDragDeltaX(screenXToClientX(screenX) - d.startX)

@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
-import { X, FileText, Image, Images, Download, Loader2 } from 'lucide-react'
+import { X, FileText, Image, Images, Presentation, Download, Loader2 } from 'lucide-react'
 import jsPDF from 'jspdf'
 import JSZip from 'jszip'
 import { cn } from '@/lib/utils'
+import { getSlideBaseSize } from '@/types/slides'
 import type { SlidesContent } from '@/types/slides'
-import { rasterizeSlide, pngDataUrlToBase64, RASTER_W, RASTER_H } from './slideRasterizer'
+import { rasterizeSlide, pngDataUrlToBase64 } from './slideRasterizer'
 
 interface Props {
   content: SlidesContent
@@ -14,7 +15,7 @@ interface Props {
   onClose(): void
 }
 
-type ExportFormat = 'pdf' | 'png-current' | 'png-all'
+type ExportFormat = 'pptx' | 'pdf' | 'png-current' | 'png-all'
 
 interface FormatOption {
   id: ExportFormat
@@ -24,24 +25,32 @@ interface FormatOption {
 }
 
 const FORMATS: FormatOption[] = [
-  { id: 'pdf',         label: 'PDF document',            description: 'All slides as a PDF at 1920×1080 per slide',   icon: FileText },
-  { id: 'png-current', label: 'PNG: current slide',     description: 'Current slide as a 1920×1080 PNG image',        icon: Image    },
-  { id: 'png-all',     label: 'PNG: all slides (zip)',  description: 'Every slide as a PNG, bundled in a ZIP archive', icon: Images   },
+  { id: 'pptx',        label: 'PowerPoint (.pptx)',     description: 'Editable presentation for PowerPoint, Keynote, or Google Slides', icon: Presentation },
+  { id: 'pdf',         label: 'PDF document',           description: 'All slides as full-resolution pages in one PDF',                  icon: FileText },
+  { id: 'png-current', label: 'PNG: current slide',     description: 'Current slide as a full-resolution PNG image',                    icon: Image    },
+  { id: 'png-all',     label: 'PNG: all slides (zip)',  description: 'Every slide as a PNG, bundled in a ZIP archive',                  icon: Images   },
 ]
 
 export function SlidesExportModal({ content, title, activeSlideIndex, onClose }: Props): JSX.Element {
-  const [format, setFormat] = useState<ExportFormat>('pdf')
+  const [format, setFormat] = useState<ExportFormat>('pptx')
   const [exporting, setExporting] = useState(false)
   const [progress, setProgress] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
+
+  // Raster size matches the deck's real aspect ratio — 4:3 and custom decks
+  // previously rendered at a fixed 1920×1080 and got squished into the page.
+  const { baseW: rasterW, baseH: rasterH } = getSlideBaseSize(content.settings)
 
   async function handleExport(): Promise<void> {
     setExporting(true)
     setError(null)
     setProgress(null)
     try {
-      if (format === 'pdf') {
+      if (format === 'pptx') {
+        setProgress('Building PowerPoint file…')
+        await window.prose.slides.exportPptx(content, title)
+      } else if (format === 'pdf') {
         await exportPdf()
       } else if (format === 'png-current') {
         await exportPngCurrent()
@@ -59,16 +68,15 @@ export function SlidesExportModal({ content, title, activeSlideIndex, onClose }:
   }
 
   async function exportPdf(): Promise<void> {
-    const { slides, theme, settings } = content
-    const isWide = settings.aspectRatio !== '4:3'
-    const pdfW = isWide ? 13.33 : 10
-    const pdfH = 7.5
+    const { slides, theme } = content
+    const pdfW = 13.33 * (rasterW / 1920)
+    const pdfH = pdfW * (rasterH / rasterW)
 
-    const pdf = new jsPDF({ orientation: 'landscape', unit: 'in', format: [pdfW, pdfH] })
+    const pdf = new jsPDF({ orientation: pdfW >= pdfH ? 'landscape' : 'portrait', unit: 'in', format: [pdfW, pdfH] })
     for (let i = 0; i < slides.length; i++) {
       setProgress(`Rendering slide ${i + 1} of ${slides.length}…`)
-      const dataUrl = await rasterizeSlide(slides[i]!, theme)
-      if (i > 0) pdf.addPage([pdfW, pdfH], 'landscape')
+      const dataUrl = await rasterizeSlide(slides[i]!, theme, rasterW, rasterH)
+      if (i > 0) pdf.addPage([pdfW, pdfH], pdfW >= pdfH ? 'landscape' : 'portrait')
       pdf.addImage(dataUrl, 'PNG', 0, 0, pdfW, pdfH)
     }
 
@@ -82,7 +90,7 @@ export function SlidesExportModal({ content, title, activeSlideIndex, onClose }:
     const slide = slides[activeSlideIndex] ?? slides[0]
     if (!slide) throw new Error('No slide')
     setProgress('Rendering slide…')
-    const dataUrl = await rasterizeSlide(slide, theme)
+    const dataUrl = await rasterizeSlide(slide, theme, rasterW, rasterH)
     await window.prose.slides.saveExportBytes(pngDataUrlToBase64(dataUrl), `${title}.png`, 'png')
   }
 
@@ -91,7 +99,7 @@ export function SlidesExportModal({ content, title, activeSlideIndex, onClose }:
     const zip = new JSZip()
     for (let i = 0; i < slides.length; i++) {
       setProgress(`Rendering slide ${i + 1} of ${slides.length}…`)
-      const dataUrl = await rasterizeSlide(slides[i]!, theme)
+      const dataUrl = await rasterizeSlide(slides[i]!, theme, rasterW, rasterH)
       const num = String(i + 1).padStart(2, '0')
       zip.file(`${title}_slide${num}.png`, pngDataUrlToBase64(dataUrl), { base64: true })
     }
@@ -139,9 +147,9 @@ export function SlidesExportModal({ content, title, activeSlideIndex, onClose }:
           </div>
 
           {/* Rasterization note for PDF/PNG formats */}
-          {(format === 'pdf' || format === 'png-current' || format === 'png-all') && (
+          {format !== 'pptx' && (
             <p className="mb-3 text-xs text-muted-foreground">
-              Slides are rendered at {RASTER_W}×{RASTER_H}px. Large presentations may take a moment.
+              Slides are rendered at {rasterW}×{rasterH}px. Large presentations may take a moment.
             </p>
           )}
 

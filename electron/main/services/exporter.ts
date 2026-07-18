@@ -467,12 +467,26 @@ function inlineToHtml(node: JSONContent): string {
   }
   if (node.type === 'hardBreak') return '<br>'
   if (node.type === 'rightTab') return '<span class="right-tab"></span>'
+  if (node.type === 'inlineMath') return mathToMathmlHtml((node.attrs?.latex as string) ?? '', false)
   if (node.type === 'image') {
     const src = (node.attrs?.src as string) ?? ''
     const alt = escapeHtml((node.attrs?.alt as string) ?? '')
     return `<img src="${src}" alt="${alt}" style="max-width:100%">`
   }
   return (node.content ?? []).map(inlineToHtml).join('')
+}
+
+// KaTeX MathML output renders natively in Chromium — no KaTeX stylesheet or
+// fonts needed inside the hidden print window, unlike its HTML output. Without
+// this, math nodes silently vanished from PDF exports (only DOCX handled them).
+function mathToMathmlHtml(latex: string, displayMode: boolean): string {
+  if (!latex.trim()) return ''
+  try {
+    const mathml = katex.renderToString(latex, { throwOnError: false, displayMode, output: 'mathml' })
+    return displayMode ? `<div style="text-align:center;margin:0.5em 0">${mathml}</div>` : mathml
+  } catch {
+    return `<code>${escapeHtml(latex)}</code>`
+  }
 }
 
 function nodeToHtml(node: JSONContent, format = 'none'): string {
@@ -513,7 +527,11 @@ function nodeToHtml(node: JSONContent, format = 'none'): string {
       const hangingIndent = role === 'citation' ? 'text-indent:-0.5in;padding-left:0.5in' : ''
       const hasRightTab = (node.content ?? []).some((n) => n.type === 'rightTab')
       const flexStyle = hasRightTab ? 'display:flex;align-items:baseline' : ''
-      const styles = [alignStyle, firstLine, pageBreak, hangingIndent, flexStyle].filter(Boolean).join(';')
+      // Per-paragraph line spacing set in the editor — DOCX already honors
+      // this (spacingLine below); PDF/HTML previously ignored it.
+      const lh = node.attrs?.lineHeight as number | null | undefined
+      const lineHeightStyle = typeof lh === 'number' && lh > 0 ? `line-height:${lh}` : ''
+      const styles = [alignStyle, firstLine, pageBreak, hangingIndent, flexStyle, lineHeightStyle].filter(Boolean).join(';')
       const styleAttr = styles ? ` style="${styles}"` : ''
       return `<p${styleAttr}>${(node.content ?? []).map(inlineToHtml).join('') || '&nbsp;'}</p>`
     }
@@ -538,6 +556,8 @@ function nodeToHtml(node: JSONContent, format = 'none'): string {
       return '<hr>'
     case 'codeBlock':
       return `<pre><code>${escapeHtml(inlineText(node))}</code></pre>`
+    case 'blockMath':
+      return mathToMathmlHtml((node.attrs?.latex as string) ?? '', true)
     case 'pageNumber':
       return '<span class="pn"></span>'
     case 'pageBreak':
@@ -796,9 +816,9 @@ function buildPreviewPage(
   html{margin:0;padding:0;width:${wPx}px;overflow:hidden;}
   body{margin:0;padding:0;width:${wPx}px;background:${pageBg};color:${pageColor};font-family:'Times New Roman',serif;font-size:12pt;line-height:2}
   #content{width:${wPx}px;will-change:transform}
-  .ph{padding:${headerTopPad}px ${mR}px ${headerBottomPad}px ${mL}px;min-height:${hStrip}px;font-size:10pt;line-height:1.4;display:flex;align-items:center}
+  .ph{padding:${headerTopPad}px ${mR}px ${headerBottomPad}px ${mL}px;min-height:${hStrip}px;font-size:12pt;line-height:1.4;display:flex;align-items:center}
   .pb{padding:${bodyPT}px ${mR}px ${bodyPB}px ${mL}px}
-  .pf{padding:${footerTopPad}px ${mR}px ${footerBottomPad}px ${mL}px;min-height:${fStrip}px;font-size:10pt;line-height:1.4;display:flex;align-items:center}
+  .pf{padding:${footerTopPad}px ${mR}px ${footerBottomPad}px ${mL}px;min-height:${fStrip}px;font-size:12pt;line-height:1.4;display:flex;align-items:center}
   p{margin:0}ul,ol{margin:.5em 0;padding-left:2em}blockquote{margin:.5em 2em}
   pre{background:${preBg};padding:.5em;font-size:.9em}
   code{background:${preBg};padding:.1em .3em;border-radius:2px;font-size:.9em}
@@ -892,26 +912,28 @@ export async function exportToPdf(id: string, opts: ExportOptions): Promise<stri
   await writeFile(tmpHtml, html, 'utf8')
 
   const win = new BrowserWindow({ show: false, webPreferences: HIDDEN_WIN_PREFS })
-  await win.loadFile(tmpHtml)
-  const pdfBuffer = await win.webContents.printToPDF({
-    margins: {
-      marginType: 'custom',
-      top: margins.top,
-      right: margins.right,
-      bottom: margins.bottom,
-      left: margins.left,
-    },
-    pageSize: opts.pageSize,
-    landscape: opts.orientation === 'landscape',
-    printBackground: true,
-    displayHeaderFooter: hasHeaderOrFooter,
-    ...(hasHeaderOrFooter ? { headerTemplate, footerTemplate } : {}),
-  })
-  win.destroy()
-
-  await writeFile(filePath, pdfBuffer)
-  import('fs').then(({ unlinkSync }) => { try { unlinkSync(tmpHtml) } catch { /* ignore */ } })
-  return filePath
+  try {
+    await win.loadFile(tmpHtml)
+    const pdfBuffer = await win.webContents.printToPDF({
+      margins: {
+        marginType: 'custom',
+        top: margins.top,
+        right: margins.right,
+        bottom: margins.bottom,
+        left: margins.left,
+      },
+      pageSize: opts.pageSize,
+      landscape: opts.orientation === 'landscape',
+      printBackground: true,
+      displayHeaderFooter: hasHeaderOrFooter,
+      ...(hasHeaderOrFooter ? { headerTemplate, footerTemplate } : {}),
+    })
+    await writeFile(filePath, pdfBuffer)
+    return filePath
+  } finally {
+    win.destroy()
+    import('fs').then(({ unlinkSync }) => { try { unlinkSync(tmpHtml) } catch { /* ignore */ } })
+  }
 }
 
 // ── DOCX ──────────────────────────────────────────────────────────────────────
@@ -1319,16 +1341,19 @@ function buildDocxHeader(runningHead: string | null, format: string): Header | u
       ],
     })
   }
-  // APA: short title left, page number right (two-column approach via tab stop)
+  // APA: short title flush left, page number flush right via a right tab stop.
+  // (Previously both runs were right-aligned with a no-op tab stop, rendering
+  // as "TITLE1" glued together on the right.)
   return new Header({
     children: [
       new Paragraph({
+        tabStops: [{ type: TabStopType.RIGHT, position: CONTENT_WIDTH_TWIPS }],
         children: [
           new TextRun({ text: runningHead.toUpperCase() }),
+          new TextRun({ text: '\t' }),
           new TextRun({ children: [PageNumber.CURRENT] }),
         ],
-        alignment: AlignmentType.RIGHT,
-        tabStops: [{ type: 'left', position: 0 }],
+        alignment: AlignmentType.LEFT,
       }),
     ],
   })
@@ -1426,6 +1451,26 @@ async function buildDocxBuffer(id: string, opts: ExportOptions): Promise<Buffer 
   const effectiveHeaderRaw = opts.includeHeader ? row.header_content : null
   const effectiveFooterRaw = opts.includeFooter ? row.footer_content : null
 
+  const docMargins = opts.margins
+  const PAGE_MARGIN = {
+    top: Math.round(docMargins.top * 1440),
+    right: Math.round(docMargins.right * 1440),
+    bottom: Math.round(docMargins.bottom * 1440),
+    left: Math.round(docMargins.left * 1440),
+  }
+
+  // Page size: use landscape dimensions when requested.
+  // MUST be computed before headers/footers are built below — their tab stops
+  // read CONTENT_WIDTH_TWIPS, which otherwise still holds the previous
+  // export's value (misplacing the right-aligned page number).
+  const baseSize = DOCX_PAGE_SIZE[opts.pageSize] ?? DOCX_PAGE_SIZE.Letter
+  const pageW = opts.orientation === 'landscape' ? baseSize.h : baseSize.w
+  const pageH = opts.orientation === 'landscape' ? baseSize.w : baseSize.h
+  const pageWidthIn = pageW / 1440
+  const contentIn = Math.max(1, pageWidthIn - docMargins.left - docMargins.right)
+  CONTENT_WIDTH_TWIPS = Math.round(contentIn * 1440)
+  MAX_IMG_WIDTH_PX = Math.round(contentIn * 96)
+
   // Build DOCX header
   let docxHeader: Header | undefined
   if (effectiveHeaderRaw) {
@@ -1442,23 +1487,6 @@ async function buildDocxBuffer(id: string, opts: ExportOptions): Promise<Buffer 
     const parsed = parseZoneForDocx(effectiveFooterRaw)
     if (parsed) docxFooter = new Footer({ children: [buildDocxZoneParagraph(parsed)] })
   }
-
-  const docMargins = opts.margins
-  const PAGE_MARGIN = {
-    top: Math.round(docMargins.top * 1440),
-    right: Math.round(docMargins.right * 1440),
-    bottom: Math.round(docMargins.bottom * 1440),
-    left: Math.round(docMargins.left * 1440),
-  }
-
-  // Page size: use landscape dimensions when requested
-  const baseSize = DOCX_PAGE_SIZE[opts.pageSize] ?? DOCX_PAGE_SIZE.Letter
-  const pageW = opts.orientation === 'landscape' ? baseSize.h : baseSize.w
-  const pageH = opts.orientation === 'landscape' ? baseSize.w : baseSize.h
-  const pageWidthIn = pageW / 1440
-  const contentIn = Math.max(1, pageWidthIn - docMargins.left - docMargins.right)
-  CONTENT_WIDTH_TWIPS = Math.round(contentIn * 1440)
-  MAX_IMG_WIDTH_PX = Math.round(contentIn * 96)
 
   const numberingDefs: NumberingDef[] = []
 

@@ -1,5 +1,5 @@
 // Rasterizes a slide to a PNG data URL using html2canvas.
-// The slide is rendered off-screen at full 1920×1080 resolution.
+// The slide is rendered off-screen at full resolution (1920px-wide base).
 import { createRoot } from 'react-dom/client'
 import { flushSync } from 'react-dom'
 import html2canvas from 'html2canvas'
@@ -12,10 +12,12 @@ export const RASTER_H = 1080
 export async function rasterizeSlide(
   slide: Slide,
   theme: PresentationTheme,
+  width = RASTER_W,
+  height = RASTER_H,
 ): Promise<string> {
   const container = document.createElement('div')
   // Position well outside viewport so it doesn't flicker on screen
-  container.style.cssText = `position:fixed;left:${-(RASTER_W + 200)}px;top:0;width:${RASTER_W}px;height:${RASTER_H}px;overflow:hidden;pointer-events:none;z-index:-9999;`
+  container.style.cssText = `position:fixed;left:${-(width + 200)}px;top:0;width:${width}px;height:${height}px;overflow:hidden;pointer-events:none;z-index:-9999;`
   document.body.appendChild(container)
 
   const root = createRoot(container)
@@ -25,8 +27,8 @@ export async function rasterizeSlide(
         <SlideStaticView
           slide={slide}
           theme={theme}
-          width={RASTER_W}
-          height={RASTER_H}
+          width={width}
+          height={height}
         />
       )
     })
@@ -42,8 +44,8 @@ export async function rasterizeSlide(
     )
 
     const canvas = await html2canvas(container, {
-      width: RASTER_W,
-      height: RASTER_H,
+      width,
+      height,
       scale: 1,
       useCORS: true,
       logging: false,

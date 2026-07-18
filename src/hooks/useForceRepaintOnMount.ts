@@ -1,62 +1,41 @@
 import { useEffect } from 'react'
 import type { RefObject } from 'react'
 
-/** Consecutive stable frames required before treating the element's size as settled. */
-const STABLE_FRAMES_REQUIRED = 6
-/** Hard cap so the repaint always eventually fires even if size never quite stops jittering. */
-const MAX_FRAMES = 300 // ~5s at 60fps
-
 /**
- * The right/AI panel mounts and does its first paint while its container is
- * still 0-width or mid open-animation, which can leave a stale/incorrectly
- * sized composited layer — especially on a contended cold app boot, where a
- * heavier editor (e.g. Slides' canvas) can still be settling well past the
- * first animation frame. A plain re-render doesn't fix it — what actually
- * fixes it (confirmed empirically, e.g. by reordering a tab) is physically
- * moving the panel's DOM node, which forces the browser to discard and
- * rebuild the compositing layer.
+ * Guards the right/AI panel against a stale composited layer when it mounts
+ * during the single heaviest frame the app produces: the first mount of a
+ * lazy-loaded editor chunk (TipTap / FortuneSheet / Excalidraw / the Slides
+ * canvas all initialize in that frame). A panel painted during that frame can
+ * be left with a corrupt compositor snapshot that a plain React re-render
+ * never fixes — the panel later paints shifted/cut and its resize handle
+ * appears displaced from its real hit zone. Only a genuine DOM
+ * detach/reflow/reattach discards the bad layer (confirmed empirically:
+ * reordering tabs — a keyed DOM move — always fixed it).
  *
- * Rather than guess a fixed delay (unreliable — too short on a contended
- * boot, wastefully long otherwise), this polls the element's rendered size
- * every animation frame and only performs the detach/reflow/reattach once
- * the size has actually stopped changing for several consecutive frames.
+ * The primary defense is elsewhere: the panel is `visibility: hidden` while
+ * closed (see the editors' right-panel motion.divs), so in the common case
+ * nothing is painted at mount and nothing can go stale. This hook covers the
+ * remaining case — the panel mounting already OPEN (panel-open state is
+ * global across tabs) during that contended frame. There is no reliable
+ * signal for "the compositor has settled", so repaint at staggered fixed
+ * delays; the toggle happens within one task (no paint in between), so it is
+ * invisible even on an open, in-use panel.
  */
+const REPAINT_DELAYS_MS = [400, 1500]
+
 export function useForceRepaintOnMount(ref: RefObject<HTMLElement | null>): void {
   useEffect(() => {
-    let rafId = 0
-    let frame = 0
-    let stableFrames = 0
-    let lastWidth = -1
-    let lastHeight = -1
-
-    function repaint(el: HTMLElement): void {
-      const prevDisplay = el.style.display
-      el.style.display = 'none'
-      void el.offsetHeight // force a synchronous reflow between the two writes
-      el.style.display = prevDisplay
-    }
-
-    function tick(): void {
-      const el = ref.current
-      if (!el) return
-      frame++
-      const rect = el.getBoundingClientRect()
-      if (rect.width === lastWidth && rect.height === lastHeight) {
-        stableFrames++
-      } else {
-        stableFrames = 0
-        lastWidth = rect.width
-        lastHeight = rect.height
-      }
-      if (stableFrames >= STABLE_FRAMES_REQUIRED || frame >= MAX_FRAMES) {
-        repaint(el)
-        return
-      }
-      rafId = requestAnimationFrame(tick)
-    }
-
-    rafId = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(rafId)
+    const ids = REPAINT_DELAYS_MS.map((delay) =>
+      setTimeout(() => {
+        const el = ref.current
+        if (!el) return
+        const prevDisplay = el.style.display
+        el.style.display = 'none'
+        void el.offsetHeight // force a synchronous reflow between the two writes
+        el.style.display = prevDisplay
+      }, delay),
+    )
+    return () => ids.forEach(clearTimeout)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 }

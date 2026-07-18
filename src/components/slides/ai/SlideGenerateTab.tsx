@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Loader2, ChevronLeft, Check } from 'lucide-react'
 import type { Slide, PresentationTheme, PresentationSettings } from '@/types/slides'
 import {
-  OUTLINE_SYSTEM_PROMPT, parseAiJson, aiSlideToProseSlide, attachGeneratedVisuals, type AiSlideSchema,
+  OUTLINE_SYSTEM_PROMPT, parseAiJson, aiSlideToProseSlide, attachGeneratedVisuals, isSubstantialSlide, type AiSlideSchema,
 } from './aiSlideUtils'
 import { SlideStaticView } from '../export/SlideStaticView'
 import { SlideSourcePicker, SOURCE_CAP, type SourceAttachment } from './SlideSourcePicker'
@@ -97,7 +97,7 @@ export function SlideGenerateTab({
         const raw = typeof doc?.content === 'string' ? JSON.parse(doc.content) : doc?.content
         if (!isSheetContent(raw)) return { text: '' }
         const tab = raw.tabs.find((t) => t.id === raw.activeTabId) ?? raw.tabs[0]
-        return { text: tab ? sheetRangeToMarkdown(tab, a.range) : '' }
+        return { text: tab ? `# ${a.title} (spreadsheet)\n${sheetRangeToMarkdown(tab, a.range)}` : '' }
       } catch {
         return { text: '' }
       }
@@ -162,7 +162,9 @@ export function SlideGenerateTab({
         images: images.length > 0 ? images : undefined,
       })
       const aiSlides = parseAiJson<AiSlideSchema[]>(resp)
-      const capped = aiSlides.slice(0, slideCount ?? 20)
+      // Drop degenerate slides (a word or two of content, no table/chart)
+      // before capping, so a fragment doesn't consume one of the N slots.
+      const capped = aiSlides.filter(isSubstantialSlide).slice(0, slideCount ?? 20)
       const prosSlides = capped.map((ai) => aiSlideToProseSlide(ai, theme))
       setGeneratedSlides(prosSlides)
       setSelectedIndices(new Set(prosSlides.map((_, i) => i)))
