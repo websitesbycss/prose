@@ -1,5 +1,4 @@
 import { motion } from 'motion/react'
-import { BookOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface LoadingScreenProps {
@@ -15,9 +14,6 @@ interface LoadingScreenProps {
  * (index.html, before React mounts) and real content — startup checks in
  * App.tsx, and the Suspense fallback while a heavy editor chunk loads.
  * Visually matches #boot-splash in index.html so there's no jump on handoff.
- *
- * The icon mark is a placeholder — swap for the real Prose logo once it's
- * added to public/.
  */
 export function LoadingScreen({ label, fullScreen = true }: LoadingScreenProps): JSX.Element {
   return (
@@ -31,13 +27,13 @@ export function LoadingScreen({ label, fullScreen = true }: LoadingScreenProps):
         transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
         className="flex flex-col items-center gap-4"
       >
-        <motion.div
-          className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10"
+        <motion.img
+          src="/prose-icon.png"
+          alt=""
+          className="h-14 w-14 rounded-2xl shadow-md"
           animate={{ scale: [1, 1.06, 1], opacity: [1, 0.85, 1] }}
           transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
-        >
-          <BookOpen className="h-7 w-7 text-primary" />
-        </motion.div>
+        />
         <div className="text-[17px] font-semibold tracking-tight">Prose</div>
       </motion.div>
 

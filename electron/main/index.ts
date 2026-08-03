@@ -25,7 +25,7 @@ import { registerWindowHandlers, initPaths } from './ipc/windows'
 import { windowChromeOptions } from './windowChrome'
 import { autoUpdater } from 'electron-updater'
 
-const APP_ICON = join(__dirname, '../../resources/icons/prose.ico')
+const APP_ICON = join(__dirname, '../../resources/icons/prose-icon.png')
 
 // Pending file open from OS (before window is ready or while running)
 let pendingFileOpen: string | null = null

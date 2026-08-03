@@ -1,6 +1,5 @@
 import { motion } from 'motion/react'
 import { Button } from '@/components/ui/button'
-import { BookOpen } from 'lucide-react'
 
 interface WelcomeProps {
   onNext: () => void
@@ -15,9 +14,7 @@ export default function Welcome({ onNext }: WelcomeProps): JSX.Element {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
       >
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
-          <BookOpen className="h-8 w-8 text-primary" />
-        </div>
+        <img src="/prose-icon.png" alt="" className="h-16 w-16 rounded-2xl shadow-md" />
 
         <div className="flex flex-col gap-2">
           <h1 className="text-3xl font-semibold tracking-tight">Prose</h1>

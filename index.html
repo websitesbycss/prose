@@ -46,15 +46,11 @@
         font-family: 'Geist Sans', system-ui, sans-serif;
       }
       #boot-splash .mark {
-        display: flex; align-items: center; justify-content: center;
         width: 56px; height: 56px;
         border-radius: 16px;
-        background: hsl(221 83% 53% / 0.12);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
         animation: boot-pulse 1.8s ease-in-out infinite;
       }
-      html.dark #boot-splash .mark { background: hsl(213 94% 68% / 0.14); }
-      #boot-splash .mark svg { width: 28px; height: 28px; stroke: hsl(221 83% 53%); }
-      html.dark #boot-splash .mark svg { stroke: hsl(213 94% 68%); }
       #boot-splash .word { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
       #boot-splash .dots { display: flex; gap: 5px; }
       #boot-splash .dots span {
@@ -76,14 +72,8 @@
   </head>
   <body>
     <div id="root">
-      <!-- Placeholder brand mark — swap for the real Prose logo once it's added to public/. -->
       <div id="boot-splash">
-        <div class="mark">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-          </svg>
-        </div>
+        <img class="mark" src="/prose-icon.png" alt="" />
         <div class="word">Prose</div>
         <div class="dots"><span></span><span></span><span></span></div>
       </div>

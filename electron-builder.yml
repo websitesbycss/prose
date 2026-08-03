@@ -10,7 +10,9 @@ win:
   target:
     - target: nsis
       arch: x64
-  icon: resources/icons/prose.ico
+  # electron-builder auto-converts this PNG to a proper multi-resolution .ico
+  # at build time — no manual conversion needed. Must be square, ideally 1024×1024.
+  icon: resources/icons/prose-icon.png
   fileAssociations:
     - ext: prose
       name: Prose Document
@@ -20,8 +22,8 @@ win:
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
-  installerIcon: assets/icon.ico
-  uninstallerIcon: assets/icon.ico
+  # installerIcon/uninstallerIcon intentionally omitted — NSIS falls back to
+  # the same auto-converted icon generated from win.icon above when unset.
   shortcutName: Prose
   createDesktopShortcut: always
   createStartMenuShortcut: true
