@@ -4,7 +4,7 @@ import { join } from 'path'
 import { resolveDocument } from '../services/fileService'
 import { applyTitleBarOverlay, windowChromeOptions } from '../windowChrome'
 
-const APP_ICON = join(__dirname, '../../../resources/icons/prose-icon.png')
+const APP_ICON = join(__dirname, '../../../resources/icons/prose-icon.ico')
 
 let _preloadPath = join(__dirname, '../preload/index.js')
 let _rendererPath = join(__dirname, '../renderer/index.html')

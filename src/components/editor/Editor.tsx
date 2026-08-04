@@ -82,6 +82,7 @@ import { AI_PANEL_WIDTH, DEFAULT_PAGE_MARGINS } from '@/constants'
 import { getDocumentScroll, setDocumentScroll } from '@/lib/documentTabCache'
 import { useIsActiveTab } from '@/hooks/useIsActiveTab'
 import { useForceRepaintOnMount } from '@/hooks/useForceRepaintOnMount'
+import { usePanelVisibility } from '@/hooks/usePanelVisibility'
 
 type SidebarPanel = 'outline' | 'pomodoro' | 'stats' | 'history'
 
@@ -93,8 +94,10 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   const isActive = useIsActiveTab(documentId)
   const sidebarOpen = useAppStore((s) => s.sidebarOpen)
   const setSidebarOpen = useAppStore((s) => s.setSidebarOpen)
-  const aiPanelOpen = useAppStore((s) => s.aiPanelOpen)
-  const citationPanelOpen = useAppStore((s) => s.citationPanelOpen)
+  // This editor instance's OWN panel state — never the global/active-tab
+  // mirror, so a panel opened in another tab can't appear (or overlay) here.
+  const aiPanelOpen = useAppStore((s) => s.panelsByDoc[documentId]?.ai ?? false)
+  const citationPanelOpen = useAppStore((s) => s.panelsByDoc[documentId]?.citations ?? false)
   const setMusicPanelOpen = useAppStore((s) => s.setMusicPanelOpen)
   const setMusicPanelTab = useAppStore((s) => s.setMusicPanelTab)
   const focusModeActive = useAppStore((s) => s.focusModeActive)
@@ -127,6 +130,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
 
   const rightPanelRef = useRef<HTMLDivElement>(null)
   useForceRepaintOnMount(rightPanelRef)
+  const rightPanelVisibility = usePanelVisibility(aiPanelOpen || citationPanelOpen)
 
   // Tracks when header/footer content should be forcibly reset in the child editors
   const [headerContentKey, setHeaderContentKey] = useState(() => crypto.randomUUID())
@@ -866,18 +870,16 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
               ref={rightPanelRef}
               className="relative shrink-0 overflow-hidden border-l border-border"
               initial={false}
-              // visibility:hidden while closed is load-bearing, not cosmetic:
-              // the compositor keeps no content layer for hidden elements, so
-              // the panel mounting during the heavy lazy-chunk first-mount
-              // frame can't leave a stale composited layer that would paint
-              // shifted/cut when later opened. Opening flips it visible at
-              // animation start; closing hides it only after the width
-              // animation finishes (transitionEnd) so the close still animates.
-              animate={(aiPanelOpen || citationPanelOpen)
-                ? { width: aiPanelWidth, visibility: 'visible' }
-                : { width: 0, transitionEnd: { visibility: 'hidden' } }}
+              animate={{ width: (aiPanelOpen || citationPanelOpen) ? aiPanelWidth : 0 }}
               transition={{ duration: isResizingRightPanel ? 0 : 0.12, ease: 'easeOut' }}
-              style={{ pointerEvents: (aiPanelOpen || citationPanelOpen) ? 'auto' : 'none' }}
+              // visibility while closed is load-bearing (no stale compositor
+              // layer for a never-painted panel), and it must INHERIT while
+              // open — see usePanelVisibility for why an explicit 'visible'
+              // here punched through hidden background tabs.
+              style={{
+                pointerEvents: (aiPanelOpen || citationPanelOpen) ? 'auto' : 'none',
+                visibility: rightPanelVisibility,
+              }}
             >
               {/* Drag handle */}
               <div

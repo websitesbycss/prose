@@ -457,7 +457,7 @@ export default function Dashboard({ embedded: _embedded = false }: { embedded?: 
       <aside className="flex w-[280px] shrink-0 flex-col overflow-hidden border-r border-border bg-background" style={{ padding: '0 10px 12px' }}>
         {/* Brand */}
         <div className="flex h-[58px] shrink-0 items-center gap-2.5 mb-2 border-b border-border -mx-[10px] px-[14px]">
-          <img src="/prose-icon.png" alt="" className="h-[30px] w-[30px] shrink-0 rounded-lg" />
+          <img src="./prose-icon.png" alt="" className="h-[30px] w-[30px] shrink-0 rounded-lg" />
           <span className="text-[17px] font-bold tracking-tight text-foreground" style={{ letterSpacing: '-0.02em' }}>Prose</span>
         </div>
 

@@ -35,6 +35,7 @@ import { useMusicContext } from '@/contexts/MusicContext'
 import { AMBIENT_LAYERS } from '@/hooks/useMusic'
 import { useIsActiveTab } from '@/hooks/useIsActiveTab'
 import { useForceRepaintOnMount } from '@/hooks/useForceRepaintOnMount'
+import { usePanelVisibility } from '@/hooks/usePanelVisibility'
 import { AUTO_SAVE_DEBOUNCE_MS } from '@/constants'
 import { ChartPickerDialog } from '@/components/shared/ChartPickerDialog'
 import type { ChartSnapshot } from '@/lib/chartSnapshot'
@@ -151,8 +152,9 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   const [pendingShapeType, setPendingShapeType] = useState<import('@/types/slides').ShapeType | null>(null)
   const [pendingTableConfig, setPendingTableConfig] = useState<{ cols: number; rows: number } | null>(null)
   const [tableSelectedCells, setTableSelectedCells] = useState<string[]>([])
-  const aiPanelOpen = useAppStore((s) => s.aiPanelOpen)
-  const slidesAnimationsPanelOpen = useAppStore((s) => s.slidesAnimationsPanelOpen)
+  // This editor instance's OWN panel state (see appStore.panelsByDoc)
+  const aiPanelOpen = useAppStore((s) => s.panelsByDoc[documentId]?.ai ?? false)
+  const slidesAnimationsPanelOpen = useAppStore((s) => s.panelsByDoc[documentId]?.animations ?? false)
   const setAiPanelOpen = useAppStore((s) => s.setAiPanelOpen)
   const setSlidesAnimationsPanelOpen = useAppStore((s) => s.setSlidesAnimationsPanelOpen)
   const setMusicPanelOpen = useAppStore((s) => s.setMusicPanelOpen)
@@ -167,6 +169,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   const rightPanelWidthRef = useRef(340)
   const rightPanelRef = useRef<HTMLDivElement>(null)
   useForceRepaintOnMount(rightPanelRef)
+  const rightPanelVisibility = usePanelVisibility(aiPanelOpen || slidesAnimationsPanelOpen)
   const [selectedAnimationId, setSelectedAnimationId] = useState<string | null>(null)
   const [previewNonce, setPreviewNonce] = useState(0)
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -1220,14 +1223,11 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
           ref={rightPanelRef}
           className="relative shrink-0 overflow-hidden border-l border-border"
           initial={false}
-          // visibility:hidden while closed prevents the compositor from
-          // keeping a (potentially stale) layer for the closed panel — see the
-          // matching comment in Editor.tsx's right panel.
-          animate={rightPanelOpen
-            ? { width: rightPanelWidth, visibility: 'visible' }
-            : { width: 0, transitionEnd: { visibility: 'hidden' } }}
+          animate={{ width: rightPanelOpen ? rightPanelWidth : 0 }}
           transition={{ duration: isResizingRightPanel ? 0 : 0.12, ease: 'easeOut' }}
-          style={{ pointerEvents: rightPanelOpen ? 'auto' : 'none' }}
+          // visibility must INHERIT while open (never explicit 'visible') —
+          // see usePanelVisibility for the hidden-tab punch-through bug.
+          style={{ pointerEvents: rightPanelOpen ? 'auto' : 'none', visibility: rightPanelVisibility }}
         >
           <div
             className="absolute left-0 top-0 z-10 h-full w-1 cursor-col-resize transition-colors hover:bg-primary/30"

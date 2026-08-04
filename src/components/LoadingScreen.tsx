@@ -28,7 +28,7 @@ export function LoadingScreen({ label, fullScreen = true }: LoadingScreenProps):
         className="flex flex-col items-center gap-4"
       >
         <motion.img
-          src="/prose-icon.png"
+          src="./prose-icon.png"
           alt=""
           className="h-14 w-14 rounded-2xl shadow-md"
           animate={{ scale: [1, 1.06, 1], opacity: [1, 0.85, 1] }}

@@ -33,6 +33,7 @@ import { dispatchUndoRedoKey } from '@/lib/simulateUndoRedo'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useIsActiveTab } from '@/hooks/useIsActiveTab'
 import { useForceRepaintOnMount } from '@/hooks/useForceRepaintOnMount'
+import { usePanelVisibility } from '@/hooks/usePanelVisibility'
 import { useContextMenuIcons } from '@/hooks/useContextMenuIcons'
 import { runThumbnailGenerationOnce, blobToDataUrl, downscaleToThumbnail } from '@/lib/thumbnailGeneration'
 
@@ -214,7 +215,8 @@ export function BoardEditor({ documentId }: BoardEditorProps): JSX.Element {
   const excalidrawAPIRef = useRef<ExcalidrawAPI | null>(null)
   const [excalidrawAPIState, setExcalidrawAPIState] = useState<ExcalidrawAPI | null>(null)
   const excalidrawWrapperRef = useRef<HTMLDivElement>(null)
-  const aiPanelOpen = useAppStore((s) => s.aiPanelOpen)
+  // This editor instance's OWN panel state (see appStore.panelsByDoc)
+  const aiPanelOpen = useAppStore((s) => s.panelsByDoc[documentId]?.ai ?? false)
   const theme = useAppStore((s) => s.theme)
   const openDocumentTab = useAppStore((s) => s.openDocumentTab)
   const setMusicPanelOpen = useAppStore((s) => s.setMusicPanelOpen)
@@ -268,6 +270,7 @@ export function BoardEditor({ documentId }: BoardEditorProps): JSX.Element {
 
   const aiPanelRef = useRef<HTMLDivElement>(null)
   useForceRepaintOnMount(aiPanelRef)
+  const aiPanelVisibility = usePanelVisibility(aiPanelOpen)
 
   // Thumbnail generation — fired by the main process after every successful
   // content auto-save. Unlike Documents/Sheets this never goes through
@@ -970,14 +973,11 @@ export function BoardEditor({ documentId }: BoardEditorProps): JSX.Element {
             ref={aiPanelRef}
             className="relative shrink-0 overflow-hidden border-l border-border"
             initial={false}
-            // visibility:hidden while closed prevents the compositor from
-            // keeping a (potentially stale) layer for the closed panel — see
-            // the matching comment in Editor.tsx's right panel.
-            animate={aiPanelOpen
-              ? { width: aiPanelWidth, visibility: 'visible' }
-              : { width: 0, transitionEnd: { visibility: 'hidden' } }}
+            animate={{ width: aiPanelOpen ? aiPanelWidth : 0 }}
             transition={{ duration: isResizingAiPanel ? 0 : 0.12, ease: 'easeOut' }}
-            style={{ pointerEvents: aiPanelOpen ? 'auto' : 'none' }}
+            // visibility must INHERIT while open (never explicit 'visible') —
+            // see usePanelVisibility for the hidden-tab punch-through bug.
+            style={{ pointerEvents: aiPanelOpen ? 'auto' : 'none', visibility: aiPanelVisibility }}
           >
             <div
               className="absolute left-0 top-0 z-10 h-full w-1 cursor-col-resize transition-colors hover:bg-primary/30"

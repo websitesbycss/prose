@@ -29,6 +29,7 @@ import { useMusicContext } from '@/contexts/MusicContext'
 import { AMBIENT_LAYERS } from '@/hooks/useMusic'
 import { useIsActiveTab } from '@/hooks/useIsActiveTab'
 import { useForceRepaintOnMount } from '@/hooks/useForceRepaintOnMount'
+import { usePanelVisibility } from '@/hooks/usePanelVisibility'
 import SettingsModal from '@/components/settings/SettingsModal'
 import { SheetExportModal } from './SheetExportModal'
 import { ChartDialog } from './ChartDialog'
@@ -182,7 +183,8 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
   // changed.
   const chartDataReadyRef = useRef(false)
   const [chartDataReadyTick, setChartDataReadyTick] = useState(0)
-  const aiPanelOpen = useAppStore((s) => s.aiPanelOpen)
+  // This editor instance's OWN panel state (see appStore.panelsByDoc)
+  const aiPanelOpen = useAppStore((s) => s.panelsByDoc[documentId]?.ai ?? false)
   const theme = useAppStore((s) => s.theme)
   const setPendingAiPrompt = useAppStore((s) => s.setPendingAiPrompt)
   const setAiPanelOpen = useAppStore((s) => s.setAiPanelOpen)
@@ -204,6 +206,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
 
   const aiPanelRef = useRef<HTMLDivElement>(null)
   useForceRepaintOnMount(aiPanelRef)
+  const aiPanelVisibility = usePanelVisibility(aiPanelOpen)
 
   useEffect(() => {
     function onMouseMove(e: MouseEvent): void {
@@ -918,14 +921,11 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
             ref={aiPanelRef}
             className="relative shrink-0 overflow-hidden border-l border-border"
             initial={false}
-            // visibility:hidden while closed prevents the compositor from
-            // keeping a (potentially stale) layer for the closed panel — see
-            // the matching comment in Editor.tsx's right panel.
-            animate={aiPanelOpen
-              ? { width: aiPanelWidth, visibility: 'visible' }
-              : { width: 0, transitionEnd: { visibility: 'hidden' } }}
+            animate={{ width: aiPanelOpen ? aiPanelWidth : 0 }}
             transition={{ duration: isResizingAiPanel ? 0 : 0.12, ease: 'easeOut' }}
-            style={{ pointerEvents: aiPanelOpen ? 'auto' : 'none' }}
+            // visibility must INHERIT while open (never explicit 'visible') —
+            // see usePanelVisibility for the hidden-tab punch-through bug.
+            style={{ pointerEvents: aiPanelOpen ? 'auto' : 'none', visibility: aiPanelVisibility }}
           >
             <div
               className="absolute left-0 top-0 z-10 h-full w-1 cursor-col-resize transition-colors hover:bg-primary/30"

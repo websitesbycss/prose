@@ -11,6 +11,24 @@ export interface OpenDocumentTab {
   fileType?: 'document' | 'sheet' | 'board' | 'slides'
 }
 
+export interface PanelState {
+  ai?: boolean
+  citations?: boolean
+  animations?: boolean
+}
+
+function mirrorPanels(
+  panelsByDoc: Record<string, PanelState>,
+  activeId: string | null,
+): { aiPanelOpen: boolean; citationPanelOpen: boolean; slidesAnimationsPanelOpen: boolean } {
+  const p = activeId ? panelsByDoc[activeId] : undefined
+  return {
+    aiPanelOpen: p?.ai ?? false,
+    citationPanelOpen: p?.citations ?? false,
+    slidesAnimationsPanelOpen: p?.animations ?? false,
+  }
+}
+
 function readStoredTheme(): Theme {
   try {
     return localStorage.getItem('prose-theme') === 'light' ? 'light' : 'dark'
@@ -37,6 +55,18 @@ interface AppState {
   theme: Theme
   sidebarOpen: boolean
   boardSidebarOpen: boolean
+  /**
+   * Right-panel open state, PER DOCUMENT TAB. Every editor instance reads its
+   * own entry — never a global flag — so opening the AI panel in one tab
+   * can't open (or overlay) it in any other tab.
+   */
+  panelsByDoc: Record<string, PanelState>
+  /**
+   * Mirrors of the ACTIVE document's panelsByDoc entry, kept in sync by every
+   * action that changes panel state or the active tab. Toolbars, title bars,
+   * and panel close buttons only ever act on the active tab, so they read and
+   * toggle these without needing a document id.
+   */
   aiPanelOpen: boolean
   slidesAnimationsPanelOpen: boolean
   citationPanelOpen: boolean
@@ -109,6 +139,7 @@ export const useAppStore = create<AppState>()((set) => ({
   theme: readStoredTheme(),
   sidebarOpen: true,
   boardSidebarOpen: true,
+  panelsByDoc: {},
   aiPanelOpen: false,
   slidesAnimationsPanelOpen: false,
   citationPanelOpen: false,
@@ -141,6 +172,7 @@ export const useAppStore = create<AppState>()((set) => ({
         currentDocumentId: id,
         showDashboard: false,
         openTabs: exists ? s.openTabs : [...s.openTabs, { id, title: 'Untitled', format: 'mla' }],
+        ...mirrorPanels(s.panelsByDoc, id),
       }
     })
   },
@@ -156,6 +188,7 @@ export const useAppStore = create<AppState>()((set) => ({
         activeDocumentId: tab.id,
         currentDocumentId: tab.id,
         showDashboard: false,
+        ...mirrorPanels(s.panelsByDoc, tab.id),
       }
     }),
 
@@ -169,6 +202,7 @@ export const useAppStore = create<AppState>()((set) => ({
         activeDocumentId: tab.id,
         currentDocumentId: tab.id,
         showDashboard: false,
+        ...mirrorPanels(s.panelsByDoc, tab.id),
       }
     }),
 
@@ -208,20 +242,27 @@ export const useAppStore = create<AppState>()((set) => ({
         }
       }
 
+      // Drop the closed tab's panel state so a reopened document starts fresh
+      const panelsByDoc = { ...s.panelsByDoc }
+      delete panelsByDoc[id]
+
       return {
         openTabs,
         activeDocumentId,
         currentDocumentId: activeDocumentId,
         showDashboard,
+        panelsByDoc,
+        ...mirrorPanels(panelsByDoc, activeDocumentId),
       }
     }),
 
   activateDocumentTab: (id) =>
-    set({
+    set((s) => ({
       activeDocumentId: id,
       currentDocumentId: id,
       showDashboard: false,
-    }),
+      ...mirrorPanels(s.panelsByDoc, id),
+    })),
 
   updateDocumentTab: (id, updates) =>
     set((s) => ({
@@ -257,20 +298,33 @@ export const useAppStore = create<AppState>()((set) => ({
   },
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   setBoardSidebarOpen: (open) => set({ boardSidebarOpen: open }),
-  // AI and citation panels are mutually exclusive; opening one closes the other
+  // Panel setters write to the ACTIVE document's entry — toolbars and close
+  // buttons only ever act on the tab the user is looking at. Panels within a
+  // document are mutually exclusive: opening one closes the others.
   setAiPanelOpen: (open) =>
-    set((s) => ({
-      aiPanelOpen: open,
-      slidesAnimationsPanelOpen: open ? false : s.slidesAnimationsPanelOpen,
-      citationPanelOpen: open ? false : s.citationPanelOpen,
-    })),
+    set((s) => {
+      const id = s.activeDocumentId
+      if (!id) return {}
+      const entry: PanelState = open ? { ai: true } : { ...s.panelsByDoc[id], ai: false }
+      const panelsByDoc = { ...s.panelsByDoc, [id]: entry }
+      return { panelsByDoc, ...mirrorPanels(panelsByDoc, id) }
+    }),
   setSlidesAnimationsPanelOpen: (open) =>
-    set((s) => ({
-      slidesAnimationsPanelOpen: open,
-      aiPanelOpen: open ? false : s.aiPanelOpen,
-    })),
+    set((s) => {
+      const id = s.activeDocumentId
+      if (!id) return {}
+      const entry: PanelState = open ? { animations: true } : { ...s.panelsByDoc[id], animations: false }
+      const panelsByDoc = { ...s.panelsByDoc, [id]: entry }
+      return { panelsByDoc, ...mirrorPanels(panelsByDoc, id) }
+    }),
   setCitationPanelOpen: (open) =>
-    set((s) => ({ citationPanelOpen: open, aiPanelOpen: open ? false : s.aiPanelOpen })),
+    set((s) => {
+      const id = s.activeDocumentId
+      if (!id) return {}
+      const entry: PanelState = open ? { citations: true } : { ...s.panelsByDoc[id], citations: false }
+      const panelsByDoc = { ...s.panelsByDoc, [id]: entry }
+      return { panelsByDoc, ...mirrorPanels(panelsByDoc, id) }
+    }),
   setMusicPanelOpen: (open) => set({ musicPanelOpen: open }),
   setMusicPanelTab: (tab) => set({ musicPanelTab: tab }),
   setFocusModeActive: (active) => set({ focusModeActive: active }),
