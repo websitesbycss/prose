@@ -1221,7 +1221,9 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
             the right, same feel as the music panel's tab crossfade. */}
         <motion.div
           ref={rightPanelRef}
-          className="relative shrink-0 overflow-hidden border-l border-border"
+          // overflow-CLIP, not hidden — see the matching comment in Editor.tsx:
+          // prevents chat focus/scrollIntoView from permanently scrolling this box.
+          className="relative shrink-0 overflow-clip border-l border-border"
           initial={false}
           animate={{ width: rightPanelOpen ? rightPanelWidth : 0 }}
           transition={{ duration: isResizingRightPanel ? 0 : 0.12, ease: 'easeOut' }}

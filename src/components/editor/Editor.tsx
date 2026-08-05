@@ -868,7 +868,12 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
           {!focusModeActive && (
             <motion.div
               ref={rightPanelRef}
-              className="relative shrink-0 overflow-hidden border-l border-border"
+              // overflow-CLIP, not hidden: hidden boxes are still programmatically
+              // scrollable, and the chat composer's focus()/scrollIntoView() while
+              // the panel was width-0/mid-animation set a permanent scrollLeft —
+              // clipping the left padding and scrolling the resize handle out of
+              // reach. clip makes this box not a scroll container at all.
+              className="relative shrink-0 overflow-clip border-l border-border"
               initial={false}
               animate={{ width: (aiPanelOpen || citationPanelOpen) ? aiPanelWidth : 0 }}
               transition={{ duration: isResizingRightPanel ? 0 : 0.12, ease: 'easeOut' }}

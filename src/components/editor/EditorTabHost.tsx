@@ -94,7 +94,10 @@ export function EditorTabHost(): JSX.Element | null {
   )
 
   return (
-    <div className="relative h-screen w-full overflow-hidden">
+    // overflow-clip (not hidden): hidden boxes can still be scrolled
+    // programmatically — a focus()/scrollIntoView() inside any tab pane could
+    // permanently shift the whole editor host. clip forbids scrolling outright.
+    <div className="relative h-screen w-full overflow-clip">
       {documentTabs.map((tab) => (
         <HiddenTabPane key={tab.id} active={tab.id === activeDocumentId}>
           <ErrorBoundary label="Editor">

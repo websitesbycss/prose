@@ -971,7 +971,9 @@ export function BoardEditor({ documentId }: BoardEditorProps): JSX.Element {
               chat state survives closing and reopening the panel. */}
           <motion.div
             ref={aiPanelRef}
-            className="relative shrink-0 overflow-hidden border-l border-border"
+            // overflow-CLIP, not hidden — see the matching comment in Editor.tsx:
+            // prevents chat focus/scrollIntoView from permanently scrolling this box.
+            className="relative shrink-0 overflow-clip border-l border-border"
             initial={false}
             animate={{ width: aiPanelOpen ? aiPanelWidth : 0 }}
             transition={{ duration: isResizingAiPanel ? 0 : 0.12, ease: 'easeOut' }}
