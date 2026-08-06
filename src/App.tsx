@@ -5,6 +5,7 @@ import { useAppStore } from '@/store/appStore'
 import { applyAccentColors, DEFAULT_LIGHT_ACCENT, DEFAULT_DARK_ACCENT } from '@/lib/accentColor'
 import Dashboard from '@/components/dashboard/Dashboard'
 import { GlobalNewDocumentModal } from '@/components/GlobalNewDocumentModal'
+import { UpdateToast } from '@/components/UpdateToast'
 import { DashboardTabBar } from '@/components/editor/DashboardTabBar'
 import Welcome from '@/components/onboarding/Welcome'
 import SaveLocation from '@/components/onboarding/SaveLocation'
@@ -261,6 +262,7 @@ export default function App(): JSX.Element {
       </AnimatePresence>
       <Toaster theme={theme} richColors position="bottom-right" offset={32} />
       <GlobalNewDocumentModal />
+      <UpdateToast />
     </MusicContext.Provider>
   )
 }

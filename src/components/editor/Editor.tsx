@@ -83,6 +83,7 @@ import { getDocumentScroll, setDocumentScroll } from '@/lib/documentTabCache'
 import { useIsActiveTab } from '@/hooks/useIsActiveTab'
 import { useForceRepaintOnMount } from '@/hooks/useForceRepaintOnMount'
 import { usePanelVisibility } from '@/hooks/usePanelVisibility'
+import { flattenDocText } from '@/lib/issueSpan'
 
 type SidebarPanel = 'outline' | 'pomodoro' | 'stats' | 'history'
 
@@ -352,7 +353,9 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
         e.preventDefault()
         void saveNow(editor)
         if (useAppStore.getState().analyzeOnSave) {
-          void analysis.analyze(editor.state.doc.textContent)
+          // flattenDocText, not textContent — Harper must lint text with real
+          // block separators or paragraph-boundary words get glued together.
+          void analysis.analyze(flattenDocText(editor.state.doc).text)
         }
       }
       if (e.key === 'F11') {
@@ -838,7 +841,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                     onEditMath={(pos, latex, displayMode) => openMathModal({ editPos: pos, latex, displayMode })}
                   />
                   <SpellTooltip editor={editor} documentId={documentId} />
-                  <IssueTooltip editor={editor} issues={analysis.issues} />
+                  <IssueTooltip editor={editor} issues={analysis.issues} onDismissIssue={analysis.dismissIssue} />
                 </div>
 
                 {/* Footer zone — only rendered once document is loaded to prevent blank init on HMR */}

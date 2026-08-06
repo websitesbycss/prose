@@ -246,5 +246,17 @@ contextBridge.exposeInMainWorld('prose', {
     importPptx: () => ipcRenderer.invoke('slides:importPptx'),
   },
 
+  updates: {
+    getState: () => ipcRenderer.invoke('updates:getState'),
+    check: (): Promise<void> => ipcRenderer.invoke('updates:check'),
+    install: (): Promise<void> => ipcRenderer.invoke('updates:install'),
+    skipVersion: (version: string): Promise<void> => ipcRenderer.invoke('updates:skipVersion', version),
+    onStatus: (cb: (status: unknown) => void): (() => void) => {
+      const listener = (_e: unknown, status: unknown): void => cb(status)
+      ipcRenderer.on('updates:status', listener)
+      return () => ipcRenderer.removeListener('updates:status', listener)
+    },
+  },
+
   platform: process.platform as NodeJS.Platform,
 })

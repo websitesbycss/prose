@@ -25,7 +25,7 @@ const TOOLTIP_HEIGHT = 28
 // coordsAtPos uses getBoundingClientRect() internally. In Chromium, CSS `zoom`
 // on an ancestor causes those calls to return un-zoomed layout coords instead of
 // viewport coords. Walk up to find the zoom container and apply the correction.
-function resolveViewportCoords(editor: Editor, docPos: number): { x: number; y: number; lineHeight: number } | null {
+export function resolveViewportCoords(editor: Editor, docPos: number): { x: number; y: number; lineHeight: number } | null {
   let raw: { left: number; top: number; bottom: number }
   try {
     raw = editor.view.coordsAtPos(docPos)

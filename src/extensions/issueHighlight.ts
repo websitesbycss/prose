@@ -3,7 +3,7 @@ import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import type { Issue } from '@/types'
-import { buildCharPositions } from '@/lib/issueSpan'
+import { flattenDocText, spanToDocRange } from '@/lib/issueSpan'
 
 export const issueHighlightKey = new PluginKey<DecorationSet>('issueHighlight')
 
@@ -17,15 +17,15 @@ declare module '@tiptap/core' {
 }
 
 function buildDecorations(doc: PMNode, issues: Issue[]): DecorationSet {
-  const positions = buildCharPositions(doc)
+  const { positions } = flattenDocText(doc)
   const decos: Decoration[] = []
 
   for (const issue of issues) {
-    const { start, end } = issue.span
-    if (start < 0 || end <= start || end > positions.length) continue
+    const range = spanToDocRange(positions, issue.span.start, issue.span.end)
+    if (!range) continue
 
     decos.push(
-      Decoration.inline(positions[start]!, positions[end - 1]! + 1, {
+      Decoration.inline(range.from, range.to, {
         class: `issue-highlight issue-highlight--${issue.type}`,
         'data-issue-id': issue.id,
       })

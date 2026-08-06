@@ -13,14 +13,14 @@ import { FILE_TYPE_AI_CONFIG } from '@/lib/aiConfig'
 import type { FileType } from '@/lib/aiConfig'
 import type { Issue, AiSelectionAttachment } from '@/types'
 import type { AnalysisState, AnalysisControls } from '@/hooks/useAnalysis'
-import { charSpanToDocRange } from '@/lib/issueSpan'
+import { charSpanToDocRange, flattenDocText } from '@/lib/issueSpan'
 import {
   extractActionBlock, stripActionBlock, hasOpenActionFence, validateActions, describeAction,
 } from '@/lib/ai/proseActions'
 import type { ActionSurface, ProseAction, ValidatedActions } from '@/lib/ai/proseActions'
 import {
   Send, Loader2, Sparkles, MessageSquare, ScanText, X, TextSelect,
-  Wand2, Check, AlertTriangle, Paperclip,
+  Wand2, Check, AlertTriangle, Paperclip, ArrowRight,
 } from 'lucide-react'
 import { IMAGE_CAP, openImagePicker, type AttachedImage } from './imageAttachments'
 import { ImagePill, SentImagePill, ImageEnlargeModal, type ImagePreview } from './ImagePill'
@@ -284,6 +284,18 @@ export function applyIssueSuggestion(editor: Editor, issue: Issue): void {
   const range = charSpanToDocRange(editor.state.doc, issue.span.start, issue.span.end)
   if (!range) return
   editor.chain().focus().deleteRange(range).insertContentAt(range.from, issue.suggestion).run()
+}
+
+// Harper messages quote text with backticks ("Did you mean `Contemporary`?");
+// render those segments as styled chips instead of showing raw backticks.
+export function renderIssueMessage(message: string): React.ReactNode {
+  const parts = message.split(/`([^`]+)`/g)
+  if (parts.length === 1) return message
+  return parts.map((part, i) =>
+    i % 2 === 1
+      ? <code key={i} className="rounded bg-muted px-1 py-px font-mono text-[0.92em] text-foreground">{part}</code>
+      : <span key={i}>{part}</span>
+  )
 }
 
 // ── Formula extraction (Sheets) ───────────────────────────────────────────────
@@ -865,15 +877,20 @@ function AnalysisTab({
 
   const handleAnalyze = useCallback((): void => {
     if (!editor) return
-    void analyze(editor.state.doc.textContent)
+    // flattenDocText, not textContent — Harper must lint text with real
+    // block separators or paragraph-boundary words get glued together.
+    void analyze(flattenDocText(editor.state.doc).text)
   }, [editor, analyze])
 
   function scrollToIssue(issue: Issue): void {
     if (!editor) return
     const range = charSpanToDocRange(editor.state.doc, issue.span.start, issue.span.end)
     if (!range) return
-    editor.commands.setTextSelection(range.from)
-    editor.commands.scrollIntoView()
+    // Focus first — selection changes on an unfocused editor don't visibly
+    // move anything, which made clicking a card look like a no-op. Selecting
+    // the whole range (not a bare cursor) also shows WHICH text the issue is
+    // about once the editor scrolls there.
+    editor.chain().focus().setTextSelection(range).scrollIntoView().run()
   }
 
   const summary = summarizeByCategory(issues)
@@ -973,7 +990,14 @@ function AnalysisTab({
                   key={issue.id}
                   issue={issue}
                   onClick={() => scrollToIssue(issue)}
-                  onApply={() => { if (editor) applyIssueSuggestion(editor, issue) }}
+                  onApply={() => {
+                    if (!editor) return
+                    applyIssueSuggestion(editor, issue)
+                    // The applied span is stale now — remove the card instead
+                    // of leaving a fix that would target shifted offsets.
+                    analysis.dismissIssue(issue.id)
+                  }}
+                  onDismiss={() => analysis.dismissIssue(issue.id)}
                 />
               ))}
             </div>
@@ -990,47 +1014,72 @@ function AnalysisTab({
   )
 }
 
-// Category kicker (small dot + label) + title + italicized quote, apply pill
-// revealed on hover — no stats tiles, no large color dot next to the title.
+function trimText(s: string, max: number): string {
+  return s.length > max ? s.slice(0, max) + '…' : s
+}
+
+// Compact card: category kicker, then the correction itself front and center
+// as "old → new" (or the flagged text when there's no fix), the explanation
+// underneath, and a quiet Apply / Dismiss action row. Clicking the card body
+// jumps the editor to the highlighted text.
 function IssueCard({
   issue,
   onClick,
   onApply,
+  onDismiss,
 }: {
   issue: Issue
   onClick(): void
   onApply(): void
+  onDismiss(): void
 }): JSX.Element {
   return (
-    <button
-      className="group w-full rounded-lg border border-border bg-background p-2.5 text-left transition-colors hover:border-primary/45"
-      onClick={onClick}
-    >
-      <div className="mb-1 flex items-center gap-1.5">
-        <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', ISSUE_COLORS[issue.type])} />
-        <span className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
-          {issue.category}
-        </span>
-      </div>
-      <p className="text-xs font-semibold leading-snug text-foreground">{issue.message}</p>
-      <blockquote className="relative mt-1.5 pl-3 text-[11px] italic leading-snug text-muted-foreground">
-        <span className="absolute left-0 top-0 font-serif text-base not-italic leading-none text-muted-foreground/50">&ldquo;</span>
-        {issue.quote.length > 72 ? issue.quote.slice(0, 72) + '…' : issue.quote}
-      </blockquote>
-      {issue.suggestion && (
-        <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-200 ease-out">
-          <div className="overflow-hidden min-h-0">
-            <button
-              className="mt-2 flex w-full items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-left text-[10.5px] font-medium leading-relaxed text-primary hover:bg-primary/20"
-              onClick={(e) => { e.stopPropagation(); onApply() }}
-            >
-              <Check className="h-2.5 w-2.5 shrink-0" />
-              {issue.suggestion.length > 40 ? issue.suggestion.slice(0, 40) + '…' : issue.suggestion}
-            </button>
-          </div>
+    <div className="overflow-hidden rounded-lg border border-border bg-background transition-colors hover:border-primary/40">
+      <button className="w-full p-2.5 text-left" onClick={onClick} title="Jump to text">
+        <div className="flex items-center gap-1.5">
+          <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', ISSUE_COLORS[issue.type])} />
+          <span className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {issue.category}
+          </span>
         </div>
-      )}
-    </button>
+        {issue.suggestion ? (
+          <p className="mt-1.5 flex min-w-0 items-center gap-1.5 text-xs leading-snug">
+            <span className="truncate text-muted-foreground line-through decoration-muted-foreground/50">
+              {trimText(issue.quote, 30)}
+            </span>
+            <ArrowRight className="h-3 w-3 shrink-0 text-muted-foreground/50" />
+            <span className="truncate font-medium text-foreground">{trimText(issue.suggestion, 30)}</span>
+          </p>
+        ) : (
+          <p className="mt-1.5 truncate text-xs font-medium leading-snug text-foreground">
+            {trimText(issue.quote, 64)}
+          </p>
+        )}
+        <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+          {renderIssueMessage(issue.message)}
+        </p>
+      </button>
+      <div className="flex border-t border-border/60">
+        {issue.suggestion && (
+          <>
+            <button
+              className="flex flex-1 items-center justify-center gap-1 py-1.5 text-[10.5px] font-medium text-primary transition-colors hover:bg-primary/10"
+              onClick={onApply}
+            >
+              <Check className="h-2.5 w-2.5" />
+              Apply
+            </button>
+            <div className="w-px bg-border/60" />
+          </>
+        )}
+        <button
+          className="flex-1 py-1.5 text-[10.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          onClick={onDismiss}
+        >
+          Dismiss
+        </button>
+      </div>
+    </div>
   )
 }
 

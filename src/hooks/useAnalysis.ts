@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { useAppStore } from '@/store/appStore'
 import type { Issue } from '@/types'
 import { lintText } from '@/lib/grammar/harperLinter'
@@ -13,6 +13,7 @@ export interface AnalysisState {
 export interface AnalysisControls {
   analyze(documentText: string): Promise<void>
   clearIssues(): void
+  dismissIssue(id: string): void
 }
 
 export function useAnalysis(): AnalysisState & AnalysisControls {
@@ -23,6 +24,12 @@ export function useAnalysis(): AnalysisState & AnalysisControls {
   const [hasRun, setHasRun] = useState(false)
   // Guards against a stale run's result landing after a newer one started.
   const requestIdRef = useRef(0)
+
+  // The toolbar badge always mirrors the live issue list — one sync point
+  // instead of remembering to update the count at every mutation site.
+  useEffect(() => {
+    setIssueCount(issues.length)
+  }, [issues, setIssueCount])
 
   const analyze = useCallback(
     async (documentText: string): Promise<void> => {
@@ -37,7 +44,6 @@ export function useAnalysis(): AnalysisState & AnalysisControls {
         const result = await lintText(documentText)
         if (requestId !== requestIdRef.current) return
         setIssues(result)
-        setIssueCount(result.length)
         setHasRun(true)
       } catch (err) {
         console.error('useAnalysis error:', err)
@@ -46,15 +52,18 @@ export function useAnalysis(): AnalysisState & AnalysisControls {
         if (requestId === requestIdRef.current) setAnalyzing(false)
       }
     },
-    [setIssueCount]
+    []
   )
 
   const clearIssues = useCallback((): void => {
     setIssues([])
-    setIssueCount(0)
     setHasRun(false)
     setError(null)
-  }, [setIssueCount])
+  }, [])
 
-  return { issues, analyzing, error, hasRun, analyze, clearIssues }
+  const dismissIssue = useCallback((id: string): void => {
+    setIssues((prev) => prev.filter((i) => i.id !== id))
+  }, [])
+
+  return { issues, analyzing, error, hasRun, analyze, clearIssues, dismissIssue }
 }

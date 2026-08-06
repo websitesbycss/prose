@@ -45,9 +45,10 @@ function groupForKind(kind: string): IssueColorGroup {
 /**
  * Lints `text` and returns issues with character-offset spans measured
  * against `text` itself (Unicode scalar indices, per Harper's Span docs) —
- * callers must lint the exact same flat string they'll later map spans back
- * into (e.g. `editor.state.doc.textContent`, not `getText()` with block
- * separators, which would shift offsets).
+ * callers must lint the exact flat string produced by flattenDocText
+ * (src/lib/issueSpan.ts), which is also what every span-to-position mapping
+ * is built against. Never lint doc.textContent: it has no block separators,
+ * so words across paragraph boundaries get glued together.
  */
 export async function lintText(text: string): Promise<Issue[]> {
   if (!text.trim()) return []

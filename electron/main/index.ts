@@ -23,7 +23,7 @@ import { registerThumbnailHandlers } from './ipc/thumbnails'
 import { registerFileAssociation } from './services/fileAssociation'
 import { registerWindowHandlers, initPaths } from './ipc/windows'
 import { windowChromeOptions } from './windowChrome'
-import { autoUpdater } from 'electron-updater'
+import { registerUpdateHandlers, checkForUpdatesOnStartup } from './ipc/updates'
 
 const APP_ICON = join(__dirname, '../../resources/icons/prose-icon.ico')
 
@@ -177,6 +177,7 @@ app.whenReady().then(async () => {
       process.env['ELECTRON_RENDERER_URL'],
     )
     registerWindowHandlers()
+    registerUpdateHandlers()
 
     ipcMain.handle('documents:folderAccessible', () => isDocumentsFolderAccessible())
 
@@ -196,13 +197,7 @@ app.whenReady().then(async () => {
   const fileArg = process.argv.find((arg) => arg.endsWith('.prose') && arg !== process.execPath)
   if (fileArg) pendingFileOpen = fileArg
 
-  if (app.isPackaged) {
-    autoUpdater.autoDownload = false
-    autoUpdater.autoInstallOnAppQuit = false
-    autoUpdater.checkForUpdates().catch((err) => {
-      console.error('Auto-update check failed:', err)
-    })
-  }
+  checkForUpdatesOnStartup()
 
   void ollamaManager.start().catch((err) => {
     console.error('Ollama start error:', err)

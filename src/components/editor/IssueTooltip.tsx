@@ -7,16 +7,20 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'motion/react'
 import type { Editor } from '@tiptap/react'
-import { cn, zoomCorrectedRect } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import type { Issue } from '@/types'
-import { ISSUE_COLORS, applyIssueSuggestion } from './AiPanel'
+import { ISSUE_COLORS, applyIssueSuggestion, renderIssueMessage } from './AiPanel'
+import { charSpanToDocRange } from '@/lib/issueSpan'
+import { resolveViewportCoords } from './SpellTooltip'
 
 export function IssueTooltip({
   editor,
   issues,
+  onDismissIssue,
 }: {
   editor: Editor | null
   issues: Issue[]
+  onDismissIssue?: (id: string) => void
 }): JSX.Element {
   const [tooltip, setTooltip] = useState<{ issue: Issue; x: number; y: number } | null>(null)
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -37,29 +41,22 @@ export function IssueTooltip({
   }, [])
 
   // Anchor to the top-center of the highlighted phrase itself, not the
-  // cursor — so hovering anywhere over a multi-word highlight shows the
-  // tooltip in the same spot. A single issue can be split across several DOM
-  // fragments (mark boundaries like bold/link) and/or wrap across lines, so
-  // gather every fragment sharing this issue id and use getClientRects()
-  // (per-line rects) to find the topmost/leftmost line.
-  const computeAnchor = useCallback((dom: HTMLElement, issueId: string): { x: number; y: number } | null => {
-    const fragments = dom.querySelectorAll<HTMLElement>(`[data-issue-id="${CSS.escape(issueId)}"]`)
-    let anchor: DOMRect | null = null
-    fragments.forEach((frag) => {
-      for (const rect of Array.from(frag.getClientRects())) {
-        if (!anchor || rect.top < anchor.top || (rect.top === anchor.top && rect.left < anchor.left)) {
-          anchor = rect
-        }
-      }
-    })
-    if (!anchor) return null
-    // The editor's page-zoom control applies CSS `zoom` to an ancestor, which
-    // throws off raw getClientRects() coordinates for anything positioned
-    // with `position: fixed` — correct for it (see SpellTooltip's
-    // resolveViewportCoords for the same issue on the suggestion popup).
-    const corrected = zoomCorrectedRect(dom, anchor)
-    return { x: corrected.left + corrected.width / 2, y: corrected.top }
-  }, [])
+  // cursor — so hovering anywhere over the highlight shows the tooltip in the
+  // same spot, arrow pointing at the middle of the word/phrase. Coordinates
+  // come from coordsAtPos via resolveViewportCoords — the exact same
+  // (zoom-corrected) math SpellTooltip's popup uses, instead of hand-rolled
+  // DOM-rect math with fudge offsets that drifted off the word.
+  const computeAnchor = useCallback((issue: Issue): { x: number; y: number } | null => {
+    if (!editor || editor.isDestroyed) return null
+    const range = charSpanToDocRange(editor.state.doc, issue.span.start, issue.span.end)
+    if (!range) return null
+    const from = resolveViewportCoords(editor, range.from)
+    const to = resolveViewportCoords(editor, range.to)
+    if (!from) return null
+    // If the span wraps onto another line, center on the first line only.
+    const sameLine = to && Math.abs(to.y - from.y) < 2
+    return { x: sameLine ? (from.x + to.x) / 2 : from.x, y: from.y }
+  }, [editor])
 
   useEffect(() => {
     if (!editor || !editor.view) return
@@ -72,7 +69,7 @@ export function IssueTooltip({
       const issueId = el.getAttribute('data-issue-id')
       const issue = issues.find((i) => i.id === issueId)
       if (!issue || !issueId) { scheduleHide(); return }
-      const pos = computeAnchor(editor!.view.dom as HTMLElement, issueId)
+      const pos = computeAnchor(issue)
       setTooltip(pos ? { issue, x: pos.x, y: pos.y } : { issue, x: e.clientX, y: e.clientY })
     }
 
@@ -99,9 +96,10 @@ export function IssueTooltip({
   useEffect(() => {
     if (!tooltip || !editor || !editor.view) return
     const issueId = tooltip.issue.id
+    const issue = tooltip.issue
     let rafId = 0
     const track = (): void => {
-      const pos = computeAnchor(editor.view.dom as HTMLElement, issueId)
+      const pos = computeAnchor(issue)
       if (pos) {
         setTooltip((prev) => {
           if (!prev || prev.issue.id !== issueId) return prev
@@ -138,7 +136,7 @@ export function IssueTooltip({
         <div
           key="issue-tooltip"
           className="fixed z-[9999] -translate-x-1/2 -translate-y-full"
-          style={{ left: tooltip.x + 52, top: tooltip.y - 4 }}
+          style={{ left: tooltip.x, top: tooltip.y - 6 }}
         >
         <motion.div
           initial={{ opacity: 0, scale: 0.96, y: 6 }}
@@ -156,7 +154,7 @@ export function IssueTooltip({
                 {tooltip.issue.category}
               </span>
             </div>
-            <p className="text-xs font-medium leading-snug">{tooltip.issue.message}</p>
+            <p className="text-xs font-medium leading-snug">{renderIssueMessage(tooltip.issue.message)}</p>
             {tooltip.issue.suggestion && (
               <>
                 <p className="mt-1.5 text-[10px] text-muted-foreground leading-relaxed">
@@ -166,6 +164,7 @@ export function IssueTooltip({
                   className="mt-2 w-full rounded-md bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary transition-colors hover:bg-primary/20 text-left"
                   onClick={() => {
                     if (editor) applyIssueSuggestion(editor, tooltip.issue)
+                    onDismissIssue?.(tooltip.issue.id)
                     setTooltip(null)
                   }}
                 >

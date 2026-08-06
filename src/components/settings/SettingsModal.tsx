@@ -17,7 +17,7 @@ import { useAppStore } from '@/store/appStore'
 import { cn } from '@/lib/utils'
 import { applyAccentColors, LIGHT_PRESETS, DARK_PRESETS, DEFAULT_LIGHT_ACCENT, DEFAULT_DARK_ACCENT } from '@/lib/accentColor'
 import { ChromeColorPicker } from '@/components/ui/ChromeColorPicker'
-import type { AppSettings, StorageInfo, PageMargins } from '@/types'
+import type { AppSettings, StorageInfo, PageMargins, UpdateStatusPayload } from '@/types'
 import { PAGE_MARGIN_MIN_IN, PAGE_MARGIN_MAX_IN } from '@/constants'
 import { Palette, PenLine, Sparkles, Info, ExternalLink, HardDrive, FileText, X, Plus, LayoutTemplate } from 'lucide-react'
 
@@ -611,10 +611,8 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
                 <>
                   <SectionTitle>About</SectionTitle>
                   <div className="flex flex-col gap-4 py-2">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-sm font-semibold">Prose</span>
-                      <span className="text-xs text-muted-foreground">Version 0.1.0</span>
-                    </div>
+                    <AboutVersionRow />
+                    <UpdateCheckRow />
                     <p className="text-xs text-muted-foreground leading-relaxed">
                       A focused, fully offline productivity app for Windows. Write documents, crunch numbers in sheets, map ideas on boards, and build presentations. Local AI assistant included. No account, no subscription, no data leaves your machine.
                     </p>
@@ -671,6 +669,64 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
       </AlertDialogContent>
     </AlertDialog>
     </>
+  )
+}
+
+function AboutVersionRow(): JSX.Element {
+  const [version, setVersion] = useState('')
+  useEffect(() => {
+    void window.prose.updates.getState().then((s) => setVersion(s.currentVersion)).catch(() => {})
+  }, [])
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-sm font-semibold">Prose</span>
+      <span className="text-xs text-muted-foreground">{version ? `Version ${version}` : 'Version —'}</span>
+    </div>
+  )
+}
+
+function UpdateCheckRow(): JSX.Element {
+  const [status, setStatus] = useState<UpdateStatusPayload | null>(null)
+  const [checked, setChecked] = useState(false)
+
+  useEffect(() => {
+    void window.prose.updates.getState().then(setStatus).catch(() => {})
+    return window.prose.updates.onStatus((s) => setStatus(s))
+  }, [])
+
+  const state = status?.state ?? 'idle'
+  const busy = state === 'checking' || state === 'downloading'
+
+  let label: string | null = null
+  if (state === 'checking') label = 'Checking for updates…'
+  else if (state === 'downloading') label = `Downloading ${status?.version ?? 'update'}…`
+  else if (state === 'downloaded') label = `Update ${status?.version ?? ''} ready`
+  else if (checked && state === 'up-to-date') label = "You're on the latest version"
+  else if (checked && state === 'error') label = 'Update check failed. Are you online?'
+
+  return (
+    <div className="flex items-center justify-between gap-3">
+      {state === 'downloaded' ? (
+        <Button
+          size="sm"
+          className="text-xs"
+          onClick={() => void window.prose.updates.install()}
+        >
+          Restart to update
+        </Button>
+      ) : (
+        <Button
+          size="sm"
+          variant="outline"
+          className="text-xs"
+          disabled={busy}
+          onClick={() => { setChecked(true); void window.prose.updates.check() }}
+        >
+          {busy ? 'Checking…' : 'Check for updates'}
+        </Button>
+      )}
+      {label && <span className="text-xs text-muted-foreground">{label}</span>}
+    </div>
   )
 }
 

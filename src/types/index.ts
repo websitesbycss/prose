@@ -337,7 +337,22 @@ export interface ProseAPI {
     saveExportBytes(base64: string, filename: string, format: string): Promise<void>
     importPptx(): Promise<{ title: string; content: string } | null>
   }
+  updates: {
+    getState(): Promise<UpdateStatusPayload & { currentVersion: string }>
+    check(): Promise<void>
+    install(): Promise<void>
+    skipVersion(version: string): Promise<void>
+    onStatus(cb: (status: UpdateStatusPayload) => void): () => void
+  }
   platform: NodeJS.Platform
+}
+
+export interface UpdateStatusPayload {
+  state: 'idle' | 'checking' | 'downloading' | 'downloaded' | 'up-to-date' | 'error'
+  version?: string
+  message?: string
+  skippedVersion: string | null
+  manual?: boolean
 }
 
 declare global {
