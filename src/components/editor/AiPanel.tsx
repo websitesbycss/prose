@@ -279,11 +279,29 @@ interface AiPanelProps {
 
 // ── Shared apply logic ────────────────────────────────────────────────────────
 
-export function applyIssueSuggestion(editor: Editor, issue: Issue): void {
-  if (!issue.suggestion) return
+export interface IssueEditResult {
+  editStart: number
+  editEnd: number
+  /** Character-count change the edit made — negative if the fix is shorter. */
+  delta: number
+}
+
+/**
+ * Applies an issue's suggestion to the editor and reports the character-space
+ * edit it made, so the caller can shift every OTHER pending issue's span to
+ * match (see shiftIssueSpansAfterEdit) — without this, a second apply targets
+ * stale offsets and mangles unrelated text.
+ */
+export function applyIssueSuggestion(editor: Editor, issue: Issue): IssueEditResult | null {
+  if (!issue.suggestion) return null
   const range = charSpanToDocRange(editor.state.doc, issue.span.start, issue.span.end)
-  if (!range) return
+  if (!range) return null
   editor.chain().focus().deleteRange(range).insertContentAt(range.from, issue.suggestion).run()
+  return {
+    editStart: issue.span.start,
+    editEnd: issue.span.end,
+    delta: issue.suggestion.length - (issue.span.end - issue.span.start),
+  }
 }
 
 // Harper messages quote text with backticks ("Did you mean `Contemporary`?");
@@ -992,10 +1010,11 @@ function AnalysisTab({
                   onClick={() => scrollToIssue(issue)}
                   onApply={() => {
                     if (!editor) return
-                    applyIssueSuggestion(editor, issue)
-                    // The applied span is stale now — remove the card instead
-                    // of leaving a fix that would target shifted offsets.
-                    analysis.dismissIssue(issue.id)
+                    const result = applyIssueSuggestion(editor, issue)
+                    // Shifts every other pending issue's span to match the
+                    // edit (and drops this one) — without this, the NEXT
+                    // apply targets stale offsets and mangles unrelated text.
+                    if (result) analysis.applyEdit(result.editStart, result.editEnd, result.delta)
                   }}
                   onDismiss={() => analysis.dismissIssue(issue.id)}
                 />

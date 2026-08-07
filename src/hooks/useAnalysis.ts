@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { useAppStore } from '@/store/appStore'
 import type { Issue } from '@/types'
 import { lintText } from '@/lib/grammar/harperLinter'
+import { shiftIssueSpansAfterEdit } from '@/lib/issueSpan'
 
 export interface AnalysisState {
   issues: Issue[]
@@ -14,6 +15,8 @@ export interface AnalysisControls {
   analyze(documentText: string): Promise<void>
   clearIssues(): void
   dismissIssue(id: string): void
+  /** Call after applying an issue's suggestion — see shiftIssueSpansAfterEdit. */
+  applyEdit(editStart: number, editEnd: number, delta: number): void
 }
 
 export function useAnalysis(): AnalysisState & AnalysisControls {
@@ -65,5 +68,9 @@ export function useAnalysis(): AnalysisState & AnalysisControls {
     setIssues((prev) => prev.filter((i) => i.id !== id))
   }, [])
 
-  return { issues, analyzing, error, hasRun, analyze, clearIssues, dismissIssue }
+  const applyEdit = useCallback((editStart: number, editEnd: number, delta: number): void => {
+    setIssues((prev) => shiftIssueSpansAfterEdit(prev, editStart, editEnd, delta))
+  }, [])
+
+  return { issues, analyzing, error, hasRun, analyze, clearIssues, dismissIssue, applyEdit }
 }

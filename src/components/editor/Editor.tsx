@@ -841,7 +841,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                     onEditMath={(pos, latex, displayMode) => openMathModal({ editPos: pos, latex, displayMode })}
                   />
                   <SpellTooltip editor={editor} documentId={documentId} />
-                  <IssueTooltip editor={editor} issues={analysis.issues} onDismissIssue={analysis.dismissIssue} />
+                  <IssueTooltip editor={editor} issues={analysis.issues} onIssueApplied={analysis.applyEdit} />
                 </div>
 
                 {/* Footer zone — only rendered once document is loaded to prevent blank init on HMR */}

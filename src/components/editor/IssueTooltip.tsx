@@ -16,11 +16,13 @@ import { resolveViewportCoords } from './SpellTooltip'
 export function IssueTooltip({
   editor,
   issues,
-  onDismissIssue,
+  onIssueApplied,
 }: {
   editor: Editor | null
   issues: Issue[]
-  onDismissIssue?: (id: string) => void
+  /** Called after a suggestion is applied here — shifts every other pending
+   *  issue's span to match the edit (see shiftIssueSpansAfterEdit). */
+  onIssueApplied?: (editStart: number, editEnd: number, delta: number) => void
 }): JSX.Element {
   const [tooltip, setTooltip] = useState<{ issue: Issue; x: number; y: number } | null>(null)
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -163,8 +165,10 @@ export function IssueTooltip({
                 <button
                   className="mt-2 w-full rounded-md bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary transition-colors hover:bg-primary/20 text-left"
                   onClick={() => {
-                    if (editor) applyIssueSuggestion(editor, tooltip.issue)
-                    onDismissIssue?.(tooltip.issue.id)
+                    if (editor) {
+                      const result = applyIssueSuggestion(editor, tooltip.issue)
+                      if (result) onIssueApplied?.(result.editStart, result.editEnd, result.delta)
+                    }
                     setTooltip(null)
                   }}
                 >

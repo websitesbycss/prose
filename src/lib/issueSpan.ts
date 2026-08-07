@@ -68,3 +68,36 @@ export function spanToDocRange(
 export function charSpanToDocRange(doc: PMNode, start: number, end: number): { from: number; to: number } | null {
   return spanToDocRange(flattenDocText(doc).positions, start, end)
 }
+
+/**
+ * After applying one issue's suggestion — which replaces the text at
+ * [editStart, editEnd) with a string that changes the document by `delta`
+ * characters — every OTHER issue's span (still measured against the
+ * pre-edit text) must be corrected or it points at the wrong characters:
+ * spans entirely after the edit shift by delta, spans entirely before are
+ * untouched, and spans that overlap the edited range (including the applied
+ * issue's own span) are dropped — the text they described no longer exists
+ * in the form Harper flagged it.
+ *
+ * Without this, applying fixes one at a time in sequence mangled every
+ * subsequent word: each apply cut out whatever now sat at that issue's
+ * stale offset instead of the text it actually meant.
+ */
+export function shiftIssueSpansAfterEdit<T extends { span: { start: number; end: number } }>(
+  issues: T[],
+  editStart: number,
+  editEnd: number,
+  delta: number,
+): T[] {
+  const result: T[] = []
+  for (const issue of issues) {
+    const { start, end } = issue.span
+    if (start >= editEnd) {
+      result.push({ ...issue, span: { start: start + delta, end: end + delta } })
+    } else if (end <= editStart) {
+      result.push(issue)
+    }
+    // else: overlaps the edited range (or is the applied issue itself) — drop it
+  }
+  return result
+}
