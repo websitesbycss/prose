@@ -4,10 +4,8 @@ A free, fully offline office suite for Windows. Documents, Sheets, Boards, and S
 
 Works on a plane. No account. No subscription. No data leaves your machine.
 
-<p align="center">
-  <img src="docs/screenshots/dashboard.png" width="49%" alt="Prose dashboard" />
-  <img src="docs/screenshots/documents-editor.png" width="49%" alt="Document editor with AI panel" />
-</p>
+![Prose dashboard](docs/screenshots/dashboard.png)
+![Document editor with AI panel](docs/screenshots/documents-editor.png)
 
 > **Note on internet use:** Prose is almost entirely offline. The features that need a connection are the one-time Ollama download on first launch, AI model downloads, checking for app updates, DOI lookup for citations, and website metadata auto-fill for citations. Everything else (writing, grammar checking, spreadsheets, whiteboards, presentations, AI feedback, export) works with no connection at all.
 
