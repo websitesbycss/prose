@@ -1,7 +1,7 @@
 {
   "name": "prose",
-  "version": "0.1.0",
-  "description": "Fully offline essay writing app for Windows with built-in AI",
+  "version": "0.1.1",
+  "description": "An open-source, offline-first office suite with a local Ollama AI assistant built in",
   "author": "websitesbycss",
   "license": "MIT",
   "main": "./out/main/index.js",

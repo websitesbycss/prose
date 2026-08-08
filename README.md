@@ -1,6 +1,6 @@
 # Prose
 
-Prose is an open-source & offline productivity suite for Windows. It contains Documents, Sheets, Boards, and Slides, with a local AI assistant built into every one of them.
+Prose is an open-source & offline productivity suite for Windows. It contains Documents, Sheets, Boards, and Slides, with a local AI assistant built into each.
 
 ![Prose dashboard](docs/screenshots/dashboard.png)
 ![Document editor with AI panel](docs/screenshots/documents-editor.png)
@@ -27,7 +27,7 @@ When a new version is ready you get a small prompt to restart, or you can check 
 
 ## Current Features
 
-Globally, Prose has a tab bar that can host multiple instances of all four file types, an app-wide light/dark mode toggle, a UI scale slider, an accent color picker, and an adjustable storage location for .prose files. Below are specific features per-file type:
+Globally, Prose has a tab bar that can host multiple instances of all four file types, an app-wide light/dark mode toggle, a UI scale slider, an accent color picker, an adjustable storage location for .prose files, and a music player with 8 songs and 6 ambient tracks. Below are specific features per-file type:
 
 ### Documents
 - Rich text editor (headings, images lists, tables, LaTeX equations)

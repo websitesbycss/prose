@@ -59,14 +59,13 @@ export default function OllamaInstall({ onComplete }: OllamaInstallProps): JSX.E
             <div className="flex flex-col gap-1">
               <h2 className="text-xl font-semibold">One more thing</h2>
               <p className="text-sm text-muted-foreground">
-                Prose uses Ollama to run AI models locally on your machine. It needs to be
-                installed once — it's free, open-source, and nothing leaves your computer.
+                Prose uses Ollama to run AI models locally on your machine. It only needs to be installed once.
               </p>
             </div>
 
             <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-xs text-muted-foreground space-y-1">
               <p>• ~150 MB download from github.com/ollama/ollama</p>
-              <p>• Installs to your user profile — no admin required</p>
+              <p>• Installs to your user profile, no admin required</p>
               <p>• Runs as a background service while Prose is open</p>
             </div>
 

@@ -19,7 +19,7 @@ export default function Welcome({ onNext }: WelcomeProps): JSX.Element {
         <div className="flex flex-col gap-2">
           <h1 className="text-3xl font-semibold tracking-tight">Prose</h1>
           <p className="max-w-xs text-sm text-muted-foreground">
-            A focused writing environment with built-in AI feedback — fully offline, always private.
+            An open-source, offline-first office suite with a local Ollama AI assistant built in.
           </p>
         </div>
 

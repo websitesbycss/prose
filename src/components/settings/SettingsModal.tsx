@@ -614,7 +614,7 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
                     <AboutVersionRow />
                     <UpdateCheckRow />
                     <p className="text-xs text-muted-foreground leading-relaxed">
-                      A focused, fully offline productivity app for Windows. Write documents, crunch numbers in sheets, map ideas on boards, and build presentations. Local AI assistant included. No account, no subscription, no data leaves your machine.
+                      An open-source, offline first office suite with a local Ollama AI assistant built in.
                     </p>
                     <div className="flex flex-col gap-2">
                       <a

@@ -39,4 +39,4 @@ publish:
   provider: github
   owner: websitesbycss
   repo: prose
-  releaseType: release
+  releaseType: draft
