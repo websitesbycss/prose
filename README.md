@@ -1,8 +1,6 @@
 # Prose
 
-A free, fully offline office suite for Windows. Documents, Sheets, Boards, and Slides, with a local AI assistant built into every one of them.
-
-Works on a plane. No account. No subscription. No data leaves your machine.
+Prose is an open-source & offline productivity suite for Windows. It contains Documents, Sheets, Boards, and Slides, with a local AI assistant built into every one of them.
 
 ![Prose dashboard](docs/screenshots/dashboard.png)
 ![Document editor with AI panel](docs/screenshots/documents-editor.png)
@@ -13,7 +11,7 @@ Works on a plane. No account. No subscription. No data leaves your machine.
 
 Get the latest installer from the [Releases](https://github.com/websitesbycss/prose/releases) page.
 
-<!-- VIRUSTOTAL: link the scan of the latest Setup .exe here -->
+<!-- VirusTotal Link -->
 
 On first launch Prose offers to download [Ollama](https://ollama.com) (~150 MB) automatically, no admin rights required. Then pull any model you like:
 
@@ -21,35 +19,49 @@ On first launch Prose offers to download [Ollama](https://ollama.com) (~150 MB) 
 ollama pull llama3.2
 ```
 
-The default model is `llama3.2:3b`. You can switch models in Settings > AI. Prose updates itself: when a new version is ready you get a small prompt to restart, and you can check manually in Settings > About.
+The default model is `llama3.2:3b`. You can switch models in Settings > AI.
 
-## The four editors
+### Updates
 
-Prose puts four editors behind one tab bar, so a document, a spreadsheet, a whiteboard, and a slide deck can all be open at once.
+When a new version is ready you get a small prompt to restart, or you can check manually in Settings > About.
+
+## Current Features
+
+Globally, Prose has a tab bar that can host multiple instances of all four file types, an app-wide light/dark mode toggle, a UI scale slider, an accent color picker, and an adjustable storage location for .prose files. Below are specific features per-file type:
 
 ### Documents
-
-Rich text editing with headings, lists, tables, images, and LaTeX equations. One-click MLA and APA page setup with proper headers, page numbers, and margins. Citations in MLA, APA, Chicago, and IEEE style with auto-generated in-text citations and a Works Cited or References page. Grammar and style checking runs fully offline through [Harper](https://writewithharper.com), so it is instant, private, and consistent. Document history keeps snapshots you can restore any time. Exports to PDF, DOCX, Markdown, and plain text, with a live paginated preview.
+- Rich text editor (headings, images lists, tables, LaTeX equations)
+- One-click MLA and APA templates
+- Citation generator for MLA/APA/Chicago/IEEE styles
+- Grammar and style checking through [Harper](https://writewithharper.com)
+- Document history panel with snapshots and previews
+- Built-in outline, pomodoro timer, and session stats
+- Import from .docx or .md and export to .pdf, .docx, .md, or .txt
 
 ### Sheets
-
-A spreadsheet with formulas, multiple tabs, cell formatting, and merged cells. Charts (bar, line, area, pie, doughnut, scatter, radar) live on the sheet itself and move and zoom with your cells. The AI panel can write or explain formulas, generate tables straight into the grid, and an Insights tab reads your data and suggests formulas and charts with proper titles and axis labels. Exports to XLSX (with working formulas, merges, and column widths) and CSV.
+- [Fortune Sheet](https://github.com/ruilisi/fortune-sheet) editor with multiple sheet tabs
+- 8 types of charts which can be inserted in your documents, boards, and slides
+- Insights tab for key figures and suggested formulas and charts
+- Import from and export to .xlsx or .csv
 
 ### Boards
-
-An infinite canvas for diagrams, sketches, and freeform notes, built on Excalidraw. Draw freehand, add shapes and sticky notes, embed images. The AI can brainstorm a topic and lay the ideas out as sticky notes for you to rearrange. Exports to PNG or PDF, in light or dark mode.
+- [Excalidraw](https://github.com/excalidraw/excalidraw) canvas for diagrams, sketches, and notes
+- AI brainstorming with sticky notes
+- Export to .png or .pdf
 
 ### Slides
-
-A presentation editor with themes, element animations, slide transitions, speaker notes, and a presenter mode. The Generate tab builds a full deck from a topic, a document, or a spreadsheet: titles, bullets, speaker notes, charts made from your real data, and AI-drawn illustrations placed on the slides that need them. Imports PPTX. Exports to PPTX (editable in PowerPoint, Keynote, or Google Slides), PDF, and PNG.
+- Custom-built presentation editor with element animations & slide transitions panel
+- 8 element types including images, videos, and charts
+- Toggleable grid overlay and smart guide lines
+- Speaker notes with presenter mode
+- AI that generates slides from text instructions, images, or your documents and sheets
+- Import from .pptx and export to .pptx, .pdf, or .png
 
 ## AI that stays on your machine
 
 Every model call runs through Ollama on your own hardware. Nothing you write ever leaves your computer. Once a model is downloaded, the assistant works with no internet connection, and you can swap in any model Ollama supports.
 
 The AI is wired into each editor rather than bolted on as a chat box. It rewrites and critiques in Documents, writes formulas and analyzes data in Sheets, brainstorms onto the canvas in Boards, and designs whole decks in Slides.
-
-Also included: focus mode, typewriter mode, a Pomodoro timer, an ambient music and soundscape player, and session stats.
 
 ## Development
 
@@ -73,7 +85,7 @@ npm run package
 | Shell | Electron |
 | UI | React 18 + TypeScript |
 | Document editor | Tiptap v3 |
-| Grammar checking | Harper (WASM, offline) |
+| Grammar checking | Harper |
 | Sheets editor | Fortune-Sheet |
 | Boards | Excalidraw |
 | Charts | Chart.js |
