@@ -11,7 +11,7 @@ Prose is an open-source & offline productivity suite for Windows. It contains Do
 
 Get the latest installer from the [Releases](https://github.com/websitesbycss/prose/releases) page.
 
-<!-- VirusTotal Link -->
+[VirusTotal Link](https://www.virustotal.com/gui/file/f5a25a2810f7c975c07df198fa7643885ff63cb42b43f3c6844bc88445ecf0d4?nocache=1)
 
 On first launch Prose offers to download [Ollama](https://ollama.com) (~150 MB) automatically, no admin rights required. Then pull any model you like:
 
