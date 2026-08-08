@@ -340,6 +340,7 @@ export interface ProseAPI {
   updates: {
     getState(): Promise<UpdateStatusPayload & { currentVersion: string }>
     check(): Promise<void>
+    startDownload(): Promise<void>
     install(): Promise<void>
     skipVersion(version: string): Promise<void>
     onStatus(cb: (status: UpdateStatusPayload) => void): () => void
@@ -348,8 +349,9 @@ export interface ProseAPI {
 }
 
 export interface UpdateStatusPayload {
-  state: 'idle' | 'checking' | 'downloading' | 'downloaded' | 'up-to-date' | 'error'
+  state: 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'up-to-date' | 'error'
   version?: string
+  percent?: number
   message?: string
   skippedVersion: string | null
   manual?: boolean

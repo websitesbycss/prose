@@ -699,7 +699,8 @@ function UpdateCheckRow(): JSX.Element {
 
   let label: string | null = null
   if (state === 'checking') label = 'Checking for updates…'
-  else if (state === 'downloading') label = `Downloading ${status?.version ?? 'update'}…`
+  else if (state === 'available') label = `Prose ${status?.version ?? ''} is available`
+  else if (state === 'downloading') label = `Downloading ${status?.version ?? 'update'}… ${status?.percent ?? 0}%`
   else if (state === 'downloaded') label = `Update ${status?.version ?? ''} ready`
   else if (checked && state === 'up-to-date') label = "You're on the latest version"
   else if (checked && state === 'error') label = 'Update check failed. Are you online?'
@@ -713,6 +714,14 @@ function UpdateCheckRow(): JSX.Element {
           onClick={() => void window.prose.updates.install()}
         >
           Restart to update
+        </Button>
+      ) : state === 'available' ? (
+        <Button
+          size="sm"
+          className="text-xs"
+          onClick={() => void window.prose.updates.startDownload()}
+        >
+          Update
         </Button>
       ) : (
         <Button

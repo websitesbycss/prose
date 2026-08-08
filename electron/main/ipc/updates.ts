@@ -3,21 +3,25 @@ import { autoUpdater } from 'electron-updater'
 import { getSetting, setSetting } from '../services/settingsDb'
 
 // ── Auto-update flow ──────────────────────────────────────────────────────────
-// Startup (packaged only): silently check → download in the background → once
-// the update is fully downloaded, notify every window so the renderer can show
-// its small bottom-left toast (Restart to update / Remind me later / No thanks).
+// Startup (packaged only): silently check → if a release is available, notify
+// every window right away (before downloading anything) so the renderer can show
+// its small bottom-left toast (Update / Remind me later / No thanks). Only once
+// the user clicks Update does the download start; the same toast then walks
+// through downloading → downloaded, ending on Restart to update.
 // "No thanks" persists the skipped version so that release never re-prompts;
-// "Remind me later" just dismisses (re-prompts next launch).
-// Settings → About also exposes a manual "Check for updates", which reuses the
-// same pipeline but reports terminal states (up to date / error) back too, and
-// ignores the skipped-version preference (an explicit check means "tell me").
+// "Remind me later" just dismisses (re-prompts next launch, since nothing was
+// downloaded and startup re-checks every time).
+// Settings → About also exposes a manual "Check for updates" — since that's
+// already an explicit ask, it skips the available step and downloads right
+// away, ending on the same "Restart to update" state.
 
 const SKIPPED_VERSION_KEY = 'skippedUpdateVersion'
 
 type UpdateStatus =
   | { state: 'idle' }
   | { state: 'checking' }
-  | { state: 'downloading'; version: string }
+  | { state: 'available'; version: string }
+  | { state: 'downloading'; version: string; percent?: number }
   | { state: 'downloaded'; version: string }
   | { state: 'up-to-date' }
   | { state: 'error'; message: string }
@@ -43,10 +47,21 @@ export function registerUpdateHandlers(): void {
 
   autoUpdater.on('checking-for-update', () => setStatus({ state: 'checking' }))
   autoUpdater.on('update-available', (info) => {
-    setStatus({ state: 'downloading', version: info.version })
-    autoUpdater.downloadUpdate().catch((err) => {
-      setStatus({ state: 'error', message: err instanceof Error ? err.message : 'Download failed' })
-    })
+    // A manual "Check for updates" click already implies consent to install —
+    // skip straight to downloading. A silent startup check has no such consent
+    // yet, so just announce availability and wait for the toast's Update click.
+    if (manualCheckActive) {
+      setStatus({ state: 'downloading', version: info.version, percent: 0 })
+      autoUpdater.downloadUpdate().catch((err) => {
+        setStatus({ state: 'error', message: err instanceof Error ? err.message : 'Download failed' })
+      })
+    } else {
+      setStatus({ state: 'available', version: info.version })
+    }
+  })
+  autoUpdater.on('download-progress', (info) => {
+    if (status.state !== 'downloading') return
+    setStatus({ state: 'downloading', version: status.version, percent: Math.round(info.percent) })
   })
   autoUpdater.on('update-not-available', () => {
     setStatus({ state: 'up-to-date' })
@@ -78,6 +93,14 @@ export function registerUpdateHandlers(): void {
     } catch {
       // 'error' event already updated status
     }
+  })
+
+  ipcMain.handle('updates:startDownload', () => {
+    if (status.state !== 'available') return
+    setStatus({ state: 'downloading', version: status.version, percent: 0 })
+    autoUpdater.downloadUpdate().catch((err) => {
+      setStatus({ state: 'error', message: err instanceof Error ? err.message : 'Download failed' })
+    })
   })
 
   ipcMain.handle('updates:install', () => {

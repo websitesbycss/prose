@@ -249,6 +249,7 @@ contextBridge.exposeInMainWorld('prose', {
   updates: {
     getState: () => ipcRenderer.invoke('updates:getState'),
     check: (): Promise<void> => ipcRenderer.invoke('updates:check'),
+    startDownload: (): Promise<void> => ipcRenderer.invoke('updates:startDownload'),
     install: (): Promise<void> => ipcRenderer.invoke('updates:install'),
     skipVersion: (version: string): Promise<void> => ipcRenderer.invoke('updates:skipVersion', version),
     onStatus: (cb: (status: unknown) => void): (() => void) => {
