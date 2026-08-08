@@ -346,6 +346,12 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
     }
   }, [editor, analysis.issues, aiPanelOpen])
 
+  // Exactly when Harper's issue highlights are actually painted (mirrors the
+  // condition above) — the separate nspell squiggle checker is suppressed
+  // while they're up, since Harper already flags spelling/typos itself and
+  // double-underlining the same word looked broken.
+  const harperShowing = aiPanelOpen && analysis.issues.length > 0
+
   useEffect(() => {
     if (!editor || !isActive) return
     const handler = (e: KeyboardEvent): void => {
@@ -832,7 +838,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                 >
                   <EditorContent
                     editor={editor}
-                    className="prose-editor min-h-full outline-none"
+                    className={cn('prose-editor min-h-full outline-none', harperShowing && 'harper-active')}
                   />
                   <EditorContextMenu
                     editor={editor}
@@ -840,7 +846,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                     isActive={isActive}
                     onEditMath={(pos, latex, displayMode) => openMathModal({ editPos: pos, latex, displayMode })}
                   />
-                  <SpellTooltip editor={editor} documentId={documentId} />
+                  <SpellTooltip editor={editor} documentId={documentId} active={!harperShowing} />
                   <IssueTooltip editor={editor} issues={analysis.issues} onIssueApplied={analysis.applyEdit} />
                 </div>
 

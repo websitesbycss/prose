@@ -1449,6 +1449,15 @@
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='4' viewBox='0 0 6 4'%3E%3Cpath d='M0 2 Q1.5 1.2 3 2 Q4.5 2.8 6 2' fill='none' stroke='%23f87171' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E");
 }
 
+/* Harper's issue highlights already flag spelling/typos — while they're
+   showing, suppress the separate nspell squiggle so the same word isn't
+   double-underlined by two different checkers at once. */
+.harper-active .spell-error {
+  background-image: none;
+  padding-bottom: 0;
+  cursor: inherit;
+}
+
 /* ── Analysis issue highlights ────────────────────────────────── */
 
 .issue-highlight {

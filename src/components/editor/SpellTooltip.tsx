@@ -18,6 +18,10 @@ interface TooltipState {
 interface SpellTooltipProps {
   editor: Editor | null
   documentId: string
+  /** False while Harper's own issue highlights are showing — Harper already
+   *  catches spelling/typos, so the separate nspell-based squiggles (and
+   *  their hover popup) are redundant double-underlining at that point. */
+  active?: boolean
 }
 
 const TOOLTIP_HEIGHT = 28
@@ -52,13 +56,23 @@ export function resolveViewportCoords(editor: Editor, docPos: number): { x: numb
   return { x: raw.left, y: raw.top, lineHeight: raw.bottom - raw.top }
 }
 
-export function SpellTooltip({ editor, documentId }: SpellTooltipProps): JSX.Element | null {
+export function SpellTooltip({ editor, documentId, active = true }: SpellTooltipProps): JSX.Element | null {
   const [state, setState] = useState<TooltipState | null>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
   // Track hover state for word and tooltip separately so we only hide when both are false
   const overWordRef = useRef(false)
   const overTooltipRef = useRef(false)
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Harper's own highlights just took over — drop any popup already showing.
+  // Kept in a ref too: the mouseover listener below is bound in an effect
+  // keyed only on [editor], so a plain closure over `active` would go stale
+  // the next time it's toggled without `editor` also changing.
+  const activeRef = useRef(active)
+  useEffect(() => {
+    activeRef.current = active
+    if (!active) setState(null)
+  }, [active])
 
   function scheduleHideIfNeeded(): void {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
@@ -73,6 +87,7 @@ export function SpellTooltip({ editor, documentId }: SpellTooltipProps): JSX.Ele
     const dom = editor.view.dom as HTMLElement
 
     function onMouseOver(e: MouseEvent): void {
+      if (!activeRef.current) return
       const target = (e.target as HTMLElement).closest('.spell-error') as HTMLElement | null
 
       if (!target) {

@@ -9,7 +9,18 @@ export interface PomodoroControls {
   reset(): void
 }
 
-export function usePomodoro(): PomodoroControls {
+/**
+ * Owns the actual countdown interval for the WHOLE APP — call this exactly
+ * once, from App.tsx (mounted once for the app's lifetime), same as
+ * useMusic(). Never call it from a per-tab component: Editor.tsx mounts one
+ * instance per open Document tab (EditorTabHost keeps every tab mounted,
+ * just hidden), while pomodoroState is a single value shared across all of
+ * them. This hook used to live inside Editor.tsx, so N open tabs ran N
+ * independent setIntervals against that same shared timeRemaining — each
+ * firing once a second and decrementing it, so with 2 tabs open the display
+ * dropped 2 seconds per real second (the exact bug reported).
+ */
+export function usePomodoroTicker(): void {
   const setPomodoroState = useAppStore((s) => s.setPomodoroState)
   const phase = useAppStore((s) => s.pomodoroState.phase)
   const workSecondsRef = useRef(POMODORO_DEFAULT_WORK_MINUTES * 60)
@@ -21,17 +32,11 @@ export function usePomodoro(): PomodoroControls {
       const settings = s as AppSettings
       workSecondsRef.current = settings.pomodoroWorkMinutes * 60
       breakSecondsRef.current = settings.pomodoroBreakMinutes * 60
+      if (useAppStore.getState().pomodoroState.phase === 'idle') {
+        setPomodoroState({ timeRemaining: workSecondsRef.current })
+      }
     })
-  }, [])
-
-  // Keep refs in sync whenever the idle display is updated by a settings change
-  // so Start picks up the correct duration without needing a full remount.
-  const idleTimeRemaining = useAppStore((s) =>
-    s.pomodoroState.phase === 'idle' ? s.pomodoroState.timeRemaining : null
-  )
-  useEffect(() => {
-    if (idleTimeRemaining !== null) workSecondsRef.current = idleTimeRemaining
-  }, [idleTimeRemaining])
+  }, [setPomodoroState])
 
   useEffect(() => {
     if (Notification.permission === 'default') {
@@ -81,6 +86,34 @@ export function usePomodoro(): PomodoroControls {
       }
     }
   }, [phase, setPomodoroState])
+}
+
+/**
+ * Start/pause/reset controls — safe to call from any number of components
+ * (each open tab's Pomodoro panel calls this), since it only ever dispatches
+ * to the shared store and owns no interval of its own. The actual ticking
+ * lives in usePomodoroTicker() above.
+ */
+export function usePomodoro(): PomodoroControls {
+  const setPomodoroState = useAppStore((s) => s.setPomodoroState)
+  const workSecondsRef = useRef(POMODORO_DEFAULT_WORK_MINUTES * 60)
+
+  useEffect(() => {
+    void window.prose.settings.get().then((s) => {
+      const settings = s as AppSettings
+      workSecondsRef.current = settings.pomodoroWorkMinutes * 60
+    })
+  }, [])
+
+  // Keep in sync whenever the idle display is updated (by a settings change,
+  // or by the ticker resetting to idle) so Start picks up the correct
+  // duration without needing a full remount.
+  const idleTimeRemaining = useAppStore((s) =>
+    s.pomodoroState.phase === 'idle' ? s.pomodoroState.timeRemaining : null
+  )
+  useEffect(() => {
+    if (idleTimeRemaining !== null) workSecondsRef.current = idleTimeRemaining
+  }, [idleTimeRemaining])
 
   const start = useCallback((): void => {
     const { phase: p } = useAppStore.getState().pomodoroState

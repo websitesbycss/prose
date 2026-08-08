@@ -16,6 +16,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { LoadingScreen } from '@/components/LoadingScreen'
 import { EditorTabHost } from '@/components/editor/EditorTabHost'
 import { useMusic } from '@/hooks/useMusic'
+import { usePomodoroTicker } from '@/hooks/usePomodoro'
 import MusicPanel from '@/components/editor/MusicPanel'
 import { MusicContext } from '@/contexts/MusicContext'
 import type { DownloadStatus, OllamaStatus, MigrationProgress } from '@/types'
@@ -32,6 +33,9 @@ export default function App(): JSX.Element {
   const musicPanelOpen = useAppStore((s) => s.musicPanelOpen)
 
   const music = useMusic()
+  // Single app-wide countdown owner — see usePomodoroTicker's doc comment
+  // for why this must never be called from a per-tab component instead.
+  usePomodoroTicker()
 
   // null = still checking
   const [ollamaInstalled, setOllamaInstalled] = useState<boolean | null>(null)
