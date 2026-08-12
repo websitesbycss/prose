@@ -8,9 +8,12 @@ type Phase = 'confirm' | 'installing' | 'done' | 'error'
 
 interface OllamaInstallProps {
   onComplete: () => void
+  /** Lets a user who wants to bring their own cloud API key (Settings > AI)
+   * skip installing local Ollama entirely. */
+  onSkip: () => void
 }
 
-export default function OllamaInstall({ onComplete }: OllamaInstallProps): JSX.Element {
+export default function OllamaInstall({ onComplete, onSkip }: OllamaInstallProps): JSX.Element {
   const [phase, setPhase] = useState<Phase>('confirm')
   const [progress, setProgress] = useState(0)
   const [statusLabel, setStatusLabel] = useState('')
@@ -73,6 +76,14 @@ export default function OllamaInstall({ onComplete }: OllamaInstallProps): JSX.E
               <Download className="mr-2 h-4 w-4" />
               Install Ollama
             </Button>
+
+            <button
+              type="button"
+              onClick={onSkip}
+              className="text-center text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            >
+              Skip — I'll use my own AI API key instead
+            </button>
           </>
         )}
 

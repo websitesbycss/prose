@@ -17,9 +17,10 @@ import { useAppStore } from '@/store/appStore'
 import { cn } from '@/lib/utils'
 import { applyAccentColors, LIGHT_PRESETS, DARK_PRESETS, DEFAULT_LIGHT_ACCENT, DEFAULT_DARK_ACCENT } from '@/lib/accentColor'
 import { ChromeColorPicker } from '@/components/ui/ChromeColorPicker'
-import type { AppSettings, StorageInfo, PageMargins, UpdateStatusPayload } from '@/types'
+import type { AppSettings, StorageInfo, PageMargins, UpdateStatusPayload, CustomLlmProviderId, LlmModelInfo } from '@/types'
 import { PAGE_MARGIN_MIN_IN, PAGE_MARGIN_MAX_IN } from '@/constants'
-import { Palette, PenLine, Sparkles, Info, ExternalLink, HardDrive, FileText, X, Plus, LayoutTemplate } from 'lucide-react'
+import { Palette, PenLine, Sparkles, Info, ExternalLink, HardDrive, FileText, X, Plus, LayoutTemplate, Loader2, CheckCircle2, AlertCircle, ShieldCheck } from 'lucide-react'
+import { LlmProviderIcon, LLM_PROVIDERS, getLlmProviderMeta } from '@/components/settings/LlmProviderIcon'
 
 type Section = 'page' | 'slides' | 'appearance' | 'writing' | 'ai' | 'storage' | 'about'
 
@@ -576,39 +577,63 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
               {section === 'ai' && (
                 <>
                   <SectionTitle>AI</SectionTitle>
-                  <SettingRow label="Active model" description="The model used for all AI requests">
-                    {models.length > 0 ? (
-                      <Select
-                        value={settings.ollamaModel}
-                        onValueChange={(v) => {
-                          void save({ ollamaModel: v })
-                          // ollamaStatus doesn't change on a model swap, so refresh
-                          // the multimodal flag directly instead of relying on App.tsx's status-driven check.
-                          void window.prose.ai.getModelCapabilities()
-                            .then((caps) => useAppStore.getState().setMultimodalCapable(caps.multimodal))
-                            .catch(() => useAppStore.getState().setMultimodalCapable(false))
-                        }}
-                      >
-                        <SelectTrigger className="h-8 w-44 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {models.map((m) => (
-                            <SelectItem key={m} value={m} className="text-xs font-mono">{m}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <span className="text-xs text-muted-foreground font-mono">
-                        {settings.ollamaModel}
-                      </span>
-                    )}
+                  <SettingRow
+                    label="Use a custom LLM"
+                    description="Route AI requests to a cloud provider (Claude, ChatGPT, Gemini, or your own endpoint) using your own API key, instead of the local Ollama model. Requires an internet connection."
+                  >
+                    <Switch
+                      checked={settings.customLlmEnabled ?? false}
+                      onCheckedChange={(v) => void save({ customLlmEnabled: v })}
+                    />
                   </SettingRow>
+
+                  {(settings.customLlmEnabled ?? false) && (
+                    <>
+                      <Separator />
+                      <CustomLlmSettings settings={settings} save={save} open={open} />
+                    </>
+                  )}
+
                   <Separator />
-                  <div className="py-3 text-xs text-muted-foreground">
-                    To download a different model, run{' '}
-                    <code className="rounded bg-muted px-1 py-0.5 font-mono">ollama pull &lt;model&gt;</code>{' '}
-                    in a terminal, then restart Prose.
+                  <div className="mt-4 mb-1 flex items-center justify-between">
+                    <SectionTitle>Local model (Ollama)</SectionTitle>
+                  </div>
+                  <div className={cn((settings.customLlmEnabled ?? false) && 'pointer-events-none opacity-40')}>
+                    <SettingRow label="Active model" description="The model used for all AI requests">
+                      {models.length > 0 ? (
+                        <Select
+                          value={settings.ollamaModel}
+                          onValueChange={(v) => {
+                            void save({ ollamaModel: v })
+                            // ollamaStatus doesn't change on a model swap, so refresh
+                            // the multimodal flag directly instead of relying on App.tsx's status-driven check.
+                            void window.prose.ai.getModelCapabilities()
+                              .then((caps) => useAppStore.getState().setMultimodalCapable(caps.multimodal))
+                              .catch(() => useAppStore.getState().setMultimodalCapable(false))
+                          }}
+                        >
+                          <SelectTrigger className="h-8 w-44 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {models.map((m) => (
+                              <SelectItem key={m} value={m} className="text-xs font-mono">{m}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <span className="text-xs text-muted-foreground font-mono">
+                          {settings.ollamaModel}
+                        </span>
+                      )}
+                    </SettingRow>
+                    <Separator />
+                    <div className="py-3 text-xs text-muted-foreground">
+                      To download a different model, run{' '}
+                      <code className="rounded bg-muted px-1 py-0.5 font-mono">ollama pull &lt;model&gt;</code>{' '}
+                      in a terminal, then restart Prose.
+                      {(settings.customLlmEnabled ?? false) && ' Unused while a custom LLM is active above.'}
+                    </div>
                   </div>
                 </>
               )}
@@ -861,6 +886,207 @@ function AccentColorRow({
         </div>,
         layer
       )}
+    </div>
+  )
+}
+
+function CustomLlmSettings({ settings, save, open }: {
+  settings: AppSettings
+  save: (patch: Partial<AppSettings>) => Promise<void>
+  open: boolean
+}): JSX.Element {
+  const provider = settings.customLlmProvider ?? 'anthropic'
+  const meta = getLlmProviderMeta(provider)
+  const [apiKeyInput, setApiKeyInput] = useState('')
+  const [models, setModels] = useState<LlmModelInfo[]>([])
+  const [fetchState, setFetchState] = useState<'idle' | 'loading' | 'error' | 'success'>('idle')
+  const [fetchError, setFetchError] = useState('')
+  const [manualModel, setManualModel] = useState(false)
+  const [keyEncrypted, setKeyEncrypted] = useState<boolean | null>(null)
+
+  // The typed key only ever lives in this component's memory for the
+  // duration it's needed — never written to renderer storage, and cleared
+  // the moment the modal closes or the provider changes.
+  useEffect(() => {
+    if (!open) { setApiKeyInput(''); setModels([]); setFetchState('idle'); setFetchError(''); setKeyEncrypted(null) }
+  }, [open])
+  useEffect(() => {
+    setApiKeyInput('')
+    setModels([])
+    setFetchState('idle')
+    setFetchError('')
+    setManualModel(false)
+    setKeyEncrypted(null)
+  }, [provider])
+
+  const handleSaveAndFetch = useCallback(async (): Promise<void> => {
+    const key = apiKeyInput.trim()
+    if (provider !== 'custom' && !key) return
+    setFetchState('loading')
+    setFetchError('')
+    try {
+      if (key) {
+        const res = await window.prose.customLlm.saveApiKey(key)
+        setKeyEncrypted(res.encrypted)
+        await save({ customLlmApiKeySet: true })
+      }
+      const list = await window.prose.customLlm.listModels({ provider, apiKey: key, baseUrl: settings.customLlmBaseUrl ?? undefined })
+      setModels(list)
+      setFetchState('success')
+      if (list.length === 0) setManualModel(true)
+    } catch (err) {
+      setFetchState('error')
+      setFetchError(err instanceof Error ? err.message : 'Could not connect. Check your key and try again.')
+    }
+  }, [provider, apiKeyInput, settings.customLlmBaseUrl, save])
+
+  const handleClearKey = useCallback(async (): Promise<void> => {
+    try {
+      await window.prose.customLlm.clearApiKey()
+    } catch (err) {
+      console.error('Clear API key error:', err)
+    }
+    setApiKeyInput('')
+    setModels([])
+    setFetchState('idle')
+    setKeyEncrypted(null)
+    await save({ customLlmApiKeySet: false })
+  }, [save])
+
+  return (
+    <div className="flex flex-col gap-3 py-3">
+      <div>
+        <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-foreground">
+          <LlmProviderIcon provider={provider} />
+          Provider
+        </label>
+        <Select
+          value={provider}
+          onValueChange={(v) => void save({ customLlmProvider: v as CustomLlmProviderId, customLlmModel: '' })}
+        >
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue placeholder="Choose a provider" />
+          </SelectTrigger>
+          <SelectContent>
+            {LLM_PROVIDERS.map((p) => (
+              <SelectItem key={p.id} value={p.id} className="text-xs">
+                <span className="inline-flex items-center gap-1.5">
+                  <LlmProviderIcon provider={p.id} />
+                  {p.label}
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {provider === 'custom' && (
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-foreground">Base URL</label>
+          <Input
+            value={settings.customLlmBaseUrl ?? ''}
+            onChange={(e) => void save({ customLlmBaseUrl: e.target.value || null })}
+            placeholder="https://your-endpoint.example.com/v1"
+            className="text-xs font-mono"
+          />
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Any OpenAI-compatible endpoint: OpenRouter, Groq, Together, Azure OpenAI, or a local server (LM Studio, vLLM, etc). API key is optional if the endpoint doesn't require one.
+          </p>
+        </div>
+      )}
+
+      <div>
+        <label className="mb-1.5 block text-xs font-medium text-foreground">
+          API key {settings.customLlmApiKeySet && <span className="font-normal text-muted-foreground">— a key is currently saved</span>}
+        </label>
+        <div className="flex gap-2">
+          <Input
+            type="password"
+            value={apiKeyInput}
+            onChange={(e) => setApiKeyInput(e.target.value)}
+            placeholder={settings.customLlmApiKeySet ? 'Enter a new key to replace it' : (provider === 'custom' ? 'Optional, depending on your endpoint' : 'Paste your API key')}
+            className="text-xs"
+          />
+          {settings.customLlmApiKeySet && (
+            <Button variant="outline" size="sm" className="h-9 shrink-0 text-xs" onClick={() => void handleClearKey()}>
+              Remove
+            </Button>
+          )}
+        </div>
+        {meta.keyUrl && (
+          <a
+            href={meta.keyUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+          >
+            Get a key at {meta.keyUrlLabel} <ExternalLink className="h-3 w-3" />
+          </a>
+        )}
+      </div>
+
+      <Button
+        size="sm"
+        className="h-8 w-fit text-xs"
+        disabled={fetchState === 'loading' || (provider !== 'custom' && !apiKeyInput.trim())}
+        onClick={() => void handleSaveAndFetch()}
+      >
+        {fetchState === 'loading' && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+        {apiKeyInput.trim() ? 'Save key & fetch models' : 'Fetch models'}
+      </Button>
+
+      {fetchState === 'success' && (
+        <p className="flex items-center gap-1.5 text-[11px] text-green-600 dark:text-green-500">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          {models.length > 0 ? `Found ${models.length} model${models.length === 1 ? '' : 's'}.` : 'Connected — no model list available, enter a model ID manually below.'}
+          {keyEncrypted === false && ' Note: your OS has no secure credential store available, so the key was saved without encryption.'}
+        </p>
+      )}
+      {fetchState === 'error' && (
+        <p className="flex items-start gap-1.5 text-[11px] text-destructive">
+          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          {fetchError}
+        </p>
+      )}
+
+      <div>
+        <label className="mb-1.5 block text-xs font-medium text-foreground">Model</label>
+        {!manualModel && models.length > 0 ? (
+          <Select value={settings.customLlmModel || ''} onValueChange={(v) => void save({ customLlmModel: v })}>
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder="Choose a model" />
+            </SelectTrigger>
+            <SelectContent>
+              {models.map((m) => (
+                <SelectItem key={m.id} value={m.id} className="text-xs font-mono">{m.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <Input
+            value={settings.customLlmModel ?? ''}
+            onChange={(e) => void save({ customLlmModel: e.target.value })}
+            placeholder={meta.modelPlaceholder}
+            className="text-xs font-mono"
+          />
+        )}
+        {models.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setManualModel((v) => !v)}
+            className="mt-1.5 text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          >
+            {manualModel ? 'Choose from fetched models instead' : 'Enter a model ID manually instead'}
+          </button>
+        )}
+      </div>
+
+      <div className="mt-1 flex items-start gap-2 rounded-md border border-border bg-muted/30 px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
+        <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <span>
+          Your API key is encrypted on this device using your OS's own secure credential store and is never stored in Prose's regular settings file, synced anywhere, or sent anywhere except directly to the provider you choose above — Prose has no bundled or shared key. Enabling a custom LLM does send your document, sheet, board, or slide content to that provider's servers for processing, so it's no longer fully offline for AI requests.
+        </span>
+      </div>
     </div>
   )
 }

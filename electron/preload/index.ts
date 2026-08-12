@@ -66,6 +66,13 @@ contextBridge.exposeInMainWorld('prose', {
     },
   },
 
+  customLlm: {
+    listModels: (payload: { provider: string; apiKey: string; baseUrl?: string }) =>
+      ipcRenderer.invoke('customLlm:listModels', payload),
+    saveApiKey: (apiKey: string) => ipcRenderer.invoke('customLlm:saveApiKey', apiKey),
+    clearApiKey: () => ipcRenderer.invoke('customLlm:clearApiKey'),
+  },
+
   export: {
     getPreviewHtml: (id: string, opts: Record<string, unknown>) =>
       ipcRenderer.invoke('export:getPreviewHtml', id, opts),

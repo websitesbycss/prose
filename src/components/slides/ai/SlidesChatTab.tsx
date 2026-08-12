@@ -166,7 +166,7 @@ export function SlidesChatTab({ getDocumentContent, assignmentContext, actionHan
 
         {unavailable && messages.length === 0 && (
           <p className="rounded-md bg-muted/40 p-2.5 text-xs text-muted-foreground">
-            Ollama is not running. Install it and ensure it&apos;s available on your system.
+            AI isn&apos;t available. Install Ollama, or enable a custom LLM in Settings → AI.
           </p>
         )}
 

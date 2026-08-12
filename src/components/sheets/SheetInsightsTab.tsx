@@ -186,7 +186,7 @@ export function SheetInsightsTab({ getSheetContext, onInsertFormula, onInsertCha
 
         {unavailable && (
           <p className="rounded-md bg-muted/40 p-2.5 text-xs text-muted-foreground">
-            Ollama is not running. Install it to enable AI insights.
+            AI isn&apos;t available. Install Ollama, or enable a custom LLM in Settings → AI, to enable insights.
           </p>
         )}
 

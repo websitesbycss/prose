@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron'
 import { getSettingsDb } from '../services/settingsDb'
+import { readSecret } from '../services/secureStorage'
 
 // Pexels stock-photo search for AI-generated Slides — strictly opt-in (see
 // Settings > Slides). Off by default, and even when the setting is on, this
@@ -20,12 +21,16 @@ function getPexelsSettings(): { enabled: boolean; apiKey: string | null } {
     (db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined)?.value
 
   let enabled = false
-  let apiKey: string | null = null
   try { enabled = JSON.parse(row('slidesPexelsEnabled') ?? 'false') === true } catch { /* default false */ }
-  try {
-    const parsed = JSON.parse(row('slidesPexelsApiKey') ?? 'null')
-    apiKey = typeof parsed === 'string' && parsed.trim() ? parsed.trim() : null
-  } catch { /* default null */ }
+  // Encrypted-at-rest via secureStorage, with a fallback to the legacy plain
+  // JSON value for anyone who saved a key before this field was encrypted.
+  let apiKey = readSecret('slidesPexelsApiKey')
+  if (!apiKey) {
+    try {
+      const parsed = JSON.parse(row('slidesPexelsApiKey') ?? 'null')
+      apiKey = typeof parsed === 'string' && parsed.trim() ? parsed.trim() : null
+    } catch { apiKey = null }
+  }
   return { enabled, apiKey }
 }
 

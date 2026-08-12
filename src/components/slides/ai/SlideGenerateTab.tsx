@@ -171,7 +171,7 @@ export function SlideGenerateTab({
       setGenState('preview')
       void attachGeneratedVisuals(capped, prosSlides, theme).then(setGeneratedSlides)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Generation failed — check Ollama is running')
+      setError(e instanceof Error ? e.message : 'Generation failed — check your AI setup (Ollama or a custom LLM) in Settings')
       setGenState('idle')
     } finally {
       if (captionTimerRef.current) { clearInterval(captionTimerRef.current); captionTimerRef.current = null }

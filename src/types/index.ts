@@ -77,6 +77,19 @@ export interface AppSettings {
   slidesRightPanelWidth?: number
   slidesPexelsEnabled?: boolean
   slidesPexelsApiKey?: string | null
+  customLlmEnabled?: boolean
+  customLlmProvider?: CustomLlmProviderId
+  customLlmModel?: string
+  customLlmBaseUrl?: string | null
+  /** Whether an API key is currently saved — the key itself never round-trips to the renderer. */
+  customLlmApiKeySet?: boolean
+}
+
+export type CustomLlmProviderId = 'anthropic' | 'openai' | 'gemini' | 'custom'
+
+export interface LlmModelInfo {
+  id: string
+  label: string
 }
 
 export type OllamaStatus = 'ready' | 'loading' | 'unavailable'
@@ -241,6 +254,13 @@ export interface ProseAPI {
     getModelCapabilities(): Promise<{ model: string; multimodal: boolean }>
     isModelLoaded(): Promise<boolean>
     streamPrompt(payload: AiPromptPayload, onChunk: (chunk: string) => void, onError: (msg: string) => void): Promise<void>
+  }
+  customLlm: {
+    /** Lists models available for `provider` using a (possibly unsaved) API key — also serves as a connection test. */
+    listModels(payload: { provider: CustomLlmProviderId; apiKey: string; baseUrl?: string }): Promise<LlmModelInfo[]>
+    /** Encrypts and saves the key via the OS's secure storage. Never returned to the renderer again. */
+    saveApiKey(apiKey: string): Promise<{ ok: boolean; encrypted: boolean }>
+    clearApiKey(): Promise<void>
   }
   export: {
     getPreviewHtml(id: string, opts: ExportOptions): Promise<string | null>

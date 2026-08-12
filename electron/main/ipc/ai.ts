@@ -1,6 +1,9 @@
 import { ipcMain, WebContents } from 'electron'
 import type { OllamaManager } from '../services/ollama'
 import { getSettingJson } from '../services/settingsDb'
+import { readSecret } from '../services/secureStorage'
+import { CUSTOM_LLM_API_KEY_SETTING } from './customLlm'
+import { streamCustomLlmChat, type CustomLlmConfig, type CustomLlmProviderId } from '../services/customLlmProviders'
 
 // ── Safety policy ─────────────────────────────────────────────────────────────
 // Appended to every system prompt. The action layer in the renderer is the
@@ -172,6 +175,24 @@ function getModel(): string {
   return getSettingJson<string>('ollamaModel', 'llama3.2:3b') || 'llama3.2:3b'
 }
 
+// When the user has opted into Settings > AI > Custom LLM and fully
+// configured it (provider, model, key/base-url all present), every AI
+// surface routes through their chosen cloud provider instead of local
+// Ollama. Returns null the moment any required piece is missing, which
+// transparently falls back to the existing Ollama path below.
+function getCustomLlmConfig(): CustomLlmConfig | null {
+  const enabled = getSettingJson<boolean>('customLlmEnabled', false)
+  if (!enabled) return null
+  const provider = getSettingJson<CustomLlmProviderId>('customLlmProvider', 'anthropic')
+  const model = getSettingJson<string>('customLlmModel', '').trim()
+  const baseUrl = getSettingJson<string | null>('customLlmBaseUrl', null)
+  if (!model) return null
+  if (provider === 'custom' && !baseUrl) return null
+  const apiKey = readSecret(CUSTOM_LLM_API_KEY_SETTING) ?? ''
+  if (provider !== 'custom' && !apiKey) return null
+  return { provider, apiKey, model, baseUrl }
+}
+
 const MATH_FORMAT_REMINDER = `Formatting rule: wrap every mathematical expression in LaTeX delimiters — $...$ for inline math, $$...$$ on its own line for display equations. Never write math as plain text. Always brace subscripts and superscripts: $x_{n}$ not $x_n$, $\\int_{1}^{9}$ not $\\int_1^9$. For the final answer, state it on its own line as a simple decimal: e.g. $$\\approx 282.67$$ — never chain fraction addition in the concluding line.`
 
 // ── Prompt injection hardening ────────────────────────────────────────────────
@@ -318,15 +339,24 @@ function sanitizeImages(raw: unknown): string[] | undefined {
 }
 
 export function registerAiHandlers(manager: OllamaManager): void {
-  ipcMain.handle('ai:getStatus', (): string => manager.getStatus())
+  ipcMain.handle('ai:getStatus', (): string => (getCustomLlmConfig() ? 'ready' : manager.getStatus()))
 
   ipcMain.handle('ai:getModelCapabilities', async (): Promise<{ model: string; multimodal: boolean }> => {
+    const custom = getCustomLlmConfig()
+    if (custom) {
+      // Claude, GPT, and Gemini's current flagship chat models are all
+      // vision-capable; an arbitrary custom endpoint's capabilities are
+      // unknown, so default conservatively to text-only there.
+      return { model: custom.model, multimodal: custom.provider !== 'custom' }
+    }
     const model = getModel()
     const caps = await manager.getModelCapabilities(model)
     return { model, multimodal: caps.includes('vision') }
   })
 
   ipcMain.handle('ai:isModelLoaded', async (): Promise<boolean> => {
+    // Cloud models have no local warm-up/cold-load concept.
+    if (getCustomLlmConfig()) return true
     return manager.isModelLoaded(getModel())
   })
 
@@ -340,10 +370,14 @@ export function registerAiHandlers(manager: OllamaManager): void {
     const fileType = typeof p.fileType === 'string' && SYSTEM_PROMPTS[p.fileType] ? p.fileType : 'document'
     const systemPrompt = SYSTEM_PROMPTS[fileType] ?? CHAT_SYSTEM_PROMPT
     const images = sanitizeImages(p.images)
-    const model = getModel()
+    const custom = getCustomLlmConfig()
+    const conversation = buildConversationMessages(p.documentContent, p.request, p.assignmentContext, history, p.selectionContent, fileType)
     let result = ''
     try {
-      for await (const chunk of manager.streamChat(model, systemPrompt, buildConversationMessages(p.documentContent, p.request, p.assignmentContext, history, p.selectionContent, fileType), undefined, images)) {
+      const chatStream = custom
+        ? streamCustomLlmChat(custom, systemPrompt, conversation, images)
+        : manager.streamChat(getModel(), systemPrompt, conversation, undefined, images)
+      for await (const chunk of chatStream) {
         result += chunk
         if (result.length > 50_000) break
       }
@@ -364,20 +398,26 @@ export function registerAiHandlers(manager: OllamaManager): void {
     const systemPrompt = SYSTEM_PROMPTS[fileType] ?? CHAT_SYSTEM_PROMPT
     const images = sanitizeImages(p.images)
     const sender: WebContents = event.sender
-    const model = getModel()
+    const custom = getCustomLlmConfig()
+    const conversation = buildConversationMessages(p.documentContent, p.request, p.assignmentContext, history, p.selectionContent, fileType)
     let totalLen = 0
     let firstChunk = false
     const firstChunkTimeout = setTimeout(() => {
       if (!firstChunk && !sender.isDestroyed()) {
-        sender.send('ai:stream-error', 'The model took too long to respond. Is Ollama running and the model loaded?')
+        sender.send('ai:stream-error', custom
+          ? 'The model is taking a while to respond. Check your internet connection and API key in Settings → AI.'
+          : 'The model took too long to respond. Is Ollama running and the model loaded?')
       }
-      // Deliberately does not abort manager.streamChat's loop below — a slow
-      // model may still be genuinely working. If real chunks do arrive after
-      // this warning, they're forwarded as normal ai:stream-chunk events; the
-      // renderer is responsible for not appending them onto the stale warning.
+      // Deliberately does not abort the stream below — a slow model may still
+      // be genuinely working. If real chunks do arrive after this warning,
+      // they're forwarded as normal ai:stream-chunk events; the renderer is
+      // responsible for not appending them onto the stale warning.
     }, 45_000)
     try {
-      for await (const chunk of manager.streamChat(model, systemPrompt, buildConversationMessages(p.documentContent, p.request, p.assignmentContext, history, p.selectionContent, fileType), undefined, images)) {
+      const chatStream = custom
+        ? streamCustomLlmChat(custom, systemPrompt, conversation, images)
+        : manager.streamChat(getModel(), systemPrompt, conversation, undefined, images)
+      for await (const chunk of chatStream) {
         if (!firstChunk) { firstChunk = true; clearTimeout(firstChunkTimeout) }
         if (sender.isDestroyed()) break
         totalLen += chunk.length
@@ -389,13 +429,27 @@ export function registerAiHandlers(manager: OllamaManager): void {
       clearTimeout(firstChunkTimeout)
       if (!sender.isDestroyed()) {
         const raw = err instanceof Error ? err.message : 'unknown error'
-        let friendly = `The model failed to respond. Check the AI tab in Settings.\n\n_${raw}_`
-        if (/more system memory|not enough memory|out of memory/i.test(raw)) {
-          friendly = `**Not enough RAM to run this model.**\n\nYour system doesn't have enough free memory. Switch to a smaller model in Settings → AI, or run:\n\n\`ollama pull llama3.2:3b\`\n\nthen select it in Settings.`
-        } else if (/unknown model architecture:\s*'mllama'/i.test(raw)) {
-          friendly = `**This model isn't supported by your Ollama version.**\n\nOllama's newer engine (v0.30.0+) dropped support for the "mllama" architecture that \`llama3.2-vision\` uses — this is a known regression in Ollama itself, not something wrong with your setup or Prose. Options:\n\n- **Switch models** — pick a different local vision model in Settings → AI, e.g. \`llava\`, \`qwen2.5vl\`, or \`moondream\` (all still supported).\n- **Downgrade Ollama** to a version before 0.30.0, which still supports mllama (trade-off: you lose newer-engine improvements).\n- **Wait for a fix** — tracked upstream at ollama/ollama issue #16547.`
-        } else if (/model.*not found|no such file/i.test(raw)) {
-          friendly = `**Model not found.** The selected model isn't downloaded. Go to Settings → AI and choose a model that appears in the list, or run \`ollama pull <model>\` in a terminal.`
+        let friendly: string
+        if (custom) {
+          friendly = `The custom LLM failed to respond. Check the AI tab in Settings.\n\n_${raw}_`
+          if (/invalid.*api.?key|unauthorized|authentication|401|403|permission/i.test(raw)) {
+            friendly = `**Your API key was rejected.**\n\nDouble-check the key you entered in Settings → AI, and that it's active for the provider you selected.`
+          } else if (/rate.?limit|429|quota|insufficient.?quota/i.test(raw)) {
+            friendly = `**Rate limit or quota reached.**\n\nYour provider account has hit a usage limit. Check your plan/billing with them, or wait and try again.`
+          } else if (/fetch failed|ENOTFOUND|ECONNREFUSED|network/i.test(raw)) {
+            friendly = `**Couldn't reach the custom LLM.**\n\nCustom LLMs require an internet connection (or a reachable server, for a self-hosted endpoint). Check your connection and the base URL in Settings → AI.`
+          } else if (/model.*not.?found|does not exist|unknown model/i.test(raw)) {
+            friendly = `**Model not found.** The selected model isn't available for this API key. Go to Settings → AI and pick a model from the list.`
+          }
+        } else {
+          friendly = `The model failed to respond. Check the AI tab in Settings.\n\n_${raw}_`
+          if (/more system memory|not enough memory|out of memory/i.test(raw)) {
+            friendly = `**Not enough RAM to run this model.**\n\nYour system doesn't have enough free memory. Switch to a smaller model in Settings → AI, or run:\n\n\`ollama pull llama3.2:3b\`\n\nthen select it in Settings.`
+          } else if (/unknown model architecture:\s*'mllama'/i.test(raw)) {
+            friendly = `**This model isn't supported by your Ollama version.**\n\nOllama's newer engine (v0.30.0+) dropped support for the "mllama" architecture that \`llama3.2-vision\` uses — this is a known regression in Ollama itself, not something wrong with your setup or Prose. Options:\n\n- **Switch models** — pick a different local vision model in Settings → AI, e.g. \`llava\`, \`qwen2.5vl\`, or \`moondream\` (all still supported).\n- **Downgrade Ollama** to a version before 0.30.0, which still supports mllama (trade-off: you lose newer-engine improvements).\n- **Wait for a fix** — tracked upstream at ollama/ollama issue #16547.`
+          } else if (/model.*not found|no such file/i.test(raw)) {
+            friendly = `**Model not found.** The selected model isn't downloaded. Go to Settings → AI and choose a model that appears in the list, or run \`ollama pull <model>\` in a terminal.`
+          }
         }
         sender.send('ai:stream-error', friendly)
       }

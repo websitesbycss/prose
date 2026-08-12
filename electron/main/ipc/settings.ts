@@ -1,5 +1,8 @@
 import { ipcMain } from 'electron'
 import { getSettingsDb } from '../services/settingsDb'
+import { readSecret, hasSecret, storeSecret, clearSecret } from '../services/secureStorage'
+import { CUSTOM_LLM_API_KEY_SETTING, validateBaseUrl } from './customLlm'
+import type { CustomLlmProviderId } from '../services/customLlmProviders'
 
 interface AppSettingsOut {
   theme: 'dark' | 'light'
@@ -21,9 +24,19 @@ interface AppSettingsOut {
   slidesRightPanelWidth: number
   slidesPexelsEnabled: boolean
   slidesPexelsApiKey: string | null
+  customLlmEnabled: boolean
+  customLlmProvider: CustomLlmProviderId
+  customLlmModel: string
+  customLlmBaseUrl: string | null
+  /** Computed, never stored directly — whether a key is currently saved. The
+   * key's actual value never round-trips back to the renderer once saved. */
+  customLlmApiKeySet: boolean
 }
 
-const DEFAULTS: AppSettingsOut = {
+// customLlmApiKeySet is computed fresh on every load (never stored under its
+// own key), so it's excluded from DEFAULTS/APP_SETTING_KEYS — the generic
+// settings:set path below never accepts it as an incoming field.
+const DEFAULTS: Omit<AppSettingsOut, 'customLlmApiKeySet'> = {
   theme: 'dark',
   defaultFormat: 'none',
   wordCountExcludesHeader: true,
@@ -43,11 +56,16 @@ const DEFAULTS: AppSettingsOut = {
   slidesRightPanelWidth: 340,
   slidesPexelsEnabled: false,
   slidesPexelsApiKey: null,
+  customLlmEnabled: false,
+  customLlmProvider: 'anthropic',
+  customLlmModel: '',
+  customLlmBaseUrl: null,
 }
 
 const VALID_FORMATS = new Set(['none', 'mla', 'apa', 'chicago', 'ieee'])
 const VALID_THEMES = new Set(['dark', 'light'])
 const VALID_FONTS = new Set(['Calibri', 'Arial', 'Times New Roman', 'Georgia', 'Garamond', 'Courier New'])
+const VALID_LLM_PROVIDERS = new Set<CustomLlmProviderId>(['anthropic', 'openai', 'gemini', 'custom'])
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/
 const APP_SETTING_KEYS = new Set(Object.keys(DEFAULTS))
 
@@ -79,13 +97,21 @@ function validateSettingValue(key: string, value: unknown): unknown {
       return typeof value === 'number' ? Math.max(8, Math.min(72, value)) : DEFAULTS.editorFontSize
     case 'pomodoroWorkMinutes':
     case 'pomodoroBreakMinutes':
-      return typeof value === 'number' ? Math.max(1, Math.min(120, value)) : DEFAULTS[key as keyof AppSettingsOut]
+      return typeof value === 'number' ? Math.max(1, Math.min(120, value)) : DEFAULTS[key as keyof typeof DEFAULTS]
     case 'slidesRightPanelWidth':
       return typeof value === 'number' ? Math.max(240, Math.min(640, value)) : DEFAULTS.slidesRightPanelWidth
     case 'slidesPexelsApiKey':
       return value === null || (typeof value === 'string' && value.length <= 256)
         ? value as string | null
         : DEFAULTS.slidesPexelsApiKey
+    case 'customLlmProvider':
+      return typeof value === 'string' && VALID_LLM_PROVIDERS.has(value as CustomLlmProviderId)
+        ? value
+        : DEFAULTS.customLlmProvider
+    case 'customLlmModel':
+      return typeof value === 'string' && value.length <= 256 ? value : DEFAULTS.customLlmModel
+    case 'customLlmBaseUrl':
+      return validateBaseUrl(value)
     default:
       return value
   }
@@ -125,7 +151,16 @@ function loadSettings(): AppSettingsOut {
     uiScale: Math.min(125, Math.max(75, get('uiScale', DEFAULTS.uiScale))),
     slidesRightPanelWidth: Math.max(240, Math.min(640, get('slidesRightPanelWidth', DEFAULTS.slidesRightPanelWidth))),
     slidesPexelsEnabled: get('slidesPexelsEnabled', DEFAULTS.slidesPexelsEnabled),
-    slidesPexelsApiKey: get('slidesPexelsApiKey', DEFAULTS.slidesPexelsApiKey),
+    // Encrypted-at-rest via secureStorage; falls back to the legacy plain
+    // JSON value for anyone who saved a key before this field was encrypted.
+    slidesPexelsApiKey: readSecret('slidesPexelsApiKey') ?? get('slidesPexelsApiKey', DEFAULTS.slidesPexelsApiKey),
+    customLlmEnabled: get('customLlmEnabled', DEFAULTS.customLlmEnabled),
+    customLlmProvider: VALID_LLM_PROVIDERS.has(get('customLlmProvider', DEFAULTS.customLlmProvider))
+      ? get('customLlmProvider', DEFAULTS.customLlmProvider)
+      : DEFAULTS.customLlmProvider,
+    customLlmModel: get('customLlmModel', DEFAULTS.customLlmModel),
+    customLlmBaseUrl: get('customLlmBaseUrl', DEFAULTS.customLlmBaseUrl),
+    customLlmApiKeySet: hasSecret(CUSTOM_LLM_API_KEY_SETTING),
   }
 }
 
@@ -141,6 +176,14 @@ export function registerSettingsHandlers(): void {
     const d = data as Record<string, unknown>
     for (const [key, value] of Object.entries(d)) {
       if (!APP_SETTING_KEYS.has(key)) continue
+      if (key === 'slidesPexelsApiKey') {
+        // Routed through secureStorage instead of the plain upsert below —
+        // see loadSettings' comment on this field.
+        const validated = validateSettingValue(key, value) as string | null
+        if (validated) storeSecret(key, validated)
+        else clearSecret(key)
+        continue
+      }
       upsert.run(key, JSON.stringify(validateSettingValue(key, value)))
     }
   })

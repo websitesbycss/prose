@@ -42,6 +42,12 @@ export default function App(): JSX.Element {
   const [downloadStatus, setDownloadStatus] = useState<DownloadStatus | null>(null)
   const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>('welcome')
   const [defaultFolder, setDefaultFolder] = useState('')
+  // Set when the user chooses "I'll use my own AI API key instead" during
+  // onboarding — skips the Ollama install/model-download steps entirely and
+  // goes straight to the app. AI features stay gated behind ollamaStatus as
+  // usual; ai:getStatus reports 'ready' as soon as they finish setting up a
+  // custom LLM in Settings > AI, with no further onboarding involvement.
+  const [skippedOllama, setSkippedOllama] = useState(false)
 
   // Migration: null = not yet checked, otherwise current status
   const [migrationStatus, setMigrationStatus] = useState<MigrationProgress['status'] | null>(null)
@@ -181,8 +187,9 @@ export default function App(): JSX.Element {
     migrationStatus !== 'complete' &&
     migrationStatus !== 'not_needed'
 
-  // Ollama not installed — onboarding
-  if (!ollamaInstalled) {
+  // Ollama not installed — onboarding (skipped entirely once the user opts
+  // into bringing their own cloud API key instead)
+  if (!ollamaInstalled && !skippedOllama) {
     if (onboardingStep === 'welcome') {
       return (
         <>
@@ -208,37 +215,40 @@ export default function App(): JSX.Element {
             setDownloadStatus(status as DownloadStatus)
             setOnboardingStep('model-download')
           }}
+          onSkip={() => setSkippedOllama(true)}
         />
       )
     }
   }
 
-  if (downloadStatus === null) {
-    return <LoadingScreen />
-  }
-
-  if (!downloadStatus.downloaded) {
-    if (onboardingStep === 'welcome') {
-      return (
-        <>
-          {showMigration && <MigrationOverlay onComplete={handleMigrationComplete} />}
-          <Welcome onNext={() => setOnboardingStep('save-location')} />
-        </>
-      )
+  if (!skippedOllama) {
+    if (downloadStatus === null) {
+      return <LoadingScreen />
     }
-    if (onboardingStep === 'save-location') {
+
+    if (!downloadStatus.downloaded) {
+      if (onboardingStep === 'welcome') {
+        return (
+          <>
+            {showMigration && <MigrationOverlay onComplete={handleMigrationComplete} />}
+            <Welcome onNext={() => setOnboardingStep('save-location')} />
+          </>
+        )
+      }
+      if (onboardingStep === 'save-location') {
+        return (
+          <SaveLocation
+            defaultFolder={defaultFolder}
+            onNext={() => setOnboardingStep('model-download')}
+          />
+        )
+      }
       return (
-        <SaveLocation
-          defaultFolder={defaultFolder}
-          onNext={() => setOnboardingStep('model-download')}
+        <ModelDownload
+          onComplete={() => setDownloadStatus({ ...downloadStatus, downloaded: true })}
         />
       )
     }
-    return (
-      <ModelDownload
-        onComplete={() => setDownloadStatus({ ...downloadStatus, downloaded: true })}
-      />
-    )
   }
 
   const inEditor = !showDashboard && activeDocumentId !== null
