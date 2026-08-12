@@ -38,7 +38,8 @@ import { ParagraphRole } from '@/extensions/paragraphRole'
 import { FindExtension } from '@/extensions/findExtension'
 import { InlineMath, BlockMath } from '@/extensions/mathExtension'
 import { useDocument } from '@/hooks/useDocument'
-import { runThumbnailGenerationOnce, clampRectToViewport } from '@/lib/thumbnailGeneration'
+import { runThumbnailGenerationOnce, THUMB_WIDTH as THUMBNAIL_WIDTH, THUMB_HEIGHT as THUMBNAIL_HEIGHT } from '@/lib/thumbnailGeneration'
+import { renderFirstPageThumbnail } from '@/lib/pdfPreview'
 import { useAnalysis } from '@/hooks/useAnalysis'
 import { useWordCount } from '@/hooks/useWordCount'
 import { useSelectionWordCount } from '@/hooks/useSelectionWordCount'
@@ -76,7 +77,7 @@ import MathModal from './MathModal'
 import { ChartPickerDialog } from '@/components/shared/ChartPickerDialog'
 import type { ChartSnapshot } from '@/lib/chartSnapshot'
 import SettingsModal from '@/components/settings/SettingsModal'
-import type { AppSettings, PageMargins } from '@/types'
+import type { AppSettings, PageMargins, ExportOptions } from '@/types'
 import { List, Timer, BarChart2, History, ChevronLeft, ChevronRight, Settings } from 'lucide-react'
 import { AI_PANEL_WIDTH, DEFAULT_PAGE_MARGINS } from '@/constants'
 import { getDocumentScroll, setDocumentScroll } from '@/lib/documentTabCache'
@@ -181,7 +182,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   const [activePanel, setActivePanel] = useState<SidebarPanel>('outline')
 
   const pomodoroControls = usePomodoro()
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+   
   const music = useMusicContext()!
   const analysis = useAnalysis()
 
@@ -194,7 +195,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
       if (appSettings.editorFontFamily) setEditorFontFamily(appSettings.editorFontFamily)
       if (appSettings.editorFontSize) setEditorFontSize(appSettings.editorFontSize)
     })
-  }, [])
+  }, [setTypewriterMode])
 
   const editor = useEditor({
     extensions: [
@@ -263,25 +264,37 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
     },
   })
 
-  // Thumbnail generation — fired by the main process after every successful
-  // content auto-save (see documents:update). Captures the rendered page (not
-  // the full editor chrome/sidebar/toolbar) and hands it to the main process,
-  // which resizes it to the standard 560x315 thumbnail before writing to disk.
+  // Thumbnail generation — fired by the main process after every manual save
+  // (see documents:update's forceSnapshot gate). Renders page 1 of the same
+  // PDF the real export produces (off the stored content in a hidden window,
+  // not a screenshot of the live editor), so nothing about the currently
+  // visible screen — dark mode, hover tooltips, scroll position, Harper
+  // highlights — can leak into it, and it always starts at the top of page 1
+  // regardless of where the cursor happens to be. Fit to thumbnail width and
+  // cropped from the top, never squished, never centered.
   useEffect(() => {
     return window.prose.thumbnails.onGenerate((fileId) => {
       if (fileId !== documentId) return
       void runThumbnailGenerationOnce(fileId, async () => {
         if (!editor || editor.isEmpty) return
-        const pageEl = editorPageRef.current
-        if (!pageEl) return
-        const pageRect = pageEl.getBoundingClientRect()
-        const rect = clampRectToViewport({ x: pageRect.left, y: pageRect.top, width: pageRect.width, height: pageRect.height })
-        if (!rect) return
-        const base64 = await window.prose.thumbnails.captureRegion(rect)
+        const opts: ExportOptions = {
+          format: 'pdf',
+          fileName: '',
+          pageSize: 'Letter',
+          orientation: 'portrait',
+          margins: doc?.pageMargins ?? DEFAULT_PAGE_MARGINS,
+          includeHeader: false,
+          includeFooter: false,
+          openAfterExport: false,
+        }
+        const b64 = await window.prose.export.getPreviewPdf(fileId, opts)
+        if (!b64) return
+        const base64 = await renderFirstPageThumbnail(b64, THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT)
+        if (!base64) return
         await window.prose.thumbnails.save(fileId, base64)
       })
     })
-  }, [documentId, editor])
+  }, [documentId, editor, doc?.pageMargins])
 
   useEffect(() => {
     if (!editor || !doc) return

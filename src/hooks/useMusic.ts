@@ -152,17 +152,21 @@ export function useMusic(): MusicHook {
 
   // Create ambient audio elements on mount
   useEffect(() => {
+    // Captured once here rather than read fresh in the cleanup — the ref's
+    // .current is a stable Map for this hook's lifetime, but capturing it
+    // up front is what the exhaustive-deps rule can actually verify is safe.
+    const layers = ambientRef.current
     for (const layer of AMBIENT_LAYERS) {
       const el = new Audio(formatTrackSrc(layer.src))
       el.loop = true
       el.preload = 'auto'
       el.volume = ambientVolumeFraction(layer.id, ambientVolumesRef.current)
-      ambientRef.current.set(layer.id, el)
+      layers.set(layer.id, el)
       el.load()
     }
     return () => {
-      ambientRef.current.forEach((el) => el.pause())
-      ambientRef.current.clear()
+      layers.forEach((el) => el.pause())
+      layers.clear()
     }
   }, [])
 
@@ -261,7 +265,7 @@ export function useMusic(): MusicHook {
   const next = useCallback((): void => {
     const nextIndex = (trackIndexRef.current + 1) % TRACKS.length
     loadTrack(nextIndex, playingRef.current)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])  
 
   const prev = useCallback((): void => {
     if (trackRef.current && trackRef.current.currentTime > 3) {
@@ -271,7 +275,7 @@ export function useMusic(): MusicHook {
     }
     const prevIndex = (trackIndexRef.current - 1 + TRACKS.length) % TRACKS.length
     loadTrack(prevIndex, playingRef.current)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])  
 
   const seek = useCallback((t: number): void => {
     if (trackRef.current) {
@@ -289,7 +293,7 @@ export function useMusic(): MusicHook {
 
   const switchTrack = useCallback((index: number): void => {
     loadTrack(index, playingRef.current)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])  
 
   const setAmbientEnabled = useCallback((id: string, on: boolean): void => {
     ambientEnabledRef.current = { ...ambientEnabledRef.current, [id]: on }
@@ -310,7 +314,7 @@ export function useMusic(): MusicHook {
     const el = ambientRef.current.get(id)
     if (el) el.volume = ambientVolumeFraction(id, ambientVolumesRef.current)
     persistSettings(volumeRef.current, ambientVolumesRef.current)
-  }, [playAmbientLayer])
+  }, [])
 
   const nowPlayingTitle = playing ? (TRACKS[trackIndex]?.title ?? null) : null
 

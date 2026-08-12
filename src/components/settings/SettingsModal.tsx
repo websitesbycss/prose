@@ -123,13 +123,17 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
     }
   }, [setPomodoroState])
 
-  // Apply accent colors whenever either value changes; uses fresh state, no stale closures
+  // Apply accent colors whenever either value changes; uses fresh state, no
+  // stale closures. Narrowed to the two color fields on purpose — depending
+  // on the whole `settings` object would re-apply colors on every unrelated
+  // setting change.
   useEffect(() => {
     if (!settings) return
     applyAccentColors(
       settings.lightAccentColor ?? DEFAULT_LIGHT_ACCENT,
       settings.darkAccentColor  ?? DEFAULT_DARK_ACCENT,
     )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings?.lightAccentColor, settings?.darkAccentColor])
 
   async function handlePickNewFolder(): Promise<void> {
@@ -245,6 +249,45 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
                   </SettingRow>
                   <p className="mt-4 text-xs text-muted-foreground">
                     Hold <kbd className="rounded border border-border bg-muted px-1 font-mono text-[10px]">Alt</kbd> while dragging to temporarily disable snapping.
+                  </p>
+
+                  <div className="mt-5 mb-1">
+                    <SectionTitle>AI-generated images</SectionTitle>
+                  </div>
+                  <SettingRow
+                    label="Use Pexels for stock photos"
+                    description="Lets AI-generated slides use real stock photos instead of simple AI-drawn illustrations. Requires your own free Pexels API key and an internet connection — off by default to keep Slides generation fully offline."
+                  >
+                    <Switch
+                      checked={settings.slidesPexelsEnabled ?? false}
+                      onCheckedChange={(v) => void save({ slidesPexelsEnabled: v })}
+                    />
+                  </SettingRow>
+                  {(settings.slidesPexelsEnabled ?? false) && (
+                    <>
+                      <Separator />
+                      <div className="py-2">
+                        <label className="mb-1.5 block text-xs font-medium text-foreground">Pexels API key</label>
+                        <Input
+                          type="password"
+                          value={settings.slidesPexelsApiKey ?? ''}
+                          onChange={(e) => void save({ slidesPexelsApiKey: e.target.value || null })}
+                          placeholder="Paste your Pexels API key"
+                          className="text-xs"
+                        />
+                        <a
+                          href="https://www.pexels.com/api/"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                        >
+                          Get a free key at pexels.com/api <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </div>
+                    </>
+                  )}
+                  <p className="mt-2 text-[11px] text-muted-foreground">
+                    Photos are third-party stock images under Pexels' license, not content Prose generates itself. Slides that use one automatically credit the photographer in small text on the slide.
                   </p>
                 </>
               )}

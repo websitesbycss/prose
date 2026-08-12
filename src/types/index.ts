@@ -75,6 +75,8 @@ export interface AppSettings {
   slidesSnapToElements?: boolean
   slidesSnapEqualSpacing?: boolean
   slidesRightPanelWidth?: number
+  slidesPexelsEnabled?: boolean
+  slidesPexelsApiKey?: string | null
 }
 
 export type OllamaStatus = 'ready' | 'loading' | 'unavailable'
@@ -265,10 +267,11 @@ export interface ProseAPI {
     onLeaveFullscreen(cb: () => void): () => void
   }
   tabdrag: {
-    detach(docId: string): void
+    detach(docId: string, opts?: { grabOffsetX?: number; grabOffsetY?: number }): void
     cancel(): void
+    checkMerge(opts: { screenX: number; screenY: number; docId: string }): void
     finalize(pos?: { screenX: number; screenY: number }): void
-    registerTabBarBounds(rect: { x: number; y: number; width: number; height: number }): void
+    registerTabBarBounds(rect: { x: number; y: number; width: number; height: number } | { left: number; top: number; width: number; height: number }): void
     onDetached(cb: (data: { docId: string }) => void): () => void
     onReturn(cb: (data: { screenX: number }) => void): () => void
     onMerge(cb: (data: { docId: string; screenX: number }) => void): () => void
@@ -336,6 +339,7 @@ export interface ProseAPI {
     exportPng(content: import('./slides').SlidesContent, title: string): Promise<void>
     saveExportBytes(base64: string, filename: string, format: string): Promise<void>
     importPptx(): Promise<{ title: string; content: string } | null>
+    searchPexelsImage(query: string): Promise<{ dataUrl: string; photographer: string; photographerUrl: string } | null>
   }
   updates: {
     getState(): Promise<UpdateStatusPayload & { currentVersion: string }>

@@ -4,6 +4,7 @@ import { SLIDE_BASE_WIDTH, SLIDE_BASE_HEIGHT } from '@/types/slides'
 import type { ChartType } from '@/types/sheet'
 import { renderAdHocChartSnapshot } from '@/lib/chartSnapshot'
 import { useAppStore } from '@/store/appStore'
+import { iconToSvgString, CURATED_ICON_LIST_PROMPT } from '../icons/curatedIcons'
 
 // ── Plain-text extraction ────────────────────────────────────────────────────
 // Strips all positional/size data; sends only text to Ollama. Never sends base64.
@@ -63,7 +64,9 @@ export interface AiTableSchema {
 
 export interface AiSlideSchema {
   title: string
-  layout: 'title' | 'title-content' | 'two-column' | 'section-header' | 'image-caption'
+  layout:
+    | 'title' | 'title-content' | 'two-column' | 'section-header' | 'image-caption'
+    | 'comparison' | 'agenda' | 'icon-list' | 'stat' | 'quote' | 'three-column'
   content: string | string[] | { left: string[]; right: string[] }
   speakerNotes: string
   suggestedImageDescription: string | null
@@ -72,6 +75,16 @@ export interface AiSlideSchema {
   table?: AiTableSchema | null
   /** Present when a spreadsheet source gives the model real numbers worth charting. */
   chart?: AiChartSchema | null
+  /** "comparison" only — headers for the two sides (content still carries {left,right}). */
+  comparisonLabels?: { left: string; right: string } | null
+  /** "icon-list" only — each item pairs a curated icon name with a short label. */
+  iconItems?: { icon: string; label: string }[] | null
+  /** "stat" only — one big figure and its label; content holds the supporting sentence. */
+  stat?: { value: string; label: string } | null
+  /** "quote" only — attribution for the quote in content, e.g. "Jane Doe, CEO". */
+  quoteAttribution?: string | null
+  /** "three-column" only — exactly 3 bullet arrays, one per column. */
+  columns?: string[][] | null
 }
 
 // ── Output sanitization ──────────────────────────────────────────────────────
@@ -132,6 +145,10 @@ export function normalizeAiTable(t: AiTableSchema | null | undefined): AiTableSc
 export function isSubstantialSlide(ai: AiSlideSchema): boolean {
   const title = (ai.title ?? '').trim()
   if (ai.layout === 'title' || ai.layout === 'section-header') return title.length > 0
+  if (ai.layout === 'icon-list') return Array.isArray(ai.iconItems) && ai.iconItems.length > 0
+  if (ai.layout === 'stat') return !!ai.stat?.value?.trim()
+  if (ai.layout === 'agenda') return Array.isArray(ai.content) && ai.content.length > 0
+  if (ai.layout === 'three-column') return Array.isArray(ai.columns) && ai.columns.some((c) => c?.length > 0)
   const text = contentToText(sanitizeContent(ai.content)).replace(/[•\-\s]/g, '')
   return text.length >= 12 || !!ai.chart || !!normalizeAiTable(ai.table)
 }
@@ -220,6 +237,23 @@ export function aiSlideToProseSlide(rawAi: AiSlideSchema, theme: PresentationThe
     title: sanitizeSlideText(rawAi.title ?? ''),
     content: sanitizeContent(rawAi.content),
     speakerNotes: (rawAi.speakerNotes ?? '').trim(),
+    comparisonLabels: rawAi.comparisonLabels
+      ? { left: sanitizeSlideText(rawAi.comparisonLabels.left ?? ''), right: sanitizeSlideText(rawAi.comparisonLabels.right ?? '') }
+      : null,
+    iconItems: Array.isArray(rawAi.iconItems)
+      ? rawAi.iconItems
+          .filter((it) => it && typeof it.icon === 'string' && typeof it.label === 'string')
+          .slice(0, 6)
+          .map((it) => ({ icon: it.icon.trim().toLowerCase(), label: sanitizeSlideText(it.label) }))
+          .filter((it) => it.label)
+      : null,
+    stat: rawAi.stat
+      ? { value: sanitizeSlideText(rawAi.stat.value ?? ''), label: sanitizeSlideText(rawAi.stat.label ?? '') }
+      : null,
+    quoteAttribution: rawAi.quoteAttribution ? sanitizeSlideText(rawAi.quoteAttribution) : null,
+    columns: Array.isArray(rawAi.columns)
+      ? rawAi.columns.slice(0, 3).map((col) => (Array.isArray(col) ? col.map((s) => sanitizeSlideText(String(s))).filter(Boolean) : []))
+      : null,
   }
   const table = normalizeAiTable(rawAi.table)
   const elements: SlideElement[] = []
@@ -250,6 +284,93 @@ export function aiSlideToProseSlide(rawAi: AiSlideSchema, theme: PresentationThe
       } else {
         elements.push(makeTextEl(crypto.randomUUID(), contentToText(ai.content), 3, 21, 94, 69, 22, theme.textColor))
       }
+      break
+    }
+    case 'comparison': {
+      elements.push(makeTextEl(crypto.randomUUID(), ai.title, 5, 3, 90, 12, 44, theme.textColor))
+      const leftLabel = ai.comparisonLabels?.left || 'Option A'
+      const rightLabel = ai.comparisonLabels?.right || 'Option B'
+      elements.push(makeTextEl(crypto.randomUUID(), leftLabel, 3, 17, 46, 9, 30, theme.primaryColor))
+      elements.push(makeTextEl(crypto.randomUUID(), rightLabel, 51, 17, 46, 9, 30, theme.secondaryColor))
+      const body = ai.content
+      if (body && typeof body === 'object' && 'left' in body) {
+        const c = body as { left: string[]; right: string[] }
+        elements.push(makeTextEl(crypto.randomUUID(), c.left.map(s => `• ${s}`).join('\n'), 3, 28, 46, 62, 22, theme.textColor))
+        elements.push(makeTextEl(crypto.randomUUID(), c.right.map(s => `• ${s}`).join('\n'), 51, 28, 46, 62, 22, theme.textColor))
+      }
+      break
+    }
+    case 'agenda': {
+      elements.push(makeTextEl(crypto.randomUUID(), ai.title || 'Agenda', 5, 5, 90, 13, 48, theme.textColor))
+      elements.push(makeAccentBar(5, 19, 12, theme.accentColor))
+      const items = Array.isArray(ai.content) ? ai.content : []
+      const numbered = items.map((s, i) => `${i + 1}. ${s}`).join('\n')
+      elements.push(makeTextEl(crypto.randomUUID(), numbered, 8, 25, 85, 68, 28, theme.textColor))
+      break
+    }
+    case 'stat': {
+      const value = ai.stat?.value ?? ''
+      const label = ai.stat?.label ?? ''
+      elements.push(makeTextEl(crypto.randomUUID(), value, 10, 14, 80, 32, 120, theme.primaryColor, 'center'))
+      elements.push(makeAccentBar(42.5, 47, 15, theme.accentColor))
+      elements.push(makeTextEl(crypto.randomUUID(), label, 10, 52, 80, 10, 32, theme.textColor, 'center'))
+      if (typeof ai.content === 'string' && ai.content) {
+        elements.push(makeTextEl(crypto.randomUUID(), ai.content, 15, 66, 70, 18, 22, theme.textColor, 'center'))
+      }
+      break
+    }
+    case 'quote': {
+      const quoteText = typeof ai.content === 'string' ? ai.content : contentToText(ai.content)
+      elements.push(makeAccentBar(42.5, 22, 15, theme.accentColor))
+      elements.push(makeTextEl(crypto.randomUUID(), `"${quoteText}"`, 12, 28, 76, 40, 40, theme.textColor, 'center'))
+      if (ai.quoteAttribution) {
+        elements.push(makeTextEl(crypto.randomUUID(), `— ${ai.quoteAttribution}`, 15, 70, 70, 10, 24, theme.textColor, 'center'))
+      }
+      break
+    }
+    case 'three-column': {
+      elements.push(makeTextEl(crypto.randomUUID(), ai.title, 5, 4, 90, 12, 40, theme.textColor))
+      elements.push(makeAccentBar(5, 17.5, 12, theme.accentColor))
+      const cols = ai.columns ?? []
+      const colWidth = 30
+      const gap = 2
+      for (let i = 0; i < 3; i++) {
+        const x = 3 + i * (colWidth + gap)
+        const items = cols[i] ?? []
+        elements.push(makeTextEl(crypto.randomUUID(), items.map(s => `• ${s}`).join('\n'), x, 22, colWidth, 68, 18, theme.textColor))
+      }
+      break
+    }
+    case 'icon-list': {
+      // Icons resolve synchronously (a local lookup + off-screen render, no
+      // LLM round-trip) unlike suggestedImageDescription illustrations, so
+      // this slide is complete immediately rather than filling in later via
+      // attachGeneratedVisuals.
+      elements.push(makeTextEl(crypto.randomUUID(), ai.title, 5, 5, 90, 13, 44, theme.textColor))
+      elements.push(makeAccentBar(5, 19, 12, theme.accentColor))
+      const items = (ai.iconItems ?? []).slice(0, 6)
+      const cols = items.length > 3 ? 2 : 1
+      const rows = Math.max(1, Math.ceil(items.length / cols))
+      const colWidth = cols === 2 ? 44 : 90
+      const rowHeight = Math.min(22, 66 / rows)
+      const ICON_W = 6
+      const ICON_H = ICON_W * (SLIDE_BASE_WIDTH / SLIDE_BASE_HEIGHT) // square in rendered pixels — x%/y% share a base, so a "square" box needs the height% scaled by the slide's own aspect ratio
+      items.forEach((item, i) => {
+        const col = i % cols
+        const row = Math.floor(i / cols)
+        const x = 5 + col * (colWidth + 2)
+        const y = 26 + row * rowHeight
+        const svg = iconToSvgString(item.icon, theme.accentColor)
+        if (svg) {
+          elements.push({
+            id: crypto.randomUUID(), type: 'ai-graphic',
+            x, y: y + (rowHeight - ICON_H) / 2, width: ICON_W, height: ICON_H,
+            rotate: 0, opacity: 1, zIndex: 10 + i, flipH: false, flipV: false, locked: false, hidden: false,
+            svgContent: svg, description: `icon: ${item.icon}`,
+          } as SlideElement)
+        }
+        elements.push(makeTextEl(crypto.randomUUID(), item.label, x + ICON_W + 2, y, colWidth - ICON_W - 2, rowHeight, 22, theme.textColor))
+      })
       break
     }
     default: { // title-content, image-caption
@@ -313,15 +434,61 @@ export const AI_VISUAL_REGION = { x: 64, y: 22, width: 31, height: 60 }
 // Generates and attaches a visual for every "image-caption" slide that
 // suggested one — the rest of the deck builds and previews instantly, then
 // the (slower) generated graphics fill in as each one resolves.
+//
+// Tries Pexels first when the user has opted in (Settings > Slides) and
+// configured their own API key — a real stock photo instead of a simple
+// AI-drawn illustration. Falls back to the SVG illustration path whenever
+// Pexels is off, unconfigured, or the search/download fails for any reason,
+// so this never blocks the deck on a network call the user didn't ask for.
 export async function attachGeneratedVisuals(
   aiSlides: AiSlideSchema[],
   prosSlides: Slide[],
   theme: PresentationTheme,
 ): Promise<Slide[]> {
+  const settings = await window.prose.settings.get().catch(() => null)
+  const pexelsEnabled = !!(settings as { slidesPexelsEnabled?: boolean } | null)?.slidesPexelsEnabled
+
   const withVisuals = await Promise.all(
     aiSlides.map(async (ai, i) => {
       const slide = prosSlides[i]
       if (!slide || ai.layout !== 'image-caption' || !ai.suggestedImageDescription || ai.chart) return slide
+
+      if (pexelsEnabled) {
+        const photo = await window.prose.slides.searchPexelsImage(ai.suggestedImageDescription).catch(() => null)
+        if (photo) {
+          const image: SlideElement = {
+            id: crypto.randomUUID(), type: 'image',
+            x: AI_VISUAL_REGION.x, y: AI_VISUAL_REGION.y, width: AI_VISUAL_REGION.width, height: AI_VISUAL_REGION.height,
+            rotate: 0, opacity: 1, zIndex: 1000, flipH: false, flipV: false, locked: false, hidden: false,
+            src: photo.dataUrl, altText: ai.suggestedImageDescription, borderRadius: 4,
+            filters: { brightness: 100, contrast: 100, saturation: 100, blur: 0 },
+          }
+          // Small credit overlaid at the bottom-left of the photo — required
+          // by Pexels' license, matches the placement slide-deck-ai uses.
+          // A dark scrim sits behind the text since a real photo's bottom-left
+          // corner brightness is unpredictable — plain white text alone would
+          // be illegible against a light patch of sky, snow, etc.
+          const scrim: SlideElement = {
+            id: crypto.randomUUID(), type: 'shape', shapeType: 'rect',
+            x: AI_VISUAL_REGION.x, y: AI_VISUAL_REGION.y + AI_VISUAL_REGION.height - 5,
+            width: AI_VISUAL_REGION.width, height: 5,
+            rotate: 0, opacity: 0.45, zIndex: 1001, flipH: false, flipV: false, locked: false, hidden: false,
+            fill: '#000000',
+          }
+          const attribution: SlideElement = {
+            id: crypto.randomUUID(), type: 'text',
+            x: AI_VISUAL_REGION.x + 1, y: AI_VISUAL_REGION.y + AI_VISUAL_REGION.height - 4.5,
+            width: AI_VISUAL_REGION.width - 2, height: 4,
+            rotate: 0, opacity: 1, zIndex: 1002, flipH: false, flipV: false, locked: false, hidden: false,
+            content: `Photo: ${photo.photographer} / Pexels`, fontFamily: 'Inter', fontSize: 10,
+            color: '#ffffff', align: 'left', verticalAlign: 'middle',
+            lineHeight: 1.2, letterSpacing: 0, overflow: 'clip',
+          }
+          return { ...slide, elements: [...slide.elements, image, scrim, attribution] }
+        }
+        // Fall through to the SVG illustration path below on any failure.
+      }
+
       const visual = await generateSlideVisual(ai.suggestedImageDescription, theme)
       if (!visual) return slide
       const graphic: SlideElement = {
@@ -344,19 +511,31 @@ Return ONLY a JSON array with no preamble, no explanation, and no markdown fence
 Schema for each slide object:
 {
   "title": string,
-  "layout": "title" | "title-content" | "two-column" | "section-header" | "image-caption",
+  "layout": "title" | "title-content" | "two-column" | "section-header" | "image-caption" | "comparison" | "agenda" | "icon-list" | "stat" | "quote" | "three-column",
   "content": string | string[] | { left: string[], right: string[] },
   "speakerNotes": string,
   "suggestedImageDescription": string | null,
   "backgroundColor": string | null,
   "table": { "headers": string[], "rows": string[][] } | null,
-  "chart": { "chartType": "bar"|"barHorizontal"|"line"|"area"|"pie"|"doughnut"|"scatter"|"radar", "title": string, "labels": string[], "datasets": [{"label": string, "data": (number|null)[]}], "xAxisLabel": string, "yAxisLabel": string } | null
+  "chart": { "chartType": "bar"|"barHorizontal"|"line"|"area"|"pie"|"doughnut"|"scatter"|"radar", "title": string, "labels": string[], "datasets": [{"label": string, "data": (number|null)[]}], "xAxisLabel": string, "yAxisLabel": string } | null,
+  "comparisonLabels": { "left": string, "right": string } | null,
+  "iconItems": [{ "icon": string, "label": string }] | null,
+  "stat": { "value": string, "label": string } | null,
+  "quoteAttribution": string | null,
+  "columns": string[][] | null
 }
 
 Deck structure:
 - Slide at index 0 always uses layout "title": a strong presentation title, with a one-sentence subtitle as "content".
 - Use "section-header" to introduce each major topic shift.
-- Use "two-column" when comparing or contrasting exactly two things ("content" must then be { left, right }).
+- Use a variety of layouts across the deck — don't default to "title-content" for everything. Options for body slides beyond the basics:
+  - "two-column": comparing or contrasting exactly two things ("content" must then be { left, right }).
+  - "comparison": like two-column but with explicit headers over each side — set "comparisonLabels" to a short name for each side (e.g. "Before"/"After", "Pros"/"Cons") and "content" to { left, right } as usual.
+  - "three-column": three parallel things side by side — set "columns" to an array of exactly 3 bullet arrays, one per column. Leave "content" empty.
+  - "agenda": a numbered outline or table of contents — set "content" to a string array, one item per line. Best for one slide near the start of the deck.
+  - "stat": one big number or figure as the whole point of the slide — set "stat" to { value, label } (e.g. value "40%", label "revenue growth year over year"), and optionally a one-sentence elaboration in "content". Use sparingly, for a single standout figure worth a whole slide.
+  - "quote": a notable quotation — "content" is the quote text (no quotation marks, they're added automatically), "quoteAttribution" is who said it. Only use this if a real quote exists in the source material — never invent one.
+  - "icon-list": a short list of concepts or features, each paired with an icon — set "iconItems" to an array of up to 6 { icon, label } objects. "icon" MUST be one of exactly these names (pick the closest match, do not invent new ones): ${CURATED_ICON_LIST_PROMPT}.
 - End the deck with a closing slide of key takeaways or next steps.
 - Maximum 20 slides.
 

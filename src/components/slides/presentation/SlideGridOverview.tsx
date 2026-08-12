@@ -56,6 +56,13 @@ export function SlideGridOverview({ slides, theme, settings, currentIndex, onSel
                 onMouseDown={() => {/* handled by parent onClick */}}
                 onClick={() => { onSelect(idx); onClose() }}
                 onContextMenu={(e) => e.preventDefault()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    onSelect(idx)
+                    onClose()
+                  }
+                }}
               />
             </div>
           ))}

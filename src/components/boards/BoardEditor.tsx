@@ -35,7 +35,7 @@ import { useIsActiveTab } from '@/hooks/useIsActiveTab'
 import { useForceRepaintOnMount } from '@/hooks/useForceRepaintOnMount'
 import { usePanelVisibility } from '@/hooks/usePanelVisibility'
 import { useContextMenuIcons } from '@/hooks/useContextMenuIcons'
-import { runThumbnailGenerationOnce, blobToDataUrl, downscaleToThumbnail } from '@/lib/thumbnailGeneration'
+import { runThumbnailGenerationOnce, blobToDataUrl, coverCropToThumbnail } from '@/lib/thumbnailGeneration'
 
 // Excalidraw's native right-click menu has no per-item class/data-attribute to
 // target — only the rendered (English) label identifies each action. This is
@@ -165,7 +165,7 @@ function buildBoardContext(elements: ExcalidrawElements): string {
 
   if (texts.length > 0) {
     parts.push('Text notes:')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     for (const t of texts.slice(0, 10)) {
       if (t.text) parts.push(`  - "${String(t.text).slice(0, 80)}"`)
     }
@@ -273,9 +273,12 @@ export function BoardEditor({ documentId }: BoardEditorProps): JSX.Element {
   const aiPanelVisibility = usePanelVisibility(aiPanelOpen)
 
   // Thumbnail generation — fired by the main process after every successful
-  // content auto-save. Unlike Documents/Sheets this never goes through
-  // captureRegion — Excalidraw renders its own export via exportToBlob, which
-  // we then downscale to the standard 560x315 thumbnail size client-side.
+  // content auto-save. Unlike Sheets this never goes through captureRegion —
+  // Excalidraw renders its own export via exportToBlob, same pipeline (and
+  // same 1x scale) as the real PNG/PDF export in BoardExportModal, forced to
+  // light mode regardless of the app's theme. The exported bounding box's
+  // aspect ratio depends entirely on what was drawn, so it's fit-to-cover and
+  // cropped from the top-left rather than stretched to 560x315.
   useEffect(() => {
     return window.prose.thumbnails.onGenerate((fileId) => {
       if (fileId !== documentId) return
@@ -292,9 +295,10 @@ export function BoardEditor({ documentId }: BoardEditorProps): JSX.Element {
           appState: { ...api.getAppState(), exportBackground: true, exportWithDarkMode: false },
           files: api.getFiles(),
           mimeType: 'image/png',
+          getDimensions: (w: number, h: number) => ({ width: w, height: h, scale: 1 }),
         })
         const dataUrl = await blobToDataUrl(blob)
-        const base64 = await downscaleToThumbnail(dataUrl)
+        const base64 = await coverCropToThumbnail(dataUrl)
         await window.prose.thumbnails.save(fileId, base64)
       })
     })

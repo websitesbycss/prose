@@ -148,6 +148,9 @@ release/
 # Local install target for testing the packaged app
 downloaded_app/
 
+# Local-only release automation scripts (VirusTotal scan, release notes push)
+scripts/local/
+
 docs/references/
 
 .claude/

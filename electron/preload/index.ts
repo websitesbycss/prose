@@ -120,7 +120,7 @@ contextBridge.exposeInMainWorld('prose', {
     cancel: () => ipcRenderer.send('tabdrag:cancel'),
     finalize: (pos?: { screenX: number; screenY: number }) => ipcRenderer.send('tabdrag:finalize', pos),
     checkMerge: (opts: { screenX: number; screenY: number; docId: string }) => ipcRenderer.send('tabdrag:checkMerge', opts),
-    registerTabBarBounds: (rect: { x: number; y: number; width: number; height: number }) =>
+    registerTabBarBounds: (rect: { x: number; y: number; width: number; height: number } | { left: number; top: number; width: number; height: number }) =>
       ipcRenderer.send('tabdrag:registerTabBarBounds', rect),
     onDetached: (cb: (data: { docId: string }) => void): (() => void) => {
       const listener = (_: Electron.IpcRendererEvent, data: { docId: string }): void => cb(data)
@@ -244,6 +244,7 @@ contextBridge.exposeInMainWorld('prose', {
     exportPng: (content: unknown, title: string) => ipcRenderer.invoke('slides:exportPng', content, title),
     saveExportBytes: (base64: string, filename: string, format: string) => ipcRenderer.invoke('slides:saveBytes', base64, filename, format),
     importPptx: () => ipcRenderer.invoke('slides:importPptx'),
+    searchPexelsImage: (query: string) => ipcRenderer.invoke('slides:searchPexelsImage', query),
   },
 
   updates: {

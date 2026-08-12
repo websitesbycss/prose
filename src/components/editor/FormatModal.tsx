@@ -64,7 +64,7 @@ export default function FormatModal({
     } else if (format === 'apa') {
       setApa({ ...EMPTY_APA, ...initialApaRef.current })
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [open, format])
 
   function handleApply(): void {

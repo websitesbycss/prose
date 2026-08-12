@@ -19,6 +19,10 @@ export default function TitleBar({ document, onTitleChange }: TitleBarProps): JS
     if (document) {
       updateDocumentTab(document.id, { title: document.title, format: document.format })
     }
+    // Deliberately narrowed to the three fields that matter, not the whole
+    // `document` object — depending on the object reference would re-run
+    // this on every unrelated field change (content, margins, etc).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [document?.id, document?.title, document?.format, updateDocumentTab])
 
   async function commitTitleEdit(): Promise<void> {

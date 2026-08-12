@@ -19,6 +19,8 @@ interface AppSettingsOut {
   darkAccentColor: string | null
   uiScale: number
   slidesRightPanelWidth: number
+  slidesPexelsEnabled: boolean
+  slidesPexelsApiKey: string | null
 }
 
 const DEFAULTS: AppSettingsOut = {
@@ -39,6 +41,8 @@ const DEFAULTS: AppSettingsOut = {
   darkAccentColor: '#60a5fa',
   uiScale: 110,
   slidesRightPanelWidth: 340,
+  slidesPexelsEnabled: false,
+  slidesPexelsApiKey: null,
 }
 
 const VALID_FORMATS = new Set(['none', 'mla', 'apa', 'chicago', 'ieee'])
@@ -78,6 +82,10 @@ function validateSettingValue(key: string, value: unknown): unknown {
       return typeof value === 'number' ? Math.max(1, Math.min(120, value)) : DEFAULTS[key as keyof AppSettingsOut]
     case 'slidesRightPanelWidth':
       return typeof value === 'number' ? Math.max(240, Math.min(640, value)) : DEFAULTS.slidesRightPanelWidth
+    case 'slidesPexelsApiKey':
+      return value === null || (typeof value === 'string' && value.length <= 256)
+        ? value as string | null
+        : DEFAULTS.slidesPexelsApiKey
     default:
       return value
   }
@@ -116,6 +124,8 @@ function loadSettings(): AppSettingsOut {
     darkAccentColor:  get('darkAccentColor',  DEFAULTS.darkAccentColor),
     uiScale: Math.min(125, Math.max(75, get('uiScale', DEFAULTS.uiScale))),
     slidesRightPanelWidth: Math.max(240, Math.min(640, get('slidesRightPanelWidth', DEFAULTS.slidesRightPanelWidth))),
+    slidesPexelsEnabled: get('slidesPexelsEnabled', DEFAULTS.slidesPexelsEnabled),
+    slidesPexelsApiKey: get('slidesPexelsApiKey', DEFAULTS.slidesPexelsApiKey),
   }
 }
 

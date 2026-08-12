@@ -1,4 +1,6 @@
 import type { SlideElement, PresentationTheme } from '@/types/slides'
+import { SLIDE_BASE_WIDTH, SLIDE_BASE_HEIGHT } from '@/types/slides'
+import { iconToSvgString } from '../icons/curatedIcons'
 
 export type LayoutId =
   | 'blank'
@@ -10,6 +12,10 @@ export type LayoutId =
   | 'image-caption'
   | 'comparison'
   | 'agenda'
+  | 'stat'
+  | 'quote'
+  | 'three-column'
+  | 'icon-list'
 
 export interface SlideLayout {
   id: LayoutId
@@ -126,5 +132,79 @@ export const SLIDE_LAYOUTS: SlideLayout[] = [
       textEl({ id: uuid(), content: 'Agenda', x: 5, y: 5, width: 90, height: 13, fontSize: 56, color: theme.textColor, fontFamily: theme.headingFontFamily, zIndex: 1 }),
       textEl({ id: uuid(), content: '1. Introduction\n2. Main Topic\n3. Discussion\n4. Q&A\n5. Wrap-up', x: 8, y: 23, width: 85, height: 68, fontSize: 30, color: theme.textColor, lineHeight: 1.8, zIndex: 2 }),
     ],
+  },
+  {
+    id: 'stat',
+    name: 'Big Stat',
+    description: 'One large figure as the focus of the slide',
+    createElement: (theme) => [
+      textEl({ id: uuid(), content: '40%', x: 10, y: 14, width: 80, height: 32, fontSize: 140, align: 'center', verticalAlign: 'middle', color: theme.primaryColor, fontFamily: theme.headingFontFamily, zIndex: 1 }),
+      {
+        id: uuid(), type: 'shape',
+        x: 42.5, y: 47, width: 15, height: 1.2,
+        rotate: 0, opacity: 1, zIndex: 2, flipH: false, flipV: false, locked: false, hidden: false,
+        shapeType: 'rect', fill: theme.accentColor,
+      } as SlideElement,
+      textEl({ id: uuid(), content: 'Label for this figure', x: 10, y: 52, width: 80, height: 10, fontSize: 32, align: 'center', color: theme.textColor, zIndex: 3 }),
+    ],
+  },
+  {
+    id: 'quote',
+    name: 'Quote',
+    description: 'A centered pull quote with attribution',
+    createElement: (theme) => [
+      {
+        id: uuid(), type: 'shape',
+        x: 42.5, y: 22, width: 15, height: 1.2,
+        rotate: 0, opacity: 1, zIndex: 1, flipH: false, flipV: false, locked: false, hidden: false,
+        shapeType: 'rect', fill: theme.accentColor,
+      } as SlideElement,
+      textEl({ id: uuid(), content: '"Quote text goes here"', x: 12, y: 28, width: 76, height: 40, fontSize: 40, align: 'center', verticalAlign: 'middle', color: theme.textColor, fontFamily: theme.headingFontFamily, zIndex: 2 }),
+      textEl({ id: uuid(), content: '— Attribution', x: 15, y: 70, width: 70, height: 10, fontSize: 24, align: 'center', color: theme.textColor, opacity: 0.7, zIndex: 3 }),
+    ],
+  },
+  {
+    id: 'three-column',
+    name: 'Three Column',
+    description: 'Title and three equal columns',
+    createElement: (theme) => [
+      textEl({ id: uuid(), content: 'Slide Title', x: 5, y: 4, width: 90, height: 12, fontSize: 40, color: theme.textColor, fontFamily: theme.headingFontFamily, zIndex: 1 }),
+      textEl({ id: uuid(), content: 'Column one', x: 3, y: 22, width: 30, height: 68, fontSize: 18, color: theme.textColor, zIndex: 2 }),
+      textEl({ id: uuid(), content: 'Column two', x: 35, y: 22, width: 30, height: 68, fontSize: 18, color: theme.textColor, zIndex: 3 }),
+      textEl({ id: uuid(), content: 'Column three', x: 67, y: 22, width: 30, height: 68, fontSize: 18, color: theme.textColor, zIndex: 4 }),
+    ],
+  },
+  {
+    id: 'icon-list',
+    name: 'Icon List',
+    description: 'A short list of points, each with an icon',
+    createElement: (theme) => {
+      const ICON_W = 6
+      const ICON_H = ICON_W * (SLIDE_BASE_WIDTH / SLIDE_BASE_HEIGHT)
+      const rows: [string, string][] = [['star', 'First point'], ['target', 'Second point'], ['rocket', 'Third point']]
+      const elements: SlideElement[] = [
+        textEl({ id: uuid(), content: 'Slide Title', x: 5, y: 5, width: 90, height: 13, fontSize: 44, color: theme.textColor, fontFamily: theme.headingFontFamily, zIndex: 1 }),
+        {
+          id: uuid(), type: 'shape',
+          x: 5, y: 19, width: 12, height: 1.2,
+          rotate: 0, opacity: 1, zIndex: 2, flipH: false, flipV: false, locked: false, hidden: false,
+          shapeType: 'rect', fill: theme.accentColor,
+        } as SlideElement,
+      ]
+      rows.forEach(([icon, label], i) => {
+        const y = 28 + i * 20
+        const svg = iconToSvgString(icon, theme.accentColor)
+        if (svg) {
+          elements.push({
+            id: uuid(), type: 'ai-graphic',
+            x: 8, y, width: ICON_W, height: ICON_H,
+            rotate: 0, opacity: 1, zIndex: 10 + i, flipH: false, flipV: false, locked: false, hidden: false,
+            svgContent: svg, description: `icon: ${icon}`,
+          } as SlideElement)
+        }
+        elements.push(textEl({ id: uuid(), content: label, x: 8 + ICON_W + 2, y, width: 75, height: ICON_H, fontSize: 26, verticalAlign: 'middle', color: theme.textColor, zIndex: 20 + i }))
+      })
+      return elements
+    },
   },
 ]

@@ -88,7 +88,7 @@ export function useSessionStats(wordCount: number): SessionStats {
       }
     }, 300)
     return () => clearTimeout(timer)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])  
 
   useEffect(() => {
     const tick = (): void => {

@@ -256,7 +256,7 @@ export function ChromeColorPicker({
     prevColor.current = color
     const parsed = hexToHsv(color)
     if (parsed) { setHsv(parsed); pushToInputs(parsed) }
-  }, [color]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [color])  
 
   function applyHsv(next: Hsv): void {
     setHsv(next)

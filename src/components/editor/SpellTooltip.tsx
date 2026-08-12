@@ -149,7 +149,7 @@ export function SpellTooltip({ editor, documentId, active = true }: SpellTooltip
       dom.removeEventListener('mouseleave', onMouseLeave)
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
     }
-  }, [editor]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [editor])  
 
   useEffect(() => {
     if (!editor || !state) return

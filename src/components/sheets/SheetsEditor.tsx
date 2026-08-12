@@ -838,7 +838,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
         })
       } catch { /* ignore */ }
     },
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }), [])
 
   if (!ready || !fsDataRef.current) {

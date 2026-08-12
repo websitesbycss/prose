@@ -20,6 +20,7 @@ import { registerSlidesHandlers } from './ipc/slides'
 import { registerSlidesExportHandlers } from './ipc/slidesExport'
 import { registerSlidesImportHandlers } from './ipc/slidesImport'
 import { registerThumbnailHandlers } from './ipc/thumbnails'
+import { registerPexelsHandlers } from './ipc/pexels'
 import { registerFileAssociation } from './services/fileAssociation'
 import { registerWindowHandlers, initPaths } from './ipc/windows'
 import { windowChromeOptions } from './windowChrome'
@@ -171,6 +172,7 @@ app.whenReady().then(async () => {
     registerSlidesExportHandlers()
     registerSlidesImportHandlers()
     registerThumbnailHandlers()
+    registerPexelsHandlers()
     initPaths(
       join(__dirname, '../preload/index.js'),
       join(__dirname, '../renderer/index.html'),

@@ -39,7 +39,7 @@ import { usePanelVisibility } from '@/hooks/usePanelVisibility'
 import { AUTO_SAVE_DEBOUNCE_MS } from '@/constants'
 import { ChartPickerDialog } from '@/components/shared/ChartPickerDialog'
 import type { ChartSnapshot } from '@/lib/chartSnapshot'
-import { runThumbnailGenerationOnce, downscaleToThumbnail } from '@/lib/thumbnailGeneration'
+import { runThumbnailGenerationOnce, fitSlideThumbnail } from '@/lib/thumbnailGeneration'
 import { rasterizeSlide } from './export/slideRasterizer'
 import { SlidesContextMenu } from './SlidesContextMenu'
 import type { SlideContextMenuCtx, AlignKind } from './SlidesContextMenu'
@@ -317,8 +317,13 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   // Thumbnail generation — fired by the main process after every successful
   // content auto-save. Always rasterizes slide 0, never the currently active
   // slide, via the same offscreen html2canvas pipeline already used for
-  // PNG/PPTX export, then downscales the 1920x1080 capture to the standard
-  // 560x315 thumbnail size.
+  // PNG/PPTX export — including rasterizing at the deck's real aspect ratio
+  // (getSlideBaseSize), not a hardcoded 16:9, since 4:3 and custom decks would
+  // otherwise get squished the same way export used to before that was fixed.
+  // fitSlideThumbnail then fits that into the fixed 560x315 thumbnail box:
+  // a plain scale-down when the deck is already 16:9, or a blurred cover
+  // backdrop filling the bars (like YouTube's letterbox treatment) with the
+  // real slide centered on top at its correct ratio otherwise.
   useEffect(() => {
     return window.prose.thumbnails.onGenerate((fileId) => {
       if (fileId !== documentId) return
@@ -327,8 +332,9 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
         if (!firstSlide) return
         if (firstSlide.elements.length === 0 && !firstSlide.background) return
 
-        const dataUrl = await rasterizeSlide(firstSlide, themeRef.current)
-        const base64 = await downscaleToThumbnail(dataUrl)
+        const { baseW, baseH } = getSlideBaseSize(settingsRef.current)
+        const dataUrl = await rasterizeSlide(firstSlide, themeRef.current, baseW, baseH)
+        const base64 = await fitSlideThumbnail(dataUrl, baseW, baseH)
         await window.prose.thumbnails.save(fileId, base64)
       })
     })

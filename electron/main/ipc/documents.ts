@@ -175,11 +175,14 @@ export function registerDocumentHandlers(): void {
       snapshotOptions ? { snapshot: snapshotOptions } : undefined,
     )
 
-    // Only a real content save should regenerate the thumbnail — title/format/
-    // margin-only patches leave the rendered content (and its thumbnail) unchanged.
-    // Sent back to the same renderer that owns the live editor DOM/canvas needed
-    // to capture it, not broadcast to every window.
-    if ('content' in patch) {
+    // Only a manual save regenerates the thumbnail, not every debounced
+    // auto-save — the thumbnail is now a real PDF render (page 1, off the
+    // stored content, not a screenshot), which is too heavy to redo on every
+    // ~1s autosave tick while the user is actively typing. forceSnapshot is
+    // exactly the signal saveNow() sets that flushSave()/onEditorUpdate()'s
+    // debounced path does not, so it doubles as "was this a deliberate save."
+    // Sent back to the same renderer that owns this document's editor state.
+    if ('content' in patch && snapshotOptions?.force) {
       event.sender.send('thumbnail:generate', id)
     }
 

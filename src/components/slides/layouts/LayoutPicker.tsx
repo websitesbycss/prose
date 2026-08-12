@@ -35,6 +35,14 @@ function LayoutPreview({ layoutId }: { layoutId: LayoutId }): JSX.Element {
       return <><rect x="1" y="1" width="70" height="44" fill={bg} rx="1" /><rect x="4" y="4" width="30" height="5" fill={accent} rx="1" /><rect x="4" y="13" width="28" height="3" fill={line} rx="1" /><rect x="4" y="18" width="25" height="3" fill={line} rx="1" /><rect x="38" y="4" width="30" height="5" fill={line} rx="1" /><rect x="38" y="13" width="28" height="3" fill={line} rx="1" /><rect x="38" y="18" width="25" height="3" fill={line} rx="1" /></>
     case 'agenda':
       return <><rect x="1" y="1" width="70" height="44" fill={bg} rx="1" /><rect x="4" y="4" width="35" height="6" fill={accent} rx="1" />{[13,19,25,31,37].map((y, i) => <><rect key={`n${i}`} x="8" y={y} width="4" height="3" fill={accent} rx="0.5" /><rect key={`t${i}`} x="15" y={y} width="45" height="3" fill={line} rx="1" /></>)}</>
+    case 'stat':
+      return <><rect x="1" y="1" width="70" height="44" fill={bg} rx="1" /><rect x="20" y="8" width="32" height="16" fill={accent} rx="1" /><rect x="24" y="30" width="24" height="3" fill={line} rx="1" /></>
+    case 'quote':
+      return <><rect x="1" y="1" width="70" height="44" fill={bg} rx="1" /><rect x="14" y="12" width="44" height="3" fill={line} rx="1" /><rect x="18" y="18" width="36" height="3" fill={line} rx="1" /><rect x="28" y="30" width="16" height="3" fill={accent} rx="1" /></>
+    case 'three-column':
+      return <><rect x="1" y="1" width="70" height="44" fill={bg} rx="1" /><rect x="4" y="4" width="30" height="5" fill={accent} rx="1" /><rect x="4" y="13" width="19" height="26" fill={line} rx="1" opacity="0.5" /><rect x="26" y="13" width="19" height="26" fill={line} rx="1" opacity="0.5" /><rect x="48" y="13" width="19" height="26" fill={line} rx="1" opacity="0.5" /></>
+    case 'icon-list':
+      return <><rect x="1" y="1" width="70" height="44" fill={bg} rx="1" /><rect x="4" y="4" width="35" height="5" fill={accent} rx="1" />{[13,22,31].map((y, i) => <><rect key={`i${i}`} x="6" y={y} width="6" height="6" fill={accent} rx="1" /><rect key={`t${i}`} x="16" y={y + 1.5} width="48" height="3" fill={line} rx="1" /></>)}</>
     default:
       return <rect x="1" y="1" width="70" height="44" fill={bg} rx="1" />
   }

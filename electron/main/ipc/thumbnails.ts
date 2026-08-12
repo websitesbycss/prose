@@ -106,7 +106,21 @@ export function registerThumbnailHandlers(): void {
       width: Math.round(rect.width),
       height: Math.round(rect.height),
     })
-    const resized = image.resize({ width: THUMB_WIDTH, height: THUMB_HEIGHT })
-    return resized.toPNG().toString('base64')
+
+    // Fit-to-cover + crop, anchored top-left — never a plain width+height
+    // resize, which squishes whenever the captured region's aspect ratio
+    // isn't already exactly 16:9 (it usually isn't; the capture rect is
+    // chosen by content, not by thumbnail shape). Scale uniformly so the
+    // capture fully covers the 560x315 box, then crop the excess off the
+    // right/bottom, keeping the top-left the same way Documents' PDF-page
+    // thumbnails start at the top instead of centering.
+    const { width: srcW, height: srcH } = image.getSize()
+    if (srcW === 0 || srcH === 0) return image.toPNG().toString('base64')
+    const coverScale = Math.max(THUMB_WIDTH / srcW, THUMB_HEIGHT / srcH)
+    const scaledW = Math.max(THUMB_WIDTH, Math.ceil(srcW * coverScale))
+    const scaledH = Math.max(THUMB_HEIGHT, Math.ceil(srcH * coverScale))
+    const resized = image.resize({ width: scaledW, height: scaledH })
+    const cropped = resized.crop({ x: 0, y: 0, width: THUMB_WIDTH, height: THUMB_HEIGHT })
+    return cropped.toPNG().toString('base64')
   })
 }
