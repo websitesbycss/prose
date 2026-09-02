@@ -9,7 +9,6 @@ interface SaveLocationProps {
 }
 
 export default function SaveLocation({ defaultFolder, onNext }: SaveLocationProps): JSX.Element {
-  const [override, setOverride] = useState(false)
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null)
 
   async function handlePickFolder(): Promise<void> {
@@ -18,10 +17,10 @@ export default function SaveLocation({ defaultFolder, onNext }: SaveLocationProp
   }
 
   async function handleContinue(): Promise<void> {
-    if (override && selectedFolder) {
+    if (selectedFolder) {
       await window.prose.documents.setFolder(selectedFolder)
     }
-    onNext(override && selectedFolder ? selectedFolder : null)
+    onNext(selectedFolder)
   }
 
   const displayPath = selectedFolder ?? defaultFolder
@@ -41,53 +40,21 @@ export default function SaveLocation({ defaultFolder, onNext }: SaveLocationProp
           </p>
         </div>
 
-        {/* Path display */}
-        <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2">
+        {/* Path display — click to change it */}
+        <button
+          type="button"
+          onClick={() => void handlePickFolder()}
+          className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-left transition-colors hover:border-border/80 hover:bg-muted/60"
+        >
           <FolderOpen className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          <span className={`flex-1 truncate text-xs ${!override || !selectedFolder ? 'text-muted-foreground' : 'text-foreground'}`}>
+          <span className={`flex-1 truncate text-xs ${selectedFolder ? 'text-foreground' : 'text-muted-foreground'}`}>
             {displayPath}
           </span>
-        </div>
-
-        {/* Override toggle */}
-        <label className="flex items-center gap-2.5 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={override}
-            onChange={(e) => {
-              setOverride(e.target.checked)
-              if (!e.target.checked) setSelectedFolder(null)
-            }}
-            className="h-4 w-4 rounded border border-border accent-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          />
-          <span className="text-sm text-muted-foreground">Change default document save location</span>
-        </label>
-
-        {/* Folder picker (visible when checkbox checked) */}
-        {override && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.15 }}
-          >
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 text-xs"
-              onClick={() => void handlePickFolder()}
-            >
-              <FolderOpen className="h-3.5 w-3.5" />
-              {selectedFolder ? 'Change folder…' : 'Choose folder…'}
-            </Button>
-          </motion.div>
-        )}
+          <span className="shrink-0 text-[11px] text-muted-foreground">Change…</span>
+        </button>
 
         <div className="flex justify-end">
-          <Button
-            onClick={() => void handleContinue()}
-            disabled={override && !selectedFolder}
-          >
+          <Button onClick={() => void handleContinue()}>
             Continue
           </Button>
         </div>

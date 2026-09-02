@@ -268,4 +268,9 @@ contextBridge.exposeInMainWorld('prose', {
   },
 
   platform: process.platform as NodeJS.Platform,
+
+  // Dev-only: set by `npm run dev:onboarding` (see scripts/dev.js) so App.tsx
+  // can force the onboarding flow to render without touching real Ollama
+  // install/model-download state. Never true in a packaged build.
+  mockOnboarding: process.env['PROSE_MOCK_ONBOARDING'] === '1',
 })

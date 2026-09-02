@@ -29,9 +29,16 @@ function mirrorPanels(
   }
 }
 
+// Mirrors theme-init.js's logic exactly, so the React theme state always
+// matches the `dark` class theme-init.js already applied to <html> before
+// this module even loads — on first launch (nothing stored yet) that means
+// following the OS's light/dark preference rather than hardcoding 'dark'.
 function readStoredTheme(): Theme {
   try {
-    return localStorage.getItem('prose-theme') === 'light' ? 'light' : 'dark'
+    const stored = localStorage.getItem('prose-theme')
+    if (stored === 'light') return 'light'
+    if (stored === 'dark') return 'dark'
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
   } catch {
     return 'dark'
   }
@@ -74,6 +81,10 @@ interface AppState {
   musicPanelTab: 'tracks' | 'mixer'
   focusModeActive: boolean
   settingsOpen: boolean
+  /** When set, the next time SettingsModal opens it jumps straight to this
+   * section (e.g. onboarding's "I'll use my own API key" opens Settings on
+   * the AI tab) — cleared by SettingsModal once consumed. */
+  settingsInitialSection: string | null
   pomodoroState: PomodoroState
   ollamaStatus: OllamaStatus
   multimodalCapable: boolean
@@ -108,6 +119,7 @@ interface AppState {
   setMusicPanelTab(tab: 'tracks' | 'mixer'): void
   setFocusModeActive(active: boolean): void
   setSettingsOpen(open: boolean): void
+  setSettingsInitialSection(section: string | null): void
   setPomodoroState(state: Partial<PomodoroState>): void
   setOllamaStatus(status: OllamaStatus): void
   setMultimodalCapable(capable: boolean): void
@@ -147,6 +159,7 @@ export const useAppStore = create<AppState>()((set) => ({
   musicPanelTab: 'tracks',
   focusModeActive: false,
   settingsOpen: false,
+  settingsInitialSection: null,
   pomodoroState: DEFAULT_POMODORO,
   ollamaStatus: 'loading',
   multimodalCapable: false,
@@ -329,6 +342,7 @@ export const useAppStore = create<AppState>()((set) => ({
   setMusicPanelTab: (tab) => set({ musicPanelTab: tab }),
   setFocusModeActive: (active) => set({ focusModeActive: active }),
   setSettingsOpen: (open) => set({ settingsOpen: open }),
+  setSettingsInitialSection: (section) => set({ settingsInitialSection: section }),
   setPomodoroState: (state) =>
     set((s) => ({ pomodoroState: { ...s.pomodoroState, ...state } })),
   setOllamaStatus: (status) => set({ ollamaStatus: status }),

@@ -19,8 +19,10 @@ import { applyAccentColors, LIGHT_PRESETS, DARK_PRESETS, DEFAULT_LIGHT_ACCENT, D
 import { ChromeColorPicker } from '@/components/ui/ChromeColorPicker'
 import type { AppSettings, StorageInfo, PageMargins, UpdateStatusPayload, CustomLlmProviderId, LlmModelInfo } from '@/types'
 import { PAGE_MARGIN_MIN_IN, PAGE_MARGIN_MAX_IN } from '@/constants'
-import { Palette, PenLine, Sparkles, Info, ExternalLink, HardDrive, FileText, X, Plus, LayoutTemplate, Loader2, CheckCircle2, AlertCircle, ShieldCheck } from 'lucide-react'
+import { Palette, PenLine, Sparkles, Info, ExternalLink, HardDrive, FileText, X, Plus, LayoutTemplate, Loader2, CheckCircle2, AlertCircle, ShieldCheck, Download } from 'lucide-react'
 import { LlmProviderIcon, LLM_PROVIDERS, getLlmProviderMeta } from '@/components/settings/LlmProviderIcon'
+import OllamaInstall from '@/components/onboarding/OllamaInstall'
+import ModelDownload from '@/components/onboarding/ModelDownload'
 
 type Section = 'page' | 'slides' | 'appearance' | 'writing' | 'ai' | 'storage' | 'about'
 
@@ -84,8 +86,21 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
     : BASE_SECTIONS
   const [section, setSection] = useState<Section>(() => isSlides ? 'slides' : documentId ? 'page' : 'appearance')
 
+  // Lets another part of the app (e.g. onboarding's "I'll use my own API
+  // key") force Settings open directly on a specific section — consumed
+  // once, then cleared so a later plain open doesn't stick to it.
+  const settingsInitialSection = useAppStore((s) => s.settingsInitialSection)
+  const setSettingsInitialSection = useAppStore((s) => s.setSettingsInitialSection)
+
   useEffect(() => {
-    if (open) setSection(isSlides ? 'slides' : documentId ? 'page' : 'appearance')
+    if (!open) return
+    if (settingsInitialSection) {
+      setSection(settingsInitialSection as Section)
+      setSettingsInitialSection(null)
+    } else {
+      setSection(isSlides ? 'slides' : documentId ? 'page' : 'appearance')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, documentId, isSlides])
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [models, setModels] = useState<string[]>([])
@@ -97,15 +112,37 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
   const [spellWords, setSpellWords] = useState<string[]>([])
   const [newWord, setNewWord] = useState('')
 
+  // Whether Ollama itself is installed on this machine — null until checked.
+  // Combined with `models` (downloaded models), this drives the "smart" setup
+  // CTA below: skip straight to whichever step is actually still needed
+  // (covers a user who skipped onboarding, or installed Ollama manually).
+  const [ollamaInstalledCheck, setOllamaInstalledCheck] = useState<boolean | null>(null)
+  const [ollamaSetupOpen, setOllamaSetupOpen] = useState(false)
+
+  const refreshOllamaSetupStatus = useCallback((): void => {
+    void window.prose.ollama.checkInstalled().then(setOllamaInstalledCheck)
+    void window.prose.ollama.listModels().then(setModels)
+  }, [])
+
   useEffect(() => {
     if (!open) return
     void window.prose.settings.get().then((s) => setSettings(s as AppSettings))
-    void window.prose.ollama.listModels().then(setModels)
+    refreshOllamaSetupStatus()
     void window.prose.documents.getStorageInfo().then((info) => setStorageInfo(info as StorageInfo))
     if (documentId) {
       void window.prose.spell.getWords(documentId).then(setSpellWords)
     }
-  }, [open, documentId])
+  }, [open, documentId, refreshOllamaSetupStatus])
+
+  const handleOllamaSetupDone = useCallback((): void => {
+    setOllamaSetupOpen(false)
+    refreshOllamaSetupStatus()
+    // Nudge ollamaStatus immediately instead of waiting for App.tsx's next
+    // poll tick (up to 5s) — unlocks AI buttons app-wide right away.
+    void window.prose.ai.getStatus().then((status) => {
+      useAppStore.getState().setOllamaStatus(status as import('@/types').OllamaStatus)
+    })
+  }, [refreshOllamaSetupStatus])
 
   const setPomodoroState = useAppStore((s) => s.setPomodoroState)
 
@@ -599,42 +636,73 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
                     <SectionTitle>Local model (Ollama)</SectionTitle>
                   </div>
                   <div className={cn((settings.customLlmEnabled ?? false) && 'pointer-events-none opacity-40')}>
-                    <SettingRow label="Active model" description="The model used for all AI requests">
-                      {models.length > 0 ? (
-                        <Select
-                          value={settings.ollamaModel}
-                          onValueChange={(v) => {
-                            void save({ ollamaModel: v })
-                            // ollamaStatus doesn't change on a model swap, so refresh
-                            // the multimodal flag directly instead of relying on App.tsx's status-driven check.
-                            void window.prose.ai.getModelCapabilities()
-                              .then((caps) => useAppStore.getState().setMultimodalCapable(caps.multimodal))
-                              .catch(() => useAppStore.getState().setMultimodalCapable(false))
-                          }}
-                        >
-                          <SelectTrigger className="h-8 w-44 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {models.map((m) => (
-                              <SelectItem key={m} value={m} className="text-xs font-mono">{m}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <span className="text-xs text-muted-foreground font-mono">
-                          {settings.ollamaModel}
-                        </span>
-                      )}
-                    </SettingRow>
-                    <Separator />
-                    <div className="py-3 text-xs text-muted-foreground">
-                      To download a different model, run{' '}
-                      <code className="rounded bg-muted px-1 py-0.5 font-mono">ollama pull &lt;model&gt;</code>{' '}
-                      in a terminal, then restart Prose.
-                      {(settings.customLlmEnabled ?? false) && ' Unused while a custom LLM is active above.'}
-                    </div>
+                    {ollamaInstalledCheck !== null && !(ollamaInstalledCheck && models.length > 0) ? (
+                      <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/30 px-3 py-3">
+                        <div className="flex items-start gap-2.5">
+                          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-xs font-medium text-foreground">
+                              {ollamaInstalledCheck ? 'No AI model downloaded yet' : 'Ollama isn’t installed yet'}
+                            </span>
+                            <span className="text-[11px] text-muted-foreground">
+                              {ollamaInstalledCheck
+                                ? 'Ollama is installed, but no model has been downloaded.'
+                                : 'Install Ollama to use a local, offline AI model.'}
+                            </span>
+                          </div>
+                        </div>
+                        <Button size="sm" className="h-8 shrink-0 gap-1.5 text-xs" onClick={() => setOllamaSetupOpen(true)}>
+                          <Download className="h-3.5 w-3.5" />
+                          {ollamaInstalledCheck ? 'Download a model' : 'Set up Ollama'}
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        <SettingRow label="Active model" description="The model used for all AI requests">
+                          {models.length > 0 ? (
+                            <Select
+                              value={settings.ollamaModel}
+                              onValueChange={(v) => {
+                                void save({ ollamaModel: v })
+                                // ollamaStatus doesn't change on a model swap, so refresh
+                                // the multimodal flag directly instead of relying on App.tsx's status-driven check.
+                                void window.prose.ai.getModelCapabilities()
+                                  .then((caps) => useAppStore.getState().setMultimodalCapable(caps.multimodal))
+                                  .catch(() => useAppStore.getState().setMultimodalCapable(false))
+                              }}
+                            >
+                              <SelectTrigger className="h-8 w-44 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {models.map((m) => (
+                                  <SelectItem key={m} value={m} className="text-xs font-mono">{m}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <span className="text-xs text-muted-foreground font-mono">
+                              {settings.ollamaModel}
+                            </span>
+                          )}
+                        </SettingRow>
+                        <Separator />
+                        <div className="py-3 text-xs text-muted-foreground">
+                          To download a different model, run{' '}
+                          <code className="rounded bg-muted px-1 py-0.5 font-mono">ollama pull &lt;model&gt;</code>{' '}
+                          in a terminal, then restart Prose.
+                          {(settings.customLlmEnabled ?? false) && ' Unused while a custom LLM is active above.'}
+                        </div>
+                      </>
+                    )}
                   </div>
+
+                  <OllamaSetupDialog
+                    open={ollamaSetupOpen}
+                    needsInstall={!ollamaInstalledCheck}
+                    onClose={() => setOllamaSetupOpen(false)}
+                    onDone={handleOllamaSetupDone}
+                  />
                 </>
               )}
 
@@ -1088,6 +1156,36 @@ function CustomLlmSettings({ settings, save, open }: {
         </span>
       </div>
     </div>
+  )
+}
+
+/** Smart resume of the Ollama onboarding steps, launched from Settings for a
+ * user who skipped it (or already had Ollama some other way). Starts at
+ * whichever step is actually still needed — the install step is skipped
+ * entirely when Ollama is already installed. */
+function OllamaSetupDialog({ open, needsInstall, onClose, onDone }: {
+  open: boolean
+  needsInstall: boolean
+  onClose: () => void
+  onDone: () => void
+}): JSX.Element {
+  const [stage, setStage] = useState<'install' | 'model'>(needsInstall ? 'install' : 'model')
+
+  useEffect(() => {
+    if (open) setStage(needsInstall ? 'install' : 'model')
+  }, [open, needsInstall])
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className="w-[480px] max-w-[95vw] gap-0 p-6">
+        <DialogTitle className="sr-only">Set up Ollama</DialogTitle>
+        {stage === 'install' ? (
+          <OllamaInstall embedded onComplete={() => setStage('model')} />
+        ) : (
+          <ModelDownload embedded onComplete={onDone} />
+        )}
+      </DialogContent>
+    </Dialog>
   )
 }
 

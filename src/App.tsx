@@ -9,7 +9,9 @@ import { UpdateToast } from '@/components/UpdateToast'
 import { DashboardTabBar } from '@/components/editor/DashboardTabBar'
 import Welcome from '@/components/onboarding/Welcome'
 import SaveLocation from '@/components/onboarding/SaveLocation'
+import AiSetupChoice from '@/components/onboarding/AiSetupChoice'
 import OllamaInstall from '@/components/onboarding/OllamaInstall'
+import { OnboardingThemeToggle } from '@/components/onboarding/OnboardingThemeToggle'
 import ModelDownload from '@/components/onboarding/ModelDownload'
 import MigrationOverlay from '@/components/migration/MigrationOverlay'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
@@ -21,7 +23,7 @@ import MusicPanel from '@/components/editor/MusicPanel'
 import { MusicContext } from '@/contexts/MusicContext'
 import type { DownloadStatus, OllamaStatus, MigrationProgress } from '@/types'
 
-type OnboardingStep = 'welcome' | 'save-location' | 'ollama-install' | 'model-download'
+type OnboardingStep = 'welcome' | 'save-location' | 'ai-choice' | 'ollama-install' | 'model-download'
 
 export default function App(): JSX.Element {
   const theme = useAppStore((s) => s.theme)
@@ -73,6 +75,15 @@ export default function App(): JSX.Element {
     void window.prose.documents.getStorageInfo().then((info) => setDefaultFolder(info.folder))
 
     async function checkSetup(): Promise<void> {
+      // npm run dev:onboarding — force the onboarding flow to render every
+      // launch, regardless of what's actually installed on this machine.
+      // OllamaInstall/ModelDownload simulate their progress screens instead
+      // of touching the real installer or /api/pull (see their `mock` prop).
+      if (window.prose.mockOnboarding) {
+        setOllamaInstalled(false)
+        setDownloadStatus({ downloaded: false, model: 'llama3.2:3b' })
+        return
+      }
       const installed = await window.prose.ollama.checkInstalled()
       setOllamaInstalled(installed)
       if (installed) {
@@ -195,28 +206,57 @@ export default function App(): JSX.Element {
         <>
           {showMigration && <MigrationOverlay onComplete={handleMigrationComplete} />}
           <Welcome onNext={() => setOnboardingStep('save-location')} />
+          <OnboardingThemeToggle />
         </>
       )
     }
     if (onboardingStep === 'save-location') {
       return (
-        <SaveLocation
-          defaultFolder={defaultFolder}
-          onNext={() => setOnboardingStep('ollama-install')}
-        />
+        <>
+          <SaveLocation
+            defaultFolder={defaultFolder}
+            onNext={() => setOnboardingStep('ai-choice')}
+          />
+          <OnboardingThemeToggle />
+        </>
+      )
+    }
+    if (onboardingStep === 'ai-choice') {
+      return (
+        <>
+          <AiSetupChoice
+            onChooseOllama={() => setOnboardingStep('ollama-install')}
+            onUseApiKey={() => {
+              setSkippedOllama(true)
+              useAppStore.getState().setSettingsInitialSection('ai')
+              useAppStore.getState().setSettingsOpen(true)
+            }}
+            onSkipForNow={() => setSkippedOllama(true)}
+          />
+          <OnboardingThemeToggle />
+        </>
       )
     }
     if (onboardingStep === 'ollama-install') {
       return (
-        <OllamaInstall
-          onComplete={async () => {
-            setOllamaInstalled(true)
-            const status = await window.prose.ollama.getDownloadStatus()
-            setDownloadStatus(status as DownloadStatus)
-            setOnboardingStep('model-download')
-          }}
-          onSkip={() => setSkippedOllama(true)}
-        />
+        <>
+          <OllamaInstall
+            mock={window.prose.mockOnboarding}
+            onComplete={async () => {
+              setOllamaInstalled(true)
+              // In mock mode, force the model-download screen to render next
+              // regardless of what's really installed — the real check below
+              // would otherwise see the dev's actual downloaded model and skip
+              // straight past it.
+              const status = window.prose.mockOnboarding
+                ? { downloaded: false, model: 'llama3.2:3b' }
+                : (await window.prose.ollama.getDownloadStatus()) as DownloadStatus
+              setDownloadStatus(status)
+              setOnboardingStep('model-download')
+            }}
+          />
+          <OnboardingThemeToggle />
+        </>
       )
     }
   }
@@ -232,21 +272,29 @@ export default function App(): JSX.Element {
           <>
             {showMigration && <MigrationOverlay onComplete={handleMigrationComplete} />}
             <Welcome onNext={() => setOnboardingStep('save-location')} />
+            <OnboardingThemeToggle />
           </>
         )
       }
       if (onboardingStep === 'save-location') {
         return (
-          <SaveLocation
-            defaultFolder={defaultFolder}
-            onNext={() => setOnboardingStep('model-download')}
-          />
+          <>
+            <SaveLocation
+              defaultFolder={defaultFolder}
+              onNext={() => setOnboardingStep('model-download')}
+            />
+            <OnboardingThemeToggle />
+          </>
         )
       }
       return (
-        <ModelDownload
-          onComplete={() => setDownloadStatus({ ...downloadStatus, downloaded: true })}
-        />
+        <>
+          <ModelDownload
+            mock={window.prose.mockOnboarding}
+            onComplete={() => setDownloadStatus({ ...downloadStatus, downloaded: true })}
+          />
+          <OnboardingThemeToggle />
+        </>
       )
     }
   }

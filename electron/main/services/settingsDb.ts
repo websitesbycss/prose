@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3'
-import { app } from 'electron'
+import { app, nativeTheme } from 'electron'
 import { join } from 'path'
 
 const SETTINGS_DB_FILE = 'prose-settings.db'
@@ -47,4 +47,21 @@ export function getSettingJson<T>(key: string, fallback: T): T {
   const raw = getSetting(key)
   if (raw === undefined) return fallback
   try { return JSON.parse(raw) as T } catch { return fallback }
+}
+
+/**
+ * The theme to use when nothing has been explicitly saved yet — i.e. on
+ * first launch. Follows the OS's own light/dark preference (via Electron's
+ * nativeTheme, backed by Windows' app theme / macOS's appearance setting)
+ * rather than hardcoding 'dark', so the native title bar and any main-process
+ * theme decision match what the renderer shows via prefers-color-scheme.
+ */
+export function resolveEffectiveTheme(): 'dark' | 'light' {
+  const stored = getSettingJson<string | null>('theme', null)
+  if (stored === 'dark' || stored === 'light') return stored
+  try {
+    return nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
+  } catch {
+    return 'dark'
+  }
 }

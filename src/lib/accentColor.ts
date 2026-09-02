@@ -1,5 +1,5 @@
-export const DEFAULT_LIGHT_ACCENT = '#2563eb'
-export const DEFAULT_DARK_ACCENT  = '#60a5fa'
+export const DEFAULT_LIGHT_ACCENT = '#e11d48'
+export const DEFAULT_DARK_ACCENT  = '#fb7185'
 
 export const LIGHT_PRESETS = [
   { label: 'Blue',    hex: '#2563eb' },

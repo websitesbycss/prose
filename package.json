@@ -7,6 +7,7 @@
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "node scripts/dev.js",
+    "dev:onboarding": "node scripts/dev.js --onboarding",
     "build": "electron-vite build",
     "package": "npm run build && electron-builder",
     "lint": "eslint . --ext .ts,.tsx --report-unused-disable-directives --max-warnings 0",

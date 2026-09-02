@@ -69,6 +69,7 @@ export function EditorContextMenu({ editor, documentId, isActive, onEditMath }: 
   const setPendingAiPrompt = useAppStore((s) => s.setPendingAiPrompt)
   const setPendingAiAttachment = useAppStore((s) => s.setPendingAiAttachment)
   const setActiveAiTab = useAppStore((s) => s.setActiveAiTab)
+  const aiUnavailable = useAppStore((s) => s.ollamaStatus) === 'unavailable'
 
   // Spell suggestions for the word under the cursor when right-clicking
   const [spellWord, setSpellWord] = useState<{ word: string; from: number; to: number; suggestions: string[] } | null>(null)
@@ -387,8 +388,9 @@ export function EditorContextMenu({ editor, documentId, isActive, onEditMath }: 
         items.push({ type: 'sep' })
         items.push({
           type: 'btn',
-          label: 'AI: Improve this selection',
+          label: aiUnavailable ? 'AI: Improve this selection (set up AI in Settings)' : 'AI: Improve this selection',
           icon: Sparkles,
+          disabled: aiUnavailable,
           onClick: () => {
             const { from, to } = editor.state.selection
             setPendingAiAttachment({
@@ -460,7 +462,8 @@ export function EditorContextMenu({ editor, documentId, isActive, onEditMath }: 
           />
           <MenuBtn
             icon={Sparkles}
-            label="AI: Solve this equation"
+            label={aiUnavailable ? 'AI: Solve this equation (set up AI in Settings)' : 'AI: Solve this equation'}
+            disabled={aiUnavailable}
             onClick={() => {
               setPendingAiPrompt(`Solve the following and show every step:\n\n${ctx.mathLatex ?? ''}`)
               setActiveAiTab('chat')

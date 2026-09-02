@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron'
-import { getSettingsDb } from '../services/settingsDb'
+import { getSettingsDb, resolveEffectiveTheme } from '../services/settingsDb'
 import { readSecret, hasSecret, storeSecret, clearSecret } from '../services/secureStorage'
 import { CUSTOM_LLM_API_KEY_SETTING, validateBaseUrl } from './customLlm'
 import type { CustomLlmProviderId } from '../services/customLlmProviders'
@@ -50,8 +50,8 @@ const DEFAULTS: Omit<AppSettingsOut, 'customLlmApiKeySet'> = {
   editorFontFamily: 'Calibri',
   editorFontSize: 12,
   headingFontSizes: { h1: 36, h2: 24, h3: 18 },
-  lightAccentColor: '#2563eb',
-  darkAccentColor: '#60a5fa',
+  lightAccentColor: '#e11d48',
+  darkAccentColor: '#fb7185',
   uiScale: 110,
   slidesRightPanelWidth: 340,
   slidesPexelsEnabled: false,
@@ -129,7 +129,12 @@ function loadSettings(): AppSettingsOut {
   }
 
   return {
-    theme: VALID_THEMES.has(get('theme', DEFAULTS.theme)) ? get('theme', DEFAULTS.theme) : DEFAULTS.theme,
+    // Nothing saved yet (first launch) → follow the OS preference instead of
+    // defaulting to 'dark'; once the user picks explicitly, that wins.
+    theme: (() => {
+      const stored = get<string | null>('theme', null)
+      return stored === 'dark' || stored === 'light' ? stored : resolveEffectiveTheme()
+    })(),
     defaultFormat: VALID_FORMATS.has(get('defaultFormat', DEFAULTS.defaultFormat)) ? get('defaultFormat', DEFAULTS.defaultFormat) : DEFAULTS.defaultFormat,
     wordCountExcludesHeader: get('wordCountExcludesHeader', DEFAULTS.wordCountExcludesHeader),
     defaultWordCountGoal: get('defaultWordCountGoal', DEFAULTS.defaultWordCountGoal),

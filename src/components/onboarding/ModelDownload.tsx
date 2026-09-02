@@ -38,9 +38,18 @@ type Phase = 'pick' | 'confirm' | 'downloading' | 'done' | 'error'
 
 interface ModelDownloadProps {
   onComplete: () => void
+  /** npm run dev:onboarding — simulates the download progress bar instead of
+   * really calling Ollama's /api/pull, so this screen can be previewed
+   * without pulling anything. The "already installed" pick list above still
+   * uses the real, read-only model list — clicking one of those is always a
+   * real, free, instant action either way. */
+  mock?: boolean
+  /** Rendered inside a Settings dialog instead of full-screen onboarding —
+   * drops the fixed h-screen wrapper so it fits its container. */
+  embedded?: boolean
 }
 
-export default function ModelDownload({ onComplete }: ModelDownloadProps): JSX.Element {
+export default function ModelDownload({ onComplete, mock, embedded }: ModelDownloadProps): JSX.Element {
   const [installedModels, setInstalledModels] = useState<string[]>([])
   const [selectedInstalled, setSelectedInstalled] = useState<string | null>(null)
   const [selectedSuggested, setSelectedSuggested] = useState(0)
@@ -79,6 +88,21 @@ export default function ModelDownload({ onComplete }: ModelDownloadProps): JSX.E
       console.error('Failed to save model setting:', err)
     }
 
+    if (mock) {
+      setStatusLabel('Downloading…')
+      await new Promise<void>((resolve) => {
+        let pct = 0
+        const timer = setInterval(() => {
+          pct = Math.min(100, pct + 4 + Math.random() * 8)
+          setProgress(Math.round(pct))
+          if (pct >= 100) { clearInterval(timer); resolve() }
+        }, 150)
+      })
+      setPhase('done')
+      setTimeout(onComplete, 1200)
+      return
+    }
+
     const cleanup = window.prose.ollama.onDownloadProgress((raw) => {
       const p = raw as DownloadProgress & { status?: string }
       if (p.percent === -1) {
@@ -103,16 +127,21 @@ export default function ModelDownload({ onComplete }: ModelDownloadProps): JSX.E
       setErrorMsg(err instanceof Error ? err.message : 'Unknown error')
       setPhase('error')
     }
-  }, [activeModel, onComplete])
+  }, [activeModel, onComplete, mock])
 
-  return (
-    <div className="flex h-screen items-center justify-center bg-background text-foreground">
+  const content = (
       <motion.div
-        className="flex w-[480px] flex-col gap-6"
+        className={cn('flex flex-col gap-6', embedded ? 'w-full' : 'w-[480px]')}
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
       >
+        {mock && (
+          <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-center text-[11px] font-medium text-amber-600 dark:text-amber-400">
+            🧪 Onboarding preview — picking an installed model is real; "Download now" is simulated
+          </div>
+        )}
+
         {phase === 'pick' && (
           <>
             <div className="flex flex-col gap-1">
@@ -270,7 +299,9 @@ export default function ModelDownload({ onComplete }: ModelDownloadProps): JSX.E
             <CheckCircle2 className="h-12 w-12 text-green-500" />
             <div>
               <p className="font-semibold">Model ready</p>
-              <p className="text-sm text-muted-foreground">Taking you to your workspace…</p>
+              <p className="text-sm text-muted-foreground">
+                {embedded ? 'AI is ready to use.' : 'Taking you to your workspace…'}
+              </p>
             </div>
           </div>
         )}
@@ -288,6 +319,13 @@ export default function ModelDownload({ onComplete }: ModelDownloadProps): JSX.E
           </div>
         )}
       </motion.div>
+  )
+
+  if (embedded) return content
+
+  return (
+    <div className="flex h-screen items-center justify-center bg-background text-foreground">
+      {content}
     </div>
   )
 }

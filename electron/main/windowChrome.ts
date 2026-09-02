@@ -1,4 +1,5 @@
 import type { BrowserWindow, BrowserWindowConstructorOptions, TitleBarOverlayOptions } from 'electron'
+import { resolveEffectiveTheme } from './services/settingsDb'
 
 export const TITLE_BAR_HEIGHT = 40
 
@@ -11,7 +12,9 @@ export function windowChromeOptions(): Pick<
     return {
       frame: false,
       titleBarStyle: 'hidden',
-      titleBarOverlay: titleBarOverlayForTheme('dark'),
+      // Matches the saved theme, or the OS preference on first launch — never
+      // hardcoded — so the native title bar never flashes the wrong theme.
+      titleBarOverlay: titleBarOverlayForTheme(resolveEffectiveTheme()),
     }
   }
   return { frame: false }

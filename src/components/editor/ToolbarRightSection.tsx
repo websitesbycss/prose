@@ -9,6 +9,7 @@ import { BoardExportModal } from '@/components/boards/BoardExportModal'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { AiTriggerTooltip } from '@/components/ai/AiTriggerTooltip'
 import { useAppStore } from '@/store/appStore'
 import { cn } from '@/lib/utils'
 import type { PageMargins } from '@/types'
@@ -355,27 +356,22 @@ export function ToolbarRightSection({
         <TooltipContent side="bottom" className="text-xs">Music</TooltipContent>
       </Tooltip>
 
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn('relative h-7 w-7', aiPanelOpen && 'bg-accent text-accent-foreground')}
-            onClick={() => setAiPanelOpen(!aiPanelOpen)}
-            disabled={ollamaStatus === 'unavailable'}
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            {issueCount > 0 && !aiPanelOpen && (
-              <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-primary px-0.5 text-[8px] font-bold leading-none text-primary-foreground">
-                {issueCount > 9 ? '9+' : issueCount}
-              </span>
-            )}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">
-          {aiPanelOpen ? 'Hide AI panel' : 'Show AI panel'}
-        </TooltipContent>
-      </Tooltip>
+      <AiTriggerTooltip unavailable={ollamaStatus === 'unavailable'} readyLabel={aiPanelOpen ? 'Hide AI panel' : 'Show AI panel'}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn('relative h-7 w-7', aiPanelOpen && 'bg-accent text-accent-foreground')}
+          onClick={() => setAiPanelOpen(!aiPanelOpen)}
+          disabled={ollamaStatus === 'unavailable'}
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          {issueCount > 0 && !aiPanelOpen && (
+            <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-primary px-0.5 text-[8px] font-bold leading-none text-primary-foreground">
+              {issueCount > 9 ? '9+' : issueCount}
+            </span>
+          )}
+        </Button>
+      </AiTriggerTooltip>
 
       <Tooltip>
         <TooltipTrigger asChild>

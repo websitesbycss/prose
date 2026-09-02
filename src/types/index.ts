@@ -370,6 +370,8 @@ export interface ProseAPI {
     onStatus(cb: (status: UpdateStatusPayload) => void): () => void
   }
   platform: NodeJS.Platform
+  /** True only under `npm run dev:onboarding` — see scripts/dev.js. */
+  mockOnboarding: boolean
 }
 
 export interface UpdateStatusPayload {
