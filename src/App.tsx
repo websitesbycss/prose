@@ -183,15 +183,22 @@ export default function App(): JSX.Element {
     return unsub
   }, [openDocumentTab])
 
-  // Detached window: URL hash #open=DOC_ID → open that document immediately.
+  // Detached window: URL hash #open=DOC_ID&panel=ai → open that document
+  // immediately, reopening whichever right panel (if any) was open on the
+  // tab before it detached (see windows.ts's openHash and DocumentTabBar's
+  // activePanelOf).
   useEffect(() => {
-    const hash = window.location.hash.slice(1) // strip leading #
-    if (!hash.startsWith('open=')) return
-    const docId = decodeURIComponent(hash.slice(5))
+    const params = new URLSearchParams(window.location.hash.slice(1))
+    const docId = params.get('open')
     if (!docId) return
+    const panel = params.get('panel')
     window.history.replaceState(null, '', window.location.pathname + window.location.search)
     void window.prose.documents.getById(docId).then((doc) => {
-      if (doc) openDocumentTab({ id: doc.id, title: doc.title, format: doc.format })
+      if (!doc) return
+      openDocumentTab({ id: doc.id, title: doc.title, format: doc.format, fileType: doc.fileType ?? 'document' })
+      if (panel === 'ai' || panel === 'citations' || panel === 'animations') {
+        useAppStore.getState().applyTabPanel(panel)
+      }
     })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 

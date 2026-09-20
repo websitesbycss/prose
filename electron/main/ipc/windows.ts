@@ -5,6 +5,10 @@ import { resolveDocument } from '../services/fileService'
 import { applyTitleBarOverlay, windowChromeOptions } from '../windowChrome'
 import { resolveEffectiveTheme } from '../services/settingsDb'
 
+// Mirrors PanelState in src/store/appStore.ts. Kept as a local literal union
+// (not imported) since this file and the renderer are separate TS projects.
+type TabPanelState = 'ai' | 'citations' | 'animations' | null
+
 // electron-vite bundles every main-process file (this one included) into a
 // single out/main/index.js, so __dirname here resolves the same as
 // electron/main/index.ts's. One fewer '..' than the source file's own
@@ -50,9 +54,16 @@ let detach: {
   lastHoverScreenX: number | null
   grabOffsetX: number
   grabOffsetY: number
+  panel: TabPanelState
 } | null = null
 
-export function createProseWindow(docId?: string, pos?: { x: number; y: number }): BrowserWindow {
+function openHash(docId: string, panel?: TabPanelState): string {
+  const params = new URLSearchParams({ open: docId })
+  if (panel) params.set('panel', panel)
+  return params.toString()
+}
+
+export function createProseWindow(docId?: string, pos?: { x: number; y: number }, panel?: TabPanelState): BrowserWindow {
   const win = new BrowserWindow({
     ...pos,
     width: 1280,
@@ -80,11 +91,11 @@ export function createProseWindow(docId?: string, pos?: { x: number; y: number }
   })
 
   if (_devUrl) {
-    const url = docId ? `${_devUrl}#open=${encodeURIComponent(docId)}` : _devUrl
+    const url = docId ? `${_devUrl}#${openHash(docId, panel)}` : _devUrl
     void win.loadURL(url)
   } else {
     void win.loadFile(_rendererPath, {
-      hash: docId ? `open=${encodeURIComponent(docId)}` : undefined,
+      hash: docId ? openHash(docId, panel) : undefined,
     })
   }
 
@@ -349,7 +360,7 @@ export function registerWindowHandlers(): void {
     }
   })
 
-  ipcMain.on('tabdrag:detach', (event, docId: string, opts?: { grabOffsetX?: number; grabOffsetY?: number }) => {
+  ipcMain.on('tabdrag:detach', (event, docId: string, opts?: { grabOffsetX?: number; grabOffsetY?: number; panel?: TabPanelState }) => {
     if (typeof docId !== 'string' || !docId || detach || detachStarting) return
     const sourceWin = BrowserWindow.fromWebContents(event.sender)
     if (!sourceWin) return
@@ -360,6 +371,7 @@ export function registerWindowHandlers(): void {
 
     const grabOffsetX = opts?.grabOffsetX ?? 0
     const grabOffsetY = opts?.grabOffsetY ?? 0
+    const panel = opts?.panel ?? null
 
     void resolveDocument(docId).then((resolved) => {
       detachStarting = false
@@ -457,6 +469,7 @@ export function registerWindowHandlers(): void {
         lastHoverScreenX: null,
         grabOffsetX,
         grabOffsetY,
+        panel,
       }
     }).catch(() => {
       detachStarting = false
@@ -476,12 +489,12 @@ export function registerWindowHandlers(): void {
     stopDetach()
   })
 
-  ipcMain.on('tabdrag:checkMerge', (event, { screenX, screenY, docId }: { screenX: number; screenY: number; docId: string }) => {
+  ipcMain.on('tabdrag:checkMerge', (event, { screenX, screenY, docId, panel }: { screenX: number; screenY: number; docId: string; panel?: TabPanelState }) => {
     const mergeTarget = findTabBarAtPoint(screenX, screenY, event.sender.id)
     if (!mergeTarget) return
     const targetWin = BrowserWindow.getAllWindows().find((w) => w.webContents.id === mergeTarget.wcId)
     if (!targetWin || targetWin.isDestroyed()) return
-    targetWin.webContents.send('tabdrag:merge', { docId, screenX })
+    targetWin.webContents.send('tabdrag:merge', { docId, screenX, panel: panel ?? null })
     event.sender.send('tabdrag:detached', { docId })
   })
 
@@ -502,7 +515,7 @@ export function registerWindowHandlers(): void {
         hoverWin?.webContents.send('tabdrag:dropHover', { active: false })
       }
       const targetWin = BrowserWindow.getAllWindows().find((w) => w.webContents.id === mergeTarget.wcId)
-      targetWin?.webContents.send('tabdrag:merge', { docId: detach.docId, screenX: x })
+      targetWin?.webContents.send('tabdrag:merge', { docId: detach.docId, screenX: x, panel: detach.panel })
       if (detach.win && !detach.win.isDestroyed()) detach.win.close()
       if (detach.preview && !detach.preview.isDestroyed()) detach.preview.close()
       event.sender.send('tabdrag:detached', { docId: detach.docId })
@@ -528,7 +541,7 @@ export function registerWindowHandlers(): void {
     createProseWindow(detach.docId, {
       x: Math.round(x - TAB_LEFT - detach.grabOffsetX),
       y: Math.round(y - TAB_TOP - detach.grabOffsetY),
-    })
+    }, detach.panel)
     if (detach.preview && !detach.preview.isDestroyed()) detach.preview.close()
     event.sender.send('tabdrag:detached', { docId: detach.docId })
     detach = null

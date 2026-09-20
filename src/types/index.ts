@@ -7,6 +7,11 @@ export interface PageMargins {
 
 export type FileType = 'document' | 'sheet' | 'board' | 'slides'
 
+// Mirrors PanelState in src/store/appStore.ts: which single right-side panel
+// (they're mutually exclusive per document) was open when a tab detached or
+// merged, so the destination window can restore it instead of showing none.
+export type TabPanelState = 'ai' | 'citations' | 'animations' | null
+
 export type { SheetContent, SheetTab, SheetCell, SheetCellFormat, SheetMergedCell } from './sheet'
 export { isSheetContent, countSheetCells, createInitialSheetContent } from './sheet'
 export type { BoardContent } from './board'
@@ -287,14 +292,14 @@ export interface ProseAPI {
     onLeaveFullscreen(cb: () => void): () => void
   }
   tabdrag: {
-    detach(docId: string, opts?: { grabOffsetX?: number; grabOffsetY?: number }): void
+    detach(docId: string, opts?: { grabOffsetX?: number; grabOffsetY?: number; panel?: TabPanelState }): void
     cancel(): void
-    checkMerge(opts: { screenX: number; screenY: number; docId: string }): void
+    checkMerge(opts: { screenX: number; screenY: number; docId: string; panel?: TabPanelState }): void
     finalize(pos?: { screenX: number; screenY: number }): void
     registerTabBarBounds(rect: { x: number; y: number; width: number; height: number } | { left: number; top: number; width: number; height: number }): void
     onDetached(cb: (data: { docId: string }) => void): () => void
     onReturn(cb: (data: { screenX: number }) => void): () => void
-    onMerge(cb: (data: { docId: string; screenX: number }) => void): () => void
+    onMerge(cb: (data: { docId: string; screenX: number; panel?: TabPanelState }) => void): () => void
     onDropHover(cb: (data: { active: boolean; screenX?: number }) => void): () => void
   }
   citations: {

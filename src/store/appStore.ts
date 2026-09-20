@@ -132,6 +132,11 @@ interface AppState {
   setTypewriterMode(v: boolean): void
   setUiScale(v: number): void
   setTypeFilter(filter: 'all' | 'document' | 'sheet' | 'board'): void
+  /** Reopens whichever single right-panel (ai/citations/animations) a tab
+   * had open, on the active document. Used when a tab detaches into a new
+   * window or merges into another one, so a panel the user had open doesn't
+   * silently close just because the tab changed windows. */
+  applyTabPanel(panel: 'ai' | 'citations' | 'animations' | null): void
 }
 
 const DEFAULT_POMODORO: PomodoroState = {
@@ -343,6 +348,14 @@ export const useAppStore = create<AppState>()((set) => ({
       const id = s.activeDocumentId
       if (!id) return {}
       const entry: PanelState = open ? { citations: true } : { ...s.panelsByDoc[id], citations: false }
+      const panelsByDoc = { ...s.panelsByDoc, [id]: entry }
+      return { panelsByDoc, ...mirrorPanels(panelsByDoc, id) }
+    }),
+  applyTabPanel: (panel) =>
+    set((s) => {
+      const id = s.activeDocumentId
+      if (!id) return {}
+      const entry: PanelState = panel ? { [panel]: true } : {}
       const panelsByDoc = { ...s.panelsByDoc, [id]: entry }
       return { panelsByDoc, ...mirrorPanels(panelsByDoc, id) }
     }),

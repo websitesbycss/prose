@@ -1,5 +1,10 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
+// Which of a document's mutually-exclusive right-side panels was open, so a
+// tab dragged into a new (or another) window keeps showing it instead of
+// silently closing it. Kept in sync with PanelState in src/store/appStore.ts.
+type TabPanelState = 'ai' | 'citations' | 'animations' | null
+
 /**
  * Many renderer components can each want to know about the same IPC event
  * (e.g. every dashboard card listens for "its" thumbnail:ready). Calling
@@ -123,10 +128,10 @@ contextBridge.exposeInMainWorld('prose', {
   },
 
   tabdrag: {
-    detach: (docId: string, opts?: { grabOffsetX?: number; grabOffsetY?: number }) => ipcRenderer.send('tabdrag:detach', docId, opts),
+    detach: (docId: string, opts?: { grabOffsetX?: number; grabOffsetY?: number; panel?: TabPanelState }) => ipcRenderer.send('tabdrag:detach', docId, opts),
     cancel: () => ipcRenderer.send('tabdrag:cancel'),
     finalize: (pos?: { screenX: number; screenY: number }) => ipcRenderer.send('tabdrag:finalize', pos),
-    checkMerge: (opts: { screenX: number; screenY: number; docId: string }) => ipcRenderer.send('tabdrag:checkMerge', opts),
+    checkMerge: (opts: { screenX: number; screenY: number; docId: string; panel?: TabPanelState }) => ipcRenderer.send('tabdrag:checkMerge', opts),
     registerTabBarBounds: (rect: { x: number; y: number; width: number; height: number } | { left: number; top: number; width: number; height: number }) =>
       ipcRenderer.send('tabdrag:registerTabBarBounds', rect),
     onDetached: (cb: (data: { docId: string }) => void): (() => void) => {
@@ -139,8 +144,8 @@ contextBridge.exposeInMainWorld('prose', {
       ipcRenderer.on('tabdrag:return', listener)
       return () => ipcRenderer.removeListener('tabdrag:return', listener)
     },
-    onMerge: (cb: (data: { docId: string; screenX: number }) => void): (() => void) => {
-      const listener = (_: Electron.IpcRendererEvent, data: { docId: string; screenX: number }): void => cb(data)
+    onMerge: (cb: (data: { docId: string; screenX: number; panel?: TabPanelState }) => void): (() => void) => {
+      const listener = (_: Electron.IpcRendererEvent, data: { docId: string; screenX: number; panel?: TabPanelState }): void => cb(data)
       ipcRenderer.on('tabdrag:merge', listener)
       return () => ipcRenderer.removeListener('tabdrag:merge', listener)
     },

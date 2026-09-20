@@ -7,7 +7,20 @@ import { TabPickerPopover } from '@/components/editor/TabPickerPopover'
 import { FORMAT_LABELS } from '@/lib/documentFormat'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store/appStore'
-import type { OpenDocumentTab } from '@/store/appStore'
+import type { OpenDocumentTab, PanelState } from '@/store/appStore'
+import type { TabPanelState } from '@/types'
+
+// A tab's right-panel state is mutually exclusive (opening one clears the
+// others, see setAiPanelOpen etc. in appStore.ts), so it collapses to a
+// single value that travels with the tab across a detach/merge, instead of
+// silently closing whatever panel was open when the tab lands in a window
+// that doesn't know about it.
+function activePanelOf(p: PanelState | undefined): TabPanelState {
+  if (p?.ai) return 'ai'
+  if (p?.citations) return 'citations'
+  if (p?.animations) return 'animations'
+  return null
+}
 
 const TAB_TYPE_ICONS = {
   document: FileText,
@@ -203,7 +216,7 @@ export function DocumentTabBar({
 
   useEffect(() => {
     if (!window.prose.tabdrag?.onMerge) return
-    return window.prose.tabdrag.onMerge(({ docId, screenX }) => {
+    return window.prose.tabdrag.onMerge(({ docId, screenX, panel }) => {
       const insertIdx =
         typeof screenX === 'number'
           ? computeInsertIdxFromClientX(screenXToClientX(screenX))
@@ -216,6 +229,7 @@ export function DocumentTabBar({
           format: doc.format,
           fileType: doc.fileType ?? 'document',
         }, insertIdx)
+        useAppStore.getState().applyTabPanel(panel ?? null)
       })
     })
   }, [insertDocumentTab, openTabs.length])
@@ -396,9 +410,10 @@ export function DocumentTabBar({
     if (!inStrip && d.mode === 'strip') {
       d.mode = 'detached'
       setIsDetached(true)
+      const panel = activePanelOf(useAppStore.getState().panelsByDoc[tabId])
       void (async () => {
         if (tabId === activeDocumentId && saveActiveDocument) await saveActiveDocument()
-        window.prose.tabdrag.detach(tabId, { grabOffsetX: d.grabOffsetX, grabOffsetY: d.grabOffsetY })
+        window.prose.tabdrag.detach(tabId, { grabOffsetX: d.grabOffsetX, grabOffsetY: d.grabOffsetY, panel })
       })()
     } else if (inStrip && d.mode === 'detached') {
       d.mode = 'strip'
@@ -440,9 +455,10 @@ export function DocumentTabBar({
       window.prose.win.stopMove()
       if (isSingleTab) {
         const tabId2 = d.tabId
+        const panel = activePanelOf(useAppStore.getState().panelsByDoc[tabId2])
         void (async () => {
           if (tabId2 === activeDocumentId && saveActiveDocument) await saveActiveDocument()
-          window.prose.tabdrag.checkMerge?.({ screenX: e.screenX, screenY: e.screenY, docId: tabId2 })
+          window.prose.tabdrag.checkMerge?.({ screenX: e.screenX, screenY: e.screenY, docId: tabId2, panel })
         })()
       }
       endDrag()
