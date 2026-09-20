@@ -136,7 +136,7 @@ export function HeaderFooterEditor({
 
   // Reset content when document switches or when contentKey changes (template applied)
   useEffect(() => {
-    if (!editor) return
+    if (!editor || editor.isDestroyed) return
     editor.commands.setContent(initialContent ?? EMPTY_DOC, { emitUpdate: false })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documentId, contentKey])
@@ -186,7 +186,7 @@ export function HeaderFooterEditor({
       onClick={handleClick}
       onDoubleClick={handleClick}
     >
-      {/* Persistent zone label — always visible, acts as a field caption */}
+      {/* Persistent zone label. Always visible, acts as a field caption */}
       <div
         className="pointer-events-none select-none pt-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/35"
         style={{ paddingLeft: 'var(--page-margin-left, var(--page-margin-x, 96px))' }}
@@ -209,7 +209,7 @@ export function HeaderFooterEditor({
   )
 }
 
-// MLA: everything right-aligned — rightTab pushes lastName + pageNum to the right
+// MLA: everything right-aligned. rightTab pushes lastName + pageNum to the right
 export function buildMlaHeaderContent(lastName: string): JSONContent {
   return {
     type: 'doc',

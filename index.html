@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!--
       Content Security Policy:
-        script-src 'self' 'wasm-unsafe-eval' — no inline/remote scripts; wasm-unsafe-eval
+        script-src 'self' 'wasm-unsafe-eval': no inline/remote scripts; wasm-unsafe-eval
                                 only permits compiling WebAssembly (Harper's grammar
                                 engine), not arbitrary string eval
-        worker-src 'self' blob: — harper.js's WorkerLinter spins up its worker from a
+        worker-src 'self' blob: - Harper.js's WorkerLinter spins up its worker from a
                                 blob: URL rather than a same-origin script file
-        style-src  'unsafe-inline' — required by KaTeX and Tailwind utility classes
-        connect-src 'self'     — renderer cannot make arbitrary network requests
-        object-src / frame-src 'none' — block plugin and iframe injection
+        style-src  'unsafe-inline': required by KaTeX and Tailwind utility classes
+        connect-src 'self': renderer cannot make arbitrary network requests
+        object-src / frame-src 'none': block plugin and iframe injection
     -->
     <meta http-equiv="Content-Security-Policy" content="
       default-src 'self';
@@ -32,7 +32,7 @@
     <!-- Theme init runs before React to prevent dark/light flash; external file keeps script-src 'self' valid -->
     <script src="/src/theme-init.js"></script>
     <style>
-      /* Static loading screen — shown the instant the window paints, before the
+      /* Static loading screen. Shown the instant the window paints, before the
          JS bundle has even downloaded. React's first render replaces #root's
          contents, which clears this automatically; no JS needed to remove it.
          Colors are hardcoded copies of globals.css's --background/--foreground/

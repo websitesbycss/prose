@@ -73,7 +73,7 @@ export function useCanvasDrag({
   const cbRef = useRef({ onMoveElements, onResizeElement, onRotateElement, onMarqueeSelect, setMarqueeRect })
   cbRef.current = { onMoveElements, onResizeElement, onRotateElement, onMarqueeSelect, setMarqueeRect }
 
-  // Snap state — precomputed at drag start, consumed during mousemove
+  // Snap state. Precomputed at drag start, consumed during mousemove
   const snapRef = useRef<{
     targets: SnapTargetList
     // For move: bounding box of all dragged elements at start position
@@ -236,7 +236,7 @@ export function useCanvasDrag({
       if (ds.type === 'move') {
         const totalDelta = Math.hypot(e.clientX - ds.startMouseX, e.clientY - ds.startMouseY)
         if (totalDelta < DRAG_THRESHOLD_PX) {
-          // Was a click — restore transforms without committing
+          // Was a click. Restore transforms without committing
           for (const id of ds.elementIds) {
             const el = elementRefs.current.get(id)
             const pos = ds.startPositions.get(id)

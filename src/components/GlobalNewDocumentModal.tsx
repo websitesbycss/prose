@@ -200,7 +200,7 @@ function TypePickerModal({
   )
 }
 
-/** App-level new file modal — usable from the tab bar, dashboard, or anywhere else. */
+/** App-level new file modal. Usable from the tab bar, dashboard, or anywhere else. */
 export function GlobalNewDocumentModal(): JSX.Element {
   const open = useAppStore((s) => s.newDocumentModalOpen)
   const initialType = useAppStore((s) => s.newDocumentModalInitialType)
@@ -221,8 +221,8 @@ export function GlobalNewDocumentModal(): JSX.Element {
 
   function handleImported(docs: Document[]): void {
     setOpen(false)
-    // Open every imported file as a tab immediately — landing on the last one
-    // imported — same as picking Document/Sheet/Board/Slides above.
+    // Open every imported file as a tab immediately. Landing on the last one
+    // imported. Same as picking Document/Sheet/Board/Slides above.
     for (const doc of docs) {
       openDocumentTab({ id: doc.id, title: doc.title, format: doc.format, fileType: doc.fileType ?? 'document' })
       window.dispatchEvent(new CustomEvent('prose-document-created', { detail: doc }))
@@ -235,7 +235,7 @@ export function GlobalNewDocumentModal(): JSX.Element {
     <AnimatePresence>
       {open && (
         <>
-          {/* Type picker — shown until user picks a type */}
+          {/* Type picker. Shown until user picks a type */}
           {selectedType === null && (
             <TypePickerModal
               onSelect={setSelectedType}

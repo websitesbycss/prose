@@ -142,7 +142,7 @@ export async function parseSpreadsheetFile(filePath: string): Promise<SheetConte
   try {
     workbook = XLSX.read(buf, readOpts)
   } catch {
-    throw new Error('Could not read spreadsheet — the file may be corrupted or password-protected')
+    throw new Error('Could not read spreadsheet. The file may be corrupted or password-protected')
   }
 
   return workbookToSheetContent(workbook)

@@ -6,7 +6,7 @@ import './globals.css'
 import 'katex/dist/katex.min.css'
 import App from './App'
 
-// Excalidraw self-hosted fonts — point to public/fonts/excalidraw/ so the app
+// Excalidraw self-hosted fonts. Point to public/fonts/excalidraw/ so the app
 // works offline.  Must be set before Excalidraw renders.
 ;(window as Window & { EXCALIDRAW_ASSET_PATH?: string }).EXCALIDRAW_ASSET_PATH = './fonts/excalidraw'
 

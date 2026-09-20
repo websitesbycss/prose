@@ -11,7 +11,7 @@ type NspellInstance = {
 let checker: NspellInstance | null = null
 let loadPromise: Promise<void> | null = null
 
-// Per-document custom word lists — persisted to userData/spell-words.json
+// Per-document custom word lists. Persisted to userData/spell-words.json
 type WordStore = Record<string, string[]>
 let wordStore: WordStore = {}
 const STORE_PATH = path.join(app.getPath('userData'), 'spell-words.json')
@@ -58,7 +58,7 @@ function stripPunct(word: string): string {
   return word.replace(/^[^a-zA-Z']+|[^a-zA-Z']+$/g, '')
 }
 
-// Check if a word is correct — tries the original case first (handles proper nouns
+// Check if a word is correct. Tries the original case first (handles proper nouns
 // like "Instagram"), then lowercased as a fallback for sentence-start capitalisation.
 function isCorrect(raw: string): boolean {
   if (!checker) return true

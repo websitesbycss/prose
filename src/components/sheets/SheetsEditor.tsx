@@ -41,7 +41,7 @@ import { runThumbnailGenerationOnce, clampRectToViewport } from '@/lib/thumbnail
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 // FortuneSheet's native right-click menu has no per-item class/data-attribute
-// to target — only the rendered (English) label text identifies each action.
+// to target. Only the rendered (English) label text identifies each action.
 // Unmapped labels (e.g. "Insert N rows/columns", which embed a live input and
 // vary their text) are simply left without an icon.
 const FORTUNE_CONTEXT_MENU_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -169,12 +169,12 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
   // Charts are positioned in unscrolled grid-content coordinates, so the
   // overlay needs the live scroll offset to track the grid instead of
   // floating fixed over it. FortuneSheet's grid scrolling isn't exposed via
-  // its public API — but it does drive two real (invisible) native scroll
+  // its public API. But it does drive two real (invisible) native scroll
   // elements internally, .luckysheet-scrollbar-x/-y, so we read scroll
   // position directly from those.
   const [gridScroll, setGridScroll] = useState({ x: 0, y: 0 })
   // FortuneSheet hydrates a freshly-mounted Workbook's cell data (`sheet.data`)
-  // in its own effect, asynchronously after mount — chart widgets that read
+  // in its own effect, asynchronously after mount. Chart widgets that read
   // `workbookRef.current.getAllSheets()` on their very first render can run
   // before that hydration lands and silently extract nothing, rendering
   // blank. Bumped once handleChange first fires after (re)loading a document
@@ -189,7 +189,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
   const setPendingAiPrompt = useAppStore((s) => s.setPendingAiPrompt)
   const setAiPanelOpen = useAppStore((s) => s.setAiPanelOpen)
 
-  // AI panel width — resizable via drag handle, same behavior as Documents'
+  // AI panel width. Resizable via drag handle, same behavior as Documents'
   // AI panel (Editor.tsx), persisted to the same localStorage key so the
   // width preference is shared across file types.
   const [aiPanelWidth, setAiPanelWidth] = useState(() => {
@@ -200,7 +200,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
   const aiPanelWidthRef = useRef(aiPanelWidth)
   useEffect(() => { aiPanelWidthRef.current = aiPanelWidth }, [aiPanelWidth])
   // Suppresses the panel's open/close width transition while actively
-  // drag-resizing — else every mousemove retargets an eased animation and the
+  // drag-resizing. Else every mousemove retargets an eased animation and the
   // panel edge lags behind the cursor instead of tracking it 1:1.
   const [isResizingAiPanel, setIsResizingAiPanel] = useState(false)
 
@@ -243,7 +243,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
     : activeAmbient.length === 2 ? `${activeAmbient[0]!.label} + ${activeAmbient[1]!.label}`
     : `${activeAmbient.length} Sounds`
 
-  // Initial FortuneSheet data — computed once when doc loads, then stable
+  // Initial FortuneSheet data. Computed once when doc loads, then stable
   const fsDataRef = useRef<Sheet[] | null>(null)
   const [ready, setReady] = useState(false)
 
@@ -267,7 +267,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
   const pendingDataRef = useRef<Sheet[] | null>(null)
   const zoomChangeRef = useRef(false)
 
-  // Undo/redo enabled state — FortuneSheet keeps its undo stack entirely
+  // Undo/redo enabled state. FortuneSheet keeps its undo stack entirely
   // internal (no public API to query it), so we mirror its depth ourselves:
   // genuine edits push, our own Undo/Redo button clicks pop/push between the
   // two stacks the same way FortuneSheet's internal handleUndo/handleRedo do.
@@ -277,11 +277,11 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
   const undoCountTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Safety net for `pendingUndoRedoRef`: if FortuneSheet's real internal stack
   // didn't actually have anything to undo/redo (our mirrored depth had
-  // drifted), no onChange follows to clear the flag — left unhandled, it would
+  // drifted), no onChange follows to clear the flag. Left unhandled, it would
   // stay stuck and silently misclassify the NEXT genuine edit as this undo/redo.
   const pendingClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // FortuneSheet fires onChange once while it finishes initializing the sheet
-  // it was just given — not a real user edit — which was being miscounted as
+  // it was just given. Not a real user edit. Which was being miscounted as
   // the first "undo-able" edit, leaving Undo enabled (but non-functional)
   // immediately after opening a sheet. Skip depth tracking for onChange calls
   // that land within this grace window after (re)loading a document.
@@ -322,7 +322,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
     return () => setSaveActiveDocument(null)
   }, [isActive, flushAndSave, setSaveActiveDocument])
 
-  // Set zoom via applyOp which uses Immer's applyPatches directly — no frozen-object mutation
+  // Set zoom via applyOp which uses Immer's applyPatches directly. No frozen-object mutation
   const handleZoomChange = useCallback((newPct: number) => {
     const clamped = Math.min(400, Math.max(10, Math.round(newPct / 10) * 10))
     const wb = workbookRef.current
@@ -343,7 +343,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
     if (saveTimerRef.current) void flushAndSave()
   }, [flushAndSave])
 
-  // Thumbnail generation — fired by the main process after every successful
+  // Thumbnail generation. Fired by the main process after every successful
   // content auto-save. Crops to roughly the first 12 rows / 8 columns instead
   // of the full grid container, using the same column/row sizes configured on
   // the <Workbook> below (defaultColWidth/defaultRowHeight) plus FortuneSheet's
@@ -374,7 +374,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
     })
   }, [documentId, ready])
 
-  // Track the grid's scroll offset so the chart overlay can follow it — see
+  // Track the grid's scroll offset so the chart overlay can follow it. See
   // the comment on gridScroll's declaration for why we read these elements
   // directly instead of going through FortuneSheet's API.
   useEffect(() => {
@@ -388,7 +388,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
     const onScrollY = (): void => setGridScroll((s) => ({ ...s, y: (scrollerY as HTMLElement).scrollTop }))
 
     // FortuneSheet recreates its internal scrollbar DOM nodes on sheet-tab
-    // switches, zoom changes, and other internal re-layouts — attaching once
+    // switches, zoom changes, and other internal re-layouts. Attaching once
     // on mount left listeners on detached nodes after the first such change,
     // silently freezing chart scroll-tracking. Re-query and re-attach
     // whenever the wrapper's subtree changes instead of assuming the nodes
@@ -451,7 +451,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
     fsDataRef.current = content.tabs.map((tab, i) =>
       sheetTabToFSSheet(tab, tab.id === content.activeTabId, i)
     )
-    // Seed the autosave baseline immediately — pendingDataRef otherwise stays
+    // Seed the autosave baseline immediately. pendingDataRef otherwise stays
     // null until FortuneSheet's onChange fires, so a chart inserted before any
     // cell edit would never trigger a save (flushAndSave bails on null data).
     // fsDataToSheetContent already handles the celldata-only shape this carries.
@@ -468,7 +468,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
     setCharts(loadedCharts)
 
     // Fresh Workbook instance (key={documentId} below) means FortuneSheet's own
-    // undo/redo stack also starts empty — reset our mirrored depth tracking too.
+    // undo/redo stack also starts empty. Reset our mirrored depth tracking too.
     undoDepthRef.current = 0
     redoDepthRef.current = 0
     pendingUndoRedoRef.current = null
@@ -484,8 +484,8 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc?.id])
 
-  // FortuneSheet only re-measures its grid on a window resize event — it
-  // doesn't observe its own container resizing — so it needs a nudge: once at
+  // FortuneSheet only re-measures its grid on a window resize event. It
+  // doesn't observe its own container resizing. So it needs a nudge: once at
   // mount (container settling into its initial layout) and again whenever the
   // AI panel's width actually changes (drag-resize or open/close), once that
   // change has visually settled (150ms covers both a debounced drag and the
@@ -545,7 +545,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
   }, [])
 
   // Writes an AI-generated table (parsed from a markdown response) starting
-  // at the selected cell — the first row is treated as a header row.
+  // at the selected cell. The first row is treated as a header row.
   const onInsertTableData = useCallback((rows: string[][]) => {
     const wb = workbookRef.current; if (!wb) return
     const { row: startRow, col: startCol } = selectedCellRef.current
@@ -556,7 +556,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
     })
   }, [])
 
-  // commitFormulaBar — writes formula bar value back to selected cell
+  // commitFormulaBar. Writes formula bar value back to selected cell
   const commitFormulaBar = useCallback(() => {
     const wb = workbookRef.current; if (!wb) return
     const { row, col } = selectedCellRef.current
@@ -589,7 +589,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
     }, 250)
   }, [])
 
-  // FortuneSheet has no public undo()/redo() API — it only responds to a real
+  // FortuneSheet has no public undo()/redo() API. It only responds to a real
   // keydown on its hidden cell-editor element, so locate that within this
   // sheet's own wrapper and dispatch there.
   const handleUndo = useCallback(() => {
@@ -608,7 +608,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
 
   // A native Ctrl+Z/Ctrl+Y keypress goes straight to FortuneSheet's own
   // keydown handler on its hidden cell-input, bypassing handleUndo/handleRedo
-  // (and armPendingUndoRedo) entirely — so it used to always fall into
+  // (and armPendingUndoRedo) entirely. So it used to always fall into
   // handleChange's "genuine edit" branch, corrupting the mirrored depth
   // counters relative to FortuneSheet's real stack. Intercept in the CAPTURE
   // phase (fires before FortuneSheet's bubble-phase handler) so native hotkeys
@@ -632,7 +632,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
     const wb = workbookRef.current; if (!wb) return
     wb.addSheet()
     // addSheet() activates the new sheet internally (changeSheet sets
-    // ctx.currentSheetId synchronously) but doesn't reliably trigger onChange —
+    // ctx.currentSheetId synchronously) but doesn't reliably trigger onChange -
     // same gap as switchTab, so read the now-active sheet back directly.
     const sheets = wb.getAllSheets()
     const active = sheets.find(s => s.status === 1) ?? sheets[sheets.length - 1]
@@ -769,7 +769,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
 
     scheduleSave()
 
-    // Undo/redo depth tracking — see comment near the refs' declaration.
+    // Undo/redo depth tracking. See comment near the refs' declaration.
     if (pendingUndoRedoRef.current === 'undo') {
       if (pendingClearTimerRef.current) { clearTimeout(pendingClearTimerRef.current); pendingClearTimerRef.current = null }
       undoDepthRef.current = Math.max(0, undoDepthRef.current - 1)
@@ -785,7 +785,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
       setCanUndo(true)
       setCanRedo(redoDepthRef.current > 0)
     } else if (Date.now() - loadedAtRef.current < INIT_GRACE_MS) {
-      // FortuneSheet settling in after (re)loading a document — not a real edit.
+      // FortuneSheet settling in after (re)loading a document. Not a real edit.
     } else {
       // A genuine edit. Debounce briefly so a continuous drag (range fill,
       // multi-cell paste) collapses into one counted undo step instead of one
@@ -801,7 +801,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
     }
   }, [scheduleSave])
 
-  // Stable hooks object — closures use refs so hooks object never changes
+  // Stable hooks object. Closures use refs so hooks object never changes
   const fortuneHooks = useMemo<Hooks>(() => ({
     afterSelectionChange: (_sheetId: string, selection: Selection) => {
       const wb = workbookRef.current; if (!wb) return
@@ -818,7 +818,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
         setFormulaBarValue(formula ?? (value != null ? String(value) : ''))
       } catch { /* ignore if workbook not ready */ }
 
-      // Toolbar state — read from live sheet data
+      // Toolbar state. Read from live sheet data
       try {
         const sheets = wb.getAllSheets()
         const active = sheets.find((s) => s.status === 1) ?? sheets[0]
@@ -874,7 +874,7 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
         />
 
         {/* Grid + AI panel row. The grid shrinks to fill whatever space the
-            AI panel leaves — FortuneSheet doesn't observe its own container
+            AI panel leaves. FortuneSheet doesn't observe its own container
             resizing, so a window-resize event is dispatched below on every
             width change (drag, open/close) to force it to re-measure. */}
         <div className="flex min-h-0 flex-1">
@@ -914,18 +914,18 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
             />
           </div>
 
-          {/* AI panel — resizable, same width-animated open/close as Slides'
+          {/* AI panel. Resizable, same width-animated open/close as Slides'
               right panel (SlidesEditor.tsx). Stays mounted at all times so
               chat/analysis state survives closing and reopening the panel. */}
           <motion.div
             ref={aiPanelRef}
-            // overflow-CLIP, not hidden — see the matching comment in Editor.tsx:
+            // overflow-CLIP, not hidden. See the matching comment in Editor.tsx:
             // prevents chat focus/scrollIntoView from permanently scrolling this box.
             className="relative shrink-0 overflow-clip border-l border-border"
             initial={false}
             animate={{ width: aiPanelOpen ? aiPanelWidth : 0 }}
             transition={{ duration: isResizingAiPanel ? 0 : 0.12, ease: 'easeOut' }}
-            // visibility must INHERIT while open (never explicit 'visible') —
+            // visibility must INHERIT while open (never explicit 'visible') -
             // see usePanelVisibility for the hidden-tab punch-through bug.
             style={{ pointerEvents: aiPanelOpen ? 'auto' : 'none', visibility: aiPanelVisibility }}
           >

@@ -14,7 +14,7 @@ interface Params {
   setSelectedIds(ids: string[]): void
   scheduleSave(): void
   onSave(): void
-  /** Suppresses every shortcut below — e.g. while the animation preview overlay
+  /** Suppresses every shortcut below: e.g. while the animation preview overlay
    * is open and arrow keys/space/enter should drive the preview instead of
    * nudging or mutating the (still-selected) element underneath. */
   disabled?: boolean
@@ -160,7 +160,7 @@ export function useSlideKeyboardShortcuts({
         changeSlide((s) => ({ ...s, elements: bumpZIndex(s.elements, p.selectedIds, dir) }))
         return
       }
-      // Nudge — x/y are both percentages, but of different-sized axes (the
+      // Nudge. X/y are both percentages, but of different-sized axes (the
       // slide isn't square), so an equal percentage step moves noticeably
       // farther horizontally than vertically. Scale the vertical step by the
       // aspect ratio so left/right and up/down cover the same pixel distance.

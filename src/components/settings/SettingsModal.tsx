@@ -87,7 +87,7 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
   const [section, setSection] = useState<Section>(() => isSlides ? 'slides' : documentId ? 'page' : 'appearance')
 
   // Lets another part of the app (e.g. onboarding's "I'll use my own API
-  // key") force Settings open directly on a specific section — consumed
+  // key") force Settings open directly on a specific section. Consumed
   // once, then cleared so a later plain open doesn't stick to it.
   const settingsInitialSection = useAppStore((s) => s.settingsInitialSection)
   const setSettingsInitialSection = useAppStore((s) => s.setSettingsInitialSection)
@@ -112,7 +112,7 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
   const [spellWords, setSpellWords] = useState<string[]>([])
   const [newWord, setNewWord] = useState('')
 
-  // Whether Ollama itself is installed on this machine — null until checked.
+  // Whether Ollama itself is installed on this machine (null until checked).
   // Combined with `models` (downloaded models), this drives the "smart" setup
   // CTA below: skip straight to whichever step is actually still needed
   // (covers a user who skipped onboarding, or installed Ollama manually).
@@ -138,7 +138,7 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
     setOllamaSetupOpen(false)
     refreshOllamaSetupStatus()
     // Nudge ollamaStatus immediately instead of waiting for App.tsx's next
-    // poll tick (up to 5s) — unlocks AI buttons app-wide right away.
+    // poll tick (up to 5s). Unlocks AI buttons app-wide right away.
     void window.prose.ai.getStatus().then((status) => {
       useAppStore.getState().setOllamaStatus(status as import('@/types').OllamaStatus)
     })
@@ -162,7 +162,7 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
   }, [setPomodoroState])
 
   // Apply accent colors whenever either value changes; uses fresh state, no
-  // stale closures. Narrowed to the two color fields on purpose — depending
+  // stale closures. Narrowed to the two color fields on purpose. Depending
   // on the whole `settings` object would re-apply colors on every unrelated
   // setting change.
   useEffect(() => {
@@ -294,7 +294,7 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
                   </div>
                   <SettingRow
                     label="Use Pexels for stock photos"
-                    description="Lets AI-generated slides use real stock photos instead of simple AI-drawn illustrations. Requires your own free Pexels API key and an internet connection — off by default to keep Slides generation fully offline."
+                    description="Lets AI-generated slides use real stock photos instead of simple AI-drawn illustrations. Requires your own free Pexels API key and an internet connection. Off by default to keep Slides generation fully offline."
                   >
                     <Switch
                       checked={settings.slidesPexelsEnabled ?? false}
@@ -338,7 +338,7 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
                       {(['dark', 'light'] as const).map((t) => (
                         <button
                           key={t}
-                          onClick={() => { setTheme(t); void save({ theme: t }) }}
+                          onClick={() => setTheme(t)}
                           className={cn(
                             'px-3 py-1 text-xs capitalize transition-colors',
                             theme === t
@@ -614,6 +614,11 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
               {section === 'ai' && (
                 <>
                   <SectionTitle>AI</SectionTitle>
+                  {window.prose.mockNoAi && (
+                    <div className="mb-1 rounded-lg border border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+                      Running under <code className="font-mono">npm run dev:simple</code>: AI is forced unavailable and these controls are locked for testing.
+                    </div>
+                  )}
                   <SettingRow
                     label="Use a custom LLM"
                     description="Route AI requests to a cloud provider (Claude, ChatGPT, Gemini, or your own endpoint) using your own API key, instead of the local Ollama model. Requires an internet connection."
@@ -621,6 +626,7 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
                     <Switch
                       checked={settings.customLlmEnabled ?? false}
                       onCheckedChange={(v) => void save({ customLlmEnabled: v })}
+                      disabled={window.prose.mockNoAi}
                     />
                   </SettingRow>
 
@@ -651,7 +657,12 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
                             </span>
                           </div>
                         </div>
-                        <Button size="sm" className="h-8 shrink-0 gap-1.5 text-xs" onClick={() => setOllamaSetupOpen(true)}>
+                        <Button
+                          size="sm"
+                          className="h-8 shrink-0 gap-1.5 text-xs"
+                          onClick={() => setOllamaSetupOpen(true)}
+                          disabled={window.prose.mockNoAi}
+                        >
                           <Download className="h-3.5 w-3.5" />
                           {ollamaInstalledCheck ? 'Download a model' : 'Set up Ollama'}
                         </Button>
@@ -711,13 +722,13 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
                   <SectionTitle>Storage</SectionTitle>
                   <SettingRow label="Documents folder">
                     <span className="max-w-[200px] truncate text-right text-xs text-muted-foreground font-mono" title={storageInfo?.folder}>
-                      {storageInfo?.folder ?? '—'}
+                      {storageInfo?.folder ?? '-'}
                     </span>
                   </SettingRow>
                   <Separator />
                   <SettingRow label="Disk usage" description={storageInfo ? `${storageInfo.documentCount} file${storageInfo.documentCount !== 1 ? 's' : ''}` : undefined}>
                     <span className="text-xs text-muted-foreground">
-                      {storageInfo ? formatBytes(storageInfo.totalBytes) : '—'}
+                      {storageInfo ? formatBytes(storageInfo.totalBytes) : '-'}
                     </span>
                   </SettingRow>
                   <Separator />
@@ -780,7 +791,7 @@ export default function SettingsModal({ open, onClose, documentId, pageMargins, 
         <div className="shrink-0 border-t border-border px-5 py-3 flex justify-end">
           <Button size="sm" className="text-xs" onClick={onClose}>Done</Button>
         </div>
-        {/* Picker portal layer — inside dialog DOM so it's exempt from Radix's inert marking */}
+        {/* Picker portal layer. Inside dialog DOM so it's exempt from Radix's inert marking */}
         <div ref={pickerLayerRef} className="pointer-events-none absolute inset-0 overflow-visible" style={{ zIndex: 100 }} />
       </DialogContent>
     </Dialog>
@@ -816,7 +827,7 @@ function AboutVersionRow(): JSX.Element {
   return (
     <div className="flex flex-col gap-1">
       <span className="text-sm font-semibold">Prose</span>
-      <span className="text-xs text-muted-foreground">{version ? `Version ${version}` : 'Version —'}</span>
+      <span className="text-xs text-muted-foreground">{version ? `Version ${version}` : 'Version -'}</span>
     </div>
   )
 }
@@ -973,7 +984,7 @@ function CustomLlmSettings({ settings, save, open }: {
   const [keyEncrypted, setKeyEncrypted] = useState<boolean | null>(null)
 
   // The typed key only ever lives in this component's memory for the
-  // duration it's needed — never written to renderer storage, and cleared
+  // duration it's needed. Never written to renderer storage, and cleared
   // the moment the modal closes or the provider changes.
   useEffect(() => {
     if (!open) { setApiKeyInput(''); setModels([]); setFetchState('idle'); setFetchError(''); setKeyEncrypted(null) }
@@ -1065,7 +1076,7 @@ function CustomLlmSettings({ settings, save, open }: {
 
       <div>
         <label className="mb-1.5 block text-xs font-medium text-foreground">
-          API key {settings.customLlmApiKeySet && <span className="font-normal text-muted-foreground">— a key is currently saved</span>}
+          API key {settings.customLlmApiKeySet && <span className="font-normal text-muted-foreground">: a key is currently saved</span>}
         </label>
         <div className="flex gap-2">
           <Input
@@ -1106,7 +1117,7 @@ function CustomLlmSettings({ settings, save, open }: {
       {fetchState === 'success' && (
         <p className="flex items-center gap-1.5 text-[11px] text-green-600 dark:text-green-500">
           <CheckCircle2 className="h-3.5 w-3.5" />
-          {models.length > 0 ? `Found ${models.length} model${models.length === 1 ? '' : 's'}.` : 'Connected — no model list available, enter a model ID manually below.'}
+          {models.length > 0 ? `Found ${models.length} model${models.length === 1 ? '' : 's'}.` : 'Connected: no model list available, enter a model ID manually below.'}
           {keyEncrypted === false && ' Note: your OS has no secure credential store available, so the key was saved without encryption.'}
         </p>
       )}
@@ -1152,7 +1163,7 @@ function CustomLlmSettings({ settings, save, open }: {
       <div className="mt-1 flex items-start gap-2 rounded-md border border-border bg-muted/30 px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
         <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
         <span>
-          Your API key is encrypted on this device using your OS's own secure credential store and is never stored in Prose's regular settings file, synced anywhere, or sent anywhere except directly to the provider you choose above — Prose has no bundled or shared key. Enabling a custom LLM does send your document, sheet, board, or slide content to that provider's servers for processing, so it's no longer fully offline for AI requests.
+          Your API key is encrypted on this device using your OS's own secure credential store and is never stored in Prose's regular settings file, synced anywhere, or sent anywhere except directly to the provider you choose above. Prose has no bundled or shared key. Enabling a custom LLM does send your document, sheet, board, or slide content to that provider's servers for processing, so it's no longer fully offline for AI requests.
         </span>
       </div>
     </div>
@@ -1161,7 +1172,7 @@ function CustomLlmSettings({ settings, save, open }: {
 
 /** Smart resume of the Ollama onboarding steps, launched from Settings for a
  * user who skipped it (or already had Ollama some other way). Starts at
- * whichever step is actually still needed — the install step is skipped
+ * whichever step is actually still needed. The install step is skipped
  * entirely when Ollama is already installed. */
 function OllamaSetupDialog({ open, needsInstall, onClose, onDone }: {
   open: boolean

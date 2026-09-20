@@ -30,7 +30,7 @@ export function exitVerticalMark(editor: Editor, mark: VerticalMark): void {
 
   const markedText = state.doc.textBetween(range.from, range.to, '')
 
-  // Placeholder-only sub/sup from toolbar enable — remove the element entirely.
+  // Placeholder-only sub/sup from toolbar enable. Remove the element entirely.
   if (markedText === ZWS) {
     tr = tr.delete(range.from, range.to)
     const pos = range.from

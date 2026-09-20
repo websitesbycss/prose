@@ -160,7 +160,7 @@ export const SLIDE_LAYOUTS: SlideLayout[] = [
         shapeType: 'rect', fill: theme.accentColor,
       } as SlideElement,
       textEl({ id: uuid(), content: '"Quote text goes here"', x: 12, y: 28, width: 76, height: 40, fontSize: 40, align: 'center', verticalAlign: 'middle', color: theme.textColor, fontFamily: theme.headingFontFamily, zIndex: 2 }),
-      textEl({ id: uuid(), content: '— Attribution', x: 15, y: 70, width: 70, height: 10, fontSize: 24, align: 'center', color: theme.textColor, opacity: 0.7, zIndex: 3 }),
+      textEl({ id: uuid(), content: '- Attribution', x: 15, y: 70, width: 70, height: 10, fontSize: 24, align: 'center', color: theme.textColor, opacity: 0.7, zIndex: 3 }),
     ],
   },
   {

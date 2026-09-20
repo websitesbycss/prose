@@ -9,9 +9,10 @@ export function useWordCount(editor: Editor | null, excludeHeader = false): numb
   const [count, setCount] = useState(0)
 
   useEffect(() => {
-    if (!editor) return
+    if (!editor || editor.isDestroyed) return
 
     const update = (): void => {
+      if (editor.isDestroyed) return
       if (!excludeHeader) {
         setCount(countWords(editor.getText()))
         return

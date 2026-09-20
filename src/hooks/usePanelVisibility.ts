@@ -5,12 +5,12 @@ import { useEffect, useState } from 'react'
  * hidden ancestor.
  *
  * Background tabs are hidden with `visibility: hidden` (EditorTabHost's
- * HiddenTabPane) — and in CSS, an explicit `visibility: visible` on a
+ * HiddenTabPane). And in CSS, an explicit `visibility: visible` on a
  * descendant OVERRIDES a hidden ancestor. Animating visibility to 'visible'
  * via framer-motion did exactly that, making a background tab's open panel
  * render on top of the active tab.
  *
- * So: while open, set NO inline visibility (undefined) — the panel simply
+ * So: while open, set NO inline visibility (undefined). The panel simply
  * inherits the tab pane's visibility, staying hidden on background tabs and
  * visible on the active one. After the close animation has had time to play,
  * pin it to 'hidden' so a closed panel is never painted and can't retain a

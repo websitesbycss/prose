@@ -35,7 +35,7 @@ export const AMBIENT_LAYERS: AmbientLayer[] = [
 ]
 
 const DEFAULT_AMBIENT_VOLUME = 30
-/** Rain and café source files run quiet — higher default slider + playback gain. */
+/** Rain and café source files run quiet. Higher default slider + playback gain. */
 const LOUD_AMBIENT_DEFAULT = 55
 const AMBIENT_PLAYBACK_GAIN: Record<string, number> = {
   rain: 1.35,
@@ -152,7 +152,7 @@ export function useMusic(): MusicHook {
 
   // Create ambient audio elements on mount
   useEffect(() => {
-    // Captured once here rather than read fresh in the cleanup — the ref's
+    // Captured once here rather than read fresh in the cleanup. The ref's
     // .current is a stable Map for this hook's lifetime, but capturing it
     // up front is what the exhaustive-deps rule can actually verify is safe.
     const layers = ambientRef.current

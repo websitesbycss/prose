@@ -1,4 +1,4 @@
-// Unified Generate-tab source picker — "+ Add a source" opens a small menu
+// Unified Generate-tab source picker - "+ Add a source" opens a small menu
 // (Documents / Spreadsheets / Images); picking a document/sheet row adds it
 // immediately and closes the menu. All kinds share one ordered list and one
 // combined cap, mirroring the design's SapSourcePicker.

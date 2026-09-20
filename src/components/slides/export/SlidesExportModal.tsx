@@ -38,7 +38,7 @@ export function SlidesExportModal({ content, title, activeSlideIndex, onClose }:
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
 
-  // Raster size matches the deck's real aspect ratio — 4:3 and custom decks
+  // Raster size matches the deck's real aspect ratio - 4:3 and custom decks
   // previously rendered at a fixed 1920×1080 and got squished into the page.
   const { baseW: rasterW, baseH: rasterH } = getSlideBaseSize(content.settings)
 

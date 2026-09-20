@@ -1,5 +1,5 @@
 // Executes validated prose-actions against the Excalidraw board. Only called
-// after the user clicks Apply on an action card — validation lives in
+// after the user clicks Apply on an action card. Validation lives in
 // src/lib/ai/proseActions.ts.
 //
 // The model lays nodes out in its own coordinate space; the whole drawing is
@@ -129,7 +129,7 @@ function makeNodeElements(node: PlacedNode, index: number, now: number): AnyElem
   return elements
 }
 
-// Point where the segment from a box's center toward `target` exits the box —
+// Point where the segment from a box's center toward `target` exits the box -
 // arrows anchor there instead of at centers so they don't start underneath
 // the shape.
 function edgePoint(box: { x: number; y: number; w: number; h: number }, target: { cx: number; cy: number }): { x: number; y: number } {
@@ -266,7 +266,7 @@ export async function applyBoardActions(actions: BoardAction[], deps: BoardActio
   }
 
   // ── File cards ──────────────────────────────────────────────────────────────
-  // Titles are resolved against the real library — the model can only name
+  // Titles are resolved against the real library. The model can only name
   // files, never inject ids or content.
   const fileCardActions = actions.filter((a): a is Extract<BoardAction, { type: 'addFileCard' }> => a.type === 'addFileCard')
   if (fileCardActions.length > 0) {

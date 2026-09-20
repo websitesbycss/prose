@@ -1,4 +1,4 @@
-// Phase 31 — AI SVG graphic generation modal. Sanitizes output with DOMPurify.
+// Phase 31. AI SVG graphic generation modal. Sanitizes output with DOMPurify.
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Loader2, Wand2 } from 'lucide-react'

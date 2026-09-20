@@ -9,9 +9,10 @@ export function useSelectionWordCount(editor: Editor | null): number {
   const [count, setCount] = useState(0)
 
   useEffect(() => {
-    if (!editor) return
+    if (!editor || editor.isDestroyed) return
 
     const update = (): void => {
+      if (editor.isDestroyed) return
       const { from, to } = editor.state.selection
       if (from === to) {
         setCount(0)

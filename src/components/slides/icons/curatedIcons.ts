@@ -1,12 +1,12 @@
 // Curated Lucide icon set for AI-generated "icon-list" slides. Lucide has
-// 1000+ icons — rather than fuzzy-matching a freeform keyword against all of
+// 1000+ icons. Rather than fuzzy-matching a freeform keyword against all of
 // them (fragile, unpredictable results), the model is given this exact list
 // in the prompt and must pick from it verbatim. Kebab-case names, matching
 // Lucide's own icon-slug convention, since that's what the model is asked to
 // emit and it reads more naturally than PascalCase in a prompt.
 //
 // lucide-react is already a dependency (used throughout Prose's own UI
-// chrome), so this adds zero new packages — just a curated subset of it,
+// chrome), so this adds zero new packages. Just a curated subset of it,
 // statically imported so a bad/unknown name from the model fails a safe
 // lookup instead of a runtime import error.
 import { createRoot } from 'react-dom/client'
@@ -60,7 +60,7 @@ export function resolveLucideIcon(name: string): LucideIcon | null {
 
 // ── Off-screen rendering ──────────────────────────────────────────────────────
 // Renders a curated icon to a sanitized standalone SVG string, off screen.
-// This is synchronous, local data — no LLM round-trip, no network — so
+// This is synchronous, local data. No LLM round-trip, no network. So
 // icon-list slides fill in instantly instead of resolving asynchronously the
 // way AI-drawn illustrations do. Mirrors the off-screen createRoot+flushSync
 // pattern slideRasterizer.tsx already uses for html2canvas captures.

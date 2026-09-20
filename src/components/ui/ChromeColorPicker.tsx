@@ -224,7 +224,7 @@ export function ChromeColorPicker({
   const [formatOpen, setFormatOpen] = useState(false)
   const prevColor = useRef(color)
 
-  // Refs for all inputs — uncontrolled so React never overwrites user keystrokes
+  // Refs for all inputs. Uncontrolled so React never overwrites user keystrokes
   const hexRef = useRef<HTMLInputElement>(null)
   const rRef   = useRef<HTMLInputElement>(null)
   const gRef   = useRef<HTMLInputElement>(null)
@@ -321,7 +321,7 @@ export function ChromeColorPicker({
   }
 
   async function handleEyedropper(): Promise<void> {
-    // Not yet in TypeScript's lib.dom.d.ts — https://developer.mozilla.org/en-US/docs/Web/API/EyeDropper
+    // Not yet in TypeScript's lib.dom.d.ts. Https://developer.mozilla.org/en-US/docs/Web/API/EyeDropper
     const EyeDropperCtor = (window as unknown as {
       EyeDropper?: new () => { open(): Promise<{ sRGBHex: string }> }
     }).EyeDropper
@@ -399,7 +399,7 @@ export function ChromeColorPicker({
           )}
         </div>
 
-        {/* Hex — uncontrolled */}
+        {/* Hex. Uncontrolled */}
         {format === 'hex' && (
           <div className="flex h-7 flex-1 min-w-0 items-center rounded px-2" style={{ background: '#2e2e30' }}>
             <input
@@ -414,7 +414,7 @@ export function ChromeColorPicker({
           </div>
         )}
 
-        {/* RGB — uncontrolled */}
+        {/* RGB. Uncontrolled */}
         {format === 'rgb' && (
           <div className="flex flex-1 gap-1">
             {([['R', rRef, initVals.r, 255], ['G', gRef, initVals.g, 255], ['B', bRef, initVals.b, 255]] as const).map(([label, ref, dv, max]) => (
@@ -427,7 +427,7 @@ export function ChromeColorPicker({
           </div>
         )}
 
-        {/* HSL — uncontrolled */}
+        {/* HSL. Uncontrolled */}
         {format === 'hsl' && (
           <div className="flex flex-1 gap-1">
             {([['H', hhRef, initVals.hh, 360], ['S', hsRef, initVals.hs, 100], ['L', hlRef, initVals.hl, 100]] as const).map(([label, ref, dv, max]) => (
@@ -440,7 +440,7 @@ export function ChromeColorPicker({
           </div>
         )}
 
-        {/* CMYK — uncontrolled */}
+        {/* CMYK. Uncontrolled */}
         {format === 'cmyk' && (
           <div className="flex flex-1 gap-1">
             {([['C', cRef, initVals.cm], ['M', mRef, initVals.mm], ['Y', yRef, initVals.ym], ['K', kRef, initVals.km]] as const).map(([label, ref, dv]) => (

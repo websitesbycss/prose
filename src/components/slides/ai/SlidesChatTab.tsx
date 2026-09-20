@@ -1,4 +1,4 @@
-// Slides-specific chat tab — mirrors the shared editor/AiPanel ChatTab but
+// Slides-specific chat tab. Mirrors the shared editor/AiPanel ChatTab but
 // adds image attachments (paperclip composer button + horizontal-scroll pill
 // rows, pre-send and inside sent bubbles), gated on the local model's
 // multimodal capability. Kept separate from the shared ChatTab rather than

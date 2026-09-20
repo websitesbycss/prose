@@ -10,7 +10,7 @@ import type { FileType } from '@/types'
 
 // Code-split each heavy editor runtime (Tiptap, FortuneSheet, Excalidraw, the
 // Slides canvas) so opening the app doesn't have to download/parse/execute
-// all four upfront — only the file types actually opened get fetched.
+// all four upfront. Only the file types actually opened get fetched.
 const Editor = lazy(() => import('@/components/editor/Editor'))
 const SheetsEditor = lazy(() =>
   import('@/components/sheets/SheetsEditor').then((m) => ({ default: m.SheetsEditor })))
@@ -74,7 +74,7 @@ function HiddenTabPane({
 /**
  * Keeps every open tab's editor mounted (hidden via CSS) so switching file
  * types or tabs never tears down heavy runtimes (Tiptap, FortuneSheet,
- * Excalidraw, the Slides canvas) — each tab gets its own dedicated editor
+ * Excalidraw, the Slides canvas). Each tab gets its own dedicated editor
  * instance, so per-editor state (undo/redo history above all) is isolated
  * per tab and never bleeds into a different tab's document.
  */
@@ -95,7 +95,7 @@ export function EditorTabHost(): JSX.Element | null {
 
   return (
     // overflow-clip (not hidden): hidden boxes can still be scrolled
-    // programmatically — a focus()/scrollIntoView() inside any tab pane could
+    // programmatically. A focus()/scrollIntoView() inside any tab pane could
     // permanently shift the whole editor host. clip forbids scrolling outright.
     <div className="relative h-screen w-full overflow-clip">
       {documentTabs.map((tab) => (

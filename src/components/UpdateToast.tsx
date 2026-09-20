@@ -5,10 +5,10 @@ import type { UpdateStatusPayload } from '@/types'
 /**
  * Minimal bottom-left update prompt (Cursor-style). One toast box that walks
  * through the update lifecycle in place:
- *   available  — "Prose X.Y.Z is available."      Update / Remind me later / No thanks
- *   downloading — "Downloading Prose X.Y.Z…"       (no buttons, just status)
- *   downloaded — "Prose X.Y.Z will install on restart."  Restart to update / Later / No thanks
- * Nothing downloads until the user clicks Update — the silent startup check
+ *   available  - "Prose X.Y.Z is available."      Update / Remind me later / No thanks
+ *   downloading - "Downloading Prose X.Y.Z…"       (no buttons, just status)
+ *   downloaded - "Prose X.Y.Z will install on restart."  Restart to update / Later / No thanks
+ * Nothing downloads until the user clicks Update. The silent startup check
  * only ever announces availability. If the app isn't open when a release goes
  * out, the next launch's startup check surfaces this same toast then.
  * Manual checks from Settings → About reuse the same pipeline but render

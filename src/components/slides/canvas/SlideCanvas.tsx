@@ -155,8 +155,8 @@ export function SlideCanvas({
   const onCanvasRectChangeRef = useRef(onCanvasRectChange)
   useEffect(() => { onCanvasRectChangeRef.current = onCanvasRectChange }, [onCanvasRectChange])
 
-  // Reports the canvas's live on-screen rect (viewport-relative) so callers — e.g.
-  // the transition/animation preview overlay — can mirror its exact position and
+  // Reports the canvas's live on-screen rect (viewport-relative) so callers: e.g.
+  // the transition/animation preview overlay. Can mirror its exact position and
   // zoom. Re-measures on size changes, container layout shifts (sidebar toggling),
   // scrolling (relevant in explicit-zoom mode, where the container scrolls), and
   // window resizes.
@@ -270,7 +270,7 @@ export function SlideCanvas({
 
     if (toolMode !== 'select' && onDrawElement) {
       // Captured into a const so the nested onMove/onUp closures below keep
-      // the non-undefined narrowing — TS can't carry an outer `if` check's
+      // the non-undefined narrowing. TS can't carry an outer `if` check's
       // narrowing of an optional prop into a nested `function` declaration.
       const draw = onDrawElement
       const canvasRect = canvasRef.current.getBoundingClientRect()
@@ -377,12 +377,12 @@ export function SlideCanvas({
           userSelect: 'none',
         }}
       >
-        {/* Slide background — clipped to canvas bounds */}
+        {/* Slide background. Clipped to canvas bounds */}
         <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', zIndex: 0, pointerEvents: 'none' }}>
           <SlideBackgroundLayer background={slide.background} theme={theme} />
         </div>
 
-        {/* Slide elements — overflow: visible so they render in surrounding whitespace */}
+        {/* Slide elements. Overflow: visible so they render in surrounding whitespace */}
         <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
           {sortedElements.map((element) => (
             <SlideElementWrapper
@@ -476,10 +476,10 @@ export function SlideCanvas({
 
         {marqueeRect && <MarqueeSelection rect={marqueeRect} />}
 
-        {/* Snap guides overlay — pointer-events:none, above elements */}
+        {/* Snap guides overlay. Pointer-events:none, above elements */}
         <SnapOverlay ref={overlayRef} />
 
-        {/* Grid overlay — clipped to canvas bounds, no explicit z-index so it stays below any portal modals */}
+        {/* Grid overlay. Clipped to canvas bounds, no explicit z-index so it stays below any portal modals */}
         {showGrid && (
           <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
             <SlideGridOverlay canvasWidth={canvasSize.width} canvasHeight={canvasSize.height} />

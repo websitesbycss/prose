@@ -1,7 +1,7 @@
 // Maps Harper's character-offset issue spans back to ProseMirror positions.
 //
 // The flat text Harper lints MUST come from flattenDocText below, never from
-// doc.textContent — textContent concatenates blocks with no separator, which
+// doc.textContent. textContent concatenates blocks with no separator, which
 // glued the last word of one paragraph to the first word of the next
 // ("John Doe" + "Professor Matt" → "DoeProfessor") and produced bogus
 // compound-word spelling errors. flattenDocText inserts a newline at every
@@ -70,13 +70,13 @@ export function charSpanToDocRange(doc: PMNode, start: number, end: number): { f
 }
 
 /**
- * After applying one issue's suggestion — which replaces the text at
+ * After applying one issue's suggestion. Which replaces the text at
  * [editStart, editEnd) with a string that changes the document by `delta`
- * characters — every OTHER issue's span (still measured against the
+ * characters. Every OTHER issue's span (still measured against the
  * pre-edit text) must be corrected or it points at the wrong characters:
  * spans entirely after the edit shift by delta, spans entirely before are
  * untouched, and spans that overlap the edited range (including the applied
- * issue's own span) are dropped — the text they described no longer exists
+ * issue's own span) are dropped. The text they described no longer exists
  * in the form Harper flagged it.
  *
  * Without this, applying fixes one at a time in sequence mangled every
@@ -97,7 +97,7 @@ export function shiftIssueSpansAfterEdit<T extends { span: { start: number; end:
     } else if (end <= editStart) {
       result.push(issue)
     }
-    // else: overlaps the edited range (or is the applied issue itself) — drop it
+    // else: overlaps the edited range (or is the applied issue itself). Drop it
   }
   return result
 }

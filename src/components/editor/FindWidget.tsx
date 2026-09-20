@@ -20,7 +20,7 @@ export function FindWidget({ editor, open, onClose, onNavigate }: FindWidgetProp
 
   // Sync match info from editor on every transaction
   useEffect(() => {
-    if (!editor) return
+    if (!editor || editor.isDestroyed) return
     const update = (): void => {
       const s = getFindState(editor)
       setMatchInfo({ count: s.results.length, index: s.currentIndex })
@@ -37,13 +37,13 @@ export function FindWidget({ editor, open, onClose, onNavigate }: FindWidgetProp
       setQuery('')
       setReplaceValue('')
       setShowReplace(false)
-      if (editor?.view) editor.commands.clearFind()
+      if (editor && !editor.isDestroyed) editor.commands.clearFind()
     }
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Drive findExtension whenever query changes
   useEffect(() => {
-    if (!editor) return
+    if (!editor || editor.isDestroyed) return
     if (query) {
       editor.commands.setFind(query)
     } else {

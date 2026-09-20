@@ -1,5 +1,5 @@
 // Converts a persisted Prose Sheet (SheetTab) into AI-readable text, without
-// needing a live FortuneSheet Workbook mounted — used by the Generate tab's
+// needing a live FortuneSheet Workbook mounted. Used by the Generate tab's
 // "Spreadsheet" source kind. Mirrors SheetsEditor.tsx's buildSheetContext
 // (used by the Sheets Insights tab) but reads the sparse `cells` map directly
 // via sheetTabToCellGrid, which was built exactly for this "outside a live
@@ -11,7 +11,7 @@ import { colToLetter, cellAddress } from '@/components/sheets/sheetUtils'
 const MAX_ROWS = 21
 const MAX_COLS = 26
 
-/** Populated bounding box of a sheet tab, e.g. "A1:F340" — or null if empty. */
+/** Populated bounding box of a sheet tab, e.g. "A1:F340". Or null if empty. */
 export function computeUsedRange(tab: SheetTab): string | null {
   let minR = Infinity, minC = Infinity, maxR = -1, maxC = -1
   for (const key of Object.keys(tab.cells)) {

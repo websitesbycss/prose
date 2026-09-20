@@ -38,14 +38,14 @@ type Phase = 'pick' | 'confirm' | 'downloading' | 'done' | 'error'
 
 interface ModelDownloadProps {
   onComplete: () => void
-  /** npm run dev:onboarding — simulates the download progress bar instead of
+  /** npm run dev:onboarding - simulates the download progress bar instead of
    * really calling Ollama's /api/pull, so this screen can be previewed
    * without pulling anything. The "already installed" pick list above still
-   * uses the real, read-only model list — clicking one of those is always a
+   * uses the real, read-only model list. Clicking one of those is always a
    * real, free, instant action either way. */
   mock?: boolean
-  /** Rendered inside a Settings dialog instead of full-screen onboarding —
-   * drops the fixed h-screen wrapper so it fits its container. */
+  /** Rendered inside a Settings dialog instead of full-screen onboarding.
+   * Drops the fixed h-screen wrapper so it fits its container. */
   embedded?: boolean
 }
 
@@ -138,7 +138,7 @@ export default function ModelDownload({ onComplete, mock, embedded }: ModelDownl
       >
         {mock && (
           <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-center text-[11px] font-medium text-amber-600 dark:text-amber-400">
-            🧪 Onboarding preview — picking an installed model is real; "Download now" is simulated
+            🧪 Onboarding preview. Picking an installed model is real; "Download now" is simulated
           </div>
         )}
 
@@ -260,7 +260,7 @@ export default function ModelDownload({ onComplete, mock, embedded }: ModelDownl
               <h2 className="text-xl font-semibold">Ready to download</h2>
               <p className="text-sm text-muted-foreground">
                 This will download <strong className="font-mono">{activeModel}</strong>. It only
-                happens once — the model is stored locally and never leaves your machine.
+                happens once. The model is stored locally and never leaves your machine.
               </p>
             </div>
             <div className="flex gap-2">

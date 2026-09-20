@@ -1,4 +1,4 @@
-// Thumbnail pill for an attached image — used both pre-send (removable, in the
+// Thumbnail pill for an attached image. Used both pre-send (removable, in the
 // composer / source picker) and post-send (read-only, inside a chat bubble).
 // Click any pill to enlarge; horizontal-scroll rows of these are what let a
 // message or source list carry several images without growing tall.
@@ -7,7 +7,7 @@ import { X } from 'lucide-react'
 import type { AttachedImage } from './imageAttachments'
 import { cn } from '@/lib/utils'
 
-/** Minimal shape needed to show/enlarge an image pill — shared by pre-send AttachedImage and post-send ChatMessageImage. */
+/** Minimal shape needed to show/enlarge an image pill. Shared by pre-send AttachedImage and post-send ChatMessageImage. */
 export type ImagePreview = Pick<AttachedImage, 'id' | 'url' | 'name' | 'width' | 'height'>
 
 interface PillProps {
@@ -29,7 +29,7 @@ function PillBody({ image }: { image: PillProps['image'] }): JSX.Element {
   )
 }
 
-/** Removable pill — pre-send composer / source picker. */
+/** Removable pill. Pre-send composer / source picker. */
 export function ImagePill({ image, onOpen, onRemove }: PillProps & { onRemove(id: string): void }): JSX.Element {
   return (
     <div
@@ -48,7 +48,7 @@ export function ImagePill({ image, onOpen, onRemove }: PillProps & { onRemove(id
   )
 }
 
-/** Read-only pill — already sent, shown inside a chat bubble. */
+/** Read-only pill. Already sent, shown inside a chat bubble. */
 export function SentImagePill({ image, onOpen, inverted }: PillProps & { inverted?: boolean }): JSX.Element {
   return (
     <div

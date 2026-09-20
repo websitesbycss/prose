@@ -79,7 +79,7 @@ export function useDocument(id: string): UseDocumentReturn {
           if (gen !== saveGenRef.current) return
           console.error('Auto-save error:', err)
           setSaveStatus('error')
-          toast.error('Failed to save — your changes may not be on disk')
+          toast.error('Failed to save. Your changes may not be on disk')
           if (savedTimer.current) clearTimeout(savedTimer.current)
           savedTimer.current = setTimeout(() => setSaveStatus('idle'), 4000)
         }

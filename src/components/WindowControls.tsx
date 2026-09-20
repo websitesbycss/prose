@@ -48,7 +48,7 @@ function LayoutPreview({ zones }: { zones: Zone[] }): JSX.Element {
 /**
  * Window minimize / restore / close buttons for the custom title bar.
  * On Windows 11, native controls (with OS snap layouts on maximize hover) are
- * provided via Electron's titleBarOverlay — this component renders nothing there.
+ * provided via Electron's titleBarOverlay. This component renders nothing there.
  */
 export function WindowControls(): JSX.Element | null {
   const theme = useAppStore((s) => s.theme)
@@ -79,7 +79,7 @@ export function WindowControls(): JSX.Element | null {
   }
 
   // bg-muted is barely distinguishable from the light-mode titlebar background
-  // (both near-white), making hover state nearly invisible — bg-foreground/10
+  // (both near-white), making hover state nearly invisible. Bg-foreground/10
   // scales with the foreground color instead (dark overlay in light mode,
   // light overlay in dark mode), giving consistent contrast in both themes.
   const btnBase =

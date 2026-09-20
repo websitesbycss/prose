@@ -48,7 +48,7 @@ export type DragState =
   | {
       type: 'rotate'
       elementId: string
-      centerXAbs: number  // abs px — center of element in viewport
+      centerXAbs: number  // abs px. Center of element in viewport
       centerYAbs: number  // abs px
       currentAngle: number  // degrees
       canvasRect: DOMRect   // needed for angle label positioning

@@ -18,7 +18,7 @@ interface TooltipState {
 interface SpellTooltipProps {
   editor: Editor | null
   documentId: string
-  /** False while Harper's own issue highlights are showing — Harper already
+  /** False while Harper's own issue highlights are showing. Harper already
    *  catches spelling/typos, so the separate nspell-based squiggles (and
    *  their hover popup) are redundant double-underlining at that point. */
   active?: boolean
@@ -64,7 +64,7 @@ export function SpellTooltip({ editor, documentId, active = true }: SpellTooltip
   const overTooltipRef = useRef(false)
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Harper's own highlights just took over — drop any popup already showing.
+  // Harper's own highlights just took over. Drop any popup already showing.
   // Kept in a ref too: the mouseover listener below is bound in an effect
   // keyed only on [editor], so a plain closure over `active` would go stale
   // the next time it's toggled without `editor` also changing.
@@ -83,7 +83,7 @@ export function SpellTooltip({ editor, documentId, active = true }: SpellTooltip
   }
 
   useEffect(() => {
-    if (!editor || !editor.view) return
+    if (!editor || editor.isDestroyed) return
     const dom = editor.view.dom as HTMLElement
 
     function onMouseOver(e: MouseEvent): void {

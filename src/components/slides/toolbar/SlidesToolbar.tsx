@@ -56,7 +56,7 @@ interface Props {
   onSlideBackground?(color: string): void
 }
 
-// Canvas alignment buttons — aligns a single element relative to the slide (0-100 coordinate space).
+// Canvas alignment buttons. Aligns a single element relative to the slide (0-100 coordinate space).
 const CANVAS_ALIGN_BUTTONS = [
   { type: 'left'     as const, icon: AlignStartVertical,    label: 'Align left edge to slide' },
   { type: 'center-h' as const, icon: AlignCenterVertical,   label: 'Center horizontally on slide' },

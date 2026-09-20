@@ -5,7 +5,7 @@ import { sanitizeAnimation, getAnimationClassName } from '@/lib/slideAnimations'
 interface PlaybackOptions {
   mode: 'preview' | 'presentation'
   /** Computes initial element visibility (entrance elements hidden) but does
-   * not start playing — used to hold animations until a slide transition
+   * not start playing. Used to hold animations until a slide transition
    * finishes first. Flipping this back to false resumes playback. */
   startPaused?: boolean
 }

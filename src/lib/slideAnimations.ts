@@ -22,7 +22,7 @@ export const ANIMATION_EFFECT_LABELS: Record<AnimationEffect, string> = {
   wipe: 'Wipe',
 }
 
-// Lowercase, mid-sentence fragment — only for "<effect> from <here>" phrasing
+// Lowercase, mid-sentence fragment. Only for "<effect> from <here>" phrasing
 // inside getAnimationEffectLabel below. Standalone UI (dropdown options, etc.)
 // should use TRANSITION_DIRECTION_LABELS instead.
 const DIRECTION_LABEL_FRAGMENTS: Record<TransitionDirection, string> = {

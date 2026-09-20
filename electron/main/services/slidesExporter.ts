@@ -71,7 +71,7 @@ type PptxAlign = 'left' | 'center' | 'right' | 'justify'
 
 /**
  * Convert a text element's HTML content to plain text that keeps its line
- * structure — <br> and block-level closes become newlines, list items get a
+ * structure - <br> and block-level closes become newlines, list items get a
  * bullet, and entities are decoded. (A bare tag-strip used to collapse every
  * bullet list into one unbroken line.)
  */
@@ -187,7 +187,7 @@ export async function exportToPptx(content: SlidesContentLike, savePath: string)
         }
         const shapeText = el.content ? htmlToLines(el.content) : ''
         if (shapeText) {
-          // Text-bearing shapes must go through addText({ shape }) — addShape has no text support.
+          // Text-bearing shapes must go through addText({ shape }). addShape has no text support.
           ps.addText(shapeText, {
             ...shapeOpts,
             shape: shapeName,
@@ -208,7 +208,7 @@ export async function exportToPptx(content: SlidesContentLike, savePath: string)
               bold: cell.style?.bold ?? false,
               italic: cell.style?.italic ?? false,
               color: cell.style?.color ? hex(cell.style.color) : hex(content.theme.textColor),
-              // Only fill cells that actually have a background — a forced
+              // Only fill cells that actually have a background. A forced
               // white fill looked broken on dark-themed decks.
               ...(cell.style?.backgroundColor ? { fill: { color: hex(cell.style.backgroundColor) } } : {}),
               align: (cell.style?.align ?? 'left') as PptxAlign,
@@ -235,7 +235,7 @@ export async function exportToPptx(content: SlidesContentLike, savePath: string)
           fill: { color: '0d1117' },
         })
       } else if (el.type === 'equation' && el.latex) {
-        // No native equation support in pptxgenjs — export the LaTeX source
+        // No native equation support in pptxgenjs. Export the LaTeX source
         // as monospace text rather than dropping the element silently.
         ps.addText(el.latex, {
           x, y, w, h,

@@ -92,7 +92,7 @@ function createMainWindow(): BrowserWindow {
       const isExternal = (parsed.protocol === 'https:' || parsed.protocol === 'http:')
         && !parsed.hostname.endsWith('.internal')
       if (isExternal) shell.openExternal(url).catch(() => {})
-    } catch { /* malformed URL — ignore */ }
+    } catch { /* malformed URL. Ignore */ }
     return { action: 'deny' }
   })
 
@@ -141,8 +141,14 @@ if (!gotLock) {
   })
 }
 
+// Without an explicit AppUserModelID, Windows derives one from the running
+// exe's path. In dev that's electron.exe under node_modules, which can
+// cause taskbar grouping/icon inconsistencies between windows unrelated to
+// each window's own `icon` option. Matches electron-builder.yml's appId.
+if (process.platform === 'win32') app.setAppUserModelId('com.prose.app')
+
 app.whenReady().then(async () => {
-  // Prose never needs camera/mic/geolocation/notifications — deny every
+  // Prose never needs camera/mic/geolocation/notifications. Deny every
   // permission request outright rather than relying on Electron's defaults.
   session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false))
 

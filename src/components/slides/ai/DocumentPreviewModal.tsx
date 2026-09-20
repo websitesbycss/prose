@@ -1,4 +1,4 @@
-// Lightweight, read-only PDF preview for a single document — used by the
+// Lightweight, read-only PDF preview for a single document. Used by the
 // Slides "Generate from selected" document picker so the user can check a
 // document's content before including it. Deliberately has none of
 // ExportModal's format/settings sidebar; it only loads the PDF (via getById +

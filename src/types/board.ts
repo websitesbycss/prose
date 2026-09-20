@@ -5,7 +5,7 @@ export interface BoardContent {
   appState: Record<string, unknown>
 }
 
-/** Legacy tldraw format — treated as empty board on load. */
+/** Legacy tldraw format. Treated as empty board on load. */
 interface LegacyBoardContent {
   version: 1
   snapshot: Record<string, unknown>
@@ -15,7 +15,7 @@ export function isBoardContent(content: unknown): content is BoardContent {
   if (typeof content !== 'object' || content === null) return false
   const c = content as Record<string, unknown>
   if (c.version === 1 && typeof c.snapshot === 'object' && c.snapshot !== null) {
-    // Legacy tldraw content — valid structure but we'll treat as empty
+    // Legacy tldraw content. Valid structure but we'll treat as empty
     return true
   }
   return (

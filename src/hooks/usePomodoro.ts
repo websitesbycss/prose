@@ -10,13 +10,13 @@ export interface PomodoroControls {
 }
 
 /**
- * Owns the actual countdown interval for the WHOLE APP — call this exactly
+ * Owns the actual countdown interval for the WHOLE APP. Call this exactly
  * once, from App.tsx (mounted once for the app's lifetime), same as
  * useMusic(). Never call it from a per-tab component: Editor.tsx mounts one
  * instance per open Document tab (EditorTabHost keeps every tab mounted,
  * just hidden), while pomodoroState is a single value shared across all of
  * them. This hook used to live inside Editor.tsx, so N open tabs ran N
- * independent setIntervals against that same shared timeRemaining — each
+ * independent setIntervals against that same shared timeRemaining. Each
  * firing once a second and decrementing it, so with 2 tabs open the display
  * dropped 2 seconds per real second (the exact bug reported).
  */
@@ -89,7 +89,7 @@ export function usePomodoroTicker(): void {
 }
 
 /**
- * Start/pause/reset controls — safe to call from any number of components
+ * Start/pause/reset controls. Safe to call from any number of components
  * (each open tab's Pomodoro panel calls this), since it only ever dispatches
  * to the shared store and owns no interval of its own. The actual ticking
  * lives in usePomodoroTicker() above.

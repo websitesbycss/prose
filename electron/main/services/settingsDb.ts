@@ -50,7 +50,7 @@ export function getSettingJson<T>(key: string, fallback: T): T {
 }
 
 /**
- * The theme to use when nothing has been explicitly saved yet — i.e. on
+ * The theme to use when nothing has been explicitly saved yet: i.e. on
  * first launch. Follows the OS's own light/dark preference (via Electron's
  * nativeTheme, backed by Windows' app theme / macOS's appearance setting)
  * rather than hardcoding 'dark', so the native title bar and any main-process

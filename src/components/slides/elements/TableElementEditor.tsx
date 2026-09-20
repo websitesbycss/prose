@@ -9,7 +9,7 @@ interface Props {
   onCancel(): void
   onCellSelect?: (cellIds: string[]) => void
   /** Click landed on the border margin (outside the table itself, inside the
-   * element's selection box) — start moving the whole element instead of
+   * element's selection box). Start moving the whole element instead of
    * editing a cell. */
   onStartMove?(e: React.MouseEvent): void
 }
@@ -69,7 +69,7 @@ function EditableCell({ cell, isSelected, scale, borderStyle, onFocus, onUpdateC
         onBlur={(e) => onUpdateContent(sanitizeRichText(e.currentTarget.innerHTML))}
         onKeyDown={(e) => {
           if (e.key === 'Tab') {
-            // Let Tab bubble to container for navigation — don't stop propagation
+            // Let Tab bubble to container for navigation. Don't stop propagation
             return
           }
           e.stopPropagation()
@@ -77,7 +77,7 @@ function EditableCell({ cell, isSelected, scale, borderStyle, onFocus, onUpdateC
         style={{
           outline: 'none',
           // Fills the whole cell (not just shrink-to-fit around the text) so
-          // clicking anywhere in the cell — not just directly on the text —
+          // clicking anywhere in the cell. Not just directly on the text -
           // focuses it for editing.
           height: '100%',
           minHeight: `${14 * scale}px`,
@@ -214,7 +214,7 @@ export function TableElementEditor({ element, scale, onCommit, onCancel, onCellS
         outlineOffset: '-2px',
         cursor: 'move',
       }}
-      // Only reachable for clicks in the border margin — the inner div below
+      // Only reachable for clicks in the border margin. The inner div below
       // stops propagation for anything inside the table itself.
       onMouseDown={(e) => {
         if (e.button !== 0) return

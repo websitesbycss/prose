@@ -197,7 +197,7 @@ function buildScrollablePreviewPage(
   const borderColor = isDark ? '#444444' : '#cccccc'
   const mutedColor  = isDark ? '#999999' : '#666666'
   return `<!DOCTYPE html><html><head><meta charset="utf-8">
-<title>${escapeHtml(title)} — Preview</title>
+<title>${escapeHtml(title)}. Preview</title>
 <style>
   html,body{margin:0;padding:1.5rem;background:${bg};font-family:'Times New Roman',serif;font-size:12pt;line-height:1.6;overflow-y:auto;}
   .page{background:${bg};color:${fg};max-width:680px;margin:0 auto;padding:2rem 2.5rem;word-break:break-word;min-height:calc(100vh - 3rem);}
@@ -219,7 +219,7 @@ function buildScrollablePreviewPage(
 </head><body><div class="page">${bodyHtml}</div></body></html>`
 }
 
-// Generate a real PDF for the preview pane — same as exportToPdf but returns the buffer
+// Generate a real PDF for the preview pane. Same as exportToPdf but returns the buffer
 // directly without showing a save dialog. Used for accurate paginated preview.
 export async function getPreviewPdf(id: string, opts: ExportOptions): Promise<Buffer | null> {
   const row = await fetchDocument(id)
@@ -273,19 +273,19 @@ export async function getPreviewHtml(id: string, opts: ExportOptions): Promise<s
   if (!row) return null
   const doc = parseContent(row.content)
 
-  // Markdown — show the raw markdown text so the user sees what they'll get
+  // Markdown. Show the raw markdown text so the user sees what they'll get
   if (opts.format === 'markdown') {
     const md = nodeToMarkdown(doc)
     return buildScrollablePreviewPage(row.title, `<pre>${escapeHtml(md)}</pre>`, opts.colorMode ?? 'light')
   }
 
-  // Plain text — proportional font, single-spaced (mirrors what a .txt file looks like)
+  // Plain text. Proportional font, single-spaced (mirrors what a .txt file looks like)
   if (opts.format === 'plaintext') {
     const txt = nodeToPlainText(doc)
     return buildScrollablePreviewPage(row.title, `<div style="white-space:pre-wrap;line-height:1.5;font-size:12pt;">${escapeHtml(txt)}</div>`, opts.colorMode ?? 'light')
   }
 
-  // PDF / DOCX — paginated preview
+  // PDF / DOCX. Paginated preview
   const margins = opts.margins
   const effectiveHeaderRaw = opts.includeHeader ? row.header_content : null
   const effectiveFooterRaw = opts.includeFooter ? row.footer_content : null
@@ -293,7 +293,7 @@ export async function getPreviewHtml(id: string, opts: ExportOptions): Promise<s
 
   let headerHtml = ''
   if (effectiveHeaderRaw) {
-    // Pass 0,0 for left/right margins — the .ph container already applies margin
+    // Pass 0,0 for left/right margins. The .ph container already applies margin
     // padding via its CSS, so we avoid double-indenting the header content.
     headerHtml = zoneToPreviewHtml(effectiveHeaderRaw, 'left', 0, 0)
   } else if (legacyRunningHead) {
@@ -476,7 +476,7 @@ function inlineToHtml(node: JSONContent): string {
   return (node.content ?? []).map(inlineToHtml).join('')
 }
 
-// KaTeX MathML output renders natively in Chromium — no KaTeX stylesheet or
+// KaTeX MathML output renders natively in Chromium. No KaTeX stylesheet or
 // fonts needed inside the hidden print window, unlike its HTML output. Without
 // this, math nodes silently vanished from PDF exports (only DOCX handled them).
 function mathToMathmlHtml(latex: string, displayMode: boolean): string {
@@ -527,7 +527,7 @@ function nodeToHtml(node: JSONContent, format = 'none'): string {
       const hangingIndent = role === 'citation' ? 'text-indent:-0.5in;padding-left:0.5in' : ''
       const hasRightTab = (node.content ?? []).some((n) => n.type === 'rightTab')
       const flexStyle = hasRightTab ? 'display:flex;align-items:baseline' : ''
-      // Per-paragraph line spacing set in the editor — DOCX already honors
+      // Per-paragraph line spacing set in the editor. DOCX already honors
       // this (spacingLine below); PDF/HTML previously ignored it.
       const lh = node.attrs?.lineHeight as number | null | undefined
       const lineHeightStyle = typeof lh === 'number' && lh > 0 ? `line-height:${lh}` : ''
@@ -805,13 +805,13 @@ function buildPreviewPage(
   const headerBottomPad = hasHeader ? minMarginZoneInnerPadPx() : 0
   const footerTopPad = hasFooter ? minMarginZoneInnerPadPx() : 0
 
-  // The body IS the page — no outer gray wrapper. The React container provides the gray surround.
+  // The body IS the page. No outer gray wrapper. The React container provides the gray surround.
   // #content is in normal flow so scrollHeight reflects true content height for page counting.
   // translateY on #content handles page navigation; the iframe viewport clips to one page.
   // applyPageBreaks() runs after layout: finds elements with page-break-before:always and
   // inserts spacers so content snaps to page boundaries, mirroring actual PDF output.
   return `<!DOCTYPE html><html><head><meta charset="utf-8">
-<title>${escapeHtml(title)} — Preview</title>
+<title>${escapeHtml(title)}. Preview</title>
 <style>
   html{margin:0;padding:0;width:${wPx}px;overflow:hidden;}
   body{margin:0;padding:0;width:${wPx}px;background:${pageBg};color:${pageColor};font-family:'Times New Roman',serif;font-size:12pt;line-height:2}
@@ -939,7 +939,7 @@ export async function exportToPdf(id: string, opts: ExportOptions): Promise<stri
 // ── DOCX ──────────────────────────────────────────────────────────────────────
 
 // docx requires every embedded SVG to carry a raster fallback (for viewers
-// that don't render inline SVG) — we don't rasterize the KaTeX SVG output, so
+// that don't render inline SVG). We don't rasterize the KaTeX SVG output, so
 // this 1x1 transparent PNG stands in. Modern Word/LibreOffice render the SVG
 // directly and never actually display the fallback.
 const TRANSPARENT_PNG_1X1 = Buffer.from(
@@ -962,7 +962,7 @@ interface NumberingDef {
 
 function marksToRun(text: string, marks: JSONContent['marks']): TextRun {
   // docx's run-options interface is all-readonly (built for object-literal
-  // construction) — built up here as a plain mutable record instead, since
+  // construction). Built up here as a plain mutable record instead, since
   // each mark conditionally sets a different field, then cast at the
   // constructor call below.
   const opts: Record<string, unknown> = { text }
@@ -1055,7 +1055,7 @@ function getImageDimensions(data: Buffer, type: string): { width: number; height
 }
 
 // Render a LaTeX string to an SVG Buffer suitable for ImageRun.
-// KaTeX's HTML output embeds the formula as nested spans with CSS — it does not
+// KaTeX's HTML output embeds the formula as nested spans with CSS. It does not
 // produce a standalone SVG. We wrap it in a minimal SVG so Word can embed it
 // as a vector image. The SVG uses a foreignObject to host the KaTeX HTML.
 // Word 2016+ supports SVG images in DOCX.
@@ -1100,7 +1100,7 @@ function processListItemContent(
       )
     }
     if (child.type === 'bulletList' || child.type === 'orderedList') {
-      // Mixed nesting (bullet inside ordered or vice versa) — new numbering def
+      // Mixed nesting (bullet inside ordered or vice versa). New numbering def
       return nodeToParagraphs(child, reg, format)
     }
     return nodeToParagraphs(child, reg, format, ref, level)
@@ -1460,7 +1460,7 @@ async function buildDocxBuffer(id: string, opts: ExportOptions): Promise<Buffer 
   }
 
   // Page size: use landscape dimensions when requested.
-  // MUST be computed before headers/footers are built below — their tab stops
+  // MUST be computed before headers/footers are built below. Their tab stops
   // read CONTENT_WIDTH_TWIPS, which otherwise still holds the previous
   // export's value (misplacing the right-aligned page number).
   const baseSize = DOCX_PAGE_SIZE[opts.pageSize] ?? DOCX_PAGE_SIZE.Letter

@@ -17,6 +17,11 @@ win:
       role: Editor
 
 nsis:
+  # Matches the hyphenated name GitHub's release assets already get (electron-
+  # builder sanitizes spaces out of the uploaded asset name), so the locally
+  # built file, the VirusTotal upload, and the GitHub download are all the
+  # same filename. The default template has spaces and only matched by luck.
+  artifactName: ${productName}-Setup-${version}.${ext}
   oneClick: false
   allowToChangeInstallationDirectory: true
   installerIcon: resources/icons/prose-icon.ico

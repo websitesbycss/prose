@@ -13,7 +13,7 @@ export function isOllamaInstalled(): Promise<boolean> {
   const localAppData = process.env['LOCALAPPDATA'] ?? ''
   if (existsSync(join(localAppData, 'Programs', 'Ollama', 'ollama.exe'))) return Promise.resolve(true)
 
-  // spawnSync blocks the main process's event loop — on a fresh machine
+  // spawnSync blocks the main process's event loop. On a fresh machine
   // (Ollama not on PATH) `where` can take the full timeout, freezing the
   // entire app (including window paint) for up to 2s on every launch.
   // spawn + a manual timeout keeps this off the main thread.
@@ -80,7 +80,7 @@ export async function downloadAndInstallOllama(): Promise<void> {
 
   if (received < MIN_INSTALLER_BYTES) {
     await unlink(dest).catch(() => { /* ignore */ })
-    throw new Error('Downloaded installer is unexpectedly small — aborting for safety')
+    throw new Error('Downloaded installer is unexpectedly small. Aborting for safety')
   }
 
   // ── Install ───────────────────────────────────────────────────────────────

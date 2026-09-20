@@ -67,7 +67,7 @@ export async function checkAndRunMigration(): Promise<void> {
   // Start migration asynchronously so the window can display progress
   runMigration().catch((err) => {
     console.error('[migration] Failed:', err)
-    broadcast({ status: 'error', current: 0, total: 0, label: 'Migration failed — check the dev console.' })
+    broadcast({ status: 'error', current: 0, total: 0, label: 'Migration failed. Check the dev console.' })
   })
 }
 
@@ -125,7 +125,7 @@ async function runMigration(): Promise<void> {
         version: PROSE_FILE_VERSION,
         id: row.id,
         title: row.title,
-        // This legacy DB predates sheets/boards/slides — every migrated row was a document.
+        // This legacy DB predates sheets/boards/slides. Every migrated row was a document.
         fileType: 'document',
         format: row.format,
         content: parsedContent,

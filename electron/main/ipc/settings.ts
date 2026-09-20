@@ -28,13 +28,13 @@ interface AppSettingsOut {
   customLlmProvider: CustomLlmProviderId
   customLlmModel: string
   customLlmBaseUrl: string | null
-  /** Computed, never stored directly — whether a key is currently saved. The
+  /** Computed, never stored directly. Whether a key is currently saved. The
    * key's actual value never round-trips back to the renderer once saved. */
   customLlmApiKeySet: boolean
 }
 
 // customLlmApiKeySet is computed fresh on every load (never stored under its
-// own key), so it's excluded from DEFAULTS/APP_SETTING_KEYS — the generic
+// own key), so it's excluded from DEFAULTS/APP_SETTING_KEYS. The generic
 // settings:set path below never accepts it as an incoming field.
 const DEFAULTS: Omit<AppSettingsOut, 'customLlmApiKeySet'> = {
   theme: 'dark',
@@ -182,7 +182,7 @@ export function registerSettingsHandlers(): void {
     for (const [key, value] of Object.entries(d)) {
       if (!APP_SETTING_KEYS.has(key)) continue
       if (key === 'slidesPexelsApiKey') {
-        // Routed through secureStorage instead of the plain upsert below —
+        // Routed through secureStorage instead of the plain upsert below -
         // see loadSettings' comment on this field.
         const validated = validateSettingValue(key, value) as string | null
         if (validated) storeSecret(key, validated)

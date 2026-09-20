@@ -15,7 +15,7 @@ export interface AnalysisControls {
   analyze(documentText: string): Promise<void>
   clearIssues(): void
   dismissIssue(id: string): void
-  /** Call after applying an issue's suggestion — see shiftIssueSpansAfterEdit. */
+  /** Call after applying an issue's suggestion. See shiftIssueSpansAfterEdit. */
   applyEdit(editStart: number, editEnd: number, delta: number): void
 }
 
@@ -28,7 +28,7 @@ export function useAnalysis(): AnalysisState & AnalysisControls {
   // Guards against a stale run's result landing after a newer one started.
   const requestIdRef = useRef(0)
 
-  // The toolbar badge always mirrors the live issue list — one sync point
+  // The toolbar badge always mirrors the live issue list. One sync point
   // instead of remembering to update the count at every mutation site.
   useEffect(() => {
     setIssueCount(issues.length)

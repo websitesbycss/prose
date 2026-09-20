@@ -36,7 +36,7 @@ export async function renderPdfPreviewPages(b64: string): Promise<string[]> {
 
 /**
  * Renders page 1 of a PDF to a thumbnail of exactly targetWidth x targetHeight
- * — fit to width, then crop from the top (never squished, never vertically
+ *. Fit to width, then crop from the top (never squished, never vertically
  * centered). Renders at 2x for crispness before the final downscale-crop.
  * Returns raw base64 PNG data (no "data:" prefix), matching thumbnails:save's
  * expected format.
@@ -61,7 +61,7 @@ export async function renderFirstPageThumbnail(
   renderCanvas.height = Math.ceil(viewport.height)
   const renderCtx = renderCanvas.getContext('2d')
   if (!renderCtx) throw new Error('Failed to get canvas context')
-  // PDF pages render transparent where nothing is painted — fill white first
+  // PDF pages render transparent where nothing is painted. Fill white first
   // so a short page (or one with a transparent background) never leaves the
   // thumbnail with a dark/transparent gap at the bottom.
   renderCtx.fillStyle = '#ffffff'
@@ -75,7 +75,7 @@ export async function renderFirstPageThumbnail(
   if (!outCtx) throw new Error('Failed to get canvas context')
   outCtx.fillStyle = '#ffffff'
   outCtx.fillRect(0, 0, targetWidth, targetHeight)
-  // Top-left crop of the full-width render — fit width, anchor to top, never squish.
+  // Top-left crop of the full-width render. Fit width, anchor to top, never squish.
   outCtx.drawImage(
     renderCanvas,
     0, 0, targetWidth * SUPERSAMPLE, targetHeight * SUPERSAMPLE,

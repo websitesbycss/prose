@@ -5,11 +5,11 @@ import { createElement } from 'react'
 
 /**
  * FortuneSheet's and Excalidraw's native right-click menus render plain text
- * rows with no per-item class/data-attribute to hook into — the only stable
+ * rows with no per-item class/data-attribute to hook into. The only stable
  * signal is the rendered label text. This watches for menu item elements to
  * appear and prepends a small icon (matched by exact label text) so the
  * native menus visually match the icon treatment in EditorContextMenu /
- * SlidesContextMenu. Unmapped labels are left exactly as-is — no behavior is
+ * SlidesContextMenu. Unmapped labels are left exactly as-is. No behavior is
  * ever touched, this only adds a decorative <span> before existing content.
  */
 export function useContextMenuIcons(

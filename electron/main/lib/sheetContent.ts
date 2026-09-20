@@ -1,5 +1,5 @@
 // Server-side Sheet content utilities.
-// Mirrors src/types/sheet.ts — kept separate to avoid importing renderer-side modules.
+// Mirrors src/types/sheet.ts. Kept separate to avoid importing renderer-side modules.
 
 interface SheetTab {
   cells: Record<string, unknown>

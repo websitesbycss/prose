@@ -121,7 +121,7 @@ export function registerImportHandlers(): void {
       }
     }
 
-    // Not in index — import it
+    // Not in index. Import it
     const doc = await importProseFile(filePath)
     return docToOut(doc)
   })

@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 
 /**
  * Many renderer components can each want to know about the same IPC event
- * (e.g. every dashboard card listens for "its" thumbnail:ready) — calling
+ * (e.g. every dashboard card listens for "its" thumbnail:ready). Calling
  * `ipcRenderer.on` once per component quickly exceeds Node's default
  * max-listeners cap and trips MaxListenersExceededWarning. This registers a
  * single real listener per channel and fans it out to any number of local
@@ -100,8 +100,8 @@ contextBridge.exposeInMainWorld('prose', {
         ipcRenderer.send('window:unsubscribeMaximize')
       }
     },
-    startMove: (offset: { offsetX: number; offsetY: number }) =>
-      ipcRenderer.send('window:startMove', offset),
+    startMove: (pos: { screenX: number; screenY: number }) =>
+      ipcRenderer.send('window:startMove', pos),
     stopMove: () => ipcRenderer.send('window:stopMove'),
     setFullscreen: (fullscreen: boolean) => ipcRenderer.send('window:setFullscreen', fullscreen),
     isFullscreen: (): Promise<boolean> => ipcRenderer.invoke('window:isFullscreen'),
@@ -273,4 +273,10 @@ contextBridge.exposeInMainWorld('prose', {
   // can force the onboarding flow to render without touching real Ollama
   // install/model-download state. Never true in a packaged build.
   mockOnboarding: process.env['PROSE_MOCK_ONBOARDING'] === '1',
+
+  // Dev-only: set by `npm run dev:simple` (see scripts/dev.js) so App.tsx can
+  // skip straight past onboarding into a state where AI is unavailable, and
+  // Settings can lock out re-enabling it, for testing the AI-unavailable UI
+  // (greyed-out sparkle buttons, tooltips, etc.) without an onboarding run.
+  mockNoAi: process.env['PROSE_MOCK_NO_AI'] === '1',
 })

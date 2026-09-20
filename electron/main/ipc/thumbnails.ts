@@ -42,7 +42,7 @@ function isValidRect(rect: unknown): rect is { x: number; y: number; width: numb
 }
 
 export function registerThumbnailHandlers(): void {
-  // Returns the thumbnail as a data: URL rather than a file:// path — the
+  // Returns the thumbnail as a data: URL rather than a file:// path. The
   // renderer's origin is http://localhost in dev (Vite) and file:// only in
   // production, and Chromium blocks file:// resource loads from a non-file:
   // origin regardless of CSP. Reading the bytes over IPC and handing back a
@@ -58,7 +58,7 @@ export function registerThumbnailHandlers(): void {
     }
   })
 
-  // Validates everything itself and never throws — the renderer treats a
+  // Validates everything itself and never throws. The renderer treats a
   // failed generation as a no-op, not an error to surface to the user.
   ipcMain.handle('thumbnails:save', async (_, fileId: unknown, pngBase64: unknown) => {
     if (typeof fileId !== 'string' || !fileId) return { ok: false, error: 'Invalid fileId' }
@@ -107,7 +107,7 @@ export function registerThumbnailHandlers(): void {
       height: Math.round(rect.height),
     })
 
-    // Fit-to-cover + crop, anchored top-left — never a plain width+height
+    // Fit-to-cover + crop, anchored top-left. Never a plain width+height
     // resize, which squishes whenever the captured region's aspect ratio
     // isn't already exactly 16:9 (it usually isn't; the capture rect is
     // chosen by content, not by thumbnail shape). Scale uniformly so the

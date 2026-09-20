@@ -159,10 +159,10 @@ export function DocumentTabBar({
   }
 
   function startWindowMoveFromEvent(e: { screenX: number; screenY: number }): void {
-    window.prose.win.startMove({
-      offsetX: e.screenX - screenOffsetRef.current.x,
-      offsetY: e.screenY - screenOffsetRef.current.y,
-    })
+    // Main computes the drag offset itself from the window's live bounds
+    // (see window:startMove) rather than trusting screenOffsetRef here,
+    // which only refreshes on 'resize' and goes stale after any plain move.
+    window.prose.win.startMove({ screenX: e.screenX, screenY: e.screenY })
     armWindowMoveStop()
   }
 
@@ -287,7 +287,7 @@ export function DocumentTabBar({
   // ── Insert-index computation ────────────────────────────────────────────
   // The drop target is always the boundary NEAREST the mouse, measured from
   // the same real rendered tab edges the indicator line is drawn against
-  // (updateInternalDropIndicator) — never a synthetic re-packed layout. The
+  // (updateInternalDropIndicator). Never a synthetic re-packed layout. The
   // two used to disagree by a full tab width past the dragged tab's original
   // slot (the dragged tab still occupies its space in the DOM during the
   // drag), which made the line land far from the cursor.
@@ -349,7 +349,7 @@ export function DocumentTabBar({
       grabOffsetX,
       grabOffsetY,
     }
-    // Deliberately NOT setting draggingId/localTabs/visualInsertIdx here — that
+    // Deliberately NOT setting draggingId/localTabs/visualInsertIdx here. That
     // flips on the drop-indicator line and dims the tab's opacity immediately,
     // which flashed on every plain click before the 4px move threshold below
     // ever ran. Those visual-drag states now only turn on in handlePointerMove,
@@ -495,7 +495,7 @@ export function DocumentTabBar({
 
   // ── Tab actions ──────────────────────────────────────────────────────────
 
-  // Tab chrome switches immediately — the previous document's save is fired
+  // Tab chrome switches immediately. The previous document's save is fired
   // (its synchronous flush captures the content to write) but never awaited,
   // so a slow disk write can't stall the switch. Editors stay mounted-but-hidden
   // (see EditorTabHost's HiddenTabPane), so there's normally nothing to wait on
@@ -540,7 +540,11 @@ export function DocumentTabBar({
       {openTabs.length > 0 && (
         <div
           ref={tabStripRef}
-          className={cn('document-tab-strip relative min-w-0 flex-1', isDragging && 'document-tab-strip--dragging')}
+          className={cn(
+            'document-tab-strip relative min-w-0 flex-1',
+            isDragging && 'document-tab-strip--dragging',
+            externalDropIdx !== null && 'document-tab-strip--merge-target',
+          )}
           onPointerDown={(e) => {
             if (e.button !== 0) return
             // Only handle clicks in the empty space (not on tabs, close buttons, or the + button)

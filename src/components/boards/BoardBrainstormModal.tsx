@@ -21,10 +21,10 @@ export function BoardBrainstormModal({ onInsert, onClose }: Props): JSX.Element 
     setIdeas(null)
     try {
       const result = await generateBrainstormIdeas(topic)
-      if (result.length === 0) setError('No ideas generated — try a more specific topic')
+      if (result.length === 0) setError('No ideas generated. Try a more specific topic')
       else setIdeas(result)
     } catch {
-      setError('Generation failed — check your AI setup (Ollama or a custom LLM) in Settings')
+      setError('Generation failed. Check your AI setup (Ollama or a custom LLM) in Settings')
     } finally {
       setLoading(false)
     }

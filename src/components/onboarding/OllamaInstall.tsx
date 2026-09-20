@@ -9,12 +9,12 @@ type Phase = 'installing' | 'done' | 'error'
 
 interface OllamaInstallProps {
   onComplete: () => void
-  /** npm run dev:onboarding — simulates the progress bar instead of really
+  /** npm run dev:onboarding - Simulates the progress bar instead of really
    * downloading/running the ~150MB installer, so onboarding can be previewed
    * repeatedly without redownloading anything already on the machine. */
   mock?: boolean
-  /** Rendered inside a Settings dialog instead of full-screen onboarding —
-   * drops the fixed h-screen wrapper so it fits its container. */
+  /** Rendered inside a Settings dialog instead of full-screen onboarding.
+   * Drops the fixed h-screen wrapper so it fits its container. */
   embedded?: boolean
 }
 
@@ -70,7 +70,7 @@ export default function OllamaInstall({ onComplete, mock, embedded }: OllamaInst
     }
   }, [onComplete, mock])
 
-  // Starts automatically — the preceding screen (AiSetupChoice, or the
+  // Starts automatically. The preceding screen (AiSetupChoice, or the
   // Settings "set up Ollama" CTA) is the confirmation step now. Guarded
   // against React StrictMode's dev double-invoke with a ref, not just an
   // empty dep array, so this never fires the real installer twice.
@@ -91,7 +91,7 @@ export default function OllamaInstall({ onComplete, mock, embedded }: OllamaInst
     >
       {mock && (
         <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-center text-[11px] font-medium text-amber-600 dark:text-amber-400">
-          🧪 Onboarding preview — simulated, nothing is really downloaded or installed
+          Onboarding preview - simulated, nothing is really downloaded or installed
         </div>
       )}
 

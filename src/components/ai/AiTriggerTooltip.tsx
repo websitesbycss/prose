@@ -4,8 +4,8 @@ import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip
 /**
  * Wraps an AI-trigger button (the toolbar sparkle icon, etc.) so it still
  * shows a tooltip when disabled. A plain Tooltip around a `disabled` button
- * doesn't work — Tailwind's `disabled:pointer-events-none` blocks the hover
- * events Radix's Tooltip relies on — so the actual trigger is a wrapping
+ * doesn't work. Tailwind's `disabled:pointer-events-none` blocks the hover
+ * events Radix's Tooltip relies on. So the actual trigger is a wrapping
  * span, which stays hoverable even when the button inside it is disabled.
  */
 export function AiTriggerTooltip({ unavailable, readyLabel, children }: {

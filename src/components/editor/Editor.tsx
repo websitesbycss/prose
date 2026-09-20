@@ -96,7 +96,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   const isActive = useIsActiveTab(documentId)
   const sidebarOpen = useAppStore((s) => s.sidebarOpen)
   const setSidebarOpen = useAppStore((s) => s.setSidebarOpen)
-  // This editor instance's OWN panel state — never the global/active-tab
+  // This editor instance's OWN panel state. Never the global/active-tab
   // mirror, so a panel opened in another tab can't appear (or overlay) here.
   const aiPanelOpen = useAppStore((s) => s.panelsByDoc[documentId]?.ai ?? false)
   const citationPanelOpen = useAppStore((s) => s.panelsByDoc[documentId]?.citations ?? false)
@@ -119,7 +119,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   })
   const dragStartRef = useRef<{ x: number; width: number } | null>(null)
   // Suppresses the right panel's open/close width transition while actively
-  // drag-resizing — else every mousemove retargets an eased animation and the
+  // drag-resizing. Else every mousemove retargets an eased animation and the
   // panel edge lags behind the cursor instead of tracking it 1:1.
   const [isResizingRightPanel, setIsResizingRightPanel] = useState(false)
   const [sidebarWidth, setSidebarWidth] = useState(() => {
@@ -197,6 +197,14 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
     })
   }, [setTypewriterMode])
 
+  // Effects below (and in FindWidget/SpellTooltip/IssueTooltip/EditorContextMenu)
+  // that touch this editor must check `editor.isDestroyed`, not `!editor.view`.
+  // @tiptap/react's StrictMode double-invoke guard can leave `editor` pointing
+  // at a torn-down instance for one render. `.view` on a destroyed editor
+  // returns a Proxy that THROWS on property access rather than being falsy,
+  // and `.commands` throws reading off its now-nulled internal
+  // commandManager, so neither `!editor.view` nor a plain truthiness check
+  // catches it; only the public `isDestroyed` flag does.
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ heading: { levels: [1, 2, 3] }, link: false, underline: false }),
@@ -264,12 +272,12 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
     },
   })
 
-  // Thumbnail generation — fired by the main process after every manual save
+  // Thumbnail generation. Fired by the main process after every manual save
   // (see documents:update's forceSnapshot gate). Renders page 1 of the same
   // PDF the real export produces (off the stored content in a hidden window,
   // not a screenshot of the live editor), so nothing about the currently
-  // visible screen — dark mode, hover tooltips, scroll position, Harper
-  // highlights — can leak into it, and it always starts at the top of page 1
+  // visible screen. Dark mode, hover tooltips, scroll position, Harper
+  // highlights. Can leak into it, and it always starts at the top of page 1
   // regardless of where the cursor happens to be. Fit to thumbnail width and
   // cropped from the top, never squished, never centered.
   useEffect(() => {
@@ -297,7 +305,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   }, [documentId, editor, doc?.pageMargins])
 
   useEffect(() => {
-    if (!editor || !doc) return
+    if (!editor || editor.isDestroyed || !doc) return
 
     const contentKey = `${doc.id}:${doc.updatedAt ?? ''}:${doc.content?.length ?? 0}`
     if (loadedContentKeyRef.current === contentKey) return
@@ -313,7 +321,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
     editor.commands.clearAiSelectionHighlight()
     useAppStore.getState().setAssignmentContext('')
     setPageMargins(doc.pageMargins ?? DEFAULT_PAGE_MARGINS)
-    // Loading a document's stored content is not a user edit — excluded from
+    // Loading a document's stored content is not a user edit. Excluded from
     // undo history (`addToHistory: false`) so Undo is correctly disabled
     // right after a document opens instead of "undoing" back to an empty
     // editor.
@@ -350,7 +358,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
 
   // Show/hide issue decorations based on panel visibility and analysis results
   useEffect(() => {
-    if (!editor || !editor.view) return
+    if (!editor || editor.isDestroyed) return
     if (aiPanelOpen) {
       editor.commands.setAnalysisIssues(analysis.issues)
     } else {
@@ -360,7 +368,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   }, [editor, analysis.issues, aiPanelOpen])
 
   // Exactly when Harper's issue highlights are actually painted (mirrors the
-  // condition above) — the separate nspell squiggle checker is suppressed
+  // condition above). The separate nspell squiggle checker is suppressed
   // while they're up, since Harper already flags spelling/typos itself and
   // double-underlining the same word looked broken.
   const harperShowing = aiPanelOpen && analysis.issues.length > 0
@@ -372,7 +380,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
         e.preventDefault()
         void saveNow(editor)
         if (useAppStore.getState().analyzeOnSave) {
-          // flattenDocText, not textContent — Harper must lint text with real
+          // flattenDocText, not textContent. Harper must lint text with real
           // block separators or paragraph-boundary words get glued together.
           void analysis.analyze(flattenDocText(editor.state.doc).text)
         }
@@ -466,8 +474,9 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   // Keep caret-color in sync with the active text color (including stored marks
   // set before any character is typed on an empty selection).
   useEffect(() => {
-    if (!editor) return
+    if (!editor || editor.isDestroyed) return
     function syncCaretColor(): void {
+      if (editor.isDestroyed) return
       const storedColor = editor.state.storedMarks
         ?.find((m) => m.type.name === 'textStyle')?.attrs.color as string | undefined
       const color = storedColor ?? (editor.getAttributes('textStyle').color as string | undefined) ?? ''
@@ -651,7 +660,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
   return (
     <TooltipProvider delayDuration={400}>
       <div className="flex h-screen flex-col bg-background text-foreground">
-        {/* Chrome — hidden in focus mode */}
+        {/* Chrome. Hidden in focus mode */}
         <AnimatePresence>
           {!focusModeActive && (
             <div className="shrink-0 overflow-visible">
@@ -677,7 +686,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
           )}
         </AnimatePresence>
 
-        {/* Focus bar — only in focus mode */}
+        {/* Focus bar. Only in focus mode */}
         <AnimatePresence>
           {focusModeActive && (
             <motion.div
@@ -694,7 +703,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
         </AnimatePresence>
 
         <div className="flex flex-1 overflow-hidden">
-          {/* Left sidebar — hidden in focus mode */}
+          {/* Left sidebar. Hidden in focus mode */}
           {!focusModeActive && (
             <aside
               className="relative flex shrink-0 flex-col border-r border-border"
@@ -783,7 +792,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                 </button>
               </div>
 
-              {/* Drag handle — only when expanded */}
+              {/* Drag handle. Only when expanded */}
               {sidebarOpen && (
                 <div
                   className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/30 transition-colors z-10"
@@ -797,7 +806,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
             </aside>
           )}
 
-          {/* Editor canvas — relative wrapper so FindWidget can anchor top-right */}
+          {/* Editor canvas. Relative wrapper so FindWidget can anchor top-right */}
           <div className="relative flex min-h-0 flex-1">
             <FindWidget
               editor={editor}
@@ -823,7 +832,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                   '--page-margin-bottom': `${Math.round(pageMargins.bottom * 96)}px`,
                 } as React.CSSProperties}
               >
-                {/* Header zone — only rendered once document is loaded to prevent blank init on HMR */}
+                {/* Header zone. Only rendered once document is loaded to prevent blank init on HMR */}
                 {doc && (
                   <HeaderFooterEditor
                     zone="header"
@@ -837,7 +846,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                 )}
                 <div className="border-b border-editor-zone-divider" />
 
-                {/* Body content — padding inherits --page-margin-* */}
+                {/* Body content. Padding inherits --page-margin-* */}
                 <div
                   className="min-h-[900px]"
                   style={{
@@ -863,7 +872,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
                   <IssueTooltip editor={editor} issues={analysis.issues} onIssueApplied={analysis.applyEdit} />
                 </div>
 
-                {/* Footer zone — only rendered once document is loaded to prevent blank init on HMR */}
+                {/* Footer zone. Only rendered once document is loaded to prevent blank init on HMR */}
                 <div className="border-t border-editor-zone-divider" />
                 {doc && (
                   <HeaderFooterEditor
@@ -881,9 +890,9 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
           </div>{/* end editorScrollRef */}
           </div>{/* end relative canvas wrapper */}
 
-          {/* Right panel — AI / Citations (hidden in focus mode). Both panels
-              stay mounted at all times — width/opacity/position animate
-              instead of anything mounting or unmounting — so switching
+          {/* Right panel. AI / Citations (hidden in focus mode). Both panels
+              stay mounted at all times. Width/opacity/position animate
+              instead of anything mounting or unmounting. So switching
               between them or closing this panel never wipes the AI panel's
               chat/analysis state. Same pattern as Slides' AI/Animations
               panel crossfade (SlidesEditor.tsx). */}
@@ -892,7 +901,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
               ref={rightPanelRef}
               // overflow-CLIP, not hidden: hidden boxes are still programmatically
               // scrollable, and the chat composer's focus()/scrollIntoView() while
-              // the panel was width-0/mid-animation set a permanent scrollLeft —
+              // the panel was width-0/mid-animation set a permanent scrollLeft -
               // clipping the left padding and scrolling the resize handle out of
               // reach. clip makes this box not a scroll container at all.
               className="relative shrink-0 overflow-clip border-l border-border"
@@ -901,7 +910,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
               transition={{ duration: isResizingRightPanel ? 0 : 0.12, ease: 'easeOut' }}
               // visibility while closed is load-bearing (no stale compositor
               // layer for a never-painted panel), and it must INHERIT while
-              // open — see usePanelVisibility for why an explicit 'visible'
+              // open. See usePanelVisibility for why an explicit 'visible'
               // here punched through hidden background tabs.
               style={{
                 pointerEvents: (aiPanelOpen || citationPanelOpen) ? 'auto' : 'none',
@@ -940,7 +949,7 @@ export default function Editor({ documentId }: EditorProps): JSX.Element {
           )}
         </div>
 
-        {/* Status bar — hidden in focus mode */}
+        {/* Status bar. Hidden in focus mode */}
         {!focusModeActive && (
           <StatusBar
             document={doc}

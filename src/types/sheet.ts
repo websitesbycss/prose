@@ -63,7 +63,7 @@ export interface ChartDef {
   y: number
   width: number
   height: number
-  // Advanced options — all optional; absence preserves prior default behavior
+  // Advanced options. All optional; absence preserves prior default behavior
   xAxisLabel?: string
   yAxisLabel?: string
   showXAxisLabels?: boolean   // default true
@@ -71,7 +71,7 @@ export interface ChartDef {
   showLegend?: boolean        // default true
   colors?: string[]           // hex overrides, indexed by legend item (dataset, or slice for pie/doughnut)
   doughnutCutout?: number     // percentage 0-90, doughnut only
-  straightLines?: boolean     // line/area only — disables curve tension
+  straightLines?: boolean     // line/area only. Disables curve tension
   textScale?: number          // multiplier applied to all chart text sizes; default 1.25
 }
 

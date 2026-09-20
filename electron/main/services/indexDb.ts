@@ -60,7 +60,7 @@ export interface IndexRow {
   created_at: string
   updated_at: string
   file_type: string
-  // Only ever written via setHasThumbnail() below — upsertIndex() never
+  // Only ever written via setHasThumbnail() below. upsertIndex() never
   // touches it, so callers building a fresh row for create/update don't need
   // to supply it (it just keeps whatever value the column already has, or
   // defaults to 0 for a brand-new row).

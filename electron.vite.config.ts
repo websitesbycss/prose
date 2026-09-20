@@ -46,7 +46,7 @@ export default defineConfig({
       // a cascade of "does not provide an export named 'default'" errors.
       include: ['@excalidraw/excalidraw'],
       // harper.js locates its WASM binary via `new URL('harper_wasm_bg.wasm',
-      // import.meta.url)` — esbuild's dep pre-bundling doesn't understand that
+      // import.meta.url)`. Esbuild's dep pre-bundling doesn't understand that
       // Vite-specific asset-URL pattern and mis-resolves it, so in dev the
       // request falls through to index.html instead of the actual .wasm file
       // (surfaces as a WASM "magic word" CompileError). Excluding it from

@@ -236,7 +236,7 @@ export async function parsePptxFile(filePath: string): Promise<ParseResult> {
   const ext = extname(filePath).toLowerCase()
   if (ext === '.ppt') {
     throw new Error(
-      'Legacy .ppt files are not supported — open the file in PowerPoint and save as .pptx, then import again',
+      'Legacy .ppt files are not supported. Open the file in PowerPoint and save as .pptx, then import again',
     )
   }
   if (ext !== '.pptx') {
@@ -251,7 +251,7 @@ export async function parsePptxFile(filePath: string): Promise<ParseResult> {
     return await parsePptx(zip, filePath)
   } catch (err) {
     if (err instanceof Error && err.message.startsWith('Legacy')) throw err
-    throw new Error('Could not read PPTX file — it may be corrupted or use unsupported features')
+    throw new Error('Could not read PPTX file. It may be corrupted or use unsupported features')
   }
 }
 

@@ -40,7 +40,7 @@ export class TableNodeView {
 
     this.dom.appendChild(this.inner.dom)
 
-    // Top drag zone — move cursor + click-to-select + drag-to-reposition
+    // Top drag zone. Move cursor + click-to-select + drag-to-reposition
     this.dragZone = document.createElement('div')
     this.dragZone.className = 'table-drag-zone'
     this.dragZone.draggable = true

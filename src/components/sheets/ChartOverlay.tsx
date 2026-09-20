@@ -8,22 +8,22 @@ interface ChartOverlayProps {
   charts: ChartDef[]
   activeSheetId: string
   workbookRef: RefObject<WorkbookInstance | null>
-  /** The grid's own scrollable wrapper — used to measure the content
+  /** The grid's own scrollable wrapper. Used to measure the content
    * viewport's real pixel bounds so drag/resize can be clamped to it. */
   containerRef: RefObject<HTMLDivElement | null>
   onUpdateChart: (chart: ChartDef) => void
   onDeleteChart: (id: string) => void
   onEditChart: (chart: ChartDef) => void
-  /** Current FortuneSheet grid scroll offset — charts are stored in unscrolled
+  /** Current FortuneSheet grid scroll offset. Charts are stored in unscrolled
    * content coordinates, so this shifts them to track the grid instead of
    * sitting fixed on top of it. */
   scrollX: number
   scrollY: number
-  /** Current zoom percentage (10-400) — charts are stored at the 100% zoom
+  /** Current zoom percentage (10-400). Charts are stored at the 100% zoom
    * baseline and scaled to match, exactly like cells. */
   zoom: number
   /** Bumped once FortuneSheet's cell data has actually finished hydrating
-   * after (re)loading a document — forces every chart to rebuild against
+   * after (re)loading a document. Forces every chart to rebuild against
    * real data even if none of its own fields changed. */
   dataReadyTick: number
 }
@@ -45,14 +45,14 @@ export function ChartOverlay({
   const zoomFraction = zoom / 100
 
   return (
-    // Clipped to the actual scrollable content area — excludes the row-number
+    // Clipped to the actual scrollable content area. Excludes the row-number
     // column, column-letter row, and both scrollbar strips, so a chart can
     // never paint over that chrome (drag/resize is also clamped to the same
     // bounds, in ChartWidget). The middle div keeps chart x/y in the same
     // wrapper-relative coordinate space as before (undoing this div's own
     // inset via matching negative offsets) so stored positions and scroll
     // tracking don't need to change. The innermost div scales chart position
-    // and size together with zoom, exactly like cells — charts are stored at
+    // and size together with zoom, exactly like cells. Charts are stored at
     // the 100% zoom baseline.
     <div
       className="pointer-events-none absolute overflow-hidden"

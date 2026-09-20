@@ -18,7 +18,7 @@ const MIN_CHART_HEIGHT = 160
 interface ChartWidgetProps {
   chart: ChartDef
   workbookRef: RefObject<WorkbookInstance | null>
-  /** The grid's own scrollable wrapper — measured to clamp drag/resize to the
+  /** The grid's own scrollable wrapper. Measured to clamp drag/resize to the
    * actual content viewport (never under the headers or scrollbars). */
   containerRef: RefObject<HTMLDivElement | null>
   onMove: (chart: ChartDef) => void
@@ -27,11 +27,11 @@ interface ChartWidgetProps {
   onDelete: (id: string) => void
   scrollX: number
   scrollY: number
-  /** Current zoom percentage (10-400) — chart x/y/width/height are stored at
+  /** Current zoom percentage (10-400). Chart x/y/width/height are stored at
    * the 100% zoom baseline; mouse deltas (real screen pixels) are converted
    * to that baseline so drag/resize track the cursor 1:1 at any zoom. */
   zoom: number
-  /** Bumped once FortuneSheet's cell data has actually finished hydrating —
+  /** Bumped once FortuneSheet's cell data has actually finished hydrating -
    * forces a rebuild even though none of the chart's own fields changed, so
    * the chart doesn't stay stuck on the blank data it saw the instant it
    * first rendered (before hydration landed). */
@@ -120,7 +120,7 @@ export function ChartWidget({
   useEffect(() => { scrollXRef.current = scrollX; scrollYRef.current = scrollY; zoomRef.current = zoom })
 
   // Charts are clamped to the grid's actual scrollable content viewport at
-  // the CURRENT scroll position — never draggable/resizable under the
+  // the CURRENT scroll position. Never draggable/resizable under the
   // row-number column, column-letter row, or either scrollbar strip. Reads
   // only refs, so it's stable across renders without needing to appear in
   // any dependency array.
@@ -218,7 +218,7 @@ export function ChartWidget({
         <GripHorizontal className="h-3 w-3 shrink-0 text-muted-foreground/50" />
         <span className="flex-1 truncate text-[11px] text-muted-foreground">{titleLabel}</span>
 
-        {/* Action buttons — visible on hover */}
+        {/* Action buttons. Visible on hover */}
         <div
           className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100"
           onPointerDown={(e) => e.stopPropagation()}

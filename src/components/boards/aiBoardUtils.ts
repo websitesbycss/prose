@@ -1,10 +1,10 @@
-// AI brainstorm — generates a set of short ideas for a topic and places each
+// AI brainstorm. Generates a set of short ideas for a topic and places each
 // as a sticky note on the board, instead of only being able to talk about
 // the board's content via chat.
 
 export const BRAINSTORM_SYSTEM_PROMPT = `You are a brainstorming assistant. Given a topic, generate a list of short, distinct ideas related to it.
 Return ONLY a JSON array of strings, no preamble, no explanation, no markdown code fences.
-Each idea should be 2-8 words — short enough to read at a glance on a sticky note.
+Each idea should be 2-8 words. Short enough to read at a glance on a sticky note.
 Generate between 5 and 12 ideas depending on how much the topic supports. Avoid near-duplicates.`
 
 export function parseBrainstormIdeas(response: string): string[] {

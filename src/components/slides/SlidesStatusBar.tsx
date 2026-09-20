@@ -218,7 +218,7 @@ export function SlidesStatusBar({
           </button>
         )}
 
-        {/* Save status — only mounted while visible or fading, so it never reserves phantom space */}
+        {/* Save status. Only mounted while visible or fading, so it never reserves phantom space */}
         {(saveStatus === 'saving' || saveStatus === 'error' || saveStatus === 'unsaved' || savedMounted) && (
           <span
             className={cn(

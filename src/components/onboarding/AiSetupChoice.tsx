@@ -2,15 +2,15 @@ import { motion } from 'motion/react'
 import { Check, KeyRound } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ollamaLogo, openaiLogo, anthropicLogo, geminiLogo } from './aiSetupLogos'
+import { ollamaLogo, openaiLogo, anthropicLogo, geminiLogo } from '@/lib/providerLogos'
 
 interface AiSetupChoiceProps {
-  /** User picked local Ollama — proceed to the install/download steps. */
+  /** User picked local Ollama. Proceed to the install/download steps. */
   onChooseOllama: () => void
-  /** User wants to bring their own cloud API key — skip Ollama entirely and
+  /** User wants to bring their own cloud API key. Skip Ollama entirely and
    * land on the dashboard with Settings > AI already open to configure it. */
   onUseApiKey: () => void
-  /** Neither, for now — skip Ollama entirely, no follow-up modal. */
+  /** Neither, for now. Skip Ollama entirely, no follow-up modal. */
   onSkipForNow: () => void
 }
 
@@ -38,7 +38,7 @@ export default function AiSetupChoice({ onChooseOllama, onUseApiKey, onSkipForNo
                 <img src={ollamaLogo} alt="" className="h-6 w-6 object-contain" />
               </div>
               <div className="flex flex-col gap-1">
-                <Badge className="w-fit px-1.5 py-0 text-[10px] tracking-wide">RECOMMENDED</Badge>
+                <Badge className="w-fit px-1.5 py-0.5 text-[10px] leading-none tracking-wide">RECOMMENDED</Badge>
                 <h3 className="text-sm font-semibold">Run locally with Ollama</h3>
               </div>
             </div>
@@ -86,7 +86,7 @@ export default function AiSetupChoice({ onChooseOllama, onUseApiKey, onSkipForNo
             </div>
 
             <p className="text-xs text-muted-foreground">
-              Connect Claude, ChatGPT, Gemini, or any OpenAI-compatible endpoint. Faster to set up — requires an internet connection.
+              Connect Claude, ChatGPT, Gemini, or any OpenAI-compatible endpoint. Faster to set up, but requires an internet connection.
             </p>
 
             <div className="flex items-center gap-2">

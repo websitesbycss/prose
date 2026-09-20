@@ -1,6 +1,6 @@
 import DOMPurify from 'dompurify'
 
-// Shared allowlist for the limited rich text used in slide text/table cells —
+// Shared allowlist for the limited rich text used in slide text/table cells -
 // bold/italic/underline/strike, line breaks, and lists. Anything else (script,
 // iframe, event handler attributes, javascript: URLs, etc.) is stripped.
 // Used both when importing untrusted files (PPTX) and before every render/edit

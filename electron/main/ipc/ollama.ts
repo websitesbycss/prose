@@ -33,7 +33,7 @@ export function registerOllamaHandlers(manager: OllamaManager): void {
     const downloaded = await manager.isModelDownloaded(model)
     if (downloaded) return { downloaded: true, model }
 
-    // The configured model isn't available — check if any model is installed.
+    // The configured model isn't available. Check if any model is installed.
     // This handles users who already have a model (e.g. llama3.3) that differs
     // from the default or previously saved setting.
     const allModels = await manager.listModels()

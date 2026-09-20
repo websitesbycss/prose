@@ -26,7 +26,7 @@ export function SlideGridOverview({ slides, theme, settings, currentIndex, onSel
       onClick={onClose}
     >
       <div className="flex shrink-0 items-center justify-between px-8 py-4">
-        <span className="text-sm font-medium text-white/60">All slides — click to jump</span>
+        <span className="text-sm font-medium text-white/60">All slides. Click to jump</span>
         <button
           className="rounded-md px-3 py-1 text-xs text-white/60 hover:bg-white/10 hover:text-white"
           onClick={onClose}

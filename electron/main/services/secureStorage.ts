@@ -1,14 +1,14 @@
 import { safeStorage } from 'electron'
 import { getSetting, setSetting } from './settingsDb'
 
-// Encrypts secrets (API keys) at rest using the OS's own credential store —
+// Encrypts secrets (API keys) at rest using the OS's own credential store -
 // Windows DPAPI, macOS Keychain, or Linux Secret Service/kwallet via
-// safeStorage — so a key never sits in the sqlite settings file as plain
+// safeStorage. So a key never sits in the sqlite settings file as plain
 // text. safeStorage ties the ciphertext to the current OS user account, so
 // it can only be decrypted on this machine, by this user.
 //
 // Falls back to storing the plain value (clearly tagged, never silently) if
-// the OS provides no secure backend at all — better an honest fallback than
+// the OS provides no secure backend at all. Better an honest fallback than
 // a stored secret the app quietly treats as encrypted when it isn't.
 
 const ENCRYPTED_PREFIX = 'enc:'
@@ -45,7 +45,7 @@ export function readSecret(key: string): string | null {
       const buf = Buffer.from(raw.slice(ENCRYPTED_PREFIX.length), 'base64')
       return safeStorage.decryptString(buf)
     } catch {
-      return null // decryption key changed (different OS user/machine) — treat as unset
+      return null // decryption key changed (different OS user/machine). Treat as unset
     }
   }
   if (raw.startsWith(PLAIN_PREFIX)) return raw.slice(PLAIN_PREFIX.length)

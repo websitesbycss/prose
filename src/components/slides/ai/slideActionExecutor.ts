@@ -1,5 +1,5 @@
 // Executes validated prose-actions against the slides editor. Only ever called
-// after the user clicks Apply on an action card — see src/lib/ai/proseActions.ts
+// after the user clicks Apply on an action card. See src/lib/ai/proseActions.ts
 // for the validation layer these actions have already passed through.
 import type {
   Slide, SlideElement, TextElement, ShapeElement, TableElement, TableCell, ImageElement,
@@ -19,7 +19,7 @@ import { useAppStore } from '@/store/appStore'
 // animate actions can reference them precisely.
 
 // Slide content can end up malformed (partial PPTX import, older save format,
-// an element mid-edit) — every caller here treats content as optional so one
+// an element mid-edit). Every caller here treats content as optional so one
 // bad element can't crash the whole context builder.
 function stripHtml(s: string | null | undefined): string {
   if (!s) return ''
@@ -231,7 +231,7 @@ async function materializeElement(
     }
     case 'chart': {
       // Rendered as a frozen PNG snapshot (same approach as the manual "Insert
-      // chart" picker) rather than a live element — no Chart.js instance stays
+      // chart" picker) rather than a live element. No Chart.js instance stays
       // mounted per slide, keeping the deck light while editing/scrolling.
       const isDark = useAppStore.getState().theme === 'dark'
       const snapshot = renderAdHocChartSnapshot({
@@ -312,7 +312,7 @@ async function materializeSlide(spec: SlideSpec, theme: PresentationTheme): Prom
         elements.push(makeText(`“${spec.quote ?? spec.body}”`, theme, next(), { x: 10, y: 28, w: 80, h: 34, fontSize: 38, align: 'center', heading: true }))
       }
       if (spec.attribution) {
-        elements.push(makeText(`— ${spec.attribution}`, theme, next(), { x: 20, y: 66, w: 60, h: 8, fontSize: 20, align: 'center', color: theme.secondaryColor }))
+        elements.push(makeText(`- ${spec.attribution}`, theme, next(), { x: 20, y: 66, w: 60, h: 8, fontSize: 20, align: 'center', color: theme.secondaryColor }))
       }
       break
     }
@@ -375,7 +375,7 @@ export async function applySlideActions(actions: SlidesAction[], ctx: SlideActio
   let appliedCount = 0
 
   // All current-slide mutations are simulated against a local copy first, then
-  // committed in a single update — so an action can reference an element added
+  // committed in a single update. So an action can reference an element added
   // by an earlier action in the same batch (e.g. addElement → animate it).
   let sim = ctx.getCurrentSlide()
   let simChanged = false

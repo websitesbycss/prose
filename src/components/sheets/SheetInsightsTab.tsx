@@ -1,4 +1,4 @@
-// Sheets "Insights" tab — one click analyzes the sheet with the local model
+// Sheets "Insights" tab. One click analyzes the sheet with the local model
 // and returns a plain-English summary, key statistics (with optional live
 // formulas placed into empty cells), and chart recommendations the user can
 // insert directly. The model's JSON is fully re-validated here before any of
@@ -108,7 +108,7 @@ export function SheetInsightsTab({ getSheetContext, onInsertFormula, onInsertCha
   const [insights, setInsights] = useState<Insights | null>(null)
   const [error, setError] = useState<string | null>(null)
   // Briefly flashes "Inserted" + a checkmark on the same button, then reverts
-  // — not a permanent state swap to a different-colored element.
+  //. Not a permanent state swap to a different-colored element.
   const [flashed, setFlashed] = useState<Record<string, boolean>>({})
   const flashTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
@@ -139,7 +139,7 @@ export function SheetInsightsTab({ getSheetContext, onInsertFormula, onInsertCha
       })
       const validated = validateInsights(extractJsonObject(resp))
       if (!validated) {
-        setError('The model returned an unreadable analysis — try again.')
+        setError('The model returned an unreadable analysis. Try again.')
       } else {
         setInsights(validated)
       }

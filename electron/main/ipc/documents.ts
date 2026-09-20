@@ -176,7 +176,7 @@ export function registerDocumentHandlers(): void {
     )
 
     // Only a manual save regenerates the thumbnail, not every debounced
-    // auto-save — the thumbnail is now a real PDF render (page 1, off the
+    // auto-save. The thumbnail is now a real PDF render (page 1, off the
     // stored content, not a screenshot), which is too heavy to redo on every
     // ~1s autosave tick while the user is actively typing. forceSnapshot is
     // exactly the signal saveNow() sets that flushSave()/onEditorUpdate()'s

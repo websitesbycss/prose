@@ -8,7 +8,7 @@ declare module '@tiptap/core' {
   }
 }
 
-// Inline spacer node — pushes content after it to the right edge when the
+// Inline spacer node. Pushes content after it to the right edge when the
 // parent paragraph has display:flex (which .header-footer-editor applies via CSS).
 export const RightTab = Node.create({
   name: 'rightTab',

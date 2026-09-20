@@ -103,7 +103,7 @@ export function SlidesAIPanel({
 
       <Separator />
 
-      {/* Slides context — lives in the shared header so it stays in place and
+      {/* Slides context. Lives in the shared header so it stays in place and
           keeps its value regardless of which tab (Chat / Generate) is active. */}
       <div className="shrink-0 px-3 pt-2 pb-1">
         <button
@@ -139,7 +139,7 @@ export function SlidesAIPanel({
 
       <Separator />
 
-      {/* Content — both tabs stay mounted (hidden via CSS, not unmounted) so
+      {/* Content. Both tabs stay mounted (hidden via CSS, not unmounted) so
           chat history, sources, and instructions survive switching tabs. */}
       <div className="min-h-0 flex-1 overflow-hidden">
         <div className={cn('h-full', tab !== 'chat' && 'hidden')}>

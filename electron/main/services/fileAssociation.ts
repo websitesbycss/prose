@@ -7,7 +7,7 @@ function reg(...args: string[]): void {
 
 /**
  * Registers .prose → Prose.exe in HKCU so double-click works without an
- * admin-level installer. Only runs in packaged builds — in dev mode the exe
+ * admin-level installer. Only runs in packaged builds. In dev mode the exe
  * path is the Electron binary, which would produce a wrong association.
  */
 export function registerFileAssociation(): void {
@@ -19,7 +19,7 @@ export function registerFileAssociation(): void {
     reg('add', 'HKCU\\Software\\Classes\\.prose', '/ve', '/d', 'ProseDocument', '/f')
     reg('add', 'HKCU\\Software\\Classes\\ProseDocument', '/ve', '/d', 'Prose Document', '/f')
     reg('add', 'HKCU\\Software\\Classes\\ProseDocument\\DefaultIcon', '/ve', '/d', `"${exePath}",0`, '/f')
-    // Wrap in cmd to clear ELECTRON_RUN_AS_NODE before launching — without this,
+    // Wrap in cmd to clear ELECTRON_RUN_AS_NODE before launching. Without this,
     // users who have that env var set globally will get ERR_UNKNOWN_FILE_EXTENSION
     // because Electron enters Node mode and tries to execute the .prose file.
     const openCmd = `cmd /d /c "set ELECTRON_RUN_AS_NODE=&&"${exePath}" "%1""`

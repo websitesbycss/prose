@@ -1,17 +1,16 @@
-// Small colored glyphs standing in for each provider's brand mark. Real
-// trademarked logos are deliberately not used — this app is offline-first
-// and never fetches remote assets into a settings screen, and bundling
-// third-party marks raises IP questions distinct from "will the toggle be
-// visually clear" — so each provider gets a distinct Lucide icon tinted with
-// a color evocative of its brand instead.
+// Each provider's real brand mark (resources/logos/*.png), matching the
+// same images used on the onboarding AI-setup screen. "Custom" has no logo
+// of its own, so it keeps a generic Lucide glyph instead.
 import type { LucideIcon } from 'lucide-react'
-import { Sparkles, Hexagon, Gem, Plug } from 'lucide-react'
+import { Bot } from 'lucide-react'
 import type { CustomLlmProviderId } from '@/types'
+import { openaiLogo, anthropicLogo, geminiLogo } from '@/lib/providerLogos'
 
 export interface LlmProviderMeta {
   id: CustomLlmProviderId
   label: string
-  icon: LucideIcon
+  logo: string | null
+  icon: LucideIcon | null
   color: string
   keyUrl: string | null
   keyUrlLabel: string | null
@@ -22,7 +21,8 @@ export const LLM_PROVIDERS: LlmProviderMeta[] = [
   {
     id: 'anthropic',
     label: 'Claude (Anthropic)',
-    icon: Sparkles,
+    logo: anthropicLogo,
+    icon: null,
     color: '#d97757',
     keyUrl: 'https://console.anthropic.com/settings/keys',
     keyUrlLabel: 'console.anthropic.com',
@@ -31,7 +31,8 @@ export const LLM_PROVIDERS: LlmProviderMeta[] = [
   {
     id: 'openai',
     label: 'OpenAI (ChatGPT)',
-    icon: Hexagon,
+    logo: openaiLogo,
+    icon: null,
     color: '#10a37f',
     keyUrl: 'https://platform.openai.com/api-keys',
     keyUrlLabel: 'platform.openai.com',
@@ -40,7 +41,8 @@ export const LLM_PROVIDERS: LlmProviderMeta[] = [
   {
     id: 'gemini',
     label: 'Gemini (Google)',
-    icon: Gem,
+    logo: geminiLogo,
+    icon: null,
     color: '#4285f4',
     keyUrl: 'https://aistudio.google.com/apikey',
     keyUrlLabel: 'aistudio.google.com',
@@ -49,7 +51,8 @@ export const LLM_PROVIDERS: LlmProviderMeta[] = [
   {
     id: 'custom',
     label: 'Custom (OpenAI-compatible)',
-    icon: Plug,
+    logo: null,
+    icon: Bot,
     color: '#6b7280',
     keyUrl: null,
     keyUrlLabel: null,
@@ -65,13 +68,16 @@ export function getLlmProviderMeta(provider: CustomLlmProviderId): LlmProviderMe
 
 export function LlmProviderIcon({ provider, className }: { provider: CustomLlmProviderId; className?: string }): JSX.Element {
   const meta = getLlmProviderMeta(provider)
-  const Icon = meta.icon
   return (
     <span
       className={className ?? 'inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md'}
       style={{ backgroundColor: `${meta.color}22`, color: meta.color }}
     >
-      <Icon className="h-3 w-3" strokeWidth={2.25} />
+      {meta.logo ? (
+        <img src={meta.logo} alt="" className="h-3 w-3 object-contain" />
+      ) : (
+        meta.icon && <meta.icon className="h-3 w-3" strokeWidth={2.25} />
+      )}
     </span>
   )
 }

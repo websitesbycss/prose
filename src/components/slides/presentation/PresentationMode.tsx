@@ -35,7 +35,7 @@ export function PresentationMode({ slides, theme, settings, startIndex, onExit }
 
   const { baseW, baseH } = getSlideBaseSize(settings)
 
-  // Declared early (before the keydown effect below references it) — hooks
+  // Declared early (before the keydown effect below references it). Hooks
   // must run unconditionally on every render regardless of currentSlide.
   const currentSlide = slides[currentIndex] ?? null
   const playback = useSlideAnimationPlayback(currentSlide ?? { id: 'preview-empty', elements: [], notes: '', animations: [] }, { mode: 'presentation' })

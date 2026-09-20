@@ -1,7 +1,7 @@
 // Ambient global augmentations for browser APIs TypeScript's built-in DOM lib
 // doesn't know about yet.
 
-// Window Controls Overlay API (Chromium/Electron) — used by
+// Window Controls Overlay API (Chromium/Electron). Used by
 // useTitleBarOverlayInset.ts to size around the native window controls in a
 // custom title bar. Not yet part of TypeScript's standard DOM lib.
 interface WindowControlsOverlayGeometryChangeEvent extends Event {

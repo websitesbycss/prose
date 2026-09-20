@@ -11,7 +11,7 @@ export interface AttachedImage {
   name: string
   width: number
   height: number
-  /** Raw base64 payload, no `data:image/...;base64,` prefix — ready for AiPromptPayload.images. */
+  /** Raw base64 payload, no `data:image/...;base64,` prefix. Ready for AiPromptPayload.images. */
   base64: string
 }
 

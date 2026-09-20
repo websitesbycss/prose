@@ -440,7 +440,7 @@ export function HistoryPanel({ documentId, editor, format = 'none', pageMargins 
 
         {!loading && snapshots.length === 0 && (
           <p className="mt-4 px-2 text-center text-[11px] leading-relaxed text-muted-foreground/60">
-            No history yet — save with Ctrl+S or keep writing; snapshots are created automatically.
+            No history yet. Save with Ctrl+S or keep writing; snapshots are created automatically.
           </p>
         )}
 

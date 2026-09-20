@@ -1,5 +1,5 @@
 // Executes validated prose-actions against the FortuneSheet workbook. Only
-// called after the user clicks Apply on an action card — validation lives in
+// called after the user clicks Apply on an action card. Validation lives in
 // src/lib/ai/proseActions.ts.
 import type { RefObject } from 'react'
 import type { WorkbookInstance } from '@fortune-sheet/react'

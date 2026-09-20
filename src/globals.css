@@ -14,7 +14,7 @@
   flex: 1;
 }
 
-/* Cap content width so tabs stay left of native window controls (do not pad — padding crushed flex children to 0). */
+/* Cap content width so tabs stay left of native window controls (do not pad. Padding crushed flex children to 0). */
 .title-bar--native .title-bar__content {
   max-width: calc(100% - var(--titlebar-overlay-inset, 138px));
 }
@@ -130,6 +130,18 @@
   gap: 0;
 }
 
+/* Shown on the whole strip (not just the thin insertion line) while another
+   window's dragged-out tab is hovering over this one, so it's obvious the
+   drop will merge here rather than the user having to guess from the line
+   alone. */
+.document-tab-strip--merge-target {
+  overflow: visible;
+  background-color: hsl(var(--primary) / 0.08);
+  outline: 1px dashed hsl(var(--primary) / 0.5);
+  outline-offset: -1px;
+  border-radius: 0.375rem;
+}
+
 .document-tab {
   display: flex;
   align-items: center;
@@ -182,18 +194,18 @@
   font-family: 'Geist Sans', system-ui, sans-serif !important;
 }
 
-/* Hide the built-in stat bar (count/sum/average) — we don't want that bottom gap. */
+/* Hide the built-in stat bar (count/sum/average). We don't want that bottom gap. */
 .fortune-stat-area {
   display: none !important;
 }
 
-/* FortuneSheet dark mode — CSS filter invert on the spreadsheet canvas area.  */
+/* FortuneSheet dark mode. CSS filter invert on the spreadsheet canvas area.  */
 /* This inverts white→dark and preserves relative contrast of colored cells.  */
 .fortune-dark .fortune-container {
   filter: invert(1) hue-rotate(180deg);
 }
 
-/* Counter-invert context menus only — they render INSIDE .fortune-container's filter
+/* Counter-invert context menus only. They render INSIDE .fortune-container's filter
    stacking context, so they need the double-inversion to restore CSS variable colors.
    The modal-container is a SIBLING of .fortune-container (ModalProvider wraps it),
    so it does NOT receive the parent's filter and needs no counter-inversion. */
@@ -201,8 +213,8 @@
   filter: invert(1) hue-rotate(180deg);
 }
 
-/* ── FortuneSheet context menu — match Documents/Slides custom menu style ── */
-/* (Documents: EditorContextMenu.tsx, Slides: SlidesContextMenu.tsx — both use
+/* ── FortuneSheet context menu. Match Documents/Slides custom menu style ── */
+/* (Documents: EditorContextMenu.tsx, Slides: SlidesContextMenu.tsx. Both use
    "rounded-lg border border-border bg-background py-1 text-[13px] shadow-lg"
    for the menu and "px-3 py-1.5 ... hover:bg-muted/50" for items.) */
 
@@ -276,7 +288,7 @@
   padding: 1px 4px !important;
 }
 
-/* Icons injected by useFortuneContextMenuIcons (SheetsEditor.tsx) — sized and
+/* Icons injected by useFortuneContextMenuIcons (SheetsEditor.tsx). Sized and
    colored to match the lucide icons used in EditorContextMenu/SlidesContextMenu. */
 .fortune-menu-item-icon {
   display: inline-flex !important;
@@ -292,7 +304,7 @@
   height: 100%;
 }
 
-/* ── Excalidraw context menu — match Documents/Slides custom menu style ──── */
+/* ── Excalidraw context menu. Match Documents/Slides custom menu style ──── */
 
 .excalidraw .context-menu {
   background: hsl(var(--background)) !important;
@@ -335,7 +347,7 @@
   margin: 0.25rem 0 !important;
 }
 
-/* ── FortuneSheet modals & dialogs — match Prose design system ───────────── */
+/* ── FortuneSheet modals & dialogs. Match Prose design system ───────────── */
 
 /* Overlay backdrop */
 .fortune-modal-container {
@@ -400,7 +412,7 @@
   filter: brightness(0) invert(1) opacity(0.65) !important;
 }
 
-/* Content padding — no top space needed since header is now absolutely positioned */
+/* Content padding. No top space needed since header is now absolutely positioned */
 .fortune-dialog-box-content {
   padding: 0.5rem 0.875rem 0 !important;
 }
@@ -450,7 +462,7 @@
   margin-bottom: 0.75rem !important;
 }
 
-/* Checkbox row — horizontal layout */
+/* Checkbox row. Horizontal layout */
 .fortune-sort-modal > div:first-child {
   display: flex !important;
   flex-direction: row !important;
@@ -477,7 +489,7 @@
   line-height: 1.3 !important;
 }
 
-/* Description text — aligns left edge with the label text (checkbox width + gap) */
+/* Description text. Aligns left edge with the label text (checkbox width + gap) */
 .fortune-sort-modal > div:first-child::after {
   content: 'The first row stays fixed and its values appear as column names in the Sort by dropdown.';
   display: block !important;
@@ -503,7 +515,7 @@
   gap: 1.25rem !important;
 }
 
-/* "Sort by" label + select — inline on the same line via flex-wrap */
+/* "Sort by" label + select. Inline on the same line via flex-wrap */
 .fortune-sort-tablec td:first-child {
   font-size: 0.75rem !important;
   font-weight: 500 !important;
@@ -529,7 +541,7 @@
   line-height: 1.4 !important;
 }
 
-/* Select dropdown — inline next to "Sort by" text */
+/* Select dropdown. Inline next to "Sort by" text */
 .fortune-sort-tablec select {
   flex: none !important;
   width: 110px !important;
@@ -781,22 +793,22 @@
 .prose-excalidraw-root {
   position: relative;
 }
-/* Excalidraw renders its own full-height canvas — let it fill the container. */
+/* Excalidraw renders its own full-height canvas. Let it fill the container. */
 .prose-excalidraw-root .excalidraw,
 .prose-excalidraw-root .excalidraw-container {
   height: 100% !important;
   width: 100% !important;
 }
-/* Hide Excalidraw's native floating toolbar — tools live in Prose's toolbar. */
+/* Hide Excalidraw's native floating toolbar. Tools live in Prose's toolbar. */
 .prose-excalidraw-root .App-toolbar { display: none !important; }
-/* Hide Excalidraw's bottom bar (zoom/stats) — zoom via Ctrl+= shortcut.     */
+/* Hide Excalidraw's bottom bar (zoom/stats). Zoom via Ctrl+= shortcut.     */
 .prose-excalidraw-root .App-bottom-bar { display: none !important; }
 .prose-excalidraw-root footer.App-menu_bottom { display: none !important; }
 .prose-excalidraw-root .layer-ui__wrapper__footer { display: none !important; }
 /* Hide Excalidraw brand references from hamburger menu, Help dialog, and library panel. */
 /* Hamburger menu "Excalidraw links" group (GitHub / Follow us / Discord). */
 .prose-excalidraw-root .dropdown-menu-group { display: none !important; }
-/* Hide the hamburger menu trigger button — actions moved to toolbar three-dots menu. */
+/* Hide the hamburger menu trigger button. Actions moved to toolbar three-dots menu. */
 .prose-excalidraw-root .main-menu-trigger { display: none !important; }
 /* Help dialog external link buttons (Documentation / Blog / Issues / YouTube). */
 .prose-excalidraw-root .HelpDialog__header { display: none !important; }
@@ -821,7 +833,7 @@
   z-index: 20 !important;
   font-family: 'Geist Sans', system-ui, sans-serif !important;
 }
-/* Scrollbar — match Prose's global scrollbar style. */
+/* Scrollbar. Match Prose's global scrollbar style. */
 .prose-board-sidebar-open .selected-shape-actions::-webkit-scrollbar { width: 6px; }
 .prose-board-sidebar-open .selected-shape-actions::-webkit-scrollbar-track { background: transparent; }
 .prose-board-sidebar-open .selected-shape-actions::-webkit-scrollbar-thumb {
@@ -842,7 +854,7 @@
   padding-top: 4px !important;
 }
 
-/* Library button/panel — hide completely (library not used in Prose). */
+/* Library button/panel. Hide completely (library not used in Prose). */
 .prose-excalidraw-root .sidebar__dock-trigger { display: none !important; }
 .prose-excalidraw-root [data-testid="sidebar-library"] { display: none !important; }
 .prose-excalidraw-root .sidebar { display: none !important; }
@@ -853,7 +865,7 @@
 /* Also target the header link group that appears in some Excalidraw versions. */
 .prose-excalidraw-root .HelpDialog .help-island-button { display: none !important; }
 
-/* Help dialog: keyboard shortcut key chips — use Prose accent instead of purple. */
+/* Help dialog: keyboard shortcut key chips. Use Prose accent instead of purple. */
 .prose-excalidraw-root .HelpDialog kbd,
 .prose-excalidraw-root .HelpDialog .key,
 .prose-excalidraw-root .HelpDialog .HelpDialog__key,
@@ -1000,7 +1012,7 @@
   color: hsl(var(--accent-foreground));
 }
 
-/* Theme switch — crossfade the whole UI so icons, text, and surfaces stay in sync */
+/* Theme switch. Crossfade the whole UI so icons, text, and surfaces stay in sync */
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation-duration: 280ms;
@@ -1035,7 +1047,7 @@
   background-color: hsl(var(--muted-foreground) / 0.5);
 }
 
-/* Documents editor canvas — the default thumb color above is too low-contrast
+/* Documents editor canvas. The default thumb color above is too low-contrast
    against the page background in both themes, so boost it here specifically. */
 .bg-editor-canvas::-webkit-scrollbar-thumb {
   background-color: hsl(var(--muted-foreground) / 0.4);
@@ -1045,7 +1057,7 @@
   background-color: hsl(var(--muted-foreground) / 0.7);
 }
 
-/* Chart insert/edit dialog (ChartDialog) — same low-contrast issue as the
+/* Chart insert/edit dialog (ChartDialog). Same low-contrast issue as the
    Documents canvas above: the plain --border thumb barely shows against this
    dialog's flat white (light mode) surface. */
 .chart-dialog-scroll::-webkit-scrollbar-thumb {
@@ -1056,7 +1068,7 @@
   background-color: hsl(var(--muted-foreground) / 0.7);
 }
 
-/* Sheets (FortuneSheet) — both its horizontal and vertical scrollbars share the
+/* Sheets (FortuneSheet). Both its horizontal and vertical scrollbars share the
    .luckysheet-scrollbar-ltr class. Override the vendor's hardcoded gray thumb
    with Prose's standard border/hover-to-muted-foreground treatment; !important
    is needed since we don't control load order against the vendor stylesheet. */
@@ -1071,7 +1083,7 @@
 
 /* The scrollbar elements render INSIDE .fortune-container's dark-mode invert
    filter (see "FortuneSheet dark mode" above), which would otherwise mangle
-   the colors set above — same double-inversion issue already solved for
+   the colors set above. Same double-inversion issue already solved for
    .fortune-context-menu, fixed here the same way. */
 .fortune-dark .luckysheet-scrollbar-ltr {
   filter: invert(1) hue-rotate(180deg);
@@ -1170,7 +1182,7 @@
   width: 100%;
 }
 
-/* Top zone — move cursor to signal click-to-select */
+/* Top zone. Move cursor to signal click-to-select */
 .prose-editor .ProseMirror .table-drag-zone {
   position: absolute;
   top: 0;
@@ -1286,7 +1298,7 @@
   outline: 1.5px solid hsl(35 100% 65% / 0.9);
 }
 
-/* Zoom range slider — small thumb */
+/* Zoom range slider. Small thumb */
 .zoom-slider {
   -webkit-appearance: none;
   appearance: none;
@@ -1321,7 +1333,7 @@
   cursor: pointer;
 }
 
-/* Slightly larger variant of .zoom-slider — same look (rounded track, round
+/* Slightly larger variant of .zoom-slider. Same look (rounded track, round
    primary-colored thumb) for sliders that aren't squeezed into a status bar,
    e.g. the animation/transition duration & delay sliders. */
 .theme-slider {
@@ -1418,7 +1430,7 @@
   display: block;
 }
 
-/* Empty trailing paragraph after a table — invisible but still selectable */
+/* Empty trailing paragraph after a table. Invisible but still selectable */
 .prose-editor .ProseMirror .table-outer-wrapper + p:not(:focus-within):empty,
 .prose-editor .ProseMirror .table-outer-wrapper + p:not(:focus-within) > br:only-child,
 .prose-editor .ProseMirror table + p:not(:focus-within):empty,
@@ -1433,7 +1445,7 @@
 
 /* Browser-native spellcheck is disabled on the editor (spellcheck="false")
    and replaced with nspell decorations so we control the full lifecycle. */
-/* Custom SVG squiggly — gentler amplitude than browser default, clears descenders.
+/* Custom SVG squiggly. Gentler amplitude than browser default, clears descenders.
    The wave path starts and ends at its midline so tiles connect seamlessly. */
 .spell-error {
   text-decoration: none;
@@ -1449,7 +1461,7 @@
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='4' viewBox='0 0 6 4'%3E%3Cpath d='M0 2 Q1.5 1.2 3 2 Q4.5 2.8 6 2' fill='none' stroke='%23f87171' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E");
 }
 
-/* Harper's issue highlights already flag spelling/typos — while they're
+/* Harper's issue highlights already flag spelling/typos. While they're
    showing, suppress the separate nspell squiggle so the same word isn't
    double-underlined by two different checkers at once. */
 .harper-active .spell-error {
@@ -1520,7 +1532,7 @@
   line-height: 0;
 }
 
-/* The spacer itself — flex:1 fills all available horizontal space */
+/* The spacer itself. Flex:1 fills all available horizontal space */
 .right-tab {
   flex: 1;
   display: inline-block;
@@ -1584,14 +1596,14 @@
   text-indent: 0.5in;
 }
 
-/* User-outdented paragraphs — override the automatic first-line indent */
+/* User-outdented paragraphs. Override the automatic first-line indent */
 .format-mla .ProseMirror p[data-no-indent],
 .format-apa .ProseMirror p[data-no-indent] {
   text-indent: 0;
 }
 
 /* Display equations in AI chat scroll independently so surrounding text isn't
-   affected. margin-right on the inner .katex ensures right-edge breathing room —
+   affected. margin-right on the inner .katex ensures right-edge breathing room -
    margin on a child element IS included in scroll width, unlike container padding. */
 .ai-chat-bubble .katex-display {
   overflow-x: auto;
@@ -1603,7 +1615,7 @@
 
 
 /* KaTeX's .katex-html is inline-block, which creates a block formatting context
-   that inherits and applies text-indent — resetting here prevents the 0.5in gap
+   that inherits and applies text-indent. Resetting here prevents the 0.5in gap
    appearing as empty space inside the equation's selection bounding box */
 .format-mla .ProseMirror .katex,
 .format-apa .ProseMirror .katex {
@@ -1636,7 +1648,7 @@
   }
 }
 
-/* Page break node — horizontal dashed divider with centered label */
+/* Page break node. Horizontal dashed divider with centered label */
 .page-break-node {
   position: relative;
   width: 100%;
@@ -1674,7 +1686,7 @@
 }
 
 .dark .page-break-node::after {
-  background: #27272a; /* zinc-800 — matches dark mode editor page bg */
+  background: #27272a; /* zinc-800. Matches dark mode editor page bg */
 }
 /* Selection: accent ring with enough offset to keep the dashed line visible */
 .ProseMirror-selectednode.page-break-node {
@@ -1683,19 +1695,19 @@
   border-radius: 1px;
 }
 
-/* APA Abstract heading — keep dashed line for legacy documents created before page-break node existed */
+/* APA Abstract heading. Keep dashed line for legacy documents created before page-break node existed */
 .format-apa .ProseMirror [data-role='abstract-heading'] {
   margin-top: 1.5em;
   padding-top: 1em;
   border-top: 1px dashed hsl(var(--border));
 }
 
-/* APA Abstract body — treat same as apa-header (no first-line indent) */
+/* APA Abstract body. Treat same as apa-header (no first-line indent) */
 .format-apa .ProseMirror [data-role='abstract-body'] {
   text-indent: 0;
 }
 
-/* Header lines — no first-line indent */
+/* Header lines. No first-line indent */
 .format-mla .ProseMirror [data-role='mla-header'],
 .format-mla .ProseMirror [data-role='title'],
 .format-apa .ProseMirror [data-role='apa-header'],
@@ -1704,13 +1716,13 @@
   text-indent: 0;
 }
 
-/* Works Cited / References heading — centered, no indent */
+/* Works Cited / References heading. Centered, no indent */
 .prose-editor .ProseMirror [data-role='works-cited-heading'] {
   text-align: center;
   text-indent: 0;
 }
 
-/* Citation paragraphs — hanging indent */
+/* Citation paragraphs. Hanging indent */
 .prose-editor .ProseMirror [data-role='citation'] {
   text-indent: -0.5in;
   padding-left: 0.5in;
@@ -1730,7 +1742,7 @@
   margin: 0;
 }
 
-/* Toast notifications — fit-content width, right-anchored, max 356px */
+/* Toast notifications. Fit-content width, right-anchored, max 356px */
 [data-sonner-toast][data-styled="true"] {
   width: max-content;
   max-width: 356px;

@@ -217,7 +217,7 @@ export default function ExportModal({
           {/* ── Preview pane ─────────────────────────────────────────────────── */}
           <div className="relative flex flex-1 flex-col overflow-hidden bg-neutral-300 dark:bg-neutral-600">
 
-            {/* ── PDF / DOCX — paginated PDF.js canvas images ── */}
+            {/* ── PDF / DOCX. Paginated PDF.js canvas images ── */}
             {isPageFormat ? (
               <div className="relative flex flex-1 flex-col overflow-hidden">
                 {previewLoading && (
@@ -244,7 +244,7 @@ export default function ExportModal({
                   </div>
                 </div>
 
-                {/* ── Zoom bar — only after load ── */}
+                {/* ── Zoom bar. Only after load ── */}
                 {!previewLoading && pdfPages.length > 0 && (
                 <div className="shrink-0 flex items-center gap-2 border-t border-border/50 bg-neutral-300/80 dark:bg-neutral-600/80 px-3 py-1.5">
                   <button
@@ -275,7 +275,7 @@ export default function ExportModal({
                 )}
               </div>
             ) : (
-              /* ── Markdown / Plain text — simple scrollable HTML iframe ──── */
+              /* ── Markdown / Plain text. Simple scrollable HTML iframe ──── */
               <>
                 {previewLoading && (
                   <div className="absolute inset-0 z-10 flex items-center justify-center">
@@ -337,7 +337,7 @@ export default function ExportModal({
                   </div>
                 </div>
 
-                {/* Page — PDF and DOCX only */}
+                {/* Page. PDF and DOCX only */}
                 {isPageFormat && (
                   <div className="flex flex-col gap-3">
                     <SectionHeader>Page</SectionHeader>
@@ -403,7 +403,7 @@ export default function ExportModal({
                   </div>
                 )}
 
-                {/* Content — PDF and DOCX only */}
+                {/* Content. PDF and DOCX only */}
                 {isPageFormat && (
                   <div className="flex flex-col gap-3">
                     <SectionHeader>Content</SectionHeader>

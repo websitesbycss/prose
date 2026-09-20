@@ -52,7 +52,7 @@ export function SpeakerNotesPanel({ notes, onChange }: Props): JSX.Element {
 
   // Prevent page-level drag cursor during resize
   useEffect(() => {
-    // no-op — cleanup handled inside onUp
+    // no-op. Cleanup handled inside onUp
   }, [])
 
   return (
@@ -60,7 +60,7 @@ export function SpeakerNotesPanel({ notes, onChange }: Props): JSX.Element {
       style={{ height, flexShrink: 0 }}
       className="flex flex-col border-t border-border bg-background"
     >
-      {/* Drag handle — same thin hover-highlighted strip as the right panels'
+      {/* Drag handle. Same thin hover-highlighted strip as the right panels'
           resize handles (e.g. Slides AI panel), just horizontal instead of
           vertical. */}
       <div

@@ -220,8 +220,8 @@ function StaticPlaceholder({ type }: { type: FileType }): JSX.Element {
 
 /**
  * Real, content-based thumbnail when one exists on disk (has_thumbnail from
- * the index query already on `file` — no extra IPC call needed to know
- * that), falling back to the static placeholder otherwise — including while
+ * the index query already on `file`. No extra IPC call needed to know
+ * that), falling back to the static placeholder otherwise. Including while
  * the image is still loading, on a load error (corrupt/missing file), or
  * before any save has ever produced one.
  */
@@ -233,7 +233,7 @@ function FileThumbnail({ file }: { file: Document }): JSX.Element {
   const [loaded, setLoaded] = useState(false)
 
   // A different file's card was recycled into this slot (or its own
-  // has_thumbnail flipped from the initial index query) — resync local state.
+  // has_thumbnail flipped from the initial index query). Resync local state.
   useEffect(() => {
     setHasThumbnail(!!file.hasThumbnail)
     setThumbnailError(false)
@@ -247,7 +247,7 @@ function FileThumbnail({ file }: { file: Document }): JSX.Element {
     return () => { cancelled = true }
   }, [hasThumbnail, file.id])
 
-  // thumbnail:ready fires after a background generation completes — flips
+  // thumbnail:ready fires after a background generation completes. Flips
   // local state directly rather than re-querying the index, per spec.
   useEffect(() => {
     return window.prose.thumbnails.onReady((readyId) => {
@@ -335,8 +335,8 @@ export default function Dashboard({ embedded: _embedded = false }: { embedded?: 
       const imported = result.imported as Document[]
       setDocuments((prev) => [...imported, ...prev])
       toast.success(`Imported ${imported.length} file${imported.length !== 1 ? 's' : ''}`)
-      // Open every imported file as a tab immediately — same as manually
-      // opening it from the grid — landing on the last one imported.
+      // Open every imported file as a tab immediately. Same as manually
+      // opening it from the grid. Landing on the last one imported.
       for (const doc of imported) {
         openDocumentTab({ id: doc.id, title: doc.title, format: doc.format, fileType: doc.fileType ?? 'document' })
       }

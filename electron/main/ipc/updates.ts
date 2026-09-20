@@ -11,7 +11,7 @@ import { getSetting, setSetting } from '../services/settingsDb'
 // "No thanks" persists the skipped version so that release never re-prompts;
 // "Remind me later" just dismisses (re-prompts next launch, since nothing was
 // downloaded and startup re-checks every time).
-// Settings → About also exposes a manual "Check for updates" — since that's
+// Settings → About also exposes a manual "Check for updates". Since that's
 // already an explicit ask, it skips the available step and downloads right
 // away, ending on the same "Restart to update" state.
 
@@ -47,7 +47,7 @@ export function registerUpdateHandlers(): void {
 
   autoUpdater.on('checking-for-update', () => setStatus({ state: 'checking' }))
   autoUpdater.on('update-available', (info) => {
-    // A manual "Check for updates" click already implies consent to install —
+    // A manual "Check for updates" click already implies consent to install -
     // skip straight to downloading. A silent startup check has no such consent
     // yet, so just announce availability and wait for the toast's Update click.
     if (manualCheckActive) {
@@ -114,7 +114,7 @@ export function registerUpdateHandlers(): void {
   })
 }
 
-/** Silent background check on startup — packaged builds only. */
+/** Silent background check on startup. Packaged builds only. */
 export function checkForUpdatesOnStartup(): void {
   if (!app.isPackaged) return
   autoUpdater.checkForUpdates().catch((err) => {

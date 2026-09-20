@@ -7,7 +7,7 @@ const inFlight = new Set<string>()
 
 /**
  * Runs `generate` for `fileId` unless a generation job is already queued or
- * in progress for that same fileId — in which case the new request is
+ * in progress for that same fileId. In which case the new request is
  * discarded outright (per spec: never queue a second job, just drop it).
  */
 export async function runThumbnailGenerationOnce(fileId: string, generate: () => Promise<void>): Promise<void> {
@@ -16,7 +16,7 @@ export async function runThumbnailGenerationOnce(fileId: string, generate: () =>
   try {
     await generate()
   } catch {
-    // Generation failures are silent no-ops — a missing/stale thumbnail just
+    // Generation failures are silent no-ops. A missing/stale thumbnail just
     // falls back to the static placeholder, never surfaced to the user.
   } finally {
     inFlight.delete(fileId)
@@ -26,7 +26,7 @@ export async function runThumbnailGenerationOnce(fileId: string, generate: () =>
 /**
  * Clamps a DOMRect-shaped capture region to the visible viewport. The main
  * process's captureRegion handler rejects negative x/y outright (security
- * bound — never capture outside validated bounds), but a scrolled page
+ * bound. Never capture outside validated bounds), but a scrolled page
  * legitimately produces a negative rect.top/left for an element whose top
  * has scrolled above the viewport. Rather than let that throw and silently
  * drop the whole generation job, clamp to what's actually visible. Returns
@@ -67,7 +67,7 @@ export async function downscaleToThumbnail(srcDataUrl: string): Promise<string> 
 /**
  * Fits an arbitrary-aspect-ratio image into the standard 560x315 thumbnail
  * box by scaling to fully COVER the box (like CSS background-size: cover)
- * and cropping any excess off the right/bottom, anchored to the top-left —
+ * and cropping any excess off the right/bottom, anchored to the top-left -
  * never stretched/squished, and never left with blank padding either. Used
  * by Boards, since Excalidraw's exported bounding box can be any shape
  * depending what was drawn. Mirrors the equivalent nativeImage-based crop
@@ -87,7 +87,7 @@ export async function coverCropToThumbnail(srcDataUrl: string): Promise<string> 
   const scaledW = img.naturalWidth * scale
   const scaledH = img.naturalHeight * scale
   // Anchored top-left: draw at (0,0) so any excess crops off the right/bottom,
-  // never the top/left — same "start at the top" convention Documents uses.
+  // never the top/left. Same "start at the top" convention Documents uses.
   ctx.drawImage(img, 0, 0, scaledW, scaledH)
 
   return canvas.toDataURL('image/png').split(',')[1] ?? ''
@@ -100,7 +100,7 @@ const RATIO_MATCH_EPSILON = 0.01
  * slide) into the standard 560x315 (16:9) thumbnail box. When the source
  * already is 16:9 this is just a plain scale-down, identical to
  * downscaleToThumbnail. When it isn't, the slide would otherwise need
- * distorting or plain letterbox bars — instead this fills the bars with a
+ * distorting or plain letterbox bars. Instead this fills the bars with a
  * blurred, cropped-to-cover copy of the same image (the same "blurred edges"
  * treatment YouTube uses for non-16:9 video), with the real slide centered
  * on top at its correct, undistorted aspect ratio. Returns raw base64 PNG
@@ -118,7 +118,7 @@ export async function fitSlideThumbnail(srcDataUrl: string, srcWidth: number, sr
   const targetRatio = THUMB_WIDTH / THUMB_HEIGHT
 
   if (Math.abs(srcRatio - targetRatio) < RATIO_MATCH_EPSILON) {
-    // Already 16:9 (the common case) — no bars needed, plain scale-down.
+    // Already 16:9 (the common case). No bars needed, plain scale-down.
     ctx.drawImage(img, 0, 0, THUMB_WIDTH, THUMB_HEIGHT)
     return canvas.toDataURL('image/png').split(',')[1] ?? ''
   }

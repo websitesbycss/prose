@@ -152,7 +152,7 @@ export function SheetExportModal({ open, onClose, sheetTitle, workbookRef }: She
 
 // Convert a FortuneSheet sheet to a SheetJS worksheet, preserving computed
 // values, live formulas, merged cells, and column widths / row heights.
-// (Formulas used to be exported as literal text — "=SUM(A1:B2)" showed up in
+// (Formulas used to be exported as literal text - "=SUM(A1:B2)" showed up in
 // Excel as a string instead of a working formula, and CSV files got formula
 // source instead of values.)
 function sheetToWorksheet(sheet: {
@@ -165,7 +165,7 @@ function sheetToWorksheet(sheet: {
 }): XLSX.WorkSheet {
   const data = sheet.data ?? []
 
-  // Values first (computed results — what CSV and cached xlsx values need)
+  // Values first (computed results. What CSV and cached xlsx values need)
   const aoa: unknown[][] = data.map((row) => {
     if (!row) return []
     return row.map((cell) => {

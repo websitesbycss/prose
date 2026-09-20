@@ -35,7 +35,7 @@ interface MenuCtx {
   canRedo: boolean
 }
 
-// Same Minus icon as "delete row", rotated — matches the row/column icon
+// Same Minus icon as "delete row", rotated. Matches the row/column icon
 // pairing used in the Sheets toolbar.
 function MinusRotated({ className }: { className?: string }): JSX.Element {
   return <Minus className={cn(className, 'rotate-90')} />
@@ -82,7 +82,7 @@ export function EditorContextMenu({ editor, documentId, isActive, onEditMath }: 
   }, [])
 
   // Document tabs share one Editor instance, so switching tabs doesn't remount
-  // this component — without these the menu (portaled to document.body) would
+  // this component. Without these the menu (portaled to document.body) would
   // stay open, floating over whatever tab you switch to. Two separate guards:
   // documentId catches switching between two document tabs; isActive catches
   // switching to a non-document tab (documentId stays the same in that case).
@@ -97,7 +97,7 @@ export function EditorContextMenu({ editor, documentId, isActive, onEditMath }: 
 
   // Attach contextmenu listener to editor DOM
   useEffect(() => {
-    if (!editor) return
+    if (!editor || editor.isDestroyed) return
 
     function onContextMenu(e: MouseEvent): void {
       e.preventDefault()
@@ -143,7 +143,7 @@ export function EditorContextMenu({ editor, documentId, isActive, onEditMath }: 
         imageBorderRadius = typeof attrs.borderRadius === 'number' ? attrs.borderRadius : 0
       }
 
-      // Detect math nodes — check closest .math-inline/.math-block ancestor first,
+      // Detect math nodes. Check closest .math-inline/.math-block ancestor first,
       // then confirm via posAtCoords to get the node position
       let isOnMath = false
       let mathLatex: string | null = null
@@ -205,7 +205,7 @@ export function EditorContextMenu({ editor, documentId, isActive, onEditMath }: 
         canRedo,
       })
 
-      // Spell suggestions — read directly from the decoration set so the context
+      // Spell suggestions. Read directly from the decoration set so the context
       // menu is consistent with the hover tooltip (same source of truth, no async).
       if (!isOnImage && !isOnMath && !isOnPageBreak) {
         const spellEl = (e.target as HTMLElement).closest('.spell-error') as HTMLElement | null
@@ -243,7 +243,7 @@ export function EditorContextMenu({ editor, documentId, isActive, onEditMath }: 
     }
     function onMouseDown(e: MouseEvent): void {
       // `Node` in this file's scope is ProseMirror's document-node type (imported
-      // above) — `globalThis.Node` is the actual DOM interface contains() needs.
+      // above) - `globalThis.Node` is the actual DOM interface contains() needs.
       if (menuRef.current && !menuRef.current.contains(e.target as globalThis.Node)) dismiss()
     }
     function onBlur(): void {
@@ -556,7 +556,7 @@ export function EditorContextMenu({ editor, documentId, isActive, onEditMath }: 
         </div>
       ) : (
         <>
-          {/* Spell section — shown whenever right-clicking a squiggled word */}
+          {/* Spell section. Shown whenever right-clicking a squiggled word */}
           {spellWord && (
             <>
               <div className="px-3 pb-0.5 pt-1.5">

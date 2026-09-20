@@ -11,7 +11,7 @@ export function useRowResize(editor: Editor | null): void {
   } | null>(null)
 
   useEffect(() => {
-    if (!editor) return
+    if (!editor || editor.isDestroyed) return
     const view = editor.view
     const dom = view.dom as HTMLElement
 

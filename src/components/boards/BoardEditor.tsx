@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { Excalidraw, MainMenu, exportToBlob } from '@excalidraw/excalidraw'
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore — no type declarations for CSS side-effect import
+// @ts-ignore. No type declarations for CSS side-effect import
 import '@excalidraw/excalidraw/index.css'
 import { motion, AnimatePresence } from 'motion/react'
 import {
@@ -38,7 +38,7 @@ import { useContextMenuIcons } from '@/hooks/useContextMenuIcons'
 import { runThumbnailGenerationOnce, blobToDataUrl, coverCropToThumbnail } from '@/lib/thumbnailGeneration'
 
 // Excalidraw's native right-click menu has no per-item class/data-attribute to
-// target — only the rendered (English) label identifies each action. This is
+// target. Only the rendered (English) label identifies each action. This is
 // a best-effort match against its default English labels; unmapped items are
 // simply left without an icon.
 const EXCALIDRAW_CONTEXT_MENU_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -227,7 +227,7 @@ export function BoardEditor({ documentId }: BoardEditorProps): JSX.Element {
 
   const boardSidebarWidth = 240
 
-  // AI panel width — resizable via drag handle, same behavior as Documents'
+  // AI panel width. Resizable via drag handle, same behavior as Documents'
   // AI panel (Editor.tsx), persisted to the same localStorage key so the
   // width preference is shared across file types.
   const [aiPanelWidth, setAiPanelWidth] = useState(() => {
@@ -238,7 +238,7 @@ export function BoardEditor({ documentId }: BoardEditorProps): JSX.Element {
   const aiPanelWidthRef = useRef(aiPanelWidth)
   useEffect(() => { aiPanelWidthRef.current = aiPanelWidth }, [aiPanelWidth])
   // Suppresses the panel's open/close width transition while actively
-  // drag-resizing — else every mousemove retargets an eased animation and the
+  // drag-resizing. Else every mousemove retargets an eased animation and the
   // panel edge lags behind the cursor instead of tracking it 1:1.
   const [isResizingAiPanel, setIsResizingAiPanel] = useState(false)
 
@@ -272,8 +272,8 @@ export function BoardEditor({ documentId }: BoardEditorProps): JSX.Element {
   useForceRepaintOnMount(aiPanelRef)
   const aiPanelVisibility = usePanelVisibility(aiPanelOpen)
 
-  // Thumbnail generation — fired by the main process after every successful
-  // content auto-save. Unlike Sheets this never goes through captureRegion —
+  // Thumbnail generation. Fired by the main process after every successful
+  // content auto-save. Unlike Sheets this never goes through captureRegion -
   // Excalidraw renders its own export via exportToBlob, same pipeline (and
   // same 1x scale) as the real PNG/PDF export in BoardExportModal, forced to
   // light mode regardless of the app's theme. The exported bounding box's
@@ -289,7 +289,7 @@ export function BoardEditor({ documentId }: BoardEditorProps): JSX.Element {
         if (!elements || elements.length === 0) return // retain prior has_thumbnail state, don't touch it
 
         // exportToBlob is a standalone function from the package, not a method
-        // on the imperative API ref — it needs the scene handed to it explicitly.
+        // on the imperative API ref. It needs the scene handed to it explicitly.
         const blob = await exportToBlob({
           elements,
           appState: { ...api.getAppState(), exportBackground: true, exportWithDarkMode: false },
@@ -330,7 +330,7 @@ export function BoardEditor({ documentId }: BoardEditorProps): JSX.Element {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const latestElementsRef = useRef<ExcalidrawElements>([])
   const latestAppStateRef = useRef<ExcalidrawAppState | null>(null)
-  // Last values we scheduled a save for — used to skip onChange events that
+  // Last values we scheduled a save for. Used to skip onChange events that
   // only update transient state (cursor, hover, active tool) that we don't persist.
   const lastScheduledRef = useRef<{
     elements: ExcalidrawElements
@@ -339,7 +339,7 @@ export function BoardEditor({ documentId }: BoardEditorProps): JSX.Element {
     zoom: number
   } | null>(null)
 
-  // Undo/redo enabled state — Excalidraw keeps its undo stack entirely internal
+  // Undo/redo enabled state. Excalidraw keeps its undo stack entirely internal
   // (the public API only exposes history.clear(), no isUndoStackEmpty), so we
   // mirror its depth ourselves: genuine edits push, our own Undo/Redo button
   // clicks pop/push between the two stacks the same way Excalidraw's internal
@@ -350,7 +350,7 @@ export function BoardEditor({ documentId }: BoardEditorProps): JSX.Element {
   const undoCountTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Safety net for `pendingUndoRedoRef`: if our mirrored depth had drifted and
   // Excalidraw's real stack had nothing to undo/redo, no onChange follows to
-  // clear the flag — without this it would stay stuck and misclassify the
+  // clear the flag. Without this it would stay stuck and misclassify the
   // next genuine edit as this undo/redo.
   const pendingClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [canUndo, setCanUndo] = useState(false)
@@ -400,7 +400,7 @@ export function BoardEditor({ documentId }: BoardEditorProps): JSX.Element {
     return () => setSaveActiveDocument(null)
   }, [isActive, flushAndSave, setSaveActiveDocument])
 
-  // Ctrl+S / Cmd+S — flush immediately; Ctrl+F — block (disabled for boards)
+  // Ctrl+S / Cmd+S: flush immediately; Ctrl+F: block (disabled for boards)
   useEffect(() => {
     if (!isActive) return
     function onKeyDown(e: KeyboardEvent): void {
@@ -417,7 +417,7 @@ export function BoardEditor({ documentId }: BoardEditorProps): JSX.Element {
     return () => window.removeEventListener('keydown', onKeyDown, { capture: true })
   }, [isActive, flushAndSave])
 
-  // Flush any pending save on unmount — prevents blank board when switching tabs
+  // Flush any pending save on unmount. Prevents blank board when switching tabs
   useEffect(() => () => {
     if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
     if (saveTimerRef.current) void flushAndSave()
@@ -446,7 +446,7 @@ export function BoardEditor({ documentId }: BoardEditorProps): JSX.Element {
     }
   }, [doc])
 
-  // onChange — auto-save and track selection/tool ─────────────────────────────
+  // onChange: auto-save and track selection/tool ─────────────────────────────
   const handleChange = useCallback(
     (elements: ExcalidrawElements, appState: ExcalidrawAppState) => {
       latestElementsRef.current = elements
@@ -474,7 +474,7 @@ export function BoardEditor({ documentId }: BoardEditorProps): JSX.Element {
         || scrollY !== last.scrollY
         || zoom !== last.zoom
 
-      // Undo/redo depth tracking — gated on the elements array specifically
+      // Undo/redo depth tracking. Gated on the elements array specifically
       // (not scroll/zoom) since panning/zooming isn't part of Excalidraw's
       // undo history. `last !== null` excludes the initial onChange the
       // library fires on mount, which isn't a user edit.
@@ -588,7 +588,7 @@ export function BoardEditor({ documentId }: BoardEditorProps): JSX.Element {
     [scheduleSave],
   )
 
-  // Insert a static chart snapshot as a native Excalidraw image element — moves,
+  // Insert a static chart snapshot as a native Excalidraw image element. Moves,
   // resizes, and rotates just like any other board element, and does not
   // live-update if the source sheet's chart changes later.
   const [chartPickerOpen, setChartPickerOpen] = useState(false)
@@ -637,7 +637,7 @@ export function BoardEditor({ documentId }: BoardEditorProps): JSX.Element {
     [scheduleSave],
   )
 
-  // AI brainstorm — places each generated idea as a sticky note (rectangle +
+  // AI brainstorm. Places each generated idea as a sticky note (rectangle +
   // bound text), tiled in a grid near the current viewport center.
   const addBrainstormNotes = useCallback(
     (ideas: string[]) => {
@@ -739,7 +739,7 @@ export function BoardEditor({ documentId }: BoardEditorProps): JSX.Element {
     [scheduleSave],
   )
 
-  // AI chat action handler — lets prose-actions from the AI panel draw nodes,
+  // AI chat action handler. Lets prose-actions from the AI panel draw nodes,
   // arrows, and file cards on the board (after the user clicks Apply).
   const boardActionHandler = useMemo(() => createBoardActionHandler({
     getApi: () => excalidrawAPIRef.current,
@@ -762,7 +762,7 @@ export function BoardEditor({ documentId }: BoardEditorProps): JSX.Element {
     }, 250)
   }, [])
 
-  // Excalidraw has no public undo()/redo() API — it only responds to a real
+  // Excalidraw has no public undo()/redo() API. It only responds to a real
   // keydown on its own root container (.excalidraw-container), so locate that
   // element within this board's own wrapper and dispatch there.
   const handleUndo = useCallback(() => {
@@ -781,7 +781,7 @@ export function BoardEditor({ documentId }: BoardEditorProps): JSX.Element {
 
   // A native Ctrl+Z/Ctrl+Y keypress goes straight to Excalidraw's own keydown
   // handler on its root container, bypassing handleUndo/handleRedo (and
-  // armPendingUndoRedo) entirely — so it used to always fall into
+  // armPendingUndoRedo) entirely. So it used to always fall into
   // handleChange's "genuine edit" branch, corrupting the mirrored depth
   // counters relative to Excalidraw's real stack. Intercept in the CAPTURE
   // phase (fires before Excalidraw's bubble-phase handler) so native hotkeys
@@ -822,7 +822,7 @@ export function BoardEditor({ documentId }: BoardEditorProps): JSX.Element {
         />
       </div>
 
-      {/* Panel content — empty state or transparent (native panel renders through via CSS) */}
+      {/* Panel content. Empty state or transparent (native panel renders through via CSS) */}
       <div className="flex-1 overflow-hidden">
         <AnimatePresence mode="wait">
           {boardSidebarOpen && !hasSelection && (activeToolType === 'selection' || activeToolType === 'hand' || activeToolType === 'eraser') && (
@@ -934,7 +934,7 @@ export function BoardEditor({ documentId }: BoardEditorProps): JSX.Element {
       <div className="flex flex-1 overflow-hidden">
         {sidebar}
 
-        {/* Canvas + AI panel row — CSS var lets globals.css translate the properties panel */}
+        {/* Canvas + AI panel row. CSS var lets globals.css translate the properties panel */}
         <div
           className={cn(
             'prose-excalidraw-root flex min-h-0 flex-1',
@@ -970,18 +970,18 @@ export function BoardEditor({ documentId }: BoardEditorProps): JSX.Element {
             </Excalidraw>
           </div>
 
-          {/* AI panel — resizable, same width-animated open/close as Slides'
+          {/* AI panel. Resizable, same width-animated open/close as Slides'
               right panel (SlidesEditor.tsx). Stays mounted at all times so
               chat state survives closing and reopening the panel. */}
           <motion.div
             ref={aiPanelRef}
-            // overflow-CLIP, not hidden — see the matching comment in Editor.tsx:
+            // overflow-CLIP, not hidden. See the matching comment in Editor.tsx:
             // prevents chat focus/scrollIntoView from permanently scrolling this box.
             className="relative shrink-0 overflow-clip border-l border-border"
             initial={false}
             animate={{ width: aiPanelOpen ? aiPanelWidth : 0 }}
             transition={{ duration: isResizingAiPanel ? 0 : 0.12, ease: 'easeOut' }}
-            // visibility must INHERIT while open (never explicit 'visible') —
+            // visibility must INHERIT while open (never explicit 'visible') -
             // see usePanelVisibility for the hidden-tab punch-through bug.
             style={{ pointerEvents: aiPanelOpen ? 'auto' : 'none', visibility: aiPanelVisibility }}
           >

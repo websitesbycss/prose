@@ -49,7 +49,7 @@ export function useAi(): AiChatState & AiChatControls {
   // needing messages in its dependency array (which would recreate it every chunk).
   const messagesRef = useRef<ChatMessage[]>([])
   // The main process's "took too long to respond" warning doesn't actually
-  // abort generation — a slow-but-working model can still send real chunks
+  // abort generation. A slow-but-working model can still send real chunks
   // afterward. Tracks whether the bubble currently holds that stale warning
   // so the next real chunk replaces it instead of appending onto it.
   const staleWarningRef = useRef(false)
@@ -86,7 +86,7 @@ export function useAi(): AiChatState & AiChatControls {
       staleWarningRef.current = false
 
       try {
-        // Concrete check (Ollama's /api/ps — models actually resident in
+        // Concrete check (Ollama's /api/ps. Models actually resident in
         // memory), not a guess: only shown when we know for certain the model
         // still needs to load, same signal used by Slides Generate and the
         // old Documents Issues analysis loading UI.
@@ -113,9 +113,9 @@ export function useAi(): AiChatState & AiChatControls {
             })
           },
           (errMsg) => {
-            // Error signal from main process — show it as the assistant message
+            // Error signal from main process. Show it as the assistant message
             // content. This doesn't necessarily mean generation has stopped
-            // (see the "took too long" warning) — a subsequent real chunk will
+            // (see the "took too long" warning). A subsequent real chunk will
             // replace this instead of appending onto it.
             setReloading(false)
             staleWarningRef.current = true

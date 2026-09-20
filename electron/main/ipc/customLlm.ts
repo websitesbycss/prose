@@ -10,7 +10,7 @@ export const CUSTOM_LLM_API_KEY_SETTING = 'customLlmApiKey'
 
 export function registerCustomLlmHandlers(): void {
   // Lists models for a provider using the API key the user just typed (not
-  // necessarily saved yet) — this is also the de facto "test connection"
+  // necessarily saved yet). This is also the de facto "test connection"
   // action: a bad key surfaces as a rejected promise the renderer can show.
   ipcMain.handle('customLlm:listModels', async (_, payload: unknown) => {
     if (!payload || typeof payload !== 'object') throw new Error('Invalid request.')
@@ -25,7 +25,7 @@ export function registerCustomLlmHandlers(): void {
   })
 
   // The key transits the renderer→main IPC exactly once, at the moment the
-  // user submits it (sandboxed, contextIsolated channel — same trust
+  // user submits it (sandboxed, contextIsolated channel. Same trust
   // boundary as every other IPC call in Prose). From here it is encrypted
   // with the OS's own credential store (see secureStorage.ts) and never
   // returned to the renderer again; settings:get only ever reports whether

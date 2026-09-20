@@ -2,7 +2,7 @@ import { ipcMain } from 'electron'
 import { getSettingsDb } from '../services/settingsDb'
 import { readSecret } from '../services/secureStorage'
 
-// Pexels stock-photo search for AI-generated Slides — strictly opt-in (see
+// Pexels stock-photo search for AI-generated Slides. Strictly opt-in (see
 // Settings > Slides). Off by default, and even when the setting is on, this
 // silently no-ops without a user-supplied API key rather than falling back
 // to any bundled/shared key: a key embedded in a distributed open-source app
@@ -37,7 +37,7 @@ function getPexelsSettings(): { enabled: boolean; apiKey: string | null } {
 export function registerPexelsHandlers(): void {
   // Returns { dataUrl, photographer, photographerUrl } for the query's top
   // result, or null if disabled, unconfigured, or the search/download fails
-  // for any reason — same silent-fallback convention as generateSlideVisual,
+  // for any reason. Same silent-fallback convention as generateSlideVisual,
   // a missing photo just means the caller falls back to another visual path.
   ipcMain.handle('slides:searchPexelsImage', async (_, query: unknown) => {
     if (typeof query !== 'string' || !query.trim()) return null

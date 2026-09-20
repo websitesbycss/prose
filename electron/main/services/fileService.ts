@@ -94,7 +94,7 @@ async function generateUniqueFilePath(title: string, folder: string): Promise<{ 
   } catch {
     return { filePath: candidate, resolvedTitle: title }
   }
-  // File exists — find next available sequential number
+  // File exists. Find next available sequential number
   for (let n = 2; n <= 999; n++) {
     const numberedTitle = `${title} (${n})`
     const numbered = join(folder, `${sanitizeFilename(numberedTitle)}.prose`)
@@ -182,7 +182,7 @@ export async function resolveDocument(id: string): Promise<{ doc: ProseFileDocum
       }
       return { doc, filePath: row.file_path }
     } catch {
-      // File not at indexed path — fall through to scan
+      // File not at indexed path. Fall through to scan
     }
   }
 
@@ -362,7 +362,7 @@ function rowToDashboard(row: IndexRow): DashboardDocument {
 
 // Background folder scans run during/after startup and shouldn't starve
 // foreground IPC requests (e.g. the dashboard's initial document list) of
-// main-thread time — fs reads already yield naturally, but better-sqlite3's
+// main-thread time. Fs reads already yield naturally, but better-sqlite3's
 // synchronous calls don't, so we force a real event-loop tick periodically.
 const YIELD_EVERY = 25
 async function yieldToEventLoop(): Promise<void> {
@@ -724,7 +724,7 @@ export function countWordsFromContent(content: unknown): number {
   return text ? text.split(/\s+/).length : 0
 }
 
-/** Unified content unit counter — words for documents, cells for sheets, elements for boards, slide count for slides. */
+/** Unified content unit counter. Words for documents, cells for sheets, elements for boards, slide count for slides. */
 export function countUnitsFromContent(content: unknown, fileType: string): number {
   if (fileType === 'sheet') {
     return isSheetContent(content) ? countSheetCells(content) : 0
@@ -824,7 +824,7 @@ function markdownToTiptap(md: string): unknown {
   const nodes: unknown[] = []
 
   for (const line of lines) {
-    // Blank lines are paragraph separators in markdown — skip them
+    // Blank lines are paragraph separators in markdown. Skip them
     if (!line.trim()) continue
 
     const headingMatch = line.match(/^(#{1,6})\s+(.+)$/)

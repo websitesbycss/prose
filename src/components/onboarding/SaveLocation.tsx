@@ -40,7 +40,7 @@ export default function SaveLocation({ defaultFolder, onNext }: SaveLocationProp
           </p>
         </div>
 
-        {/* Path display — click to change it */}
+        {/* Path display. Click to change it */}
         <button
           type="button"
           onClick={() => void handlePickFolder()}

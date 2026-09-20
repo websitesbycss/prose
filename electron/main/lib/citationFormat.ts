@@ -1,4 +1,4 @@
-/** Server-side citation formatting — mirrors src/lib/citations.ts (HTML is escaped). */
+/** Server-side citation formatting. Mirrors src/lib/citations.ts (HTML is escaped). */
 
 export type CitationType = 'book' | 'article' | 'website' | 'journal'
 

@@ -3,8 +3,13 @@ import { existsSync } from 'fs'
 import { join } from 'path'
 import { resolveDocument } from '../services/fileService'
 import { applyTitleBarOverlay, windowChromeOptions } from '../windowChrome'
+import { resolveEffectiveTheme } from '../services/settingsDb'
 
-const APP_ICON = join(__dirname, '../../../resources/icons/prose-icon.ico')
+// electron-vite bundles every main-process file (this one included) into a
+// single out/main/index.js, so __dirname here resolves the same as
+// electron/main/index.ts's. One fewer '..' than the source file's own
+// on-disk nesting under electron/main/ipc/ would suggest.
+const APP_ICON = join(__dirname, '../../resources/icons/prose-icon.ico')
 
 let _preloadPath = join(__dirname, '../preload/index.js')
 let _rendererPath = join(__dirname, '../renderer/index.html')
@@ -28,7 +33,7 @@ const tabBarBounds = new Map<number, TabBarRect>()
 // so a stale rect can't outlive its window regardless of whether that window
 // ever subscribed to fullscreen events (tabBarBounds used to only get
 // cleaned up as a side effect of window:subscribeLeaveFullscreen's own
-// 'destroyed' handler — a window that never called it left its bounds in
+// 'destroyed' handler. A window that never called it left its bounds in
 // the map forever, making merge-drag silently target a closed window).
 const tabBarBoundsCleanupRegistered = new Set<number>()
 
@@ -42,18 +47,28 @@ let detach: {
   interval: ReturnType<typeof setInterval>
   tabTitle: string
   hoverWcId: number | null
+  lastHoverScreenX: number | null
   grabOffsetX: number
   grabOffsetY: number
 } | null = null
 
-export function createProseWindow(docId?: string): BrowserWindow {
+export function createProseWindow(docId?: string, pos?: { x: number; y: number }): BrowserWindow {
   const win = new BrowserWindow({
+    ...pos,
     width: 1280,
     height: 800,
     minWidth: 960,
     minHeight: 600,
     ...windowChromeOptions(),
-    show: false,
+    // Shown immediately (not gated on 'ready-to-show', which waits for the
+    // page's first real paint) so a torn-off tab pops up as close to
+    // instantly as Electron allows, instead of a few hundred ms of nothing
+    // while a brand new renderer process boots the whole SPA from scratch.
+    // backgroundColor matching the app's own theme means that gap reads as
+    // "the window appeared, content is loading" instead of a jarring white
+    // flash before anything paints.
+    show: true,
+    backgroundColor: resolveEffectiveTheme() === 'dark' ? '#09090b' : '#ffffff',
     autoHideMenuBar: true,
     ...(existsSync(APP_ICON) ? { icon: APP_ICON } : {}),
     webPreferences: {
@@ -103,19 +118,26 @@ function clearMaximizeSubscription(wcId: number): void {
   maximizeSubscriptions.delete(wcId)
 }
 
-function createDragPreview(title: string): BrowserWindow {
+function createDragPreview(title: string, x: number, y: number): BrowserWindow {
   const preview = new BrowserWindow({
+    x,
+    y,
     width: 240,
     height: 40,
     frame: false,
     transparent: true,
+    // 'screen-saver' keeps the preview above every window, including the
+    // source Prose window itself, on Windows. Plain `alwaysOnTop: true`
+    // (the default level) can still lose to another always-on-top window.
     alwaysOnTop: true,
     skipTaskbar: true,
     resizable: false,
     focusable: false,
+    hasShadow: false,
     show: false,
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
   })
+  preview.setAlwaysOnTop(true, 'screen-saver')
   preview.setIgnoreMouseEvents(true)
   const safe = title.replace(/[<>&"']/g, '')
   void preview.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(
@@ -206,9 +228,19 @@ export function registerWindowHandlers(): void {
     clearMaximizeSubscription(event.sender.id)
   })
 
-  ipcMain.on('window:startMove', (event, { offsetX, offsetY }: { offsetX: number; offsetY: number }) => {
+  ipcMain.on('window:startMove', (event, { screenX, screenY }: { screenX: number; screenY: number }) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win) return
+    // Computed here, from the window's ACTUAL current bounds, rather than
+    // having the renderer precompute an offset from a cached
+    // getContentScreenOffset() result. That cache only refreshes on a
+    // 'resize' event, so it went stale after any plain move (drag, snap,
+    // manual reposition) with no resize involved. Using it made the window
+    // jump to a wrong position (sometimes a different monitor entirely) the
+    // instant a new drag started, and stay wrong for every drag after that.
+    const bounds = win.getBounds()
+    const offsetX = screenX - bounds.x
+    const offsetY = screenY - bounds.y
     if (moveInterval) clearInterval(moveInterval)
     moveInterval = setInterval(() => {
       const pos = screen.getCursorScreenPoint()
@@ -321,16 +353,25 @@ export function registerWindowHandlers(): void {
     if (typeof docId !== 'string' || !docId || detach || detachStarting) return
     const sourceWin = BrowserWindow.fromWebContents(event.sender)
     if (!sourceWin) return
-    // Set synchronously — resolveDocument() below is async, so without this
+    // Set synchronously. resolveDocument() below is async, so without this
     // a second 'tabdrag:detach' arriving before it resolves would pass the
     // `detach` check above (still null) and spawn a duplicate window.
     detachStarting = true
+
+    const grabOffsetX = opts?.grabOffsetX ?? 0
+    const grabOffsetY = opts?.grabOffsetY ?? 0
 
     void resolveDocument(docId).then((resolved) => {
       detachStarting = false
       if (!resolved || detach) return
       const tabTitle = resolved.doc.title || 'Untitled'
-      const preview = createDragPreview(tabTitle)
+      // Anchor the ghost at the cursor's CURRENT position (not wherever the
+      // drag started) using the same grab offset the tab was picked up by,
+      // so it appears already attached under the mouse instead of flashing
+      // at Electron's OS-default window placement for one frame, which,
+      // pre-fix, was frequently a different monitor than the drag itself.
+      const startPos = screen.getCursorScreenPoint()
+      const preview = createDragPreview(tabTitle, startPos.x - grabOffsetX, startPos.y - grabOffsetY)
 
       preview.once('ready-to-show', () => {
         if (!preview.isDestroyed()) preview.show()
@@ -343,12 +384,31 @@ export function registerWindowHandlers(): void {
         if (!detach) { clearInterval(interval); return }
 
         const pos = screen.getCursorScreenPoint()
+        const mergeTarget = findTabBarAtPoint(pos.x, pos.y, detach.sourceWcId)
 
         if (detach.preview && !detach.preview.isDestroyed()) {
-          detach.preview.setPosition(Math.max(0, pos.x - 20), Math.max(0, pos.y - 12))
+          // Hidden while hovering a valid merge target instead of left
+          // floating on top of it. The target's own insertion-line +
+          // highlighted strip (tabdrag:dropHover below) already shows where
+          // the tab will land, so hiding the ghost reads as "it's already
+          // landed there" rather than two separate previews fighting for
+          // attention, closer to Chrome's snap-into-place feel.
+          if (mergeTarget) {
+            detach.preview.hide()
+          } else {
+            if (!detach.preview.isVisible()) detach.preview.show()
+            // No Math.max(0, ...) clamp: screen coordinates are a signed
+            // virtual-desktop space, and a monitor placed left of or above
+            // the primary display has legitimately negative x/y. Clamping
+            // to 0 pinned the ghost to the primary monitor and made it stop
+            // tracking horizontal movement for anyone with that layout.
+            detach.preview.setPosition(
+              Math.round(pos.x - detach.grabOffsetX),
+              Math.round(pos.y - detach.grabOffsetY),
+            )
+          }
         }
 
-        const mergeTarget = findTabBarAtPoint(pos.x, pos.y, detach.sourceWcId)
         if (mergeTarget) {
           if (hoverWcId !== mergeTarget.wcId) {
             if (hoverWcId !== null) {
@@ -357,14 +417,24 @@ export function registerWindowHandlers(): void {
             }
             hoverWcId = mergeTarget.wcId
             detach.hoverWcId = hoverWcId
+            detach.lastHoverScreenX = null
           }
-          const targetWin = BrowserWindow.getAllWindows().find((w) => w.webContents.id === mergeTarget.wcId)
-          targetWin?.webContents.send('tabdrag:dropHover', { active: true, screenX: pos.x })
+          // Only send when the position actually changed since the last
+          // send, not unconditionally every 16ms tick. The receiving tab
+          // bar re-measures its whole DOM layout on every message, and
+          // resending an unchanged position up to 60x/second was the main
+          // source of the reported jitter while hovering to merge.
+          if (detach.lastHoverScreenX !== pos.x) {
+            detach.lastHoverScreenX = pos.x
+            const targetWin = BrowserWindow.getAllWindows().find((w) => w.webContents.id === mergeTarget.wcId)
+            targetWin?.webContents.send('tabdrag:dropHover', { active: true, screenX: pos.x })
+          }
         } else if (hoverWcId !== null) {
           const prevWin = BrowserWindow.getAllWindows().find((w) => w.webContents.id === hoverWcId)
           prevWin?.webContents.send('tabdrag:dropHover', { active: false })
           hoverWcId = null
           detach.hoverWcId = null
+          detach.lastHoverScreenX = null
         }
 
         if (!sourceWin.isDestroyed() && sourceBounds) {
@@ -384,11 +454,21 @@ export function registerWindowHandlers(): void {
         interval,
         tabTitle,
         hoverWcId: null,
-        grabOffsetX: opts?.grabOffsetX ?? 0,
-        grabOffsetY: opts?.grabOffsetY ?? 0,
+        lastHoverScreenX: null,
+        grabOffsetX,
+        grabOffsetY,
       }
     }).catch(() => {
       detachStarting = false
+      // resolveDocument failed (deleted mid-drag, index/file mismatch, etc.)
+      // The renderer already flipped into 'detached' mode optimistically
+      // (DocumentTabBar.tsx) with no way to know main gave up, so it would
+      // otherwise be stuck forever with no ghost and no way to finalize.
+      // Tell it to snap back to the strip, same as a normal cancel.
+      if (!event.sender.isDestroyed()) {
+        const pos = screen.getCursorScreenPoint()
+        event.sender.send('tabdrag:return', { screenX: pos.x })
+      }
     })
   })
 
@@ -436,17 +516,18 @@ export function registerWindowHandlers(): void {
       return
     }
 
-    const win = createProseWindow(detach.docId)
-    const grabX = detach.grabOffsetX
-    const grabY = detach.grabOffsetY
-    win.once('ready-to-show', () => {
-      if (win.isDestroyed()) return
-      // Position the new window so the tab appears under the cursor at the same grab offset.
-      // TAB_LEFT = home button (28px) + flex gap (6px) + small padding (~6px)
-      const TAB_LEFT = 40
-      const TAB_TOP = 8
-      win.setPosition(Math.max(0, Math.round(x - TAB_LEFT - grabX)), Math.max(0, Math.round(y - TAB_TOP - grabY)))
-      win.show()
+    // Position the new window so the tab appears under the cursor at the same grab offset.
+    // TAB_LEFT = home button (28px) + flex gap (6px) + small padding (~6px)
+    const TAB_LEFT = 40
+    const TAB_TOP = 8
+    // No Math.max(0, ...) clamp: see the matching comment on the ghost
+    // preview's positioning above. It broke placement on any monitor with
+    // negative virtual-desktop coordinates. Passed straight into the
+    // constructor (not set after 'ready-to-show') so the window never
+    // visibly appears in the wrong spot before jumping to the right one.
+    createProseWindow(detach.docId, {
+      x: Math.round(x - TAB_LEFT - detach.grabOffsetX),
+      y: Math.round(y - TAB_TOP - detach.grabOffsetY),
     })
     if (detach.preview && !detach.preview.isDestroyed()) detach.preview.close()
     event.sender.send('tabdrag:detached', { docId: detach.docId })

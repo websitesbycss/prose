@@ -12,6 +12,7 @@ import SaveLocation from '@/components/onboarding/SaveLocation'
 import AiSetupChoice from '@/components/onboarding/AiSetupChoice'
 import OllamaInstall from '@/components/onboarding/OllamaInstall'
 import { OnboardingThemeToggle } from '@/components/onboarding/OnboardingThemeToggle'
+import { OnboardingDragRegion } from '@/components/onboarding/OnboardingDragRegion'
 import ModelDownload from '@/components/onboarding/ModelDownload'
 import MigrationOverlay from '@/components/migration/MigrationOverlay'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
@@ -35,7 +36,7 @@ export default function App(): JSX.Element {
   const musicPanelOpen = useAppStore((s) => s.musicPanelOpen)
 
   const music = useMusic()
-  // Single app-wide countdown owner — see usePomodoroTicker's doc comment
+  // Single app-wide countdown owner. See usePomodoroTicker's doc comment
   // for why this must never be called from a per-tab component instead.
   usePomodoroTicker()
 
@@ -45,7 +46,7 @@ export default function App(): JSX.Element {
   const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>('welcome')
   const [defaultFolder, setDefaultFolder] = useState('')
   // Set when the user chooses "I'll use my own AI API key instead" during
-  // onboarding — skips the Ollama install/model-download steps entirely and
+  // onboarding. Skips the Ollama install/model-download steps entirely and
   // goes straight to the app. AI features stay gated behind ollamaStatus as
   // usual; ai:getStatus reports 'ready' as soon as they finish setting up a
   // custom LLM in Settings > AI, with no further onboarding involvement.
@@ -70,18 +71,27 @@ export default function App(): JSX.Element {
   }, [])
 
   useEffect(() => {
-    // Independent of the Ollama checks below — fire it concurrently instead of
+    // Independent of the Ollama checks below. Fire it concurrently instead of
     // waiting on them first.
     void window.prose.documents.getStorageInfo().then((info) => setDefaultFolder(info.folder))
 
     async function checkSetup(): Promise<void> {
-      // npm run dev:onboarding — force the onboarding flow to render every
+      // npm run dev:onboarding. Force the onboarding flow to render every
       // launch, regardless of what's actually installed on this machine.
       // OllamaInstall/ModelDownload simulate their progress screens instead
       // of touching the real installer or /api/pull (see their `mock` prop).
       if (window.prose.mockOnboarding) {
         setOllamaInstalled(false)
         setDownloadStatus({ downloaded: false, model: 'llama3.2:3b' })
+        return
+      }
+      // npm run dev:simple. Skip onboarding entirely, as if the user had
+      // already clicked "Skip for now". ai:getStatus (see ai.ts) separately
+      // forces 'unavailable' so the rest of the app renders its normal
+      // AI-not-configured state.
+      if (window.prose.mockNoAi) {
+        setOllamaInstalled(true)
+        setSkippedOllama(true)
         return
       }
       const installed = await window.prose.ollama.checkInstalled()
@@ -160,7 +170,7 @@ export default function App(): JSX.Element {
     }
   }, [setOllamaStatus])
 
-  // File association — double-click .prose file opens it
+  // File association. Double-click .prose file opens it
   useEffect(() => {
     const unsub = window.prose.app.onOpenFile(async (filePath) => {
       try {
@@ -198,7 +208,7 @@ export default function App(): JSX.Element {
     migrationStatus !== 'complete' &&
     migrationStatus !== 'not_needed'
 
-  // Ollama not installed — onboarding (skipped entirely once the user opts
+  // Ollama not installed. Onboarding (skipped entirely once the user opts
   // into bringing their own cloud API key instead)
   if (!ollamaInstalled && !skippedOllama) {
     if (onboardingStep === 'welcome') {
@@ -207,6 +217,7 @@ export default function App(): JSX.Element {
           {showMigration && <MigrationOverlay onComplete={handleMigrationComplete} />}
           <Welcome onNext={() => setOnboardingStep('save-location')} />
           <OnboardingThemeToggle />
+          <OnboardingDragRegion />
         </>
       )
     }
@@ -218,6 +229,7 @@ export default function App(): JSX.Element {
             onNext={() => setOnboardingStep('ai-choice')}
           />
           <OnboardingThemeToggle />
+          <OnboardingDragRegion />
         </>
       )
     }
@@ -234,6 +246,7 @@ export default function App(): JSX.Element {
             onSkipForNow={() => setSkippedOllama(true)}
           />
           <OnboardingThemeToggle />
+          <OnboardingDragRegion />
         </>
       )
     }
@@ -245,7 +258,7 @@ export default function App(): JSX.Element {
             onComplete={async () => {
               setOllamaInstalled(true)
               // In mock mode, force the model-download screen to render next
-              // regardless of what's really installed — the real check below
+              // regardless of what's really installed. The real check below
               // would otherwise see the dev's actual downloaded model and skip
               // straight past it.
               const status = window.prose.mockOnboarding
@@ -256,6 +269,7 @@ export default function App(): JSX.Element {
             }}
           />
           <OnboardingThemeToggle />
+          <OnboardingDragRegion />
         </>
       )
     }
@@ -273,6 +287,7 @@ export default function App(): JSX.Element {
             {showMigration && <MigrationOverlay onComplete={handleMigrationComplete} />}
             <Welcome onNext={() => setOnboardingStep('save-location')} />
             <OnboardingThemeToggle />
+            <OnboardingDragRegion />
           </>
         )
       }
@@ -284,6 +299,7 @@ export default function App(): JSX.Element {
               onNext={() => setOnboardingStep('model-download')}
             />
             <OnboardingThemeToggle />
+            <OnboardingDragRegion />
           </>
         )
       }
@@ -294,6 +310,7 @@ export default function App(): JSX.Element {
             onComplete={() => setDownloadStatus({ ...downloadStatus, downloaded: true })}
           />
           <OnboardingThemeToggle />
+          <OnboardingDragRegion />
         </>
       )
     }
@@ -316,7 +333,7 @@ export default function App(): JSX.Element {
           </div>
         </ErrorBoundary>
       )}
-      {/* AnimatePresence is required for MusicPanel's exit animation to play —
+      {/* AnimatePresence is required for MusicPanel's exit animation to play -
           without it, plain conditional rendering unmounts instantly on close,
           skipping the exit entirely and leaving open with no matching close. */}
       <AnimatePresence>

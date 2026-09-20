@@ -8,7 +8,7 @@ export function cn(...inputs: ClassValue[]): string {
 // getBoundingClientRect()/getClientRects() are computed in Chromium BEFORE any
 // ancestor's CSS `zoom` is applied, so a rect from inside a zoomed container
 // (e.g. the document editor's page-zoom control) reports coordinates in that
-// container's un-zoomed local space, not real viewport pixels — anything
+// container's un-zoomed local space, not real viewport pixels. Anything
 // positioned with `position: fixed` off those raw numbers ends up increasingly
 // offset the further the rect is from the zoom container's origin. Walk up
 // from `startEl` for the nearest ancestor with an inline `style.zoom` and

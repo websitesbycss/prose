@@ -1,4 +1,4 @@
-// Read-only grid preview for a Sheet picked as a Generate-tab source — mirrors
+// Read-only grid preview for a Sheet picked as a Generate-tab source. Mirrors
 // DocumentPreviewModal's role but renders a plain HTML table snapshot of the
 // sheet's used range instead of rasterizing PDF pages (a live FortuneSheet
 // Workbook isn't needed just to look at cell values).

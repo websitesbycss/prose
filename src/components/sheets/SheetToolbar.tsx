@@ -501,7 +501,7 @@ export function SheetToolbar({
           <TooltipContent side="bottom" className="text-xs">Underline (Ctrl+U)</TooltipContent>
         </Tooltip>
 
-        {/* Text color — A with color swatch */}
+        {/* Text color. A with color swatch */}
         <ColorPickerDropdown
           tooltip="Font color"
           trigger={
@@ -524,7 +524,7 @@ export function SheetToolbar({
           )}
         </ColorPickerDropdown>
 
-        {/* Cell fill — PaintBucket with color swatch */}
+        {/* Cell fill. PaintBucket with color swatch */}
         <ColorPickerDropdown
           tooltip="Fill color"
           trigger={

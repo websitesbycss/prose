@@ -1,5 +1,5 @@
 // Hover tooltip for analysis-issue highlights in the document editor. Lives
-// here (next to the editor) rather than in AiPanel.tsx — the Issues list and
+// here (next to the editor) rather than in AiPanel.tsx. The Issues list and
 // "Analyze document" button belong to the AI panel, but the highlights this
 // tooltip tracks are painted directly onto the editor content, so the
 // component that reads their live DOM position belongs with the editor too.
@@ -20,7 +20,7 @@ export function IssueTooltip({
 }: {
   editor: Editor | null
   issues: Issue[]
-  /** Called after a suggestion is applied here — shifts every other pending
+  /** Called after a suggestion is applied here. Shifts every other pending
    *  issue's span to match the edit (see shiftIssueSpansAfterEdit). */
   onIssueApplied?: (editStart: number, editEnd: number, delta: number) => void
 }): JSX.Element {
@@ -43,9 +43,9 @@ export function IssueTooltip({
   }, [])
 
   // Anchor to the top-center of the highlighted phrase itself, not the
-  // cursor — so hovering anywhere over the highlight shows the tooltip in the
+  // cursor. So hovering anywhere over the highlight shows the tooltip in the
   // same spot, arrow pointing at the middle of the word/phrase. Coordinates
-  // come from coordsAtPos via resolveViewportCoords — the exact same
+  // come from coordsAtPos via resolveViewportCoords. The exact same
   // (zoom-corrected) math SpellTooltip's popup uses, instead of hand-rolled
   // DOM-rect math with fudge offsets that drifted off the word.
   const computeAnchor = useCallback((issue: Issue): { x: number; y: number } | null => {
@@ -61,7 +61,7 @@ export function IssueTooltip({
   }, [editor])
 
   useEffect(() => {
-    if (!editor || !editor.view) return
+    if (!editor || editor.isDestroyed) return
 
     function onMouseMove(e: MouseEvent): void {
       const target = e.target as HTMLElement
@@ -90,7 +90,7 @@ export function IssueTooltip({
   // The mousemove handler above only recomputes position when the mouse
   // itself moves, so scrolling the document (mouse wheel, trackpad, no mouse
   // movement) left the tooltip stuck at its old screen position while the
-  // highlight moved out from under it — a `scroll` listener didn't reliably
+  // highlight moved out from under it. A `scroll` listener didn't reliably
   // catch every way the editor's content can scroll. Instead, poll the live
   // DOM position every animation frame for as long as a tooltip is showing,
   // so it tracks the highlight through any kind of scroll, resize, or layout
@@ -120,14 +120,14 @@ export function IssueTooltip({
   }, [tooltip?.issue.id, editor, computeAnchor])
 
   // position: fixed is only viewport-relative when no ancestor has a CSS
-  // `transform` set — the editor's page-zoom container almost certainly has
+  // `transform` set. The editor's page-zoom container almost certainly has
   // one, which would otherwise make "fixed" act like "absolute" relative to
   // that (scaled, scrolled) box instead of the real viewport. Portaling to
   // document.body sidesteps that entirely (same approach SpellTooltip uses).
   // Anchoring vs. animation must live on SEPARATE elements: the bottom-center
   // anchoring is done with a CSS translate, and framer-motion writes its own
   // inline `transform` (for the scale/y entrance) that would silently clobber
-  // any translate classes on the same element — which left the tooltip's
+  // any translate classes on the same element. Which left the tooltip's
   // top-LEFT corner at the anchor point instead of its bottom-center (i.e.
   // shifted to the bottom-right of the highlight by half its width + full
   // height). So: outer div owns fixed position + anchoring translate, inner

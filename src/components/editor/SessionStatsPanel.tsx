@@ -156,9 +156,9 @@ export function SessionStatsPanel({ stats }: Props): JSX.Element {
       <div className="grid grid-cols-2 gap-1.5">
         <StatCard value={wordsToday.toLocaleString()} label="words today" />
         <StatCard value={`${sessionMinutes}m`} label="session time" />
-        <StatCard value={wordsLeft !== null ? wordsLeft.toLocaleString() : '—'} label="words left" />
+        <StatCard value={wordsLeft !== null ? wordsLeft.toLocaleString() : '-'} label="words left" />
         <StatCard
-          value={minutesToGoal !== null ? `~${minutesToGoal}m` : '—'}
+          value={minutesToGoal !== null ? `~${minutesToGoal}m` : '-'}
           label="to goal"
         />
       </div>
@@ -175,7 +175,7 @@ export function SessionStatsPanel({ stats }: Props): JSX.Element {
               <div className="text-[10px] text-muted-foreground">{streakMsg}</div>
             </div>
           </div>
-          {/* Streak progress — fills left-to-right; 7th dot stays partial at 7+ days */}
+          {/* Streak progress. Fills left-to-right; 7th dot stays partial at 7+ days */}
           <div className="flex shrink-0 items-center gap-[3px] pt-0.5">
             {streakBubbleStates(streak).map((state, i) => (
               <StreakBubble key={i} state={state} pulse={state === 'partial'} />

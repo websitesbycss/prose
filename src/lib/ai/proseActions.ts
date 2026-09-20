@@ -2,7 +2,7 @@
 // The AI emits a fenced ```prose-actions block containing {"actions":[...]} in
 // its chat responses. This module extracts that block and validates every
 // action against a strict per-surface whitelist before anything is allowed to
-// touch an editor. Nothing in here executes actions — execution lives next to
+// touch an editor. Nothing in here executes actions. Execution lives next to
 // each editor (slideActionExecutor, sheetAiActions, boardAiActions) and only
 // runs after the user clicks Apply.
 //
@@ -403,7 +403,7 @@ export interface BoardConnectAction {
 
 export interface BoardAddFileCardAction {
   type: 'addFileCard'
-  /** File title — resolved against the real library at execution time. */
+  /** File title. Resolved against the real library at execution time. */
   title: string
 }
 
@@ -428,7 +428,7 @@ interface RawBlock { json: unknown; raw: string }
 
 function tryParse(text: string): unknown {
   try { return JSON.parse(text) } catch { /* fall through */ }
-  // Model may have truncated slightly or added trailing commas — try to
+  // Model may have truncated slightly or added trailing commas. Try to
   // recover the outermost object.
   const first = text.indexOf('{')
   const last = text.lastIndexOf('}')
@@ -752,7 +752,7 @@ function validateSheetAction(raw: Record<string, unknown>, warnings: string[]): 
 
 // ── Board validation ──────────────────────────────────────────────────────────
 
-// Named palette the model can use instead of hex — friendlier for small models.
+// Named palette the model can use instead of hex. Friendlier for small models.
 export const BOARD_PALETTE: Record<string, string> = {
   yellow: '#fff3a0',
   orange: '#ffd6a5',
@@ -861,7 +861,7 @@ export function describeAction(action: ProseAction): string {
   switch (action.type) {
     // Slides
     case 'addSlide': {
-      const title = action.slide.title ? ` — "${action.slide.title}"` : ''
+      const title = action.slide.title ? ` - "${action.slide.title}"` : ''
       return `Add ${action.slide.layout} slide${title}`
     }
     case 'addElement': {
@@ -887,7 +887,7 @@ export function describeAction(action: ProseAction): string {
     }
     case 'format': return `Format ${action.a1}`
     case 'merge': return `Merge ${action.a1}`
-    case 'addChart': return `Insert ${action.chartType} chart (${action.dataRange})${action.title ? ` — "${action.title}"` : ''}`
+    case 'addChart': return `Insert ${action.chartType} chart (${action.dataRange})${action.title ? ` - "${action.title}"` : ''}`
     // Boards
     case 'addNodes': return `Add ${action.nodes.length} node${action.nodes.length !== 1 ? 's' : ''} to board`
     case 'connect': return `Draw ${action.arrows.length} connection${action.arrows.length !== 1 ? 's' : ''}`

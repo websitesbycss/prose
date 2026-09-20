@@ -106,7 +106,7 @@ function excalidrawPalette(hex: string, isDark: boolean): Record<string, string>
     '--color-primary-contrast-offset':  hslToHex(h, s, Math.min(100, l + 5)),
     // selection outline (Excalidraw inverts it in dark mode via theme-filter)
     '--color-selection':                hslToHex(h, 80, 30),
-    // surface tints — keep saturation low so they stay close to neutral-dark
+    // surface tints. Keep saturation low so they stay close to neutral-dark
     '--color-surface-high':             hsl(h, 10, 18),
     '--color-surface-mid':              hsl(h,  6, 10),
     '--color-surface-low':              hsl(h,  8, 15),

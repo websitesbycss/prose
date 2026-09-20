@@ -161,7 +161,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   const setMusicPanelTab = useAppStore((s) => s.setMusicPanelTab)
   const [rightPanelWidth, setRightPanelWidth] = useState(340)
   // Width normally animates on open/close (see the motion.div below), but
-  // that transition must be suppressed while actively drag-resizing — else
+  // that transition must be suppressed while actively drag-resizing. Else
   // every mousemove retargets a 0.2s eased animation and the panel edge lags
   // behind the cursor instead of tracking it 1:1.
   const [isResizingRightPanel, setIsResizingRightPanel] = useState(false)
@@ -195,7 +195,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   const { document: doc, notifySaveStatus } = useDocument(documentId)
   const history = useSlideHistory()
 
-  // Keep canUndo/canRedo in sync — slides changes after every mutation and after undo/redo
+  // Keep canUndo/canRedo in sync. Slides changes after every mutation and after undo/redo
   useEffect(() => {
     setCanUndo(history.canUndo())
     setCanRedo(history.canRedo())
@@ -314,10 +314,10 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
     if (saveTimerRef.current) void flushAndSave()
   }, [flushAndSave])
 
-  // Thumbnail generation — fired by the main process after every successful
+  // Thumbnail generation. Fired by the main process after every successful
   // content auto-save. Always rasterizes slide 0, never the currently active
   // slide, via the same offscreen html2canvas pipeline already used for
-  // PNG/PPTX export — including rasterizing at the deck's real aspect ratio
+  // PNG/PPTX export. Including rasterizing at the deck's real aspect ratio
   // (getSlideBaseSize), not a hardcoded 16:9, since 4:3 and custom decks would
   // otherwise get squished the same way export used to before that was fixed.
   // fitSlideThumbnail then fits that into the fixed 560x315 thumbnail box:
@@ -665,7 +665,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   const [slideCtxMenu, setSlideCtxMenu] = useState<SlideContextMenuCtx | null>(null)
 
   // Each slide tab keeps its own mounted SlidesEditor (hidden via CSS, not
-  // unmounted) — but the context menu portals straight to document.body, which
+  // unmounted). But the context menu portals straight to document.body, which
   // escapes that hidden ancestor. Without this it would stay visible, floating
   // over whatever tab you switch to.
   useEffect(() => { if (!isActive) setSlideCtxMenu(null) }, [isActive])
@@ -870,13 +870,13 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
     scheduleSave()
   }, [pushHistory, scheduleSave])
 
-  // Arm shape tool — user then clicks or drags to place
+  // Arm shape tool. User then clicks or drags to place
   const handleInsertShape = useCallback((shapeType: import('@/types/slides').ShapeType): void => {
     setPendingShapeType(shapeType)
     setToolMode('shape')
   }, [])
 
-  // Arm table tool — user then clicks or drags to place
+  // Arm table tool. User then clicks or drags to place
   const handleInsertTable = useCallback((cols: number, rows: number): void => {
     setPendingTableConfig({ cols, rows })
     setToolMode('table')
@@ -912,7 +912,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
       changeActiveSlide((s) => ({ ...s, elements: [...s.elements, el] }))
       setSelectedIds([el.id])
     } catch {
-      // User cancelled or dialog unavailable — silently ignore
+      // User cancelled or dialog unavailable. Silently ignore
     }
   }, [changeActiveSlide])
 
@@ -920,7 +920,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
 
   const handleChartSnapshotSelected = useCallback((snapshot: ChartSnapshot): void => {
     // Slide x/y/width/height are percentages of SLIDE_BASE_WIDTH and
-    // SLIDE_BASE_HEIGHT independently — those aren't equal (16:9), so the chart's
+    // SLIDE_BASE_HEIGHT independently. Those aren't equal (16:9), so the chart's
     // true pixel aspect ratio must be corrected by the slide's aspect ratio,
     // not applied directly to the width%/height% pair.
     const imgAspect = snapshot.width / snapshot.height
@@ -959,7 +959,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
     onSave: flushAndSave,
     // Every open Slides tab stays mounted (hidden via CSS), so each instance's
     // own `window` keydown listener would otherwise fire even while a
-    // different tab is the one actually focused — gate on tab-active state,
+    // different tab is the one actually focused. Gate on tab-active state,
     // not just the preview overlay.
     disabled: previewOpen || !isActive,
   })
@@ -1066,7 +1066,7 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   }, [activeSlideIndex, selectedAnimationId, slides])
 
   // ── Loading state ─────────────────────────────────────────────────────────────
-  // Presentation mode renders as an overlay below (not an early return here) —
+  // Presentation mode renders as an overlay below (not an early return here) -
   // an early return would unmount the whole editor tree, including the AI
   // panel, wiping its chat/generate state every time someone presents. Instead
   // the normal editor stays mounted underneath, just hidden via CSS.
@@ -1219,21 +1219,21 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
         </div>
 
         {/* Right: shared AI / animations panel. Both panels stay mounted at
-            all times — width/opacity/position animate instead of anything
-            mounting or unmounting — so switching between them, closing this
+            all times. Width/opacity/position animate instead of anything
+            mounting or unmounting. So switching between them, closing this
             panel, or presenting never wipes the AI panel's chat/generate
             state. It only ever resets when this SlidesEditor instance itself
             unmounts (file closed) or the app restarts. Quick 0.12s slide from
             the right, same feel as the music panel's tab crossfade. */}
         <motion.div
           ref={rightPanelRef}
-          // overflow-CLIP, not hidden — see the matching comment in Editor.tsx:
+          // overflow-CLIP, not hidden. See the matching comment in Editor.tsx:
           // prevents chat focus/scrollIntoView from permanently scrolling this box.
           className="relative shrink-0 overflow-clip border-l border-border"
           initial={false}
           animate={{ width: rightPanelOpen ? rightPanelWidth : 0 }}
           transition={{ duration: isResizingRightPanel ? 0 : 0.12, ease: 'easeOut' }}
-          // visibility must INHERIT while open (never explicit 'visible') —
+          // visibility must INHERIT while open (never explicit 'visible') -
           // see usePanelVisibility for the hidden-tab punch-through bug.
           style={{ pointerEvents: rightPanelOpen ? 'auto' : 'none', visibility: rightPanelVisibility }}
         >
@@ -1399,7 +1399,7 @@ function SlidePreviewOverlay({
   const hasTransition = !!slide.transition && slide.transition.type !== 'none'
   const [phase, setPhase] = useState<'transition' | 'animations'>(hasTransition ? 'transition' : 'animations')
   // mode:'preview' auto-advances "on click" steps after a short pause so the
-  // whole sequence plays without requiring clicks — startPaused holds it
+  // whole sequence plays without requiring clicks. startPaused holds it
   // until the transition (played separately, below) finishes first.
   const playback = useSlideAnimationPlayback(slide, { mode: 'preview', startPaused: phase === 'transition' })
   const scale = canvasRect.width / getSlideBaseSize(settings).baseW
@@ -1419,7 +1419,7 @@ function SlidePreviewOverlay({
   }, [onClose, playback.isComplete])
 
   // Click anywhere on the preview, or the usual "advance" keys, move things
-  // along — skip straight past the transition if it's still playing,
+  // along. Skip straight past the transition if it's still playing,
   // otherwise advance the animation sequence.
   function handleAdvance(): void {
     if (phase === 'transition') { setPhase('animations'); return }

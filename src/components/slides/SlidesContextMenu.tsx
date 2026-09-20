@@ -277,7 +277,7 @@ export function SlidesContextMenu({
         onMouseDown={(e) => e.preventDefault()}
         onMouseOver={(e) => {
           // Close any open submenu the instant the cursor is over something in
-          // the main menu that isn't a submenu trigger — no hover-out delay.
+          // the main menu that isn't a submenu trigger. No hover-out delay.
           if (!activeSubmenu) return
           if ((e.target as HTMLElement).closest('[data-submenu-trigger]')) return
           cancelClose()

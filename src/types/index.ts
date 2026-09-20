@@ -81,7 +81,7 @@ export interface AppSettings {
   customLlmProvider?: CustomLlmProviderId
   customLlmModel?: string
   customLlmBaseUrl?: string | null
-  /** Whether an API key is currently saved — the key itself never round-trips to the renderer. */
+  /** Whether an API key is currently saved. The key itself never round-trips to the renderer. */
   customLlmApiKeySet?: boolean
 }
 
@@ -256,7 +256,7 @@ export interface ProseAPI {
     streamPrompt(payload: AiPromptPayload, onChunk: (chunk: string) => void, onError: (msg: string) => void): Promise<void>
   }
   customLlm: {
-    /** Lists models available for `provider` using a (possibly unsaved) API key — also serves as a connection test. */
+    /** Lists models available for `provider` using a (possibly unsaved) API key. Also serves as a connection test. */
     listModels(payload: { provider: CustomLlmProviderId; apiKey: string; baseUrl?: string }): Promise<LlmModelInfo[]>
     /** Encrypts and saves the key via the OS's secure storage. Never returned to the renderer again. */
     saveApiKey(apiKey: string): Promise<{ ok: boolean; encrypted: boolean }>
@@ -276,7 +276,7 @@ export interface ProseAPI {
     close(): void
     isMaximized(): Promise<boolean>
     subscribeMaximize(cb: (isMaximized: boolean) => void): () => void
-    startMove(offset: { offsetX: number; offsetY: number }): void
+    startMove(pos: { screenX: number; screenY: number }): void
     stopMove(): void
     setFullscreen(fullscreen: boolean): void
     isFullscreen(): Promise<boolean>
@@ -370,8 +370,10 @@ export interface ProseAPI {
     onStatus(cb: (status: UpdateStatusPayload) => void): () => void
   }
   platform: NodeJS.Platform
-  /** True only under `npm run dev:onboarding` — see scripts/dev.js. */
+  /** True only under `npm run dev:onboarding`. See scripts/dev.js. */
   mockOnboarding: boolean
+  /** True only under `npm run dev:simple`. See scripts/dev.js. */
+  mockNoAi: boolean
 }
 
 export interface UpdateStatusPayload {

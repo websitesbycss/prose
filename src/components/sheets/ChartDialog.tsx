@@ -162,9 +162,9 @@ function defaultAdvanced(editChart?: ChartDef): ChartAdvancedOptions {
   }
 }
 
-// ── Color swatch (no label) — opens the shared Chrome-style color picker ──────
+// ── Color swatch (no label). Opens the shared Chrome-style color picker ──────
 
-// Curated, chart-friendly palette — saturated and mutually distinguishable; includes
+// Curated, chart-friendly palette. Saturated and mutually distinguishable; includes
 // the 8 Prose chart defaults so picking a default-matching color never reads as "custom".
 const CHART_PALETTE = [
   '#6366f1', '#ec4899', '#10b981', '#f59e0b',
@@ -328,8 +328,8 @@ export function ChartDialog({
 
   const isEditing = !!editChart
 
-  // Legend entries the "Custom colors" swatches should map to — categories for
-  // pie/doughnut, series for everything else — derived from the live range.
+  // Legend entries the "Custom colors" swatches should map to. Categories for
+  // pie/doughnut, series for everything else. Derived from the live range.
   const legendLabels = useMemo(() => {
     const rng = parseRange(dataRange)
     const sheets = workbookRef.current?.getAllSheets()
@@ -416,7 +416,7 @@ export function ChartDialog({
             ))}
           </div>
 
-          {/* Right: config + preview + advanced — one scrollable column.
+          {/* Right: config + preview + advanced. One scrollable column.
               No right padding on this wrapper so the scrollbar sits flush against
               the dialog's edge; right breathing room comes from pr-4 on the
               scrollable element itself, inside its own padding box. */}
@@ -551,7 +551,7 @@ export function ChartDialog({
                     </div>
                   )}
 
-                  {/* Text scale — applies to title, legend, axis labels, and tick values */}
+                  {/* Text scale. Applies to title, legend, axis labels, and tick values */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <p className="text-xs text-muted-foreground">Text scale</p>

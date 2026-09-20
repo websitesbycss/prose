@@ -31,7 +31,7 @@ function mirrorPanels(
 
 // Mirrors theme-init.js's logic exactly, so the React theme state always
 // matches the `dark` class theme-init.js already applied to <html> before
-// this module even loads — on first launch (nothing stored yet) that means
+// this module even loads. On first launch (nothing stored yet) that means
 // following the OS's light/dark preference rather than hardcoding 'dark'.
 function readStoredTheme(): Theme {
   try {
@@ -64,7 +64,7 @@ interface AppState {
   boardSidebarOpen: boolean
   /**
    * Right-panel open state, PER DOCUMENT TAB. Every editor instance reads its
-   * own entry — never a global flag — so opening the AI panel in one tab
+   * own entry. Never a global flag. So opening the AI panel in one tab
    * can't open (or overlay) it in any other tab.
    */
   panelsByDoc: Record<string, PanelState>
@@ -83,7 +83,7 @@ interface AppState {
   settingsOpen: boolean
   /** When set, the next time SettingsModal opens it jumps straight to this
    * section (e.g. onboarding's "I'll use my own API key" opens Settings on
-   * the AI tab) — cleared by SettingsModal once consumed. */
+   * the AI tab). Cleared by SettingsModal once consumed. */
   settingsInitialSection: string | null
   pomodoroState: PomodoroState
   ollamaStatus: OllamaStatus
@@ -297,6 +297,14 @@ export const useAppStore = create<AppState>()((set) => ({
     } catch {
       // Ignore storage write failures (private mode, restricted profiles).
     }
+    // Persisted here (not left to individual call sites) so every toggle
+    // everywhere (sidebar, title bars, onboarding, Settings) keeps the
+    // main process's saved theme in sync. Without this, only the Settings
+    // modal's own theme picker persisted it, so the native title bar
+    // (resolved from that saved value at window-creation time in
+    // windowChrome.ts) went stale after any other toggle, showing the wrong
+    // theme's colors until the user happened to toggle via Settings again.
+    void window.prose.settings.set({ theme })
     const apply = (): void => {
       document.documentElement.classList.toggle('dark', theme === 'dark')
       flushSync(() => set({ theme }))
@@ -311,7 +319,7 @@ export const useAppStore = create<AppState>()((set) => ({
   },
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   setBoardSidebarOpen: (open) => set({ boardSidebarOpen: open }),
-  // Panel setters write to the ACTIVE document's entry — toolbars and close
+  // Panel setters write to the ACTIVE document's entry. Toolbars and close
   // buttons only ever act on the tab the user is looking at. Panels within a
   // document are mutually exclusive: opening one closes the others.
   setAiPanelOpen: (open) =>

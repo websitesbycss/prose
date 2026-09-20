@@ -42,7 +42,7 @@ function ChartThumb({
     // Thumbnail-only overrides: no legend/title/axis-label clutter at this
     // size, no animation replay on every re-render. Left as `responsive: true`
     // (buildChartConfig's default) with the canvas filling a CSS aspect-ratio
-    // box below, instead of forcing a fixed intrinsic resolution — that
+    // box below, instead of forcing a fixed intrinsic resolution. That
     // mismatched the actually-displayed box and stretched/squished the chart.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const options = config.options as any

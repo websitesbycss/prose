@@ -5,7 +5,7 @@ import { TitleBarFrame } from '@/components/TitleBarFrame'
 import { useAppStore } from '@/store/appStore'
 import { cn } from '@/lib/utils'
 
-/** Minimal title bar for the Board editor — tab strip + AI panel toggle + theme. */
+/** Minimal title bar for the Board editor. Tab strip + AI panel toggle + theme. */
 export function BoardTitleBar(): JSX.Element {
   const theme = useAppStore((s) => s.theme)
   const setTheme = useAppStore((s) => s.setTheme)

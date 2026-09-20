@@ -26,7 +26,7 @@ export function TextElementEditor({ element, scale, onCommit, onCancel }: Props)
     range.collapse(false)
     const sel = window.getSelection()
     if (sel) { sel.removeAllRanges(); sel.addRange(range) }
-    // Deliberately run once on mount only — re-running on element.content
+    // Deliberately run once on mount only. Re-running on element.content
     // changes would wipe the live contenteditable DOM and cursor position
     // out from under the user mid-edit.
     // eslint-disable-next-line react-hooks/exhaustive-deps

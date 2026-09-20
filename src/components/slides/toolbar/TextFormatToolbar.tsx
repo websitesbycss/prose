@@ -309,12 +309,12 @@ export function TextFormatToolbar({ element, onUpdate, compact = false }: Props)
   function handleListMouseDown(listTag: 'ul' | 'ol', e: React.MouseEvent): void {
     const active = document.activeElement as HTMLElement
     if (active?.isContentEditable && active.classList.contains('slide-text-content')) {
-      // Editor is focused — keep focus and apply list toggle at the cursor position
+      // Editor is focused. Keep focus and apply list toggle at the cursor position
       e.preventDefault()
       document.execCommand(listTag === 'ul' ? 'insertUnorderedList' : 'insertOrderedList')
       onUpdate({ content: active.innerHTML })
     } else {
-      // No active editor — apply to whole content
+      // No active editor. Apply to whole content
       toggleListContent(listTag)
     }
   }
@@ -378,7 +378,7 @@ export function TextFormatToolbar({ element, onUpdate, compact = false }: Props)
         </>
       )}
 
-      {/* Text color — "A" letter + color swatch */}
+      {/* Text color - "A" letter + color swatch */}
       <ColorPickerDropdown
         tooltip="Font color"
         trigger={
@@ -401,7 +401,7 @@ export function TextFormatToolbar({ element, onUpdate, compact = false }: Props)
         )}
       </ColorPickerDropdown>
 
-      {/* Background color — PaintBucket + color swatch */}
+      {/* Background color. PaintBucket + color swatch */}
       <ColorPickerDropdown
         tooltip="Background color"
         trigger={
@@ -424,7 +424,7 @@ export function TextFormatToolbar({ element, onUpdate, compact = false }: Props)
         )}
       </ColorPickerDropdown>
 
-      {/* Stroke color — BorderColorIcon + swatch */}
+      {/* Stroke color. BorderColorIcon + swatch */}
       <ColorPickerDropdown
         tooltip="Stroke color"
         trigger={
@@ -489,7 +489,7 @@ export function TextFormatToolbar({ element, onUpdate, compact = false }: Props)
         <CompactGroup icon={List} label="Lists &amp; spacing">
           <Button variant="ghost" size="icon" className={cn('h-7 w-7', isBulletList && '!text-primary')} onMouseDown={(e) => handleListMouseDown('ul', e)}><List className="h-3.5 w-3.5" /></Button>
           <Button variant="ghost" size="icon" className={cn('h-7 w-7', isOrderedList && '!text-primary')} onMouseDown={(e) => handleListMouseDown('ol', e)}><ListOrdered className="h-3.5 w-3.5" /></Button>
-          {/* LineHeightPicker opens its own popover — stop propagation to keep compact group open */}
+          {/* LineHeightPicker opens its own popover. Stop propagation to keep compact group open */}
           <span onClick={(e) => e.stopPropagation()}>
             <LineHeightPicker lineHeight={element.lineHeight} onChange={(v) => onUpdate({ lineHeight: v })} />
           </span>

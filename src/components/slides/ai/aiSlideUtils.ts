@@ -75,21 +75,21 @@ export interface AiSlideSchema {
   table?: AiTableSchema | null
   /** Present when a spreadsheet source gives the model real numbers worth charting. */
   chart?: AiChartSchema | null
-  /** "comparison" only — headers for the two sides (content still carries {left,right}). */
+  /** "comparison" only. Headers for the two sides (content still carries {left,right}). */
   comparisonLabels?: { left: string; right: string } | null
-  /** "icon-list" only — each item pairs a curated icon name with a short label. */
+  /** "icon-list" only. Each item pairs a curated icon name with a short label. */
   iconItems?: { icon: string; label: string }[] | null
-  /** "stat" only — one big figure and its label; content holds the supporting sentence. */
+  /** "stat" only. One big figure and its label; content holds the supporting sentence. */
   stat?: { value: string; label: string } | null
-  /** "quote" only — attribution for the quote in content, e.g. "Jane Doe, CEO". */
+  /** "quote" only. Attribution for the quote in content, e.g. "Jane Doe, CEO". */
   quoteAttribution?: string | null
-  /** "three-column" only — exactly 3 bullet arrays, one per column. */
+  /** "three-column" only. Exactly 3 bullet arrays, one per column. */
   columns?: string[][] | null
 }
 
 // ── Output sanitization ──────────────────────────────────────────────────────
 // Local models routinely emit curly quotes, markdown markers, and bullets
-// wrapped in quotation marks — none of which belong on a slide.
+// wrapped in quotation marks. None of which belong on a slide.
 
 export function sanitizeSlideText(raw: string): string {
   let s = raw
@@ -97,7 +97,7 @@ export function sanitizeSlideText(raw: string): string {
     .replace(/[“”„]/g, '"')
     .replace(/`+/g, '')
     .replace(/\*\*|\*|__/g, '')
-    .replace(/^\s*(?:[-*•]|\d+[.)])\s+/, '') // leading list marker — we add our own
+    .replace(/^\s*(?:[-*•]|\d+[.)])\s+/, '') // leading list marker. We add our own
     .trim()
   if (s.length > 1 && ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'")))) {
     s = s.slice(1, -1).trim()
@@ -179,7 +179,7 @@ function contentToText(content: AiSlideSchema['content']): string {
 }
 
 // Thin theme-colored bar used as a deterministic design accent (under titles,
-// centered on section headers) — polish the local model doesn't have to (and
+// centered on section headers). Polish the local model doesn't have to (and
 // couldn't reliably) specify itself.
 function makeAccentBar(x: number, y: number, w: number, color: string): ShapeElement {
   return {
@@ -230,7 +230,7 @@ function isDarkHex(hex: string): boolean {
 }
 
 export function aiSlideToProseSlide(rawAi: AiSlideSchema, theme: PresentationTheme): Slide {
-  // Sanitize everything the model wrote before it touches a slide — local
+  // Sanitize everything the model wrote before it touches a slide. Local
   // models routinely emit curly quotes, markdown markers, and quoted bullets.
   const ai: AiSlideSchema = {
     ...rawAi,
@@ -324,7 +324,7 @@ export function aiSlideToProseSlide(rawAi: AiSlideSchema, theme: PresentationThe
       elements.push(makeAccentBar(42.5, 22, 15, theme.accentColor))
       elements.push(makeTextEl(crypto.randomUUID(), `"${quoteText}"`, 12, 28, 76, 40, 40, theme.textColor, 'center'))
       if (ai.quoteAttribution) {
-        elements.push(makeTextEl(crypto.randomUUID(), `— ${ai.quoteAttribution}`, 15, 70, 70, 10, 24, theme.textColor, 'center'))
+        elements.push(makeTextEl(crypto.randomUUID(), `- ${ai.quoteAttribution}`, 15, 70, 70, 10, 24, theme.textColor, 'center'))
       }
       break
     }
@@ -354,7 +354,7 @@ export function aiSlideToProseSlide(rawAi: AiSlideSchema, theme: PresentationThe
       const colWidth = cols === 2 ? 44 : 90
       const rowHeight = Math.min(22, 66 / rows)
       const ICON_W = 6
-      const ICON_H = ICON_W * (SLIDE_BASE_WIDTH / SLIDE_BASE_HEIGHT) // square in rendered pixels — x%/y% share a base, so a "square" box needs the height% scaled by the slide's own aspect ratio
+      const ICON_H = ICON_W * (SLIDE_BASE_WIDTH / SLIDE_BASE_HEIGHT) // square in rendered pixels. X%/y% share a base, so a "square" box needs the height% scaled by the slide's own aspect ratio
       items.forEach((item, i) => {
         const col = i % cols
         const row = Math.floor(i / cols)
@@ -400,7 +400,7 @@ export function aiSlideToProseSlide(rawAi: AiSlideSchema, theme: PresentationThe
 
   // Chart snapshots render synchronously (no model round-trip), so they're
   // attached here rather than in the async attachGeneratedVisuals pass.
-  // A slide carries at most one data visual — table wins if the model
+  // A slide carries at most one data visual. Table wins if the model
   // (against instructions) emitted both.
   if (ai.chart && !table) {
     const isDark = useAppStore.getState().theme === 'dark'
@@ -432,11 +432,11 @@ export function aiSlideToProseSlide(rawAi: AiSlideSchema, theme: PresentationThe
 export const AI_VISUAL_REGION = { x: 64, y: 22, width: 31, height: 60 }
 
 // Generates and attaches a visual for every "image-caption" slide that
-// suggested one — the rest of the deck builds and previews instantly, then
+// suggested one. The rest of the deck builds and previews instantly, then
 // the (slower) generated graphics fill in as each one resolves.
 //
 // Tries Pexels first when the user has opted in (Settings > Slides) and
-// configured their own API key — a real stock photo instead of a simple
+// configured their own API key. A real stock photo instead of a simple
 // AI-drawn illustration. Falls back to the SVG illustration path whenever
 // Pexels is off, unconfigured, or the search/download fails for any reason,
 // so this never blocks the deck on a network call the user didn't ask for.
@@ -463,10 +463,10 @@ export async function attachGeneratedVisuals(
             src: photo.dataUrl, altText: ai.suggestedImageDescription, borderRadius: 4,
             filters: { brightness: 100, contrast: 100, saturation: 100, blur: 0 },
           }
-          // Small credit overlaid at the bottom-left of the photo — required
+          // Small credit overlaid at the bottom-left of the photo. Required
           // by Pexels' license, matches the placement slide-deck-ai uses.
           // A dark scrim sits behind the text since a real photo's bottom-left
-          // corner brightness is unpredictable — plain white text alone would
+          // corner brightness is unpredictable. Plain white text alone would
           // be illegible against a light patch of sky, snow, etc.
           const scrim: SlideElement = {
             id: crypto.randomUUID(), type: 'shape', shapeType: 'rect',
@@ -528,14 +528,14 @@ Schema for each slide object:
 Deck structure:
 - Slide at index 0 always uses layout "title": a strong presentation title, with a one-sentence subtitle as "content".
 - Use "section-header" to introduce each major topic shift.
-- Use a variety of layouts across the deck — don't default to "title-content" for everything. Options for body slides beyond the basics:
+- Use a variety of layouts across the deck. Don't default to "title-content" for everything. Options for body slides beyond the basics:
   - "two-column": comparing or contrasting exactly two things ("content" must then be { left, right }).
-  - "comparison": like two-column but with explicit headers over each side — set "comparisonLabels" to a short name for each side (e.g. "Before"/"After", "Pros"/"Cons") and "content" to { left, right } as usual.
-  - "three-column": three parallel things side by side — set "columns" to an array of exactly 3 bullet arrays, one per column. Leave "content" empty.
-  - "agenda": a numbered outline or table of contents — set "content" to a string array, one item per line. Best for one slide near the start of the deck.
-  - "stat": one big number or figure as the whole point of the slide — set "stat" to { value, label } (e.g. value "40%", label "revenue growth year over year"), and optionally a one-sentence elaboration in "content". Use sparingly, for a single standout figure worth a whole slide.
-  - "quote": a notable quotation — "content" is the quote text (no quotation marks, they're added automatically), "quoteAttribution" is who said it. Only use this if a real quote exists in the source material — never invent one.
-  - "icon-list": a short list of concepts or features, each paired with an icon — set "iconItems" to an array of up to 6 { icon, label } objects. "icon" MUST be one of exactly these names (pick the closest match, do not invent new ones): ${CURATED_ICON_LIST_PROMPT}.
+  - "comparison": like two-column but with explicit headers over each side. Set "comparisonLabels" to a short name for each side (e.g. "Before"/"After", "Pros"/"Cons") and "content" to { left, right } as usual.
+  - "three-column": three parallel things side by side. Set "columns" to an array of exactly 3 bullet arrays, one per column. Leave "content" empty.
+  - "agenda": a numbered outline or table of contents. Set "content" to a string array, one item per line. Best for one slide near the start of the deck.
+  - "stat": one big number or figure as the whole point of the slide. Set "stat" to { value, label } (e.g. value "40%", label "revenue growth year over year"), and optionally a one-sentence elaboration in "content". Use sparingly, for a single standout figure worth a whole slide.
+  - "quote": a notable quotation - "content" is the quote text (no quotation marks, they're added automatically), "quoteAttribution" is who said it. Only use this if a real quote exists in the source material. Never invent one.
+  - "icon-list": a short list of concepts or features, each paired with an icon. Set "iconItems" to an array of up to 6 { icon, label } objects. "icon" MUST be one of exactly these names (pick the closest match, do not invent new ones): ${CURATED_ICON_LIST_PROMPT}.
 - End the deck with a closing slide of key takeaways or next steps.
 - Maximum 20 slides.
 
@@ -550,17 +550,17 @@ Writing rules (critical):
 Spreadsheet sources (critical):
 - Never copy spreadsheet rows or cell values directly into bullets. First understand the data: what each column represents, the totals, trends, largest and smallest values, and changes over time or between categories.
 - Bullets about data must state insights as sentences with context and units, e.g. "Monthly sales grew 26% between January and June".
-- Show the numbers themselves using "table" or "chart", not text. Use "table" for a small set of figures worth reading exactly (at most 6 rows and 5 columns — select the most important rows if the source is larger). Use "chart" for trends, series, or comparisons, restating actual numbers from the source — never invent data. Match chart type to data shape: categories → bar, time series → line/area, parts-of-a-whole with at most 8 slices → pie/doughnut, two numeric variables → scatter.
-- Slides with a "table" or "chart" must use layout "title-content". A slide may have at most ONE of "table", "chart", or "suggestedImageDescription" — set the others to null.
+- Show the numbers themselves using "table" or "chart", not text. Use "table" for a small set of figures worth reading exactly (at most 6 rows and 5 columns, select the most important rows if the source is larger). Use "chart" for trends, series, or comparisons, restating actual numbers from the source. Never invent data. Match chart type to data shape: categories → bar, time series → line/area, parts-of-a-whole with at most 8 slices → pie/doughnut, two numeric variables → scatter.
+- Slides with a "table" or "chart" must use layout "title-content". A slide may have at most ONE of "table", "chart", or "suggestedImageDescription". Set the others to null.
 
 Visuals:
-- Use layout "image-caption" (with a concrete, specific suggestedImageDescription) for any slide where a diagram, icon, or illustration would genuinely help — a real image will be generated from that description and placed on the slide. Use it generously where visuals add value, not just for literal photos. For all other layouts, set suggestedImageDescription to null.
+- Use layout "image-caption" (with a concrete, specific suggestedImageDescription) for any slide where a diagram, icon, or illustration would genuinely help. A real image will be generated from that description and placed on the slide. Use it generously where visuals add value, not just for literal photos. For all other layouts, set suggestedImageDescription to null.
 - backgroundColor is null to use the theme default, or a hex color for occasional accent slides.`
 
 export const SVG_SYSTEM_PROMPT = `Generate a clean, simple SVG illustration for a presentation slide.
 Return ONLY valid SVG markup starting with <svg. No explanation, no preamble.
 Style: flat design, minimal, professional. Use only these theme colors where color is needed: {themeColors}.
-The SVG should use viewBox="0 0 400 300". Keep it simple — 5-15 shapes maximum.
+The SVG should use viewBox="0 0 400 300". Keep it simple - 5-15 shapes maximum.
 Subject: {description}`
 
 // ── Shared AI-graphic generation ──────────────────────────────────────────────
@@ -583,7 +583,7 @@ export async function generateSlideVisual(
     const svgMatch = /<svg[\s\S]*<\/svg>/i.exec(resp)
     const rawSvg = svgMatch ? svgMatch[0] : resp.trim()
     if (!rawSvg.startsWith('<svg')) return null
-    // Sanitized again — defense in depth — at render time in AiGraphicElementRenderer.
+    // Sanitized again (defense in depth) at render time in AiGraphicElementRenderer.
     const DOMPurify = (await import('dompurify')).default
     const safe = DOMPurify.sanitize(rawSvg, {
       USE_PROFILES: { svg: true, svgFilters: true },

@@ -269,7 +269,7 @@ function ImageNodeView({ node, updateAttributes, selected, editor, getPos }: Nod
         }
       }}
     >
-      {/* Floating toolbar — corner radius control */}
+      {/* Floating toolbar. Corner radius control */}
       {selected && (
         <div
           ref={floatingToolbarRef}
@@ -342,7 +342,7 @@ function ImageNodeView({ node, updateAttributes, selected, editor, getPos }: Nod
           style={imgStyle}
         />
 
-        {/* Transparent drag handle overlay — TipTap wires data-drag-handle to
+        {/* Transparent drag handle overlay. TipTap wires data-drag-handle to
             ProseMirror's built-in node drag (move semantics, no duplication).
             z-[1] keeps it below resize handles (z-[2]) so handles still work. */}
         <div
@@ -351,7 +351,7 @@ function ImageNodeView({ node, updateAttributes, selected, editor, getPos }: Nod
           style={{ cursor: 'move' }}
         />
 
-        {/* Resize handles — 8 positions */}
+        {/* Resize handles - 8 positions */}
         {selected && ALL_HANDLES.map((pos) => (
           <div
             key={pos}

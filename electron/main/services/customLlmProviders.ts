@@ -2,7 +2,7 @@
 // (Settings > AI > Custom LLM). Mirrors the shape of OllamaManager's
 // streamChat so ai.ts can swap between local Ollama and a cloud provider
 // with minimal branching. Every function here is a thin, direct call to the
-// provider's own API — no telemetry, no third-party relay, no bundled key.
+// provider's own API. No telemetry, no third-party relay, no bundled key.
 
 export type CustomLlmProviderId = 'anthropic' | 'openai' | 'gemini' | 'custom'
 
@@ -27,7 +27,7 @@ const TIMEOUT_LIST_MS = 10_000
 
 // ── Shared helpers ───────────────────────────────────────────────────────────
 
-/** Sniffs image mime type from magic bytes — the base64 payloads flowing
+/** Sniffs image mime type from magic bytes. The base64 payloads flowing
  * through Prose's AI pipeline never carry a `data:` prefix (Ollama doesn't
  * need one), but Anthropic/OpenAI/Gemini all require an explicit media type. */
 function sniffImageMime(base64: string): string {
@@ -41,7 +41,7 @@ function sniffImageMime(base64: string): string {
   return 'image/png'
 }
 
-/** Yields the payload of each `data: ...` line from an SSE response body — the
+/** Yields the payload of each `data: ...` line from an SSE response body. The
  * streaming format shared by Anthropic, OpenAI, Gemini (with alt=sse), and
  * OpenAI-compatible custom endpoints. */
 async function* sseDataLines(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {
@@ -69,7 +69,7 @@ async function readErrorDetail(res: Response): Promise<string> {
       const parsed = JSON.parse(body) as { error?: { message?: string } | string; message?: string }
       const msg = typeof parsed.error === 'string' ? parsed.error : parsed.error?.message ?? parsed.message
       if (msg) return msg
-    } catch { /* not JSON — fall through to raw body */ }
+    } catch { /* not JSON. Fall through to raw body */ }
     return body.slice(0, 300)
   } catch {
     return ''

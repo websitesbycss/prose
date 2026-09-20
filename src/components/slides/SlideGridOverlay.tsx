@@ -1,4 +1,4 @@
-// Phase 32 — Grid overlay rendered over the slide canvas.
+// Phase 32. Grid overlay rendered over the slide canvas.
 // Grid lines are drawn in SVG scaled to the canvas dimensions.
 interface Props {
   canvasWidth: number

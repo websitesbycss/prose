@@ -44,7 +44,7 @@ Chart.register(
 
 // ── Grid chrome bounds ───────────────────────────────────────────────────────
 // FortuneSheet's fixed row-number column / column-letter row / scrollbar
-// strips — charts must stay clipped to (and draggable/resizable only within)
+// strips. Charts must stay clipped to (and draggable/resizable only within)
 // the actual scrollable content area, never on top of this chrome.
 export const SHEET_ROW_HEADER_WIDTH = 46
 export const SHEET_COL_HEADER_HEIGHT = 20
@@ -78,7 +78,7 @@ export function getColorHex(customColors: string[] | undefined, i: number): stri
 }
 
 /**
- * The labels a "Custom colors" picker should show swatches for — one per legend
+ * The labels a "Custom colors" picker should show swatches for. One per legend
  * entry. Pie/doughnut legend items are the categories (slices); every other
  * chart type's legend items are the series (datasets).
  */
@@ -122,7 +122,7 @@ type CellLike = { v?: unknown; m?: unknown; f?: string } | null | undefined
 
 /**
  * Converts a Prose SheetTab's sparse cell store into the 2D `data[r][c]` grid shape
- * `extractChartData` expects — used to render a chart's data outside of a live
+ * `extractChartData` expects. Used to render a chart's data outside of a live
  * FortuneSheet Workbook (e.g. when snapshotting a chart for insertion elsewhere).
  */
 export function sheetTabToCellGrid(tab: SheetTab): CellLike[][] {
@@ -236,7 +236,7 @@ export function extractChartData(
 
 // ── Chart.js config builder ───────────────────────────────────────────────────
 
-// Default text scale for all charts — noticeably larger than Chart.js's own
+// Default text scale for all charts. Noticeably larger than Chart.js's own
 // defaults so charts stay legible both in the Sheets widget and once inserted
 // elsewhere. Adjustable per-chart via the Advanced "Text scale" slider.
 export const DEFAULT_CHART_TEXT_SCALE = 1.25

@@ -4,14 +4,14 @@ import { cn } from '@/lib/utils'
 interface LoadingScreenProps {
   /** Optional status line under the wordmark (e.g. "Checking for AI model…"). */
   label?: string
-  /** False to fill the parent's height instead of the full viewport — used when
+  /** False to fill the parent's height instead of the full viewport. Used when
    * a persistent chrome (e.g. the editor tab bar) stays mounted above this. */
   fullScreen?: boolean
 }
 
 /**
  * Branded loading state used for the gaps between the static boot splash
- * (index.html, before React mounts) and real content — startup checks in
+ * (index.html, before React mounts) and real content. Startup checks in
  * App.tsx, and the Suspense fallback while a heavy editor chunk loads.
  * Visually matches #boot-splash in index.html so there's no jump on handoff.
  */

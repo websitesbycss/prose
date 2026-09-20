@@ -1,5 +1,5 @@
 // Server-side Slides content utilities.
-// Mirrors src/types/slides.ts — kept separate to avoid importing renderer-side modules.
+// Mirrors src/types/slides.ts. Kept separate to avoid importing renderer-side modules.
 
 interface SlidesContent {
   version: 1

@@ -147,9 +147,9 @@ export function AiMarkdown({ children }: { children: string }): JSX.Element {
 // Two distinct states, shown in place of the assistant bubble before any
 // content has streamed in:
 //  - reloading: a concrete "model not resident in memory yet" signal (see
-//    useAi's isModelLoaded()/waitForModelWarm() check) — cold starts can take
+//    useAi's isModelLoaded()/waitForModelWarm() check). Cold starts can take
 //    a while, so this gets its own static, more informative message.
-//  - otherwise: the model is already warm and actively generating — bouncing
+//  - otherwise: the model is already warm and actively generating. Bouncing
 //    dots plus a caption that rotates every second, similar in spirit to
 //    Claude Code's own "Clauding…"/"Compacting…" status words.
 
@@ -262,7 +262,7 @@ export const ISSUE_COLORS: Record<Issue['type'], string> = {
 
 interface AiPanelProps {
   editor: Editor | null
-  /** Only required for Documents — omit for Sheets and Boards. */
+  /** Only required for Documents. Omit for Sheets and Boards. */
   analysis?: AnalysisState & AnalysisControls
   fileType?: FileType
   /** Optional override for document content injected as AI context. Used by Sheets and Boards. */
@@ -282,14 +282,14 @@ interface AiPanelProps {
 export interface IssueEditResult {
   editStart: number
   editEnd: number
-  /** Character-count change the edit made — negative if the fix is shorter. */
+  /** Character-count change the edit made. Negative if the fix is shorter. */
   delta: number
 }
 
 /**
  * Applies an issue's suggestion to the editor and reports the character-space
  * edit it made, so the caller can shift every OTHER pending issue's span to
- * match (see shiftIssueSpansAfterEdit) — without this, a second apply targets
+ * match (see shiftIssueSpansAfterEdit). Without this, a second apply targets
  * stale offsets and mangles unrelated text.
  */
 export function applyIssueSuggestion(editor: Editor, issue: Issue): IssueEditResult | null {
@@ -325,7 +325,7 @@ function extractFormula(content: string): string | null {
   // Inline code: `=FORMULA(...)`
   const icMatch = content.match(/`(=[^`]{2,100})`/)
   if (icMatch) return icMatch[1].trim()
-  // Bare formula on its own line: =FUNCTION(...) — case-insensitive function name
+  // Bare formula on its own line: =FUNCTION(...). Case-insensitive function name
   const bareMatch = content.match(/^(=[A-Za-z]+\([^)]{0,200}\))/m)
   if (bareMatch) return bareMatch[1].trim()
   return null
@@ -465,7 +465,7 @@ export function ChatTab({
   onInsertTableData?: (rows: string[][]) => void
   /** When provided, prose-actions blocks in AI replies become applyable cards. */
   actionHandler?: AiActionHandler
-  /** Hides the built-in context textarea — set when the host panel renders its own (Slides). */
+  /** Hides the built-in context textarea. Set when the host panel renders its own (Slides). */
   hideContext?: boolean
 }): JSX.Element {
   const ollamaStatus = useAppStore((s) => s.ollamaStatus)
@@ -533,7 +533,7 @@ export function ChatTab({
   // programmatic setInput calls like pendingAiPrompt fill-ins), AND whenever
   // the textarea's own rendered width changes. The panel this composer lives
   // in is mounted (and this effect's initial run happens) while its width is
-  // still 0 or mid-animation — measuring scrollHeight against that near-zero
+  // still 0 or mid-animation. Measuring scrollHeight against that near-zero
   // width can make even empty content (the placeholder) look like it wraps
   // across many lines, baking in a too-tall height that never gets corrected
   // since this effect otherwise only reruns when `input` changes. A
@@ -613,7 +613,7 @@ export function ChatTab({
 
   return (
     <div className="flex h-full w-full flex-col">
-      {/* Document context — hidden when the host panel renders its own (Slides) */}
+      {/* Document context. Hidden when the host panel renders its own (Slides) */}
       {!hideContext && (
         <>
           <div className="shrink-0 px-3 pt-2 pb-1">
@@ -859,7 +859,7 @@ export function ChatTab({
 }
 
 // ── Analysis tab ──────────────────────────────────────────────────────────────
-// Powered by Harper (harper.js), a local grammar/style engine — linting runs
+// Powered by Harper (harper.js), a local grammar/style engine. Linting runs
 // fully offline in a Web Worker and returns in milliseconds, so there's no
 // "cold start" case to mask with a fake multi-step loading animation the way
 // the old Ollama-backed analysis needed. A brief spinner covers the rare case
@@ -895,7 +895,7 @@ function AnalysisTab({
 
   const handleAnalyze = useCallback((): void => {
     if (!editor) return
-    // flattenDocText, not textContent — Harper must lint text with real
+    // flattenDocText, not textContent. Harper must lint text with real
     // block separators or paragraph-boundary words get glued together.
     void analyze(flattenDocText(editor.state.doc).text)
   }, [editor, analyze])
@@ -904,7 +904,7 @@ function AnalysisTab({
     if (!editor) return
     const range = charSpanToDocRange(editor.state.doc, issue.span.start, issue.span.end)
     if (!range) return
-    // Focus first — selection changes on an unfocused editor don't visibly
+    // Focus first. Selection changes on an unfocused editor don't visibly
     // move anything, which made clicking a card look like a no-op. Selecting
     // the whole range (not a bare cursor) also shows WHICH text the issue is
     // about once the editor scrolls there.
@@ -1000,7 +1000,7 @@ function AnalysisTab({
             <div className={cn('px-3 pb-3 space-y-2', issues.length === 0 ? 'pt-3' : 'pt-2')}>
               {issues.length === 0 && (
                 <p className="rounded-md bg-green-500/10 px-3 py-2.5 text-xs text-green-600 dark:text-green-400">
-                  No issues found — your document looks great!
+                  No issues found. Your document looks great!
                 </p>
               )}
               {issues.map((issue) => (
@@ -1012,7 +1012,7 @@ function AnalysisTab({
                     if (!editor) return
                     const result = applyIssueSuggestion(editor, issue)
                     // Shifts every other pending issue's span to match the
-                    // edit (and drops this one) — without this, the NEXT
+                    // edit (and drops this one). Without this, the NEXT
                     // apply targets stale offsets and mangles unrelated text.
                     if (result) analysis.applyEdit(result.editStart, result.editEnd, result.delta)
                   }}
@@ -1182,7 +1182,7 @@ export default function AiPanel({ editor, analysis, fileType = 'document', getDo
 
       <Separator />
 
-      {/* Document context — lives in the shared header so it stays in place and
+      {/* Document context. Lives in the shared header so it stays in place and
           keeps its value regardless of which tab (Chat / Issues) is active. */}
       <div className="shrink-0 px-3 pt-2 pb-1">
         <button
@@ -1218,7 +1218,7 @@ export default function AiPanel({ editor, analysis, fileType = 'document', getDo
 
       <Separator />
 
-      {/* Tab content — every tab stays mounted (hidden via CSS, never
+      {/* Tab content. Every tab stays mounted (hidden via CSS, never
           unmounted) so an in-progress analysis/insights run, or anything
           else with local state, keeps running and its result lands even if
           the user switches tabs or does something else in the meantime. */}

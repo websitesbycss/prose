@@ -1,4 +1,4 @@
-// Auto / Custom slide-count picker — Custom reveals a −/input/+ stepper whose
+// Auto / Custom slide-count picker. Custom reveals a −/input/+ stepper whose
 // number is directly editable (click to select/type an exact count).
 import { cn } from '@/lib/utils'
 

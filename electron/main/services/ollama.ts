@@ -83,7 +83,7 @@ export class OllamaManager {
    * Whether `model` is currently resident in memory, per Ollama's /api/ps
    * (lists actively-loaded models, distinct from /api/tags' full downloaded
    * list). A model not in this list will incur a cold-load delay on its next
-   * request — this lets callers show an honest "starting the model" state
+   * request. This lets callers show an honest "starting the model" state
    * instead of misrepresenting load time as generation time.
    */
   async isModelLoaded(model: string): Promise<boolean> {
@@ -155,7 +155,7 @@ export class OllamaManager {
               : 0
           yield { percent, status: chunk.status }
         } catch {
-          // malformed line — skip
+          // malformed line. Skip
         }
       }
     }
@@ -169,7 +169,7 @@ export class OllamaManager {
     images?: string[],
   ): AsyncGenerator<string> {
     // Images (base64, no data: prefix) attach only to the last message in the
-    // conversation — the current turn — mirroring Ollama's /api/chat contract.
+    // conversation. The current turn. Mirroring Ollama's /api/chat contract.
     const chatMessages = messages.map((m, i) =>
       images && images.length > 0 && i === messages.length - 1
         ? { ...m, images }
@@ -189,7 +189,7 @@ export class OllamaManager {
         options: {
           num_predict: -1,
           num_ctx: 8192,
-          temperature: 0.4,  // lower than default 0.8 — reduces mid-expression drift on math
+          temperature: 0.4,  // lower than default 0.8. Reduces mid-expression drift on math
           ...optionsOverride,
         },
       }),
@@ -200,7 +200,7 @@ export class OllamaManager {
       try {
         const body = await res.text()
         const parsed = JSON.parse(body) as { error?: string }
-        detail = parsed.error ? `: ${parsed.error}` : ` — ${body.slice(0, 200)}`
+        detail = parsed.error ? `: ${parsed.error}` : ` - ${body.slice(0, 200)}`
       } catch { /* ignore parse errors */ }
       throw new Error(`Ollama chat failed (${res.status})${detail}`)
     }
@@ -222,7 +222,7 @@ export class OllamaManager {
           const chunk = JSON.parse(line) as { message?: { content: string }; done?: boolean }
           if (chunk.message?.content) yield chunk.message.content
         } catch {
-          // malformed line — skip
+          // malformed line. Skip
         }
       }
     }

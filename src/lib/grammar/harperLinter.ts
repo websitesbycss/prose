@@ -1,5 +1,5 @@
 // Local grammar/style checking via Harper (harper.js), replacing the old
-// Ollama-based analysis pipeline. Runs fully offline in a Web Worker — no
+// Ollama-based analysis pipeline. Runs fully offline in a Web Worker. No
 // network, no document content ever leaves the renderer.
 import type { Issue, IssueColorGroup } from '@/types'
 
@@ -44,7 +44,7 @@ function groupForKind(kind: string): IssueColorGroup {
 
 /**
  * Lints `text` and returns issues with character-offset spans measured
- * against `text` itself (Unicode scalar indices, per Harper's Span docs) —
+ * against `text` itself (Unicode scalar indices, per Harper's Span docs) -
  * callers must lint the exact flat string produced by flattenDocText
  * (src/lib/issueSpan.ts), which is also what every span-to-position mapping
  * is built against. Never lint doc.textContent: it has no block separators,

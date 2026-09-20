@@ -130,7 +130,7 @@ export default function NewDocumentModal({
         pageMargins,
       } as Parameters<typeof window.prose.documents.create>[0])
 
-      // documents:create doesn't accept headerContent — set it in a follow-up update
+      // documents:create doesn't accept headerContent. Set it in a follow-up update
       if (headerStr) {
         await window.prose.documents.update((doc as Document).id, { headerContent: headerStr })
       }

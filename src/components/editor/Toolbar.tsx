@@ -25,7 +25,7 @@ import {
 import { ToolbarRightSection } from '@/components/editor/ToolbarRightSection'
 import type { PageMargins } from '@/types'
 
-// Plain portal dropdown — bypasses Radix focus/pointer issues in Electron
+// Plain portal dropdown. Bypasses Radix focus/pointer issues in Electron
 function ColorPickerDropdown({
   trigger,
   tooltip,
@@ -403,7 +403,7 @@ function FontSizeInput({
       <Tooltip>
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>
-            {/* Non-focusable trigger — parent onMouseDown preventDefault keeps editor focus */}
+            {/* Non-focusable trigger. Parent onMouseDown preventDefault keeps editor focus */}
             <div className="flex h-7 cursor-pointer items-center overflow-hidden rounded-md border border-input transition-colors hover:bg-accent/30">
               <span className="w-10 select-none text-center text-xs">{display}</span>
               <div className="flex h-7 w-5 shrink-0 items-center justify-center border-l border-input text-muted-foreground">
@@ -1415,7 +1415,7 @@ function ToolbarInner({
           <ToolbarBtn icon={Sigma} title="Insert equation (LaTeX)" onClick={() => onOpenMathModal?.()} />
           <ToolbarBtn icon={SeparatorHorizontal} title="Insert page break" onClick={() => editor.chain().focus().insertPageBreak().run()} />
           <ToolbarBtn icon={BarChart3} title="Insert chart" onClick={() => onOpenChartPicker?.()} />
-          {/* Link popover stays open on click — stop propagation so compact group doesn't close */}
+          {/* Link popover stays open on click. Stop propagation so compact group doesn't close */}
           <span onClick={(e) => e.stopPropagation()}>
             <LinkPopover editor={editor} isLink={s.isLink} />
           </span>
@@ -1432,7 +1432,7 @@ function ToolbarInner({
       )}
       {isZoneEditor && compact && <ToolbarBtn icon={Hash} title="Insert page number" onClick={() => editor.chain().focus().insertPageNumber().run()} />}
 
-      {/* Image border tools — only visible when an image is selected */}
+      {/* Image border tools. Only visible when an image is selected */}
       {s.isOnImage && !isZoneEditor && (
         <>
           <Sep />
@@ -1441,7 +1441,7 @@ function ToolbarInner({
         </>
       )}
 
-      {/* Table cell tools — only visible when cursor is inside a table */}
+      {/* Table cell tools. Only visible when cursor is inside a table */}
       {s.isInTable && (
         <>
           <Sep />
