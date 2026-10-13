@@ -53,26 +53,54 @@ function baseProps(now: number): AnyElement {
   }
 }
 
+const TEXT_LINE_HEIGHT = 1.25
+// Average glyph width of Excalidraw's hand-drawn font, relative to its size. Good enough to
+// wrap short labels without a canvas measure.
+const AVG_GLYPH_WIDTH = 0.6
+
+// Elements added through updateScene skip Excalidraw's own text layout, so bound text has to
+// arrive already wrapped to the container width or it renders as one clipped line.
+function wrapText(text: string, maxWidth: number, fontSize: number): string {
+  const maxChars = Math.max(4, Math.floor(maxWidth / (fontSize * AVG_GLYPH_WIDTH)))
+  const lines: string[] = []
+  for (const paragraph of text.split('\n')) {
+    let line = ''
+    for (const word of paragraph.split(/\s+/).filter(Boolean)) {
+      if (!line) { line = word; continue }
+      if ((line + ' ' + word).length <= maxChars) line += ' ' + word
+      else { lines.push(line); line = word }
+    }
+    lines.push(line)
+  }
+  return lines.join('\n')
+}
+
 function boundText(
   containerId: string, text: string, x: number, y: number, w: number, h: number,
   now: number, fontSize = 15,
 ): AnyElement {
+  const innerW = w - 20
+  const wrapped = wrapText(text, innerW, fontSize)
+  const lineCount = wrapped.split('\n').length
+  const textH = lineCount * fontSize * TEXT_LINE_HEIGHT
   return {
     ...baseProps(now),
     type: 'text',
     id: crypto.randomUUID(),
-    x: x + 10, y: y + 10, width: w - 20, height: h - 20,
+    // Centered vertically in the container.
+    x: x + 10, y: y + Math.max(0, (h - textH) / 2), width: innerW, height: textH,
     strokeColor: '#1e1e1e',
     backgroundColor: 'transparent',
     boundElements: null,
     containerId,
-    text,
+    text: wrapped,
+    originalText: text,
     fontSize,
     fontFamily: 1,
     textAlign: 'center',
     verticalAlign: 'middle',
     autoResize: true,
-    lineHeight: 1.25,
+    lineHeight: TEXT_LINE_HEIGHT,
   }
 }
 
@@ -113,7 +141,8 @@ function makeNodeElements(node: PlacedNode, index: number, now: number): AnyElem
   const fill = spec.color ?? (isSticky ? STICKY_COLORS[index % STICKY_COLORS.length]! : 'transparent')
 
   const elements: AnyElement[] = []
-  const textEl = spec.text ? boundText(shapeId, spec.text, x, y, w, h, now) : null
+  // Sticky notes get larger type so they read at a glance.
+  const textEl = spec.text ? boundText(shapeId, spec.text, x, y, w, h, now, isSticky ? 18 : 15) : null
 
   elements.push({
     ...baseProps(now),

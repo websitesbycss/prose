@@ -860,15 +860,21 @@ export function SlidesEditor({ documentId }: Props): JSX.Element {
   }, [changeActiveSlide])
 
   const handleInsertSlides = useCallback((newSlides: Slide[], afterIndex: number): void => {
+    // A deck that is just one empty slide gets replaced rather than left with a blank
+    // slide in front of the generated ones.
+    const only = slides.length === 1 ? slides[0] : undefined
+    const replaceBlank = !!only && only.elements.length === 0 && !only.notes?.trim() && (only.animations?.length ?? 0) === 0
     setSlides((prev) => {
       pushHistory(prev)
+      if (replaceBlank) return [...newSlides]
       const next = [...prev]
       next.splice(afterIndex + 1, 0, ...newSlides)
       return next
     })
-    setActiveSlideIndex(afterIndex + newSlides.length)
+    // Land on the first inserted slide, not the last.
+    setActiveSlideIndex(replaceBlank ? 0 : afterIndex + 1)
     scheduleSave()
-  }, [pushHistory, scheduleSave])
+  }, [pushHistory, scheduleSave, slides])
 
   // Arm shape tool. User then clicks or drags to place
   const handleInsertShape = useCallback((shapeType: import('@/types/slides').ShapeType): void => {

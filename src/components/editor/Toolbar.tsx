@@ -173,6 +173,8 @@ function ToolbarBtn({
           className={cn('h-7 w-7', active && '!text-primary')}
           disabled={disabled}
           onClick={onClick}
+          aria-label={title}
+          aria-pressed={active}
         >
           <Icon className="h-3.5 w-3.5" />
         </Button>
@@ -221,7 +223,7 @@ function CompactGroup({
     <>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button ref={btnRef} variant="ghost" size="sm" className="h-7 px-1.5 flex items-center gap-0.5" onClick={handleOpen}>
+          <Button ref={btnRef} variant="ghost" size="sm" className="h-7 px-1.5 flex items-center gap-0.5" onClick={handleOpen} aria-label={label}>
             <Icon className="h-3.5 w-3.5" />
             <ChevronDown className="h-2.5 w-2.5 opacity-50" />
           </Button>
@@ -262,7 +264,7 @@ function ColorPicker({
     <ColorPickerDropdown
       tooltip="Font color"
       trigger={
-        <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1">
+        <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1" aria-label="Font color">
           <span className="text-[15px] font-normal leading-[14px] w-4 text-center">A</span>
           <span className="mt-[5px] h-1 w-4 rounded-sm border border-neutral-300 dark:border-neutral-600" style={{ backgroundColor: currentColor, borderColor: currentColor }} />
         </Button>
@@ -294,7 +296,7 @@ function HighlightPicker({
     <ColorPickerDropdown
       tooltip="Highlight"
       trigger={
-        <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1">
+        <Button variant="ghost" size="icon" className="h-7 w-7 flex-col gap-0 px-1" aria-label="Highlight">
           <Highlighter className="h-3.5 w-3.5 leading-none" />
           <span className="mt-0.5 h-1 w-4 rounded-sm border border-neutral-300 dark:border-neutral-600"
             style={{ backgroundColor: currentHighlight ?? 'transparent', borderColor: currentHighlight ?? undefined }} />
@@ -330,7 +332,7 @@ function FontFamilyPicker({
       <Tooltip>
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>
-            <Button
+            <Button aria-label="Font family"
               variant="outline"
               className="h-7 w-36 justify-between border-input px-2 text-xs font-normal"
               style={{ fontFamily }}
@@ -484,7 +486,7 @@ function ParagraphStylePicker({
       <Tooltip>
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>
-            <Button
+            <Button aria-label="Text style"
               variant="outline"
               className="h-7 w-28 justify-between border-input px-2 text-xs font-normal"
             >
@@ -639,7 +641,7 @@ function LineHeightPicker({
       <Tooltip>
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7">
+            <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Line height">
               <LineHeightIcon />
             </Button>
           </PopoverTrigger>
@@ -860,7 +862,7 @@ function CellBorderWeightPicker({
       <Tooltip>
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7">
+            <Button aria-label="Border weight" variant="ghost" size="icon" className="h-7 w-7">
               <BorderWeightIcon />
             </Button>
           </PopoverTrigger>
@@ -1021,7 +1023,7 @@ function ImageBorderWeightPicker({
       <Tooltip>
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7">
+            <Button aria-label="Image border weight" variant="ghost" size="icon" className="h-7 w-7">
               <BorderWeightIcon />
             </Button>
           </PopoverTrigger>
@@ -1099,6 +1101,7 @@ function LinkPopover({ editor, isLink }: { editor: Editor; isLink: boolean }): J
               variant="ghost"
               size="icon"
               className={cn('h-7 w-7', isLink && 'bg-accent text-accent-foreground')}
+              aria-label="Link"
             >
               <Link2 className="h-3.5 w-3.5" />
             </Button>
@@ -1456,7 +1459,7 @@ function ToolbarInner({
       {/* Format */}
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button
+          <Button aria-label="Apply MLA format"
             variant="ghost"
             size="sm"
             className={cn(
@@ -1472,7 +1475,7 @@ function ToolbarInner({
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button
+          <Button aria-label="Apply APA format"
             variant="ghost"
             size="sm"
             className={cn(

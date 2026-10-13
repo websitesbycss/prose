@@ -183,12 +183,19 @@ export function extractChartData(
 
   // Detect if first row contains headers (non-numeric in data column positions)
   const hasHeaderRow = cols > 1 && !isNumericAt(sheetData, r1, c1 + 1)
-  // Detect if first column contains labels (non-numeric in first data row)
+  // Leading non-numeric columns are labels, not series. Several are allowed (for example
+  // Month + Region), and they're joined so each x-axis label stays unique.
   const dataR1 = r1 + (hasHeaderRow ? 1 : 0)
-  const hasLabelCol = rows > 1 && !isNumericAt(sheetData, dataR1, c1)
+  let labelColCount = 0
+  if (rows > 1) {
+    while (labelColCount < 3 && c1 + labelColCount <= c2 && !isNumericAt(sheetData, dataR1, c1 + labelColCount)) {
+      labelColCount++
+    }
+  }
+  const hasLabelCol = labelColCount > 0
 
   const dataRowStart = dataR1
-  const dataColStart = c1 + (hasLabelCol ? 1 : 0)
+  const dataColStart = c1 + labelColCount
 
   // Scatter: pairs of numeric columns interpreted as (x, y)
   if (chartType === 'scatter') {
@@ -211,11 +218,16 @@ export function extractChartData(
   // Axis labels from label column (or sequential numbers)
   const labels: string[] = []
   for (let ri = dataRowStart; ri <= r2; ri++) {
-    labels.push(
-      hasLabelCol
-        ? String(getCellRaw(sheetData, ri, c1) ?? `${ri - dataRowStart + 1}`)
-        : String(ri - dataRowStart + 1),
-    )
+    if (!hasLabelCol) {
+      labels.push(String(ri - dataRowStart + 1))
+      continue
+    }
+    const parts: string[] = []
+    for (let li = 0; li < labelColCount; li++) {
+      const v = getCellRaw(sheetData, ri, c1 + li)
+      if (v !== undefined && v !== null && String(v).trim() !== '') parts.push(String(v))
+    }
+    labels.push(parts.length > 0 ? parts.join(' · ') : `${ri - dataRowStart + 1}`)
   }
 
   // Datasets from data columns

@@ -114,11 +114,24 @@ function fsCellToSheetCell(cell: Cell): SheetCell | null {
 
   const sc: SheetCell = {}
 
+  // Cells typed by hand arrive as strings ("77"). Persist clean numeric literals as numbers so
+  // exports and formulas treat them as numbers; leave leading-zero codes (ZIPs, IDs) and
+  // explicitly text-typed cells alone.
+  const normalizedValue = ((): typeof cell.v => {
+    const v = cell.v
+    if (typeof v !== 'string') return v
+    const t = v.trim()
+    if (cell.ct?.t === 's') return v
+    if (!/^-?\d+(\.\d+)?$/.test(t) || /^-?0\d/.test(t)) return v
+    const n = Number(t)
+    return Number.isFinite(n) ? n : v
+  })()
+
   if (hasFormula) {
     sc.formula = cell.f!
-    if (hasValue) sc.value = cell.v
+    if (hasValue) sc.value = normalizedValue
   } else if (hasValue) {
-    sc.value = cell.v
+    sc.value = normalizedValue
   }
 
   if (hasFormat) {

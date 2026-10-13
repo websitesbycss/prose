@@ -160,7 +160,7 @@ function FontFamilyPicker({
       <Tooltip>
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>
-            <Button
+            <Button aria-label="Font family"
               variant="outline"
               className="h-7 w-36 justify-between border-input px-2 text-xs font-normal"
               style={{ fontFamily }}
@@ -450,7 +450,7 @@ export function SheetToolbar({
         {/* Undo / Redo */}
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7" disabled={!canUndo} onClick={() => onUndo?.()}>
+            <Button aria-label="Undo (Ctrl+Z)" variant="ghost" size="icon" className="h-7 w-7" disabled={!canUndo} onClick={() => onUndo?.()}>
               <Undo2 className="h-3.5 w-3.5" />
             </Button>
           </TooltipTrigger>
@@ -458,7 +458,7 @@ export function SheetToolbar({
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7" disabled={!canRedo} onClick={() => onRedo?.()}>
+            <Button aria-label="Redo (Ctrl+Y)" variant="ghost" size="icon" className="h-7 w-7" disabled={!canRedo} onClick={() => onRedo?.()}>
               <Redo2 className="h-3.5 w-3.5" />
             </Button>
           </TooltipTrigger>
@@ -478,7 +478,7 @@ export function SheetToolbar({
         {/* Bold / Italic / Underline */}
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className={cn('h-7 w-7', state.bold && 'bg-accent')} onClick={toggleBold}>
+            <Button aria-label="Bold (Ctrl+B)" variant="ghost" size="icon" className={cn('h-7 w-7', state.bold && 'bg-accent')} onClick={toggleBold}>
               <Bold className="h-3.5 w-3.5" />
             </Button>
           </TooltipTrigger>
@@ -486,7 +486,7 @@ export function SheetToolbar({
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className={cn('h-7 w-7', state.italic && 'bg-accent')} onClick={toggleItalic}>
+            <Button aria-label="Italic (Ctrl+I)" variant="ghost" size="icon" className={cn('h-7 w-7', state.italic && 'bg-accent')} onClick={toggleItalic}>
               <Italic className="h-3.5 w-3.5" />
             </Button>
           </TooltipTrigger>
@@ -494,7 +494,7 @@ export function SheetToolbar({
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className={cn('h-7 w-7', state.underline && 'bg-accent')} onClick={toggleUnderline}>
+            <Button aria-label="Underline (Ctrl+U)" variant="ghost" size="icon" className={cn('h-7 w-7', state.underline && 'bg-accent')} onClick={toggleUnderline}>
               <Underline className="h-3.5 w-3.5" />
             </Button>
           </TooltipTrigger>
@@ -563,7 +563,7 @@ export function SheetToolbar({
           <>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className={cn('h-7 w-7', state.align === 'left' && 'bg-accent')} onClick={() => setAlign('left')}>
+                <Button aria-label="Align left" variant="ghost" size="icon" className={cn('h-7 w-7', state.align === 'left' && 'bg-accent')} onClick={() => setAlign('left')}>
                   <AlignLeft className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
@@ -571,7 +571,7 @@ export function SheetToolbar({
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className={cn('h-7 w-7', state.align === 'center' && 'bg-accent')} onClick={() => setAlign('center')}>
+                <Button aria-label="Align center" variant="ghost" size="icon" className={cn('h-7 w-7', state.align === 'center' && 'bg-accent')} onClick={() => setAlign('center')}>
                   <AlignCenter className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
@@ -579,7 +579,7 @@ export function SheetToolbar({
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className={cn('h-7 w-7', state.align === 'right' && 'bg-accent')} onClick={() => setAlign('right')}>
+                <Button aria-label="Align right" variant="ghost" size="icon" className={cn('h-7 w-7', state.align === 'right' && 'bg-accent')} onClick={() => setAlign('right')}>
                   <AlignRight className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
@@ -589,7 +589,7 @@ export function SheetToolbar({
         )}
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className={cn('h-7 w-7', state.wrap && 'bg-accent')} onClick={toggleWrap}>
+            <Button aria-label="Wrap text" variant="ghost" size="icon" className={cn('h-7 w-7', state.wrap && 'bg-accent')} onClick={toggleWrap}>
               <WrapText className="h-3.5 w-3.5" />
             </Button>
           </TooltipTrigger>
@@ -611,7 +611,7 @@ export function SheetToolbar({
         {/* Insert chart */}
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onInsertChart}>
+            <Button aria-label="Insert chart" variant="ghost" size="icon" className="h-7 w-7" onClick={onInsertChart}>
               <BarChart3 className="h-3.5 w-3.5" />
             </Button>
           </TooltipTrigger>
@@ -638,7 +638,7 @@ export function SheetToolbar({
           <>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={insertRowAbove}>
+                <Button aria-label="Insert row above" variant="ghost" size="icon" className="h-7 w-7" onClick={insertRowAbove}>
                   <ArrowUpToLine className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
@@ -646,7 +646,7 @@ export function SheetToolbar({
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={insertRowBelow}>
+                <Button aria-label="Insert row below" variant="ghost" size="icon" className="h-7 w-7" onClick={insertRowBelow}>
                   <ArrowDownToLine className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
@@ -654,7 +654,7 @@ export function SheetToolbar({
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={insertColLeft}>
+                <Button aria-label="Insert column left" variant="ghost" size="icon" className="h-7 w-7" onClick={insertColLeft}>
                   <ArrowLeftToLine className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
@@ -662,7 +662,7 @@ export function SheetToolbar({
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={insertColRight}>
+                <Button aria-label="Insert column right" variant="ghost" size="icon" className="h-7 w-7" onClick={insertColRight}>
                   <ArrowRightToLine className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
@@ -670,7 +670,7 @@ export function SheetToolbar({
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive" onClick={deleteRow}>
+                <Button aria-label="Delete row" variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive" onClick={deleteRow}>
                   <Minus className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
@@ -678,7 +678,7 @@ export function SheetToolbar({
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive" onClick={deleteCol}>
+                <Button aria-label="Delete column" variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive" onClick={deleteCol}>
                   <Minus className="h-3.5 w-3.5 rotate-90" />
                 </Button>
               </TooltipTrigger>

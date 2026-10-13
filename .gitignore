@@ -155,3 +155,5 @@ docs/references/
 
 .claude/
 CLAUDE.md
+# Playwright CLI output (may contain credentials)
+.playwright-cli/

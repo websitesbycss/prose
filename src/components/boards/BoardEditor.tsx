@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
-import { Excalidraw, MainMenu, exportToBlob } from '@excalidraw/excalidraw'
+import { Excalidraw, MainMenu, exportToBlob, convertToExcalidrawElements } from '@excalidraw/excalidraw'
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore. No type declarations for CSS side-effect import
 import '@excalidraw/excalidraw/index.css'
@@ -657,81 +657,29 @@ export function BoardEditor({ documentId }: BoardEditorProps): JSX.Element {
       const originX = -appState.scrollX + (appState.width ?? 800) / 2 / appState.zoom.value - gridW / 2
       const originY = -appState.scrollY + (appState.height ?? 600) / 2 / appState.zoom.value - gridH / 2
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const newElements: any[] = []
-
-      ideas.forEach((idea, i) => {
-        const x = originX + (i % cols) * (NOTE_W + GAP)
-        const y = originY + Math.floor(i / cols) * (NOTE_H + GAP)
-        const color = STICKY_NOTE_COLORS[i % STICKY_NOTE_COLORS.length]!
-        const rectId = crypto.randomUUID()
-        const textId = crypto.randomUUID()
-        const now = Date.now()
-
-        newElements.push({
-          type: 'rectangle',
-          id: rectId,
-          x, y,
-          width: NOTE_W,
-          height: NOTE_H,
-          angle: 0,
-          strokeColor: 'transparent',
-          backgroundColor: color,
-          fillStyle: 'solid',
-          strokeWidth: 2,
-          strokeStyle: 'solid',
-          roughness: 0,
-          opacity: 100,
-          groupIds: [],
-          frameId: null,
-          boundElements: [{ type: 'text', id: textId }],
-          updated: now,
-          isDeleted: false,
-          link: null,
-          locked: false,
-          seed: Math.floor(Math.random() * 2 ** 31),
-          version: 1,
-          versionNonce: Math.floor(Math.random() * 2 ** 31),
-          index: null,
-          roundness: { type: 3 },
-        })
-
-        newElements.push({
-          type: 'text',
-          id: textId,
-          x: x + 10,
-          y: y + 10,
-          width: NOTE_W - 20,
-          height: NOTE_H - 20,
-          angle: 0,
-          strokeColor: '#1e1e1e',
-          backgroundColor: 'transparent',
-          fillStyle: 'solid',
-          strokeWidth: 2,
-          strokeStyle: 'solid',
-          roughness: 0,
-          opacity: 100,
-          groupIds: [],
-          frameId: null,
-          boundElements: null,
-          containerId: rectId,
+      // Excalidraw's own converter lays out the bound text (wrapping, centering, sizing).
+      // Hand-built text elements skip that layout and render as one clipped line.
+      const skeletons = ideas.map((idea, i) => ({
+        type: 'rectangle' as const,
+        x: originX + (i % cols) * (NOTE_W + GAP),
+        y: originY + Math.floor(i / cols) * (NOTE_H + GAP),
+        width: NOTE_W,
+        height: NOTE_H,
+        strokeColor: 'transparent',
+        backgroundColor: STICKY_NOTE_COLORS[i % STICKY_NOTE_COLORS.length]!,
+        fillStyle: 'solid' as const,
+        roughness: 0,
+        roundness: { type: 3 as const },
+        label: {
           text: idea,
-          fontSize: 15,
+          fontSize: 18,
           fontFamily: 1,
-          textAlign: 'center',
-          verticalAlign: 'middle',
-          autoResize: true,
-          lineHeight: 1.25,
-          updated: now,
-          isDeleted: false,
-          link: null,
-          locked: false,
-          seed: Math.floor(Math.random() * 2 ** 31),
-          version: 1,
-          versionNonce: Math.floor(Math.random() * 2 ** 31),
-          index: null,
-        })
-      })
+          textAlign: 'center' as const,
+          verticalAlign: 'middle' as const,
+          strokeColor: '#1e1e1e',
+        },
+      }))
+      const newElements = convertToExcalidrawElements(skeletons)
 
       api.updateScene({ elements: [...elements, ...newElements] })
       scheduleSave()

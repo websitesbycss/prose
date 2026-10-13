@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { Workbook } from '@fortune-sheet/react'
 import type { WorkbookInstance } from '@fortune-sheet/react'
+import { locale as fortuneLocale } from '@fortune-sheet/core'
 import type { Sheet, Hooks, Selection } from '@fortune-sheet/core'
 import '@fortune-sheet/react/dist/index.css'
 
@@ -44,6 +45,11 @@ import { runThumbnailGenerationOnce, clampRectToViewport } from '@/lib/thumbnail
 // to target. Only the rendered (English) label text identifies each action.
 // Unmapped labels (e.g. "Insert N rows/columns", which embed a live input and
 // vary their text) are simply left without an icon.
+// FortuneSheet draws any cell without an explicit font in fontarray[0], which ships as
+// "Times New Roman". Prose treats Calibri as the default everywhere else (the toolbar,
+// sheetUtils, new sheets), so align the engine's default with it.
+fortuneLocale({ lang: 'en' } as Parameters<typeof fortuneLocale>[0]).fontarray[0] = 'Calibri'
+
 const FORTUNE_CONTEXT_MENU_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   Copy,
   Paste: Clipboard,
@@ -81,7 +87,21 @@ function buildSheetContext(sheet: Sheet, tabName: string, selectedRow: number, s
 
   const rows = Math.min(data.length, 21)
   const firstRow = data[0]
-  const cols = firstRow ? Math.min(firstRow.length, 26) : 26
+  // Only describe columns that actually hold data. Sheets are allocated 26 columns wide,
+  // and padding every row out to that confuses small models.
+  let lastDataCol = -1
+  let lastDataRow = -1
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < (data[r]?.length ?? 0) && c < 26; c++) {
+      const cell = data[r]?.[c]
+      const v = cell?.m ?? cell?.v
+      if (v !== undefined && v !== null && String(v).trim() !== '') {
+        if (c > lastDataCol) lastDataCol = c
+        if (r > lastDataRow) lastDataRow = r
+      }
+    }
+  }
+  const cols = lastDataCol >= 0 ? lastDataCol + 1 : firstRow ? Math.min(firstRow.length, 26) : 26
 
   const headers: string[] = []
   for (let c = 0; c < cols; c++) {
@@ -117,8 +137,15 @@ function buildSheetContext(sheet: Sheet, tabName: string, selectedRow: number, s
     }
   }
 
+  const columnMap = headers.map((h, c) => `${colToLetter(c)}=${h}`).join(', ')
+  const rangeLine = lastDataRow >= 0
+    ? `Data range: A1:${colToLetter(cols - 1)}${lastDataRow + 1} (row 1 is the header; data starts at row 2)`
+    : 'Data range: (empty)'
+
   const parts = [
     `Sheet tab: "${tabName}"`,
+    `Columns: ${columnMap}`,
+    rangeLine,
     '',
     `Data (${dataRows.length} rows, ${cols} columns):`,
     `| ${headerRow} |`,
@@ -538,6 +565,94 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
     }
   }, [])
 
+  // Evaluates the simple aggregate formulas the Insights tab proposes (SUM/AVERAGE/MAX/MIN/COUNT
+  // over one range) against the live sheet. A small local model proposes the formula well but
+  // does arithmetic badly, so the displayed number is computed here instead of trusted.
+  //   string -> computed value, false -> formula is supported but the range holds no numbers,
+  //   null   -> formula shape isn't one we can evaluate
+  const evaluateInsightFormula = useCallback((formula: string): string | false | null => {
+    const m = /^=\s*(SUM|AVERAGE|AVG|MAX|MIN|COUNT)\s*\(\s*\$?([A-Za-z]{1,2})\$?(\d+)\s*:\s*\$?([A-Za-z]{1,2})\$?(\d+)\s*\)\s*$/i.exec(formula)
+    if (!m) return null
+    const wb = workbookRef.current
+    if (!wb) return null
+    const toCol = (letters: string): number =>
+      letters.toUpperCase().split('').reduce((n, ch) => n * 26 + (ch.charCodeAt(0) - 64), 0) - 1
+    const fn = m[1]!.toUpperCase()
+    const c1 = toCol(m[2]!), c2 = toCol(m[4]!)
+    const r1 = parseInt(m[3]!, 10) - 1, r2 = parseInt(m[5]!, 10) - 1
+    try {
+      const sheets = wb.getAllSheets()
+      const active = sheets.find((s) => s.status === 1) ?? sheets[0]
+      const data = active?.data
+      if (!data) return null
+      const nums: number[] = []
+      for (let r = Math.min(r1, r2); r <= Math.max(r1, r2); r++) {
+        for (let c = Math.min(c1, c2); c <= Math.max(c1, c2); c++) {
+          const v = data[r]?.[c]?.v
+          if (typeof v === 'number' && Number.isFinite(v)) nums.push(v)
+          else if (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v))) nums.push(Number(v))
+        }
+      }
+      if (nums.length === 0) return false
+      const sum = nums.reduce((a, b) => a + b, 0)
+      const out =
+        fn === 'SUM' ? sum
+        : fn === 'MAX' ? Math.max(...nums)
+        : fn === 'MIN' ? Math.min(...nums)
+        : fn === 'COUNT' ? nums.length
+        : sum / nums.length
+      return out.toLocaleString('en-US', { maximumFractionDigits: 2 })
+    } catch {
+      return null
+    }
+  }, [])
+
+  // Numeric columns of the active sheet (header in row 1), used by the Insights tab to build
+  // key stats deterministically instead of asking a small model to do arithmetic.
+  const getNumericColumns = useCallback((): Array<{ header: string; letter: string; firstRow: number; lastRow: number }> => {
+    const wb = workbookRef.current
+    if (!wb) return []
+    try {
+      const sheets = wb.getAllSheets()
+      const active = sheets.find((s) => s.status === 1) ?? sheets[0]
+      const data = active?.data
+      if (!data) return []
+      const isNum = (v: unknown): boolean =>
+        (typeof v === 'number' && Number.isFinite(v)) ||
+        (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v)))
+      // The data block is the run of non-empty rows directly under the header. Stopping at the
+      // first blank row keeps previously inserted totals (placed after a gap) out of the range.
+      let lastRow = 0
+      for (let r = 1; r < data.length; r++) {
+        const filled = data[r]?.some((cell) => !cell?.f && cell?.v !== undefined && cell?.v !== null && String(cell.v).trim() !== '')
+        if (!filled) break
+        lastRow = r
+      }
+      if (lastRow < 2) return []
+      const out: Array<{ header: string; letter: string; firstRow: number; lastRow: number }> = []
+      const width = Math.min(data[0]?.length ?? 0, 26)
+      for (let c = 0; c < width; c++) {
+        const header = data[0]?.[c]
+        const name = header?.m ?? header?.v
+        if (name === undefined || name === null || String(name).trim() === '' || isNum(name)) continue
+        let numeric = 0
+        let filled = 0
+        for (let r = 1; r <= lastRow; r++) {
+          const v = data[r]?.[c]?.v
+          if (v === undefined || v === null || String(v).trim() === '') continue
+          filled++
+          if (isNum(v)) numeric++
+        }
+        if (filled >= 2 && numeric / filled >= 0.8) {
+          out.push({ header: String(name).trim(), letter: colToLetter(c), firstRow: 2, lastRow: lastRow + 1 })
+        }
+      }
+      return out
+    } catch {
+      return []
+    }
+  }, [])
+
   const onInsertFormula = useCallback((formula: string) => {
     const wb = workbookRef.current; if (!wb) return
     const { row, col } = selectedCellRef.current
@@ -664,13 +779,56 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
 
   const handleInsertChart = useCallback((partial: Omit<ChartDef, 'id' | 'x' | 'y' | 'width' | 'height'>) => {
     const offset = chartsRef.current.filter(c => c.sheetId === partial.sheetId).length * 20
+    const width = 520
+    const height = 340
+    // Don't drop the chart on top of the data it plots: put it to the right of the data when it
+    // fits on screen, otherwise below it.
+    let x = 20
+    let y = 20
+    try {
+      const wb = workbookRef.current
+      const sheets = wb?.getAllSheets() ?? []
+      const active = sheets.find((sh) => sh.status === 1) ?? sheets[0]
+      const data = active?.data
+      if (active && data) {
+        let lastCol = -1
+        let lastRow = -1
+        for (let r = 0; r < data.length; r++) {
+          const row = data[r]
+          if (!row) continue
+          for (let c = 0; c < row.length; c++) {
+            const v = row[c]?.v
+            if (v !== undefined && v !== null && String(v).trim() !== '') {
+              if (c > lastCol) lastCol = c
+              if (r > lastRow) lastRow = r
+            }
+          }
+        }
+        if (lastCol >= 0) {
+          const defaultW = active.defaultColWidth ?? 100
+          const defaultH = active.defaultRowHeight ?? 20
+          const colLen = (active.config?.columnlen ?? {}) as Record<string, number>
+          const rowLen = (active.config?.rowlen ?? {}) as Record<string, number>
+          let right = 0
+          for (let c = 0; c <= lastCol; c++) right += colLen[String(c)] ?? defaultW
+          let bottom = 0
+          for (let r = 0; r <= lastRow; r++) bottom += rowLen[String(r)] ?? defaultH
+          const viewportW = typeof window !== 'undefined' ? window.innerWidth - (useAppStore.getState().aiPanelOpen ? AI_PANEL_WIDTH : 0) : 1200
+          if (right + 24 + width + 24 <= viewportW) {
+            x = right + 24
+          } else {
+            y = bottom + 24
+          }
+        }
+      }
+    } catch { /* fall back to the top-left default */ }
     const newChart: ChartDef = {
       ...partial,
       id: `chart-${Date.now()}`,
-      x: 20 + offset,
-      y: 20 + offset,
-      width: 520,
-      height: 340,
+      x: x + offset,
+      y: y + offset,
+      width,
+      height,
     }
     updateChartsAndSave([...chartsRef.current, newChart])
   }, [updateChartsAndSave])
@@ -957,6 +1115,8 @@ export function SheetsEditor({ documentId }: SheetsEditorProps): JSX.Element {
                   content: (
                     <SheetInsightsTab
                       getSheetContext={getSheetContext}
+                      evaluateFormula={evaluateInsightFormula}
+                      getNumericColumns={getNumericColumns}
                       onInsertFormula={insightsInsertFormula}
                       onInsertChart={insightsInsertChart}
                     />

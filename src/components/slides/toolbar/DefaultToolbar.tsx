@@ -69,7 +69,7 @@ export function DefaultToolbar({ toolMode, onToolMode, canUndo, canRedo, onUndo,
       {/* Undo / Redo */}
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-7 w-7" disabled={!canUndo} onClick={onUndo}>
+          <Button aria-label="Undo (Ctrl+Z)" variant="ghost" size="icon" className="h-7 w-7" disabled={!canUndo} onClick={onUndo}>
             <Undo2 className="h-3.5 w-3.5" />
           </Button>
         </TooltipTrigger>
@@ -77,7 +77,7 @@ export function DefaultToolbar({ toolMode, onToolMode, canUndo, canRedo, onUndo,
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-7 w-7" disabled={!canRedo} onClick={onRedo}>
+          <Button aria-label="Redo (Ctrl+Y)" variant="ghost" size="icon" className="h-7 w-7" disabled={!canRedo} onClick={onRedo}>
             <Redo2 className="h-3.5 w-3.5" />
           </Button>
         </TooltipTrigger>
@@ -89,7 +89,7 @@ export function DefaultToolbar({ toolMode, onToolMode, canUndo, canRedo, onUndo,
       {/* Select */}
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className={cn('h-7 w-7', toolMode === 'select' && '!text-primary')} onClick={() => onToolMode('select')}>
+          <Button aria-label="Select (V)" variant="ghost" size="icon" className={cn('h-7 w-7', toolMode === 'select' && '!text-primary')} onClick={() => onToolMode('select')}>
             <MousePointer2 className="h-3.5 w-3.5" />
           </Button>
         </TooltipTrigger>
@@ -99,7 +99,7 @@ export function DefaultToolbar({ toolMode, onToolMode, canUndo, canRedo, onUndo,
       {/* Text */}
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className={cn('h-7 w-7', toolMode === 'text' && '!text-primary')} onClick={() => onToolMode('text')}>
+          <Button aria-label="Text (T)" variant="ghost" size="icon" className={cn('h-7 w-7', toolMode === 'text' && '!text-primary')} onClick={() => onToolMode('text')}>
             <Type className="h-3.5 w-3.5" />
           </Button>
         </TooltipTrigger>
@@ -110,7 +110,7 @@ export function DefaultToolbar({ toolMode, onToolMode, canUndo, canRedo, onUndo,
       <ShapePickerPopover selectedShapeType={pendingShapeType} onSelect={(s) => { onInsertShape?.(s) }}>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className={cn('h-7 w-7', toolMode === 'shape' && '!text-primary')}>
+            <Button aria-label="Shape (S)" variant="ghost" size="icon" className={cn('h-7 w-7', toolMode === 'shape' && '!text-primary')}>
               <Shapes className="h-3.5 w-3.5" />
             </Button>
           </TooltipTrigger>
@@ -121,7 +121,7 @@ export function DefaultToolbar({ toolMode, onToolMode, canUndo, canRedo, onUndo,
       {/* Image */}
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className={cn('h-7 w-7', toolMode === 'image' && '!text-primary')} onClick={() => onInsertImage ? onInsertImage() : onToolMode('image')}>
+          <Button aria-label="Image (I)" variant="ghost" size="icon" className={cn('h-7 w-7', toolMode === 'image' && '!text-primary')} onClick={() => onInsertImage ? onInsertImage() : onToolMode('image')}>
             <Image className="h-3.5 w-3.5" />
           </Button>
         </TooltipTrigger>
@@ -132,7 +132,7 @@ export function DefaultToolbar({ toolMode, onToolMode, canUndo, canRedo, onUndo,
       <TablePickerPopover pendingConfig={pendingTableConfig} onSelect={(cols, rows) => { onInsertTable?.(cols, rows) }}>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className={cn('h-7 w-7', toolMode === 'table' && '!text-primary')}>
+            <Button aria-label="Table" variant="ghost" size="icon" className={cn('h-7 w-7', toolMode === 'table' && '!text-primary')}>
               <Table2 className="h-3.5 w-3.5" />
             </Button>
           </TooltipTrigger>
@@ -143,7 +143,7 @@ export function DefaultToolbar({ toolMode, onToolMode, canUndo, canRedo, onUndo,
       {/* Equation */}
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className={cn('h-7 w-7', toolMode === 'equation' && '!text-primary')} onClick={() => onToolMode('equation')}>
+          <Button aria-label="Equation" variant="ghost" size="icon" className={cn('h-7 w-7', toolMode === 'equation' && '!text-primary')} onClick={() => onToolMode('equation')}>
             <Sigma className="h-3.5 w-3.5" />
           </Button>
         </TooltipTrigger>
@@ -153,7 +153,7 @@ export function DefaultToolbar({ toolMode, onToolMode, canUndo, canRedo, onUndo,
       {/* Code */}
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className={cn('h-7 w-7', toolMode === 'code' && '!text-primary')} onClick={() => onToolMode('code')}>
+          <Button aria-label="Code block" variant="ghost" size="icon" className={cn('h-7 w-7', toolMode === 'code' && '!text-primary')} onClick={() => onToolMode('code')}>
             <Code2 className="h-3.5 w-3.5" />
           </Button>
         </TooltipTrigger>
@@ -163,7 +163,7 @@ export function DefaultToolbar({ toolMode, onToolMode, canUndo, canRedo, onUndo,
       {/* Video */}
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className={cn('h-7 w-7', toolMode === 'video' && '!text-primary')} onClick={() => onToolMode('video')}>
+          <Button aria-label="Video" variant="ghost" size="icon" className={cn('h-7 w-7', toolMode === 'video' && '!text-primary')} onClick={() => onToolMode('video')}>
             <Video className="h-3.5 w-3.5" />
           </Button>
         </TooltipTrigger>
@@ -173,7 +173,7 @@ export function DefaultToolbar({ toolMode, onToolMode, canUndo, canRedo, onUndo,
       {/* Chart */}
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onInsertChart?.()}>
+          <Button aria-label="Insert chart" variant="ghost" size="icon" className="h-7 w-7" onClick={() => onInsertChart?.()}>
             <BarChart3 className="h-3.5 w-3.5" />
           </Button>
         </TooltipTrigger>
@@ -184,7 +184,7 @@ export function DefaultToolbar({ toolMode, onToolMode, canUndo, canRedo, onUndo,
 
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => onBackground(e)}>
+          <Button aria-label="Presentation theme" variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => onBackground(e)}>
             <Palette className="h-3.5 w-3.5" />
           </Button>
         </TooltipTrigger>

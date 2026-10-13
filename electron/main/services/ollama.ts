@@ -165,7 +165,7 @@ export class OllamaManager {
     model: string,
     systemPrompt: string,
     messages: Array<{ role: 'user' | 'assistant'; content: string }>,
-    optionsOverride?: { temperature?: number; seed?: number },
+    optionsOverride?: { temperature?: number; seed?: number; num_predict?: number },
     images?: string[],
   ): AsyncGenerator<string> {
     // Images (base64, no data: prefix) attach only to the last message in the
@@ -187,7 +187,9 @@ export class OllamaManager {
         stream: true,
         keep_alive: '10m',
         options: {
-          num_predict: -1,
+          // Hard cap so a degenerate loop can't generate forever (and block every other
+          // request queued behind it on a single local model). About 3000 words of output.
+          num_predict: 4096,
           num_ctx: 8192,
           temperature: 0.4,  // lower than default 0.8. Reduces mid-expression drift on math
           ...optionsOverride,
@@ -210,21 +212,27 @@ export class OllamaManager {
     const decoder = new TextDecoder()
     let buffer = ''
 
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() ?? ''
-      for (const line of lines) {
-        if (!line.trim()) continue
-        try {
-          const chunk = JSON.parse(line) as { message?: { content: string }; done?: boolean }
-          if (chunk.message?.content) yield chunk.message.content
-        } catch {
-          // malformed line. Skip
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() ?? ''
+        for (const line of lines) {
+          if (!line.trim()) continue
+          try {
+            const chunk = JSON.parse(line) as { message?: { content: string }; done?: boolean }
+            if (chunk.message?.content) yield chunk.message.content
+          } catch {
+            // malformed line. Skip
+          }
         }
       }
+    } finally {
+      // If the consumer stopped early (user hit stop, window closed), cancel the HTTP
+      // stream so Ollama aborts generation instead of finishing a reply nobody reads.
+      await reader.cancel().catch(() => {})
     }
   }
 

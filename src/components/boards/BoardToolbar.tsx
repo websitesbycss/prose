@@ -108,7 +108,7 @@ function FilePickerPopover({ excalidrawAPI, onAddFileCard }: FilePickerProps): J
     <div className="relative">
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button
+          <Button aria-label="Add file card"
             variant="ghost"
             size="icon"
             className="h-7 w-7"
@@ -187,7 +187,7 @@ function BoardZoomControls({ zoom, onZoomChange }: { zoom: number; onZoomChange(
     <div className="flex items-center gap-0.5 text-[11px] text-muted-foreground">
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button
+          <Button aria-label="Zoom out"
             variant="ghost"
             size="icon"
             className="h-7 w-7"
@@ -213,7 +213,7 @@ function BoardZoomControls({ zoom, onZoomChange }: { zoom: number; onZoomChange(
       <div className="flex items-center gap-0.5">
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
+            <Button aria-label="Zoom in"
               variant="ghost"
               size="icon"
               className="h-7 w-7"
@@ -229,7 +229,7 @@ function BoardZoomControls({ zoom, onZoomChange }: { zoom: number; onZoomChange(
           <Tooltip>
             <TooltipTrigger asChild>
               <PopoverTrigger asChild>
-                <button className="flex items-center gap-0.5 tabular-nums transition-colors hover:text-foreground">
+                <button aria-label="Set zoom level" className="flex items-center gap-0.5 tabular-nums transition-colors hover:text-foreground">
                   <span className="w-8 text-right">{zoom}%</span>
                   <ChevronDown className="h-2.5 w-2.5" />
                 </button>
@@ -313,7 +313,7 @@ export function BoardToolbar({
         {/* Undo / Redo */}
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7" disabled={!canUndo} onClick={() => onUndo?.()}>
+            <Button aria-label="Undo (Ctrl+Z)" variant="ghost" size="icon" className="h-7 w-7" disabled={!canUndo} onClick={() => onUndo?.()}>
               <Undo2 className="h-3.5 w-3.5" />
             </Button>
           </TooltipTrigger>
@@ -321,7 +321,7 @@ export function BoardToolbar({
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7" disabled={!canRedo} onClick={() => onRedo?.()}>
+            <Button aria-label="Redo (Ctrl+Y)" variant="ghost" size="icon" className="h-7 w-7" disabled={!canRedo} onClick={() => onRedo?.()}>
               <Redo2 className="h-3.5 w-3.5" />
             </Button>
           </TooltipTrigger>
@@ -357,7 +357,7 @@ export function BoardToolbar({
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onInsertChart?.()}>
+            <Button aria-label="Insert chart" variant="ghost" size="icon" className="h-7 w-7" onClick={() => onInsertChart?.()}>
               <BarChart3 className="h-3.5 w-3.5" />
             </Button>
           </TooltipTrigger>

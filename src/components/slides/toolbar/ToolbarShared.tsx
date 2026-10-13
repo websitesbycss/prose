@@ -178,7 +178,7 @@ export function BorderWeightPicker({ currentWidth, onApply }: {
       <Tooltip>
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7">
+            <Button aria-label="Stroke weight" variant="ghost" size="icon" className="h-7 w-7">
               <BorderWeightIcon />
             </Button>
           </PopoverTrigger>

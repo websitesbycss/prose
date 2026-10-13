@@ -150,6 +150,7 @@ function ThreeDotsMenu({
             size="icon"
             className="h-7 w-7"
             onClick={handleOpen}
+            aria-label="More options"
           >
             <MoreHorizontal className="h-3.5 w-3.5" />
           </Button>
@@ -349,6 +350,7 @@ export function ToolbarRightSection({
               if (!musicPanelOpen) setMusicPanelTab('tracks')
               setMusicPanelOpen(!musicPanelOpen)
             }}
+            aria-label="Music"
           >
             <Music className="h-3.5 w-3.5" />
           </Button>
@@ -363,6 +365,7 @@ export function ToolbarRightSection({
           className={cn('relative h-7 w-7', aiPanelOpen && 'bg-accent text-accent-foreground')}
           onClick={() => setAiPanelOpen(!aiPanelOpen)}
           disabled={ollamaStatus === 'unavailable'}
+          aria-label={aiPanelOpen ? 'Hide AI panel' : 'Show AI panel'}
         >
           <Sparkles className="h-3.5 w-3.5" />
           {issueCount > 0 && !aiPanelOpen && (
@@ -380,6 +383,7 @@ export function ToolbarRightSection({
             size="icon"
             className="h-7 w-7"
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
           >
             {theme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
           </Button>

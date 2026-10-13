@@ -13,3 +13,9 @@ try {
 } catch (_) {
   document.documentElement.classList.add('dark')
 }
+
+// Excalidraw's self-hosted font location (see src/excalidrawAssetPath.ts). Set here too,
+// in a classic script, so it exists before any module is evaluated.
+try {
+  window.EXCALIDRAW_ASSET_PATH = new URL('./excalidraw-assets/', document.baseURI).href
+} catch (_) { /* leave Excalidraw's default */ }

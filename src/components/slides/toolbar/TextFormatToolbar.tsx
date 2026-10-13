@@ -48,7 +48,7 @@ function FontFamilyPicker({ fontFamily, onApply }: { fontFamily: string; onApply
       <Tooltip>
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>
-            <Button
+            <Button aria-label="Font family"
               variant="outline"
               className="h-7 w-36 justify-between border-input px-2 text-xs font-normal"
               style={{ fontFamily }}
@@ -189,7 +189,7 @@ function LineHeightPicker({ lineHeight, onChange }: { lineHeight: number; onChan
       <Tooltip>
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7">
+            <Button aria-label="Line height" variant="ghost" size="icon" className="h-7 w-7">
               <LineHeightIcon />
             </Button>
           </PopoverTrigger>
@@ -345,7 +345,7 @@ export function TextFormatToolbar({ element, onUpdate, compact = false }: Props)
         <>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className={cn('h-7 w-7', isBold && '!text-primary')} onClick={() => wrapToggle('strong', 'strong', 'strong', isBold)}>
+              <Button aria-label="Bold" variant="ghost" size="icon" className={cn('h-7 w-7', isBold && '!text-primary')} onClick={() => wrapToggle('strong', 'strong', 'strong', isBold)}>
                 <Bold className="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>
@@ -353,7 +353,7 @@ export function TextFormatToolbar({ element, onUpdate, compact = false }: Props)
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className={cn('h-7 w-7', isItalic && '!text-primary')} onClick={() => wrapToggle('em', 'em', 'em', isItalic)}>
+              <Button aria-label="Italic" variant="ghost" size="icon" className={cn('h-7 w-7', isItalic && '!text-primary')} onClick={() => wrapToggle('em', 'em', 'em', isItalic)}>
                 <Italic className="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>
@@ -361,7 +361,7 @@ export function TextFormatToolbar({ element, onUpdate, compact = false }: Props)
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className={cn('h-7 w-7', isUnderline && '!text-primary')} onClick={() => wrapToggle('u', 'u', 'u', isUnderline)}>
+              <Button aria-label="Underline" variant="ghost" size="icon" className={cn('h-7 w-7', isUnderline && '!text-primary')} onClick={() => wrapToggle('u', 'u', 'u', isUnderline)}>
                 <Underline className="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>
@@ -369,7 +369,7 @@ export function TextFormatToolbar({ element, onUpdate, compact = false }: Props)
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className={cn('h-7 w-7', isStrike && '!text-primary')} onClick={() => wrapToggle('s', 's', 's', isStrike)}>
+              <Button aria-label="Strikethrough" variant="ghost" size="icon" className={cn('h-7 w-7', isStrike && '!text-primary')} onClick={() => wrapToggle('s', 's', 's', isStrike)}>
                 <Strikethrough className="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>
@@ -499,7 +499,7 @@ export function TextFormatToolbar({ element, onUpdate, compact = false }: Props)
           <LineHeightPicker lineHeight={element.lineHeight} onChange={(v) => onUpdate({ lineHeight: v })} />
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className={cn('h-7 w-7', isBulletList && '!text-primary')} onMouseDown={(e) => handleListMouseDown('ul', e)}>
+              <Button aria-label="Bullet list" variant="ghost" size="icon" className={cn('h-7 w-7', isBulletList && '!text-primary')} onMouseDown={(e) => handleListMouseDown('ul', e)}>
                 <List className="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>
@@ -507,7 +507,7 @@ export function TextFormatToolbar({ element, onUpdate, compact = false }: Props)
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className={cn('h-7 w-7', isOrderedList && '!text-primary')} onMouseDown={(e) => handleListMouseDown('ol', e)}>
+              <Button aria-label="Numbered list" variant="ghost" size="icon" className={cn('h-7 w-7', isOrderedList && '!text-primary')} onMouseDown={(e) => handleListMouseDown('ol', e)}>
                 <ListOrdered className="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>

@@ -237,7 +237,7 @@ export function SlidesToolbar({
       {onPresent && (
         <Tooltip>
           <TooltipTrigger asChild>
-            <button
+            <button aria-label="Start presentation (F5)"
               className="flex h-7 items-center gap-1.5 rounded-md bg-primary px-3 text-[12px] font-medium text-primary-foreground shadow-sm transition-opacity hover:opacity-90"
               onClick={onPresent}
             >
@@ -257,6 +257,7 @@ export function SlidesToolbar({
               size="icon"
               className={cn('h-7 w-7 ml-1.5', animationsPanelOpen && 'bg-accent text-accent-foreground')}
               onClick={onToggleAnimations}
+              aria-label={animationsPanelOpen ? 'Hide animations panel' : 'Show animations panel'}
             >
               <Clapperboard className="h-3.5 w-3.5" />
             </Button>

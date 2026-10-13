@@ -143,7 +143,7 @@ export function TableEditToolbar({ element, selectedCells, onUpdateElement, comp
         <>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.bold ? '!text-primary' : ''}`}
+              <Button aria-label="Bold" variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.bold ? '!text-primary' : ''}`}
                 disabled={!hasSel} onClick={() => formatCells({ bold: !cellStyle.bold })}>
                 <Bold className="h-3.5 w-3.5" />
               </Button>
@@ -152,7 +152,7 @@ export function TableEditToolbar({ element, selectedCells, onUpdateElement, comp
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.italic ? '!text-primary' : ''}`}
+              <Button aria-label="Italic" variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.italic ? '!text-primary' : ''}`}
                 disabled={!hasSel} onClick={() => formatCells({ italic: !cellStyle.italic })}>
                 <Italic className="h-3.5 w-3.5" />
               </Button>
@@ -161,7 +161,7 @@ export function TableEditToolbar({ element, selectedCells, onUpdateElement, comp
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.underline ? '!text-primary' : ''}`}
+              <Button aria-label="Underline" variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.underline ? '!text-primary' : ''}`}
                 disabled={!hasSel} onClick={() => formatCells({ underline: !cellStyle.underline })}>
                 <Underline className="h-3.5 w-3.5" />
               </Button>
@@ -207,7 +207,7 @@ export function TableEditToolbar({ element, selectedCells, onUpdateElement, comp
         <>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.align === 'left' || !cellStyle.align ? '!text-primary' : ''}`}
+              <Button aria-label="Align left" variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.align === 'left' || !cellStyle.align ? '!text-primary' : ''}`}
                 disabled={!hasSel} onClick={() => formatCells({ align: 'left' })}>
                 <AlignLeft className="h-3.5 w-3.5" />
               </Button>
@@ -216,7 +216,7 @@ export function TableEditToolbar({ element, selectedCells, onUpdateElement, comp
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.align === 'center' ? '!text-primary' : ''}`}
+              <Button aria-label="Align center" variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.align === 'center' ? '!text-primary' : ''}`}
                 disabled={!hasSel} onClick={() => formatCells({ align: 'center' })}>
                 <AlignCenter className="h-3.5 w-3.5" />
               </Button>
@@ -225,7 +225,7 @@ export function TableEditToolbar({ element, selectedCells, onUpdateElement, comp
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.align === 'right' ? '!text-primary' : ''}`}
+              <Button aria-label="Align right" variant="ghost" size="icon" className={`h-7 w-7 ${cellStyle.align === 'right' ? '!text-primary' : ''}`}
                 disabled={!hasSel} onClick={() => formatCells({ align: 'right' })}>
                 <AlignRight className="h-3.5 w-3.5" />
               </Button>
@@ -313,7 +313,7 @@ export function TableEditToolbar({ element, selectedCells, onUpdateElement, comp
         <>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" disabled={selectedRowIdx < 0} onClick={insertRowAbove}>
+              <Button aria-label="Insert row above" variant="ghost" size="icon" className="h-7 w-7" disabled={selectedRowIdx < 0} onClick={insertRowAbove}>
                 <ArrowUpToLine className="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>
@@ -321,7 +321,7 @@ export function TableEditToolbar({ element, selectedCells, onUpdateElement, comp
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" disabled={selectedRowIdx < 0} onClick={insertRowBelow}>
+              <Button aria-label="Insert row below" variant="ghost" size="icon" className="h-7 w-7" disabled={selectedRowIdx < 0} onClick={insertRowBelow}>
                 <ArrowDownToLine className="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>
@@ -329,7 +329,7 @@ export function TableEditToolbar({ element, selectedCells, onUpdateElement, comp
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" disabled={selectedColIdx < 0} onClick={insertColLeft}>
+              <Button aria-label="Insert column left" variant="ghost" size="icon" className="h-7 w-7" disabled={selectedColIdx < 0} onClick={insertColLeft}>
                 <ArrowLeftToLine className="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>
@@ -337,7 +337,7 @@ export function TableEditToolbar({ element, selectedCells, onUpdateElement, comp
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" disabled={selectedColIdx < 0} onClick={insertColRight}>
+              <Button aria-label="Insert column right" variant="ghost" size="icon" className="h-7 w-7" disabled={selectedColIdx < 0} onClick={insertColRight}>
                 <ArrowRightToLine className="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>
@@ -345,7 +345,7 @@ export function TableEditToolbar({ element, selectedCells, onUpdateElement, comp
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive" disabled={selectedRowIdx < 0 || element.rows.length <= 1} onClick={deleteRow}>
+              <Button aria-label="Delete row" variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive" disabled={selectedRowIdx < 0 || element.rows.length <= 1} onClick={deleteRow}>
                 <Minus className="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>
@@ -353,7 +353,7 @@ export function TableEditToolbar({ element, selectedCells, onUpdateElement, comp
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive" disabled={selectedColIdx < 0 || element.colWidths.length <= 1} onClick={deleteCol}>
+              <Button aria-label="Delete column" variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive" disabled={selectedColIdx < 0 || element.colWidths.length <= 1} onClick={deleteCol}>
                 <Minus className="h-3.5 w-3.5 rotate-90" />
               </Button>
             </TooltipTrigger>

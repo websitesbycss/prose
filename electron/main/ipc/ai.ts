@@ -144,9 +144,13 @@ Design principles. These are what make slides beautiful, follow them:
 const SHEET_INSIGHTS_PROMPT = `You are a data analyst engine. You receive spreadsheet data as a markdown table plus formula information. Output ONLY a valid JSON object. No markdown fences, no commentary.
 
 Required shape:
-{"summary":"1-3 sentence plain-English summary of what the data shows, including any notable trend or outlier","stats":[{"label":"Total revenue","value":"4,200","formula":"=SUM(B2:B13)","cell":"B15"}],"charts":[{"chartType":"bar","dataRange":"A1:B13","title":"Revenue by month","xAxisLabel":"Month","yAxisLabel":"Revenue ($)","reason":"one short sentence why this chart fits"}]}
+{"summary":"Team B leads the league with 14 wins, and wins rise steadily from Team A to Team B.","stats":[{"label":"Total wins","value":"41","formula":"=SUM(B2:B6)","cell":"B8"}],"charts":[{"chartType":"bar","dataRange":"A1:B6","title":"Wins by team","xAxisLabel":"Team","yAxisLabel":"Wins","reason":"Compares totals across categories"}]}
+
+That example comes from a different spreadsheet (teams and wins) and only shows the JSON format. Never reuse its labels, numbers or cell references. Write values that come from the data you are given.
 
 Rules:
+- The "Columns:" line gives the real column letter for each header (for example "A=Month, B=Region"). Formulas and ranges MUST use those letters. Sum/average only columns that actually contain numbers, never a text column.
+- Only state facts you can verify from the rows shown. Do not guess which month or region is highest, compute it. Never mention years, prior periods, targets or comparisons that are not in the data.
 - 2 to 5 stats. Each stat: label (short), value (computed from the data you were shown), and, when a live formula makes sense, formula (=SUM/AVERAGE/MAX/MIN/COUNT/COUNTIF referencing real cells) plus cell (an EMPTY cell directly below or beside the data to place it in).
 - 1 to 3 charts. dataRange must cover actual data INCLUDING the header row, in A1:B10 format. chartType: bar, barHorizontal, line, area, pie, doughnut, scatter, or radar. Match type to data shape: categories → bar, time series → line or area, parts-of-whole with ≤8 categories → pie or doughnut, two numeric columns → scatter. Every chart needs a clear "title" stating what it shows. For bar, barHorizontal, line, area, and scatter charts, also include "xAxisLabel" and "yAxisLabel" naming what each axis represents. Never leave axes unlabeled. Pie, doughnut, and radar charts take no axis labels.
 - If the sheet is empty or has no analyzable data, return {"summary":"<say so briefly>","stats":[],"charts":[]}.
@@ -375,13 +379,17 @@ export function registerAiHandlers(manager: OllamaManager): void {
     const custom = getCustomLlmConfig()
     const conversation = buildConversationMessages(p.documentContent, p.request, p.assignmentContext, history, p.selectionContent, fileType)
     let result = ''
+    // Structured JSON replies (a few hundred tokens) never need the full chat budget.
+    // A looping model should be cut off early rather than occupy the local model for minutes.
+    const structured = fileType === 'sheet-insights'
+    const maxChars = structured ? 6_000 : 50_000
     try {
       const chatStream = custom
         ? streamCustomLlmChat(custom, systemPrompt, conversation, images)
-        : manager.streamChat(getModel(), systemPrompt, conversation, undefined, images)
+        : manager.streamChat(getModel(), systemPrompt, conversation, structured ? { num_predict: 1500 } : undefined, images)
       for await (const chunk of chatStream) {
         result += chunk
-        if (result.length > 50_000) break
+        if (result.length > maxChars) break
       }
     } catch (err) {
       console.error('ai:prompt error:', err)

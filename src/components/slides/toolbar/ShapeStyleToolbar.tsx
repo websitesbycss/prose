@@ -156,7 +156,7 @@ export function ShapeStyleToolbar({ element, onUpdate }: Props): JSX.Element {
       {/* Flip H/V */}
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className={cn('h-7 w-7', element.flipH && '!text-primary')} onClick={() => onUpdate({ flipH: !element.flipH })}>
+          <Button aria-label="Flip horizontal" variant="ghost" size="icon" className={cn('h-7 w-7', element.flipH && '!text-primary')} onClick={() => onUpdate({ flipH: !element.flipH })}>
             <FlipHorizontal2 className="h-3.5 w-3.5" />
           </Button>
         </TooltipTrigger>
@@ -165,7 +165,7 @@ export function ShapeStyleToolbar({ element, onUpdate }: Props): JSX.Element {
 
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className={cn('h-7 w-7', element.flipV && '!text-primary')} onClick={() => onUpdate({ flipV: !element.flipV })}>
+          <Button aria-label="Flip vertical" variant="ghost" size="icon" className={cn('h-7 w-7', element.flipV && '!text-primary')} onClick={() => onUpdate({ flipV: !element.flipV })}>
             <FlipVertical2 className="h-3.5 w-3.5" />
           </Button>
         </TooltipTrigger>

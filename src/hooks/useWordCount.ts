@@ -28,9 +28,14 @@ export function useWordCount(editor: Editor | null, excludeHeader = false): numb
     }
 
     update()
-    editor.on('update', update)
+    // Content is loaded with `emitUpdate: false` (initial load, history restore),
+    // which skips the 'update' event. Listen to doc-changing transactions instead.
+    const onTransaction = ({ transaction }: { transaction: { docChanged: boolean } }): void => {
+      if (transaction.docChanged) update()
+    }
+    editor.on('transaction', onTransaction)
     return () => {
-      editor.off('update', update)
+      editor.off('transaction', onTransaction)
     }
   }, [editor, excludeHeader])
 

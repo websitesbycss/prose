@@ -155,6 +155,13 @@ export function isSubstantialSlide(ai: AiSlideSchema): boolean {
 
 // ── Convert AI-generated JSON to Prose slides ─────────────────────────────────
 
+// Body copy is sized to its length so short slides don't float in a mostly empty page and
+// long ones still fit.
+function fitBodySize(text: string): number {
+  const n = text.length
+  return n <= 200 ? 34 : n <= 380 ? 30 : n <= 600 ? 26 : 22
+}
+
 function makeTextEl(
   id: string, content: string, x: number, y: number, w: number, h: number,
   fontSize: number, color: string, align: 'left' | 'center' | 'right' = 'left',
@@ -279,10 +286,10 @@ export function aiSlideToProseSlide(rawAi: AiSlideSchema, theme: PresentationThe
       const body = ai.content
       if (body && typeof body === 'object' && 'left' in body) {
         const c = body as { left: string[]; right: string[] }
-        elements.push(makeTextEl(crypto.randomUUID(), c.left.map(s => `• ${s}`).join('\n'), 3, 21, 45, 69, 22, theme.textColor))
-        elements.push(makeTextEl(crypto.randomUUID(), c.right.map(s => `• ${s}`).join('\n'), 52, 21, 45, 69, 22, theme.textColor))
+        elements.push(makeTextEl(crypto.randomUUID(), c.left.map(s => `• ${s}`).join('\n'), 3, 21, 45, 69, Math.min(fitBodySize(c.left.join('')), 28), theme.textColor))
+        elements.push(makeTextEl(crypto.randomUUID(), c.right.map(s => `• ${s}`).join('\n'), 52, 21, 45, 69, Math.min(fitBodySize(c.right.join('')), 28), theme.textColor))
       } else {
-        elements.push(makeTextEl(crypto.randomUUID(), contentToText(ai.content), 3, 21, 94, 69, 22, theme.textColor))
+        elements.push(makeTextEl(crypto.randomUUID(), contentToText(ai.content), 3, 21, 94, 69, fitBodySize(contentToText(ai.content)), theme.textColor))
       }
       break
     }
@@ -392,7 +399,7 @@ export function aiSlideToProseSlide(rawAi: AiSlideSchema, theme: PresentationThe
           elements.push(makeTableEl(table, theme, 5, 22, 90, Math.min(68, rowCount * 9 + 4)))
         }
       } else {
-        elements.push(makeTextEl(crypto.randomUUID(), bodyText, 5, 22, bodyWidth, 68, 22, theme.textColor))
+        elements.push(makeTextEl(crypto.randomUUID(), bodyText, 5, 22, bodyWidth, 68, fitBodySize(bodyText), theme.textColor))
       }
       break
     }

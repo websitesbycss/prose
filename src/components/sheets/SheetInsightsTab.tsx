@@ -37,6 +37,10 @@ interface Insights {
 
 interface Props {
   getSheetContext(): string
+  /** string = computed value, false = formula's range has no numbers, null = can't evaluate. */
+  evaluateFormula?(formula: string): string | false | null
+  /** Numeric columns (1-based row bounds, header excluded) used to compute key stats locally. */
+  getNumericColumns?(): Array<{ header: string; letter: string; firstRow: number; lastRow: number }>
   onInsertFormula(cell: CellRef, formula: string): void
   onInsertChart(chart: { type: ChartType; dataRange: string; title: string; xAxisLabel?: string; yAxisLabel?: string }): void
 }
@@ -50,6 +54,14 @@ function extractJsonObject(raw: string): unknown {
     try { return JSON.parse(trimmed.slice(first, last + 1)) } catch { /* fall through */ }
   }
   return null
+}
+
+// Small models sometimes echo the prompt's format placeholder instead of writing a reason.
+function cleanReason(raw: unknown): string {
+  if (typeof raw !== 'string') return ''
+  const text = raw.trim().slice(0, 200)
+  if (/^<.*>$/.test(text) || /^one short sentence/i.test(text)) return ''
+  return text
 }
 
 function validateInsights(data: unknown): Insights | null {
@@ -92,7 +104,7 @@ function validateInsights(data: unknown): Insights | null {
         title: typeof c.title === 'string' ? c.title.slice(0, 120) : '',
         xAxisLabel: typeof c.xAxisLabel === 'string' ? c.xAxisLabel.trim().slice(0, 60) || undefined : undefined,
         yAxisLabel: typeof c.yAxisLabel === 'string' ? c.yAxisLabel.trim().slice(0, 60) || undefined : undefined,
-        reason: typeof c.reason === 'string' ? c.reason.slice(0, 200) : '',
+        reason: cleanReason(c.reason),
       })
     }
   }
@@ -101,7 +113,7 @@ function validateInsights(data: unknown): Insights | null {
   return { summary, stats, charts }
 }
 
-export function SheetInsightsTab({ getSheetContext, onInsertFormula, onInsertChart }: Props): JSX.Element {
+export function SheetInsightsTab({ getSheetContext, evaluateFormula, getNumericColumns, onInsertFormula, onInsertChart }: Props): JSX.Element {
   const ollamaStatus = useAppStore((s) => s.ollamaStatus)
   const [loading, setLoading] = useState(false)
   const [hasRun, setHasRun] = useState(false)
@@ -141,7 +153,35 @@ export function SheetInsightsTab({ getSheetContext, onInsertFormula, onInsertCha
       if (!validated) {
         setError('The model returned an unreadable analysis. Try again.')
       } else {
-        setInsights(validated)
+        // Key stats are computed here rather than taken from the model: a small local model
+        // proposes formulas well but does arithmetic badly (and sometimes invents figures).
+        // Model stats survive only if their formula evaluates against the real sheet.
+        const stats: InsightStat[] = []
+        const cols = getNumericColumns?.() ?? []
+        for (const col of cols.slice(0, 2)) {
+          const range = `${col.letter}${col.firstRow}:${col.letter}${col.lastRow}`
+          const specs: Array<[string, string, number]> = [
+            [`Total ${col.header}`, 'SUM', 2],
+            [`Average ${col.header}`, 'AVERAGE', 3],
+          ]
+          for (const [label, fn, offset] of specs) {
+            const formula = `=${fn}(${range})`
+            const value = evaluateFormula?.(formula)
+            if (typeof value !== 'string') continue
+            const cellA1 = `${col.letter}${col.lastRow + offset}`
+            const cell = parseCellRef(cellA1)
+            stats.push({ label, value, ...(cell ? { formula, cell, cellA1 } : {}) })
+          }
+        }
+        for (const stat of validated.stats) {
+          if (stats.length >= 5) break
+          if (!stat.formula || !evaluateFormula) continue
+          const computed = evaluateFormula(stat.formula)
+          if (typeof computed !== 'string') continue
+          if (stats.some((s) => s.formula === stat.formula)) continue
+          stats.push({ ...stat, value: computed })
+        }
+        setInsights({ ...validated, stats })
       }
     } catch {
       setError('Analysis failed. Is Ollama running?')
@@ -149,7 +189,7 @@ export function SheetInsightsTab({ getSheetContext, onInsertFormula, onInsertCha
       setLoading(false)
       setHasRun(true)
     }
-  }, [ollamaStatus, getSheetContext])
+  }, [ollamaStatus, getSheetContext, evaluateFormula, getNumericColumns])
 
   return (
     <div className="flex h-full flex-col">

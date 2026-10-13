@@ -842,6 +842,7 @@ export function ChatTab({
               disabled={(!input.trim() && images.length === 0) || unavailable || busy}
               className="shrink-0 text-muted-foreground transition-colors hover:text-primary disabled:opacity-30"
               onClick={() => void send(input)}
+              aria-label="Send message"
             >
               {streaming ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />

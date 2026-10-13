@@ -155,7 +155,7 @@ export function SlidePanel({
       <div className="shrink-0 border-t border-border p-2">
         <Tooltip>
           <TooltipTrigger asChild>
-            <button
+            <button aria-label="Add slide after current"
               className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border/60 py-1.5 text-[11px] text-muted-foreground transition-colors hover:border-primary/40 hover:bg-accent hover:text-foreground"
               onClick={() => onAddSlide()}
             >

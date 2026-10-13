@@ -1,0 +1,410 @@
+{
+  "project": "Prose demo video",
+  "target_runtime_seconds": 110,
+  "max_runtime_seconds": 120,
+  "resolution": "1920x1080",
+  "fps": 30,
+  "voiceover_pace_words_per_second": 1.75,
+  "conventions": {
+    "clips_dir": "demo-video/clips",
+    "clip_format": "mp4 (H.264, converted from Playwright WebM, no audio)",
+    "voiceover_dir": "demo-video/vo",
+    "voiceover_file_pattern": "NN_slug.wav",
+    "marks_file_pattern": "clips/NN_slug.marks.json (ms from clip start; produced by the scene script's return value)",
+    "handles": "each clip has 0.5s lead-in and 0.5s tail beyond its programme duration; trim to in_point/out_point",
+    "audio_tracks": [
+      "A1 voiceover",
+      "A2 music bed (-20 dB, duck under VO)"
+    ],
+    "transitions_default": "hard cut; 0.3s cross dissolve between scenes 1-2 and 7-8 only"
+  },
+  "scenes": [
+    {
+      "id": 1,
+      "slug": "intro",
+      "title": "Intro / dashboard",
+      "programme_start": 0.0,
+      "programme_duration": 8.0,
+      "clip": "clips/01_intro.mp4",
+      "in_point": 0.5,
+      "out_point": 8.5,
+      "voiceover": "Meet Prose: a free, open-source office suite that runs completely offline, with AI built into every app.",
+      "word_count": 17,
+      "ai_scene": false,
+      "on_screen_badges": [
+        {
+          "text": "Prose",
+          "at": 0.0,
+          "duration": 3.0
+        }
+      ],
+      "beats": [
+        {
+          "t": 0.0,
+          "action": "Dashboard visible with tab bar"
+        },
+        {
+          "t": 2.0,
+          "action": "Cursor drifts across the four file-type cards, hover on a doc"
+        },
+        {
+          "t": 6.0,
+          "action": "Hover the New button, hold"
+        }
+      ],
+      "speed_ramp": null
+    },
+    {
+      "id": 2,
+      "slug": "docs",
+      "title": "Documents",
+      "programme_start": 8.0,
+      "programme_duration": 14.0,
+      "clip": "clips/02_docs.mp4",
+      "in_point": 0.5,
+      "out_point": 14.5,
+      "voiceover": "Documents give you a rich editor with one-click MLA and APA templates, a built-in citation generator, and grammar checking that never leaves your machine.",
+      "word_count": 24,
+      "ai_scene": false,
+      "on_screen_badges": [
+        {
+          "text": "Documents",
+          "at": 0.0,
+          "duration": 2.0
+        }
+      ],
+      "beats": [
+        {
+          "t": 0.0,
+          "action": "Open \"Climate Policy Essay\""
+        },
+        {
+          "t": 2.0,
+          "action": "Click MLA, fill the 4 fields, Apply template; page reflows to Times New Roman with \"Shepherd #\" header"
+        },
+        {
+          "t": 6.0,
+          "action": "Hover the red \"thier\" spelling underline"
+        },
+        {
+          "t": 8.0,
+          "action": "Open Citations panel (book icon), click Add"
+        },
+        {
+          "t": 11.0,
+          "action": "Cut to \"Team Sync Notes\" tab: Outline panel lists its headings"
+        }
+      ],
+      "speed_ramp": null
+    },
+    {
+      "id": 3,
+      "slug": "ai_doc",
+      "title": "AI in Documents",
+      "programme_start": 22.0,
+      "programme_duration": 20.0,
+      "clip": "clips/03_ai_doc.mp4",
+      "in_point": 0.5,
+      "out_point": 20.5,
+      "voiceover": "Now the star: the AI assistant. Ask it to strengthen your thesis, improve clarity, or check your argument. It runs on a model on your own computer through Ollama, so your words never touch the cloud.",
+      "word_count": 36,
+      "ai_scene": true,
+      "on_screen_badges": [
+        {
+          "text": "AI · local · offline",
+          "at": 2.0,
+          "duration": 16.0
+        }
+      ],
+      "beats": [
+        {
+          "t": 0.0,
+          "action": "Essay open, AI panel closed"
+        },
+        {
+          "t": 1.5,
+          "action": "Click the sparkle button (aria-label \"Show AI panel\"); suggestions list appears"
+        },
+        {
+          "t": 4.0,
+          "action": "Click the \"Improve clarity\" suggestion (or type a prompt)"
+        },
+        {
+          "t": 5.0,
+          "action": "Reply streams in (marks: ai_wait_start/ai_wait_end). Measured: ~24 s for a 5-point reply"
+        },
+        {
+          "t": 15.0,
+          "action": "Reply complete; slow scroll through it"
+        },
+        {
+          "t": 18.0,
+          "action": "Hold"
+        }
+      ],
+      "speed_ramp": {
+        "between_marks": [
+          "ai_wait_start",
+          "ai_wait_end"
+        ],
+        "when": "always (real wait is ~24 s on CPU)",
+        "target": "compress to ~8s"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "sheets",
+      "title": "Sheets + AI",
+      "programme_start": 42.0,
+      "programme_duration": 16.0,
+      "clip": "clips/04_sheets.mp4",
+      "in_point": 0.5,
+      "out_point": 16.5,
+      "voiceover": "In Sheets, ask the AI to write a formula or analyze your data. The Insights tab suggests key figures and charts you can drop straight into documents and slides.",
+      "word_count": 29,
+      "ai_scene": true,
+      "on_screen_badges": [
+        {
+          "text": "Sheets",
+          "at": 0.0,
+          "duration": 2.0
+        },
+        {
+          "text": "AI · local · offline",
+          "at": 2.0,
+          "duration": 8.0
+        }
+      ],
+      "beats": [
+        {
+          "t": 0.0,
+          "action": "Open \"Q3 Sales\""
+        },
+        {
+          "t": 2.0,
+          "action": "Show AI panel, click the Insights tab"
+        },
+        {
+          "t": 3.5,
+          "action": "Click \"Analyze sheet\" (marks: ai_wait_start/ai_wait_end). Measured 11-45 s"
+        },
+        {
+          "t": 8.0,
+          "action": "Summary + key stats appear (Total Units 1,482; Total Revenue 177,840)"
+        },
+        {
+          "t": 11.0,
+          "action": "Click \"Insert formula\" on Total Revenue; value appears in D15"
+        },
+        {
+          "t": 13.5,
+          "action": "Click \"Insert chart\"; chart appears to the right of the data"
+        }
+      ],
+      "speed_ramp": {
+        "between_marks": [
+          "ai_wait_start",
+          "ai_wait_end"
+        ],
+        "when": "wait exceeds 4s",
+        "target": "compress to 4s"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "boards",
+      "title": "Boards + AI",
+      "programme_start": 58.0,
+      "programme_duration": 12.0,
+      "clip": "clips/05_boards.mp4",
+      "in_point": 0.5,
+      "out_point": 12.5,
+      "voiceover": "Boards pairs an Excalidraw canvas with AI brainstorming. Give it a topic and it fills the canvas with sticky notes.",
+      "word_count": 20,
+      "ai_scene": true,
+      "on_screen_badges": [
+        {
+          "text": "Boards",
+          "at": 0.0,
+          "duration": 2.0
+        },
+        {
+          "text": "AI · local · offline",
+          "at": 2.0,
+          "duration": 8.0
+        }
+      ],
+      "beats": [
+        {
+          "t": 0.0,
+          "action": "Open \"Launch Brainstorm\" (empty board)"
+        },
+        {
+          "t": 1.5,
+          "action": "Show AI panel, click the Brainstorm tab (exact name \"Brainstorm\")"
+        },
+        {
+          "t": 3.0,
+          "action": "Type topic \"Launch plan for a neighborhood coffee shop\", click Generate (marks: ai_wait_*). Measured 12-30 s"
+        },
+        {
+          "t": 7.0,
+          "action": "Idea list appears; click \"Add to board\""
+        },
+        {
+          "t": 9.0,
+          "action": "12 sticky notes tile onto the canvas in the handwritten font"
+        }
+      ],
+      "speed_ramp": {
+        "between_marks": [
+          "ai_wait_start",
+          "ai_wait_end"
+        ],
+        "when": "wait exceeds 3s",
+        "target": "compress to 3s"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "slides",
+      "title": "AI in Slides",
+      "programme_start": 70.0,
+      "programme_duration": 22.0,
+      "clip": "clips/06_slides.mp4",
+      "in_point": 0.5,
+      "out_point": 22.5,
+      "voiceover": "And in Slides, pick a document or a spreadsheet and the AI builds a whole deck from it, speaker notes included. Add animations and transitions, then export to PowerPoint or PDF.",
+      "word_count": 31,
+      "ai_scene": true,
+      "on_screen_badges": [
+        {
+          "text": "Slides",
+          "at": 0.0,
+          "duration": 2.0
+        },
+        {
+          "text": "AI · local · offline",
+          "at": 2.0,
+          "duration": 14.0
+        }
+      ],
+      "beats": [
+        {
+          "t": 0.0,
+          "action": "Open \"Quarterly Review\" (one blank slide)"
+        },
+        {
+          "t": 1.5,
+          "action": "Show AI panel, click the Generate tab"
+        },
+        {
+          "t": 3.0,
+          "action": "Add a source > Documents > \"Climate Policy Essay\"; set slide count to Custom (5)"
+        },
+        {
+          "t": 6.0,
+          "action": "Click \"Generate slides\"; progress UI (\"Reading sources\", \"Designing your slides\") (marks: ai_wait_*)"
+        },
+        {
+          "t": 9.0,
+          "action": "Jump cut to finished: click \"Insert N slides\"; deck replaces the blank slide"
+        },
+        {
+          "t": 13.0,
+          "action": "Click through the title slide and two content slides (speaker notes visible)"
+        },
+        {
+          "t": 17.0,
+          "action": "Open animations panel (aria-label \"Show animations panel\"), pick a transition"
+        },
+        {
+          "t": 20.0,
+          "action": "More options menu: show export (PPTX/PDF)"
+        }
+      ],
+      "speed_ramp": {
+        "between_marks": [
+          "ai_wait_start",
+          "ai_wait_end"
+        ],
+        "when": "always. 15 slides took 6m27s on CPU; with Custom=5 expect ~2 min",
+        "target": "keep ~4s of the progress UI, then jump cut (do not time-lapse)"
+      }
+    },
+    {
+      "id": 7,
+      "slug": "extras",
+      "title": "Quick-fire: tabs, themes, focus",
+      "programme_start": 92.0,
+      "programme_duration": 10.0,
+      "clip": "clips/07_extras.mp4",
+      "in_point": 0.5,
+      "out_point": 10.5,
+      "voiceover": "Open everything in tabs, switch themes and accents, and focus with the built-in pomodoro timer and music player.",
+      "word_count": 18,
+      "ai_scene": false,
+      "on_screen_badges": [],
+      "beats": [
+        {
+          "t": 0.0,
+          "action": "Tab bar with 3-4 open files; switch tabs"
+        },
+        {
+          "t": 3.0,
+          "action": "Toggle light/dark, change accent colour"
+        },
+        {
+          "t": 6.5,
+          "action": "Open pomodoro panel (1.5s)"
+        },
+        {
+          "t": 8.0,
+          "action": "Open music panel (1.5s)"
+        }
+      ],
+      "speed_ramp": null
+    },
+    {
+      "id": 8,
+      "slug": "outro",
+      "title": "Outro",
+      "programme_start": 102.0,
+      "programme_duration": 8.0,
+      "clip": "clips/08_outro.mp4",
+      "in_point": 0.5,
+      "out_point": 8.5,
+      "voiceover": "Prose is free, open source, and private by design. Download it today on GitHub.",
+      "word_count": 14,
+      "ai_scene": false,
+      "on_screen_badges": [],
+      "beats": [
+        {
+          "t": 0.0,
+          "action": "Dashboard, slow settle"
+        }
+      ],
+      "editor_added": {
+        "title_card": "Prose: free, open source, private by design",
+        "lines": [
+          "github.com/websitesbycss/prose",
+          "Free for Windows"
+        ],
+        "at": 3.0,
+        "duration": 5.0
+      },
+      "speed_ramp": null
+    }
+  ],
+  "totals": {
+    "programme_seconds": 110,
+    "words": 189,
+    "ai_scene_seconds": 69
+  },
+  "recording_notes": [
+    "Prose state persists between runs: re-run demo-video/seed_demo.py (with Prose closed) before every full take.",
+    "Window must not be minimized or covered by a maximized app; launch_demo.ps1 passes occlusion-disable flags, but a minimized window still stops painting.",
+    "Several buttons exist twice (toolbar and panel): use exact names or .last(), e.g. \"Insert chart\", \"Brainstorm\".",
+    "Ollama runs on CPU on this machine (size_vram 0): ~4-6 tokens/s. Warm the model with keep_alive 60m before takes."
+  ]
+}

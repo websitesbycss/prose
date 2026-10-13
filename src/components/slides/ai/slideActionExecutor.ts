@@ -302,8 +302,9 @@ async function materializeSlide(spec: SlideSpec, theme: PresentationTheme): Prom
       const colTop = (spec.leftTitle || spec.rightTitle) ? 32 : 24
       if (spec.leftTitle) elements.push(makeText(spec.leftTitle, theme, next(), { x: 4, y: 22, w: 44, h: 8, fontSize: 24, bold: true, heading: true, color: theme.accentColor }))
       if (spec.rightTitle) elements.push(makeText(spec.rightTitle, theme, next(), { x: 52, y: 22, w: 44, h: 8, fontSize: 24, bold: true, heading: true, color: theme.accentColor }))
-      if (spec.left) elements.push(makeText(bulletsToContent(spec.left), theme, next(), { x: 4, y: colTop, w: 44, h: 92 - colTop, fontSize: 20 }))
-      if (spec.right) elements.push(makeText(bulletsToContent(spec.right), theme, next(), { x: 52, y: colTop, w: 44, h: 92 - colTop, fontSize: 20 }))
+      const colFont = Math.max(spec.left?.join('').length ?? 0, spec.right?.join('').length ?? 0) <= 220 ? 26 : 22
+      if (spec.left) elements.push(makeText(bulletsToContent(spec.left), theme, next(), { x: 4, y: colTop, w: 44, h: 92 - colTop, fontSize: colFont }))
+      if (spec.right) elements.push(makeText(bulletsToContent(spec.right), theme, next(), { x: 52, y: colTop, w: 44, h: 92 - colTop, fontSize: colFont }))
       break
     }
 
@@ -322,7 +323,12 @@ async function materializeSlide(spec: SlideSpec, theme: PresentationTheme): Prom
 
     default: { // title-content
       if (spec.title) elements.push(makeText(spec.title, theme, next(), { x: 5, y: 5, w: 90, h: 12, fontSize: 40, bold: true, heading: true }))
-      if (bodyContent) elements.push(makeText(bodyContent, theme, next(), { x: 5, y: 22, w: 90, h: 68, fontSize: 22 }))
+      if (bodyContent) {
+        // Size the body to its length so a short slide doesn't float in a mostly empty page.
+        const n = bodyContent.length
+        const fontSize = n <= 200 ? 34 : n <= 380 ? 30 : n <= 600 ? 26 : 22
+        elements.push(makeText(bodyContent, theme, next(), { x: 5, y: 22, w: 90, h: 68, fontSize }))
+      }
       break
     }
   }
